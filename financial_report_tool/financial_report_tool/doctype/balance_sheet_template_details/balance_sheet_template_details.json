@@ -1,0 +1,103 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-07-05 14:42:52.208016",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section",
+  "account",
+  "note",
+  "particular_name",
+  "column_break_ojja",
+  "amount",
+  "previous_year_amount",
+  "indent_level",
+  "is_bold"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Particular",
+   "link_filters": "[[\"FR Particular\",\"template_type\",\"=\",\"Balance Sheet\"]]",
+   "options": "FR Particular"
+  },
+  {
+   "fieldname": "column_break_ojja",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fetch_from": "account.note_no",
+   "fieldname": "note",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Note"
+  },
+  {
+   "columns": 1,
+   "fieldname": "amount",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Amount"
+  },
+  {
+   "columns": 1,
+   "description": "(e.g., 0 = header, 1 = child, 2 = sub-child)",
+   "fieldname": "indent_level",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Indent Level",
+   "options": "0\n1\n2\n3\n4\n5"
+  },
+  {
+   "columns": 1,
+   "default": "0",
+   "fieldname": "is_bold",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Bold"
+  },
+  {
+   "columns": 1,
+   "fieldname": "previous_year_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Previous Year Amount"
+  },
+  {
+   "columns": 2,
+   "fieldname": "section",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Section",
+   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity"
+  },
+  {
+   "fetch_from": "account.particular_name",
+   "fetch_if_empty": 1,
+   "fieldname": "particular_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Particular Name"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-07-07 09:27:46.711794",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Balance Sheet Template Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

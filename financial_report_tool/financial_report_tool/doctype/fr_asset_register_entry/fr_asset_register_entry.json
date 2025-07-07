@@ -1,0 +1,199 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:asset_id",
+ "creation": "2025-07-04 20:52:27.287004",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "asset_id",
+  "asset_class",
+  "asset_name",
+  "asset_description",
+  "column_break_guzh",
+  "subnumber",
+  "vendor",
+  "life",
+  "balance_sheet_account_apc",
+  "ordinary_depreciation_start_date",
+  "column_break_zmlr",
+  "depreciation_key",
+  "plant",
+  "cost_center",
+  "quantity",
+  "section_break_kmhu",
+  "cumulative_acquisition_value",
+  "accumulated_depreciation",
+  "transaction_acquisition_value",
+  "column_break_tfgz",
+  "planned_depreciation",
+  "transferred_accumulated_depreciation",
+  "transferred_acquisition_value",
+  "column_break_fkpm",
+  "starting_book_value",
+  "ending_book_value"
+ ],
+ "fields": [
+  {
+   "fieldname": "asset_id",
+   "fieldtype": "Data",
+   "label": "Asset ID",
+   "unique": 1
+  },
+  {
+   "fieldname": "asset_class",
+   "fieldtype": "Data",
+   "label": "Asset Class"
+  },
+  {
+   "fieldname": "asset_name",
+   "fieldtype": "Data",
+   "label": "Asset Name"
+  },
+  {
+   "fieldname": "asset_description",
+   "fieldtype": "Small Text",
+   "label": "Asset description"
+  },
+  {
+   "fieldname": "column_break_guzh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "subnumber",
+   "fieldtype": "Data",
+   "label": "Subnumber"
+  },
+  {
+   "fieldname": "vendor",
+   "fieldtype": "Data",
+   "label": "Vendor"
+  },
+  {
+   "fieldname": "life",
+   "fieldtype": "Data",
+   "label": "Life"
+  },
+  {
+   "fieldname": "balance_sheet_account_apc",
+   "fieldtype": "Data",
+   "label": "Balance Sheet Account - APC"
+  },
+  {
+   "fieldname": "ordinary_depreciation_start_date",
+   "fieldtype": "Date",
+   "label": "Ordinary Depreciation Start Date"
+  },
+  {
+   "fieldname": "column_break_zmlr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "depreciation_key",
+   "fieldtype": "Data",
+   "label": "Depreciation key"
+  },
+  {
+   "fieldname": "plant",
+   "fieldtype": "Data",
+   "label": "Plant"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "section_break_kmhu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cumulative_acquisition_value",
+   "fieldtype": "Float",
+   "label": "Cumulative Acquisition Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "accumulated_depreciation",
+   "fieldtype": "Data",
+   "label": "Accumulated Depreciation"
+  },
+  {
+   "fieldname": "transaction_acquisition_value",
+   "fieldtype": "Float",
+   "label": "Transaction Acquisition Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_tfgz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planned_depreciation",
+   "fieldtype": "Float",
+   "label": "Planned Depreciation",
+   "precision": "2"
+  },
+  {
+   "fieldname": "transferred_accumulated_depreciation",
+   "fieldtype": "Float",
+   "label": "Transferred Accumulated Depreciation",
+   "precision": "2"
+  },
+  {
+   "fieldname": "transferred_acquisition_value",
+   "fieldtype": "Float",
+   "label": "Transferred Acquisition Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_fkpm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "starting_book_value",
+   "fieldtype": "Float",
+   "label": "Starting Book Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "ending_book_value",
+   "fieldtype": "Float",
+   "label": "Ending Book Value",
+   "precision": "2"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-07-04 20:52:27.287004",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Asset Register Entry",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,184 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SR-.######",
+ "creation": "2025-07-04 20:55:50.969963",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "material_id",
+  "material_name",
+  "material_grouping",
+  "material_description",
+  "column_break_paci",
+  "finance_report",
+  "plant",
+  "material_type",
+  "business_area",
+  "column_break_agvj",
+  "storage_location",
+  "mrp_controller",
+  "mrp_type",
+  "month",
+  "division",
+  "section_break_mbiz",
+  "valued_stock_value",
+  "valued_stock_value_currency",
+  "column_break_fctd",
+  "valuation_of_stock",
+  "valuation_of_stock_currency",
+  "column_break_rgwr",
+  "consignment_stock",
+  "consignment_stock_currency"
+ ],
+ "fields": [
+  {
+   "fieldname": "material_id",
+   "fieldtype": "Data",
+   "label": "Material ID"
+  },
+  {
+   "fieldname": "material_name",
+   "fieldtype": "Data",
+   "label": "Material Name"
+  },
+  {
+   "fieldname": "material_grouping",
+   "fieldtype": "Data",
+   "label": "Material Grouping"
+  },
+  {
+   "fieldname": "material_description",
+   "fieldtype": "Small Text",
+   "label": "Material Description"
+  },
+  {
+   "fieldname": "column_break_paci",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "finance_report",
+   "fieldtype": "Data",
+   "label": "Finance Report"
+  },
+  {
+   "fieldname": "plant",
+   "fieldtype": "Data",
+   "label": "Plant"
+  },
+  {
+   "fieldname": "material_type",
+   "fieldtype": "Data",
+   "label": "Material Type"
+  },
+  {
+   "fieldname": "business_area",
+   "fieldtype": "Data",
+   "label": "Business Area"
+  },
+  {
+   "fieldname": "column_break_agvj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "storage_location",
+   "fieldtype": "Data",
+   "label": "Storage Location"
+  },
+  {
+   "fieldname": "mrp_controller",
+   "fieldtype": "Data",
+   "label": "MRP Controller"
+  },
+  {
+   "fieldname": "mrp_type",
+   "fieldtype": "Data",
+   "label": "MRP Type"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month"
+  },
+  {
+   "fieldname": "division",
+   "fieldtype": "Data",
+   "label": "Division"
+  },
+  {
+   "fieldname": "section_break_mbiz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "valued_stock_value",
+   "fieldtype": "Float",
+   "label": "Valued Stock Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "valued_stock_value_currency",
+   "fieldtype": "Link",
+   "label": "Valued Stock Value Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "column_break_fctd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "valuation_of_stock",
+   "fieldtype": "Float",
+   "label": "Valuation of Stock",
+   "precision": "2"
+  },
+  {
+   "fieldname": "valuation_of_stock_currency",
+   "fieldtype": "Link",
+   "label": "Valuation of Stock Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "column_break_rgwr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "consignment_stock",
+   "fieldtype": "Float",
+   "label": "Consignment Stock",
+   "precision": "2"
+  },
+  {
+   "fieldname": "consignment_stock_currency",
+   "fieldtype": "Link",
+   "label": "Consignment Stock Currency",
+   "options": "Currency"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-07-04 20:55:50.969963",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Stock Register Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

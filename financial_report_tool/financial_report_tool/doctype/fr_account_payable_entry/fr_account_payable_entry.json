@@ -1,0 +1,321 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:AP-.#######",
+ "creation": "2025-07-04 20:55:06.224415",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "finance_report",
+  "document_number",
+  "supplier",
+  "supplier_name",
+  "purchase_order",
+  "special_gl_ind",
+  "assignment",
+  "nature",
+  "ageing",
+  "column_break_tqmd",
+  "document_date",
+  "posting_date",
+  "baseline_date",
+  "debitcredit",
+  "reference",
+  "reconciliation_account",
+  "grouping",
+  "closing_exchange_rate",
+  "column_break_qlzr",
+  "company",
+  "country",
+  "city",
+  "state",
+  "document_type",
+  "gl_description",
+  "msme_vendor",
+  "restated_value",
+  "gainloss",
+  "section_break_ydkm",
+  "invoice_no",
+  "currency",
+  "invoice_year",
+  "exchange_rate",
+  "column_break_qxrh",
+  "paymet_terms",
+  "payment_days",
+  "due_date",
+  "due_days",
+  "column_break_atfz",
+  "amount_in_lc",
+  "amount_in_dc",
+  "due_amount",
+  "non_due_amount",
+  "section_break_yvva",
+  "text",
+  "column_break_gqfu",
+  "remark"
+ ],
+ "fields": [
+  {
+   "fieldname": "finance_report",
+   "fieldtype": "Data",
+   "label": "Finance Report"
+  },
+  {
+   "fieldname": "document_number",
+   "fieldtype": "Data",
+   "label": "Document Number"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Data",
+   "label": "Supplier"
+  },
+  {
+   "fieldname": "supplier_name",
+   "fieldtype": "Data",
+   "label": "Supplier Name"
+  },
+  {
+   "fieldname": "purchase_order",
+   "fieldtype": "Data",
+   "label": "Purchase Order"
+  },
+  {
+   "fieldname": "special_gl_ind",
+   "fieldtype": "Data",
+   "label": "Special G/L ind"
+  },
+  {
+   "fieldname": "assignment",
+   "fieldtype": "Data",
+   "label": "Assignment"
+  },
+  {
+   "fieldname": "nature",
+   "fieldtype": "Data",
+   "label": "Nature"
+  },
+  {
+   "fieldname": "ageing",
+   "fieldtype": "Data",
+   "label": "Ageing"
+  },
+  {
+   "fieldname": "column_break_tqmd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "document_date",
+   "fieldtype": "Date",
+   "label": "Document Date"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "baseline_date",
+   "fieldtype": "Date",
+   "label": "Baseline Date"
+  },
+  {
+   "fieldname": "debitcredit",
+   "fieldtype": "Select",
+   "label": "Debit/Credit",
+   "options": "\nH\nS"
+  },
+  {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "reconciliation_account",
+   "fieldtype": "Data",
+   "label": "Reconciliation Account"
+  },
+  {
+   "fieldname": "grouping",
+   "fieldtype": "Data",
+   "label": "Grouping"
+  },
+  {
+   "fieldname": "closing_exchange_rate",
+   "fieldtype": "Float",
+   "label": "Closing Exchange Rate"
+  },
+  {
+   "fieldname": "column_break_qlzr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "label": "Country",
+   "options": "Country"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City"
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "label": "State"
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Data",
+   "label": "Document Type"
+  },
+  {
+   "fieldname": "gl_description",
+   "fieldtype": "Data",
+   "label": "Gl Description"
+  },
+  {
+   "fieldname": "msme_vendor",
+   "fieldtype": "Select",
+   "label": "MSME Vendor",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "restated_value",
+   "fieldtype": "Float",
+   "label": "Restated Value"
+  },
+  {
+   "fieldname": "gainloss",
+   "fieldtype": "Float",
+   "label": "(Gain)/Loss"
+  },
+  {
+   "fieldname": "section_break_ydkm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "invoice_no",
+   "fieldtype": "Data",
+   "label": "Invoice No"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "invoice_year",
+   "fieldtype": "Date",
+   "label": "Invoice Year"
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
+   "fieldname": "column_break_qxrh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "paymet_terms",
+   "fieldtype": "Data",
+   "label": "Paymet Terms"
+  },
+  {
+   "fieldname": "payment_days",
+   "fieldtype": "Data",
+   "label": "Payment Days"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Due Date"
+  },
+  {
+   "fieldname": "due_days",
+   "fieldtype": "Data",
+   "label": "Due Days"
+  },
+  {
+   "fieldname": "column_break_atfz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount_in_lc",
+   "fieldtype": "Float",
+   "label": "Amount in LC",
+   "precision": "2"
+  },
+  {
+   "fieldname": "amount_in_dc",
+   "fieldtype": "Float",
+   "label": "Amount in DC",
+   "precision": "2"
+  },
+  {
+   "fieldname": "due_amount",
+   "fieldtype": "Float",
+   "label": "Due Amount"
+  },
+  {
+   "fieldname": "non_due_amount",
+   "fieldtype": "Float",
+   "label": "Non Due Amount"
+  },
+  {
+   "fieldname": "section_break_yvva",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "text",
+   "fieldtype": "Small Text",
+   "label": "Text"
+  },
+  {
+   "fieldname": "column_break_gqfu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Small Text",
+   "label": "Remark"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-07-04 20:57:35.871072",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Account Payable Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

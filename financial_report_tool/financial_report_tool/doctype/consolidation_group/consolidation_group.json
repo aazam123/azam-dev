@@ -1,0 +1,177 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "creation": "2025-07-02 15:05:08.451583",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_4xef",
+  "is_group",
+  "is_primary_group",
+  "disable",
+  "consolidation_group_name",
+  "consolidation_group_number",
+  "report_type",
+  "root_type",
+  "currency",
+  "column_break_hnhe",
+  "parent_consolidation_group",
+  "group_type",
+  "note_no",
+  "balance_must_be",
+  "frozen",
+  "lft",
+  "rgt",
+  "old_parent"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_4xef",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_group",
+   "fieldtype": "Check",
+   "label": "Is Group"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_primary_group",
+   "fieldtype": "Check",
+   "label": "Is Primary Group"
+  },
+  {
+   "default": "0",
+   "fieldname": "disable",
+   "fieldtype": "Check",
+   "label": "Disable"
+  },
+  {
+   "fieldname": "consolidation_group_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Consolidation Group Name"
+  },
+  {
+   "fieldname": "consolidation_group_number",
+   "fieldtype": "Data",
+   "label": "Consolidation Group Number"
+  },
+  {
+   "fetch_from": "parent_consolidation_group.report_type",
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Report Type",
+   "options": "\nProfit & Loss\nBalance Sheet"
+  },
+  {
+   "fetch_from": "parent_consolidation_group.root_type",
+   "fieldname": "root_type",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Root Type",
+   "options": "\nAsset\nLiability\nIncome\nExpense\nEquity"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "column_break_hnhe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "parent_consolidation_group",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Parent Consolidation Group",
+   "link_filters": "[[\"Consolidation Group\",\"is_group\",\"=\",1]]",
+   "options": "Consolidation Group"
+  },
+  {
+   "description": "Setting Group Type helps in selecting this Group in transactions.",
+   "fieldname": "group_type",
+   "fieldtype": "Select",
+   "label": "Group Type",
+   "options": "\nAccumulated Depreciation\nAsset Received But Not Billed\nBank\nCash\nChargeable\nCapital Work in Progress\nCost of Goods Sold\nCurrent Asset\nCurrent Liability\nDepreciation\nDirect Expense\nDirect Income\nEquity\nExpense Account\nExpenses Included In Asset Valuation\nExpenses Included In Valuation\nFixed Asset\nIncome Account\nIndirect Expense\nIndirect Income\nLiability\nPayable\nReceivable\nRound Off\nRound Off for Opening\nStock\nStock Adjustment\nStock Received But Not Billed\nService Received But Not Billed\nTax\nTemporary"
+  },
+  {
+   "fieldname": "note_no",
+   "fieldtype": "Data",
+   "label": "Note No"
+  },
+  {
+   "fieldname": "balance_must_be",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Balance must be",
+   "options": "\nDebit\nCredit"
+  },
+  {
+   "description": "If the account is frozen, entries are allowed to restricted users.",
+   "fieldname": "frozen",
+   "fieldtype": "Select",
+   "label": "Frozen",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "lft",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Left",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "rgt",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Right",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "old_parent",
+   "fieldtype": "Link",
+   "label": "Old Parent",
+   "options": "Consolidation Group"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_tree": 1,
+ "links": [],
+ "modified": "2025-07-05 12:20:59.758319",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Consolidation Group",
+ "naming_rule": "By script",
+ "nsm_parent_field": "parent_consolidation_group",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

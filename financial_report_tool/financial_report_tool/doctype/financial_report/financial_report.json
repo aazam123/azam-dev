@@ -1,0 +1,83 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "FRP-.####",
+ "creation": "2025-07-04 20:50:53.837760",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "fiscal_year",
+  "column_break_ujyu",
+  "company",
+  "column_break_zefw",
+  "financial_report_template",
+  "section_break_nrwe",
+  "financial_report_details"
+ ],
+ "fields": [
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "column_break_ujyu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_zefw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "financial_report_template",
+   "fieldtype": "Link",
+   "label": "Financial Report Template",
+   "options": "Financial Report Template"
+  },
+  {
+   "fieldname": "section_break_nrwe",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "financial_report_details",
+   "fieldtype": "Table",
+   "label": "Financial Report Details",
+   "options": "Financial Report Details"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-07-05 21:40:08.347768",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Financial Report",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

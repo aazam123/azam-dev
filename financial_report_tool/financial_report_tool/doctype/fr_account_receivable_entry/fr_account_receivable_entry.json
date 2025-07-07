@@ -1,0 +1,311 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:AR-.######",
+ "creation": "2025-07-04 20:54:25.741040",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "document_number",
+  "customer",
+  "customer_name",
+  "rpt",
+  "line_item",
+  "document_type",
+  "reference",
+  "reconac",
+  "ageing",
+  "column_break_wqhg",
+  "document_date",
+  "posting_date",
+  "baseline_date",
+  "debitcredit",
+  "sales_office",
+  "sales_office_desc",
+  "assignment",
+  "gl_description",
+  "closing_ex_rate",
+  "column_break_iwim",
+  "company",
+  "country",
+  "city",
+  "region",
+  "sales_group",
+  "sales_group_desc",
+  "nature",
+  "tb_nature",
+  "section_break_frkk",
+  "billing_doc",
+  "exchange_rate",
+  "currency",
+  "column_break_evvr",
+  "payment_terms",
+  "payment_days",
+  "due_date",
+  "due_days",
+  "column_break_dspk",
+  "amount_in_lc",
+  "amount_in_dc",
+  "due_amt",
+  "non_due_amt",
+  "section_break_aoxf",
+  "text",
+  "column_break_ptpk",
+  "remark"
+ ],
+ "fields": [
+  {
+   "fieldname": "document_number",
+   "fieldtype": "Data",
+   "label": "Document Number"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Data",
+   "label": "Customer"
+  },
+  {
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Customer Name"
+  },
+  {
+   "fieldname": "rpt",
+   "fieldtype": "Data",
+   "label": "RPT"
+  },
+  {
+   "fieldname": "line_item",
+   "fieldtype": "Data",
+   "label": "Line item"
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Data",
+   "label": "Document Type"
+  },
+  {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "reconac",
+   "fieldtype": "Data",
+   "label": "Recon.A/C"
+  },
+  {
+   "fieldname": "ageing",
+   "fieldtype": "Data",
+   "label": "Ageing"
+  },
+  {
+   "fieldname": "column_break_wqhg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "document_date",
+   "fieldtype": "Date",
+   "label": "Document Date"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "baseline_date",
+   "fieldtype": "Date",
+   "label": "Baseline Date"
+  },
+  {
+   "fieldname": "debitcredit",
+   "fieldtype": "Data",
+   "label": "Debit/Credit"
+  },
+  {
+   "fieldname": "sales_office",
+   "fieldtype": "Data",
+   "label": "Sales Office"
+  },
+  {
+   "fieldname": "sales_office_desc",
+   "fieldtype": "Data",
+   "label": "Sales Office Desc"
+  },
+  {
+   "fieldname": "assignment",
+   "fieldtype": "Data",
+   "label": "Assignment"
+  },
+  {
+   "fieldname": "gl_description",
+   "fieldtype": "Data",
+   "label": "Gl Description"
+  },
+  {
+   "fieldname": "closing_ex_rate",
+   "fieldtype": "Float",
+   "label": "Closing Ex Rate"
+  },
+  {
+   "fieldname": "column_break_iwim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Link",
+   "label": "Country",
+   "options": "Country"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "fieldname": "sales_group",
+   "fieldtype": "Data",
+   "label": "Sales Group"
+  },
+  {
+   "fieldname": "sales_group_desc",
+   "fieldtype": "Data",
+   "label": "Sales Group Desc"
+  },
+  {
+   "fieldname": "nature",
+   "fieldtype": "Data",
+   "label": "Nature"
+  },
+  {
+   "fieldname": "tb_nature",
+   "fieldtype": "Data",
+   "label": "TB Nature"
+  },
+  {
+   "fieldname": "section_break_frkk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "billing_doc",
+   "fieldtype": "Data",
+   "label": "Billing Doc."
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "column_break_evvr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Data",
+   "label": "Payment Terms"
+  },
+  {
+   "fieldname": "payment_days",
+   "fieldtype": "Data",
+   "label": "Payment Days"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Due Date"
+  },
+  {
+   "fieldname": "due_days",
+   "fieldtype": "Data",
+   "label": "Due Days"
+  },
+  {
+   "fieldname": "column_break_dspk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount_in_lc",
+   "fieldtype": "Float",
+   "label": "Amount in LC"
+  },
+  {
+   "fieldname": "amount_in_dc",
+   "fieldtype": "Float",
+   "label": "Amount in DC"
+  },
+  {
+   "fieldname": "due_amt",
+   "fieldtype": "Float",
+   "label": "Due Amt."
+  },
+  {
+   "fieldname": "non_due_amt",
+   "fieldtype": "Float",
+   "label": "Non Due Amt."
+  },
+  {
+   "fieldname": "section_break_aoxf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "text",
+   "fieldtype": "Small Text",
+   "label": "Text"
+  },
+  {
+   "fieldname": "column_break_ptpk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Small Text",
+   "label": "Remark"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-07-04 20:54:25.741040",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Account Receivable Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

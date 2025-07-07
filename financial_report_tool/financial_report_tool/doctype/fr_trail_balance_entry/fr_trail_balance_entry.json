@@ -1,0 +1,169 @@
+{
+    "actions": [],
+    "allow_import": 1,
+    "allow_rename": 1,
+    "autoname": "TBE-.####",
+    "creation": "2025-06-28 14:34:03.194173",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+    "fiscal_year",
+    "date",
+    "column_break_cepk",
+    "company",
+    "month",
+    "section_break_msbi",
+    "column_break_djwj",
+    "head",
+    "gl_account",
+    "report_type",
+    "column_break_vrdw",
+    "consolidation_group",
+    "parent_consolidation_group",
+    "notes",
+    "column_break_xtdq",
+    "currency",
+    "type",
+    "amount"
+    ],
+    "fields": [
+    {
+    "fieldname": "date",
+    "fieldtype": "Date",
+    "label": "Posting Date"
+    },
+    {
+    "fieldname": "company",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "Company",
+    "options": "Company"
+    },
+    {
+    "fieldname": "fiscal_year",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "Fiscal Year",
+    "options": "Fiscal Year"
+    },
+    {
+    "fieldname": "currency",
+    "fieldtype": "Link",
+    "label": "Currency",
+    "options": "Currency"
+    },
+    {
+    "fetch_from": "gl_account.balance_must_be",
+    "fieldname": "type",
+    "fieldtype": "Select",
+    "label": "Type",
+    "options": "\nDebit\nCredit"
+    },
+    {
+    "fieldname": "column_break_djwj",
+    "fieldtype": "Column Break"
+    },
+    {
+    "fieldname": "amount",
+    "fieldtype": "Currency",
+    "label": "Amount"
+    },
+    {
+    "fieldname": "gl_account",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "GL Account",
+    "options": "Account"
+    },
+    {
+    "fieldname": "column_break_vrdw",
+    "fieldtype": "Column Break"
+    },
+    {
+    "fieldname": "column_break_cepk",
+    "fieldtype": "Column Break"
+    },
+    {
+    "fieldname": "section_break_msbi",
+    "fieldtype": "Section Break"
+    },
+    {
+    "fieldname": "report_type",
+    "fieldtype": "Select",
+    "in_standard_filter": 1,
+    "label": "Report Type",
+    "options": "\nBalance Sheet\nProfit and Loss",
+    "read_only": 1
+    },
+    {
+    "fieldname": "notes",
+    "fieldtype": "Data",
+    "label": "Notes"
+    },
+    {
+    "fetch_from": "gl_account.custom_consolidation_group",
+    "fetch_if_empty": 1,
+    "fieldname": "consolidation_group",
+    "fieldtype": "Link",
+    "in_standard_filter": 1,
+    "label": "Consolidation Group",
+    "options": "Consolidation Group"
+    },
+    {
+    "fetch_from": "consolidation_group.parent_consolidation_group",
+    "fetch_if_empty": 1,
+    "fieldname": "parent_consolidation_group",
+    "fieldtype": "Link",
+    "in_standard_filter": 1,
+    "label": "Parent Consolidation Group",
+    "options": "Consolidation Group"
+    },
+    {
+    "fieldname": "head",
+    "fieldtype": "Data",
+    "label": "Head"
+    },
+    {
+    "fieldname": "column_break_xtdq",
+    "fieldtype": "Column Break"
+    },
+    {
+    "fieldname": "month",
+    "fieldtype": "Select",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "Month",
+    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+    }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "links": [],
+    "modified": "2025-07-03 14:57:18.591326",
+    "modified_by": "Administrator",
+    "module": "Financial Report Tool",
+    "name": "FR Trail Balance Entry",
+    "naming_rule": "Expression (old style)",
+    "owner": "Administrator",
+    "permissions": [
+    {
+    "create": 1,
+    "delete": 1,
+    "email": 1,
+    "export": 1,
+    "print": 1,
+    "read": 1,
+    "report": 1,
+    "role": "System Manager",
+    "share": 1,
+    "write": 1
+    }
+    ],
+    "row_format": "Dynamic",
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}
