@@ -1,25 +1,36 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:profit_and_loss_template",
  "creation": "2025-07-05 13:17:31.855376",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_rxm4"
+  "profit_and_loss_template",
+  "profit_and_loss_template_details"
  ],
  "fields": [
   {
-   "fieldname": "section_break_rxm4",
-   "fieldtype": "Section Break"
+   "fieldname": "profit_and_loss_template",
+   "fieldtype": "Data",
+   "label": "Profit And Loss Template",
+   "unique": 1
+  },
+  {
+   "fieldname": "profit_and_loss_template_details",
+   "fieldtype": "Table",
+   "label": "Profit And Loss Template Details",
+   "options": "Profit And Loss Template Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-05 13:17:31.855376",
+ "modified": "2025-07-07 14:23:01.978441",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Profit And Loss Template",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

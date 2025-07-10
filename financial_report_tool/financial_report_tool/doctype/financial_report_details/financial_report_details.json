@@ -9,6 +9,8 @@
   "column_break_lrdb",
   "section_type",
   "doctype_name",
+  "column_break_uwlt",
+  "note_no",
   "column_break_evum",
   "section",
   "column_break_fvni",
@@ -48,7 +50,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "columns": 4,
+   "columns": 3,
    "fieldname": "subsection",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -84,13 +86,24 @@
    "hidden": 1,
    "label": "Doctype Name",
    "options": "\nFR Section\nProfit And Loss Template\nBalance Sheet Template\nCash Flow Template\nEquity Template"
+  },
+  {
+   "fieldname": "column_break_uwlt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "note_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Note No."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-05 22:10:52.689321",
+ "modified": "2025-07-08 17:45:11.580628",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Details",

@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class FRAssetRegister(Document):
+class FRAssetRegisterEntry(Document):
 	pass

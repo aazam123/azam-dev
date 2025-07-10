@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestFRAccountReceivable(FrappeTestCase):
+class TestFRAccountReceivableEntry(FrappeTestCase):
 	pass

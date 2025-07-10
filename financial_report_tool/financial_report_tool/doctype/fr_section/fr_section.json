@@ -7,6 +7,11 @@
  "engine": "InnoDB",
  "field_order": [
   "section_type_name",
+  "fetch_data_from_trial_balance",
+  "primary_consolidation_group",
+  "column_break_ftjl",
+  "note_type",
+  "section_break_alpv",
   "section_type_description"
  ],
  "fields": [
@@ -20,12 +25,39 @@
    "fieldname": "section_type_description",
    "fieldtype": "Text Editor",
    "label": "Section Description"
+  },
+  {
+   "fieldname": "note_type",
+   "fieldtype": "Select",
+   "label": "Note Type",
+   "options": "\nOther financial liabilities - current\nOther current liabilities\nCurrent tax liabilities (net)\nRevenue from operations\nOther income\nCost of materials consumed\nChanges in inventories of finished goods and work-in-progress\nEmployee benefits expense\nFinance costs\nOther expenses\nDetails of payments to auditors"
+  },
+  {
+   "fieldname": "column_break_ftjl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "fetch_data_from_trial_balance",
+   "fieldtype": "Check",
+   "label": "Fetch Data From Trial Balance"
+  },
+  {
+   "fieldname": "primary_consolidation_group",
+   "fieldtype": "Link",
+   "label": "Primary Consolidation Group",
+   "link_filters": "[[\"Consolidation Group\",\"is_primary_group\",\"=\",1]]",
+   "options": "Consolidation Group"
+  },
+  {
+   "fieldname": "section_break_alpv",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-04 20:40:45.617341",
+ "modified": "2025-07-09 23:17:01.250156",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Section",

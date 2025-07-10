@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "format:AR-.######",
- "creation": "2025-07-04 20:54:25.741040",
+ "creation": "2025-07-07 12:15:47.468451",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -55,11 +55,6 @@
  ],
  "fields": [
   {
-   "fieldname": "document_number",
-   "fieldtype": "Data",
-   "label": "Document Number"
-  },
-  {
    "fieldname": "customer",
    "fieldtype": "Data",
    "label": "Customer"
@@ -75,53 +70,8 @@
    "label": "RPT"
   },
   {
-   "fieldname": "line_item",
-   "fieldtype": "Data",
-   "label": "Line item"
-  },
-  {
-   "fieldname": "document_type",
-   "fieldtype": "Data",
-   "label": "Document Type"
-  },
-  {
-   "fieldname": "reference",
-   "fieldtype": "Data",
-   "label": "Reference"
-  },
-  {
-   "fieldname": "reconac",
-   "fieldtype": "Data",
-   "label": "Recon.A/C"
-  },
-  {
-   "fieldname": "ageing",
-   "fieldtype": "Data",
-   "label": "Ageing"
-  },
-  {
    "fieldname": "column_break_wqhg",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "document_date",
-   "fieldtype": "Date",
-   "label": "Document Date"
-  },
-  {
-   "fieldname": "posting_date",
-   "fieldtype": "Date",
-   "label": "Posting Date"
-  },
-  {
-   "fieldname": "baseline_date",
-   "fieldtype": "Date",
-   "label": "Baseline Date"
-  },
-  {
-   "fieldname": "debitcredit",
-   "fieldtype": "Data",
-   "label": "Debit/Credit"
   },
   {
    "fieldname": "sales_office",
@@ -134,19 +84,14 @@
    "label": "Sales Office Desc"
   },
   {
-   "fieldname": "assignment",
+   "fieldname": "sales_group",
    "fieldtype": "Data",
-   "label": "Assignment"
+   "label": "Sales Group"
   },
   {
-   "fieldname": "gl_description",
+   "fieldname": "sales_group_desc",
    "fieldtype": "Data",
-   "label": "Gl Description"
-  },
-  {
-   "fieldname": "closing_ex_rate",
-   "fieldtype": "Float",
-   "label": "Closing Ex Rate"
+   "label": "Sales Group Desc"
   },
   {
    "fieldname": "column_break_iwim",
@@ -175,24 +120,39 @@
    "label": "Region"
   },
   {
-   "fieldname": "sales_group",
+   "fieldname": "document_number",
    "fieldtype": "Data",
-   "label": "Sales Group"
+   "label": "Document Number"
   },
   {
-   "fieldname": "sales_group_desc",
+   "fieldname": "line_item",
    "fieldtype": "Data",
-   "label": "Sales Group Desc"
+   "label": "Line item"
   },
   {
-   "fieldname": "nature",
+   "fieldname": "document_type",
    "fieldtype": "Data",
-   "label": "Nature"
+   "label": "Document Type"
   },
   {
-   "fieldname": "tb_nature",
+   "fieldname": "document_date",
+   "fieldtype": "Date",
+   "label": "Document Date"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "baseline_date",
+   "fieldtype": "Date",
+   "label": "Baseline Date"
+  },
+  {
+   "fieldname": "debitcredit",
    "fieldtype": "Data",
-   "label": "TB Nature"
+   "label": "Debit/Credit"
   },
   {
    "fieldname": "section_break_frkk",
@@ -202,11 +162,6 @@
    "fieldname": "billing_doc",
    "fieldtype": "Data",
    "label": "Billing Doc."
-  },
-  {
-   "fieldname": "exchange_rate",
-   "fieldtype": "Float",
-   "label": "Exchange Rate"
   },
   {
    "fieldname": "currency",
@@ -263,6 +218,31 @@
    "label": "Non Due Amt."
   },
   {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "reconac",
+   "fieldtype": "Data",
+   "label": "Recon.A/C"
+  },
+  {
+   "fieldname": "assignment",
+   "fieldtype": "Data",
+   "label": "Assignment"
+  },
+  {
+   "fieldname": "gl_description",
+   "fieldtype": "Data",
+   "label": "Gl Description"
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate"
+  },
+  {
    "fieldname": "section_break_aoxf",
    "fieldtype": "Section Break"
   },
@@ -276,6 +256,26 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "ageing",
+   "fieldtype": "Data",
+   "label": "Ageing"
+  },
+  {
+   "fieldname": "closing_ex_rate",
+   "fieldtype": "Float",
+   "label": "Closing Ex Rate"
+  },
+  {
+   "fieldname": "nature",
+   "fieldtype": "Data",
+   "label": "Nature"
+  },
+  {
+   "fieldname": "tb_nature",
+   "fieldtype": "Data",
+   "label": "TB Nature"
+  },
+  {
    "fieldname": "remark",
    "fieldtype": "Small Text",
    "label": "Remark"
@@ -284,7 +284,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-04 20:54:25.741040",
+ "modified": "2025-07-07 12:15:47.468451",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",

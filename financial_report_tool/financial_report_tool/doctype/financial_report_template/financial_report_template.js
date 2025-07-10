@@ -24,15 +24,49 @@ frappe.ui.form.on("Financial Report Template Details", {
 		}
 
 		frm.refresh_field('financial_report_template_details');
-	}
+	},
+	section: async function(frm, cdt, cdn) {
+        await section(frm, cdt, cdn);
+    },
+	subsection: async function(frm, cdt, cdn) {
+        await subsection(frm, cdt, cdn);
+    }
 });
 
+async function section(frm, cdt, cdn) {
+    let row = locals[cdt][cdn];
+    if (row.section_type === "Consolidation Note" && row.section) {
+        try {
+            const response = await frappe.db.get_value(
+                'FR Section',
+                row.section,
+                'section_type_description'
+            );
 
-// frappe.ui.form.on("Financial Report Template Details", {
-// 	section: function(frm, cdt, cdn) {
-// 		let row = locals[cdt][cdn];
-// 		if (row.doctype_name) {
-// 			frappe.meta.get_docfield("Financial Report Template Details", "section", frm.doc.name).options = row.doctype_name;
-// 		}
-// 	}
-// });
+            if (response && response.message && response.message.section_type_description) {
+                frappe.model.set_value(cdt, cdn, 'section_description', response.message.section_type_description);
+            }
+        } catch (error) {
+            console.error("Failed to fetch section description:", error);
+        }
+    }
+}
+
+async function subsection(frm, cdt, cdn) {
+    let row = locals[cdt][cdn];
+    if (row.section_type === "Consolidation Note" && row.subsection) {
+        try {
+            const response = await frappe.db.get_value(
+                'FR Subsection',
+                row.subsection,
+                'subsection_type_description'
+            );
+
+            if (response && response.message && response.message.subsection_type_description) {
+                frappe.model.set_value(cdt, cdn, 'subsection_description', response.message.subsection_type_description);
+            }
+        } catch (error) {
+            console.error("Failed to fetch section description:", error);
+        }
+    }
+}

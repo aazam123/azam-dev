@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class FRAccountReceivable(Document):
+class FRAccountReceivableEntry(Document):
 	pass

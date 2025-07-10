@@ -7,9 +7,12 @@
  "engine": "InnoDB",
  "field_order": [
   "fiscal_year",
+  "current_year_ending_date",
   "column_break_ujyu",
-  "company",
+  "previous_fiscal_year",
+  "previous_year_ending_date",
   "column_break_zefw",
+  "company",
   "financial_report_template",
   "section_break_nrwe",
   "financial_report_details"
@@ -18,8 +21,10 @@
   {
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
-   "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "in_list_view": 1,
+   "label": "Current Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_ujyu",
@@ -50,12 +55,32 @@
    "fieldtype": "Table",
    "label": "Financial Report Details",
    "options": "Financial Report Details"
+  },
+  {
+   "fetch_from": "fiscal_year.year_end_date",
+   "fieldname": "current_year_ending_date",
+   "fieldtype": "Date",
+   "label": "Current Year Ending Date"
+  },
+  {
+   "fetch_from": "previous_fiscal_year.year_end_date",
+   "fieldname": "previous_year_ending_date",
+   "fieldtype": "Date",
+   "label": "Previous Year Ending Date"
+  },
+  {
+   "fieldname": "previous_fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Previous Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-05 21:40:08.347768",
+ "modified": "2025-07-08 14:01:10.358482",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",

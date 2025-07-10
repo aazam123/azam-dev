@@ -13,6 +13,7 @@
   "column_break_ojja",
   "amount",
   "previous_year_amount",
+  "index",
   "indent_level",
   "is_bold"
  ],
@@ -70,7 +71,7 @@
    "label": "Previous Year Amount"
   },
   {
-   "columns": 2,
+   "columns": 1,
    "fieldname": "section",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -84,13 +85,20 @@
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Particular Name"
+  },
+  {
+   "columns": 1,
+   "fieldname": "index",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Index"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-07 09:27:46.711794",
+ "modified": "2025-07-07 11:31:06.155443",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Balance Sheet Template Details",

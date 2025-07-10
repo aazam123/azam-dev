@@ -8,7 +8,9 @@
  "field_order": [
   "particular_name",
   "note_no",
-  "fr_multiselect_consolidation_group",
+  "is_total",
+  "consolidation_groups",
+  "particulars",
   "column_break_mexs",
   "particular_type",
   "template_type"
@@ -23,13 +25,7 @@
    "fieldname": "particular_type",
    "fieldtype": "Select",
    "label": "Particular Type",
-   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity"
-  },
-  {
-   "fieldname": "fr_multiselect_consolidation_group",
-   "fieldtype": "Table MultiSelect",
-   "label": "FR MultiSelect Consolidation Group",
-   "options": "FR MultiSelect Consolidation Group"
+   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity\nIncome\nExpenses"
   },
   {
    "fieldname": "note_no",
@@ -45,12 +41,32 @@
    "fieldtype": "Select",
    "label": "Template Type",
    "options": "\nProfit & Loss\nBalance Sheet\nCash Flow\nEquity\nConsolidation Note"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_total",
+   "fieldtype": "Check",
+   "label": "Is Total"
+  },
+  {
+   "depends_on": "eval: doc.is_total;",
+   "fieldname": "particulars",
+   "fieldtype": "Table MultiSelect",
+   "label": "Particulars",
+   "options": "FR Particular MultiSelect"
+  },
+  {
+   "depends_on": "eval: !doc.is_total;",
+   "fieldname": "consolidation_groups",
+   "fieldtype": "Table MultiSelect",
+   "label": "Consolidation Group",
+   "options": "FR MultiSelect Consolidation Group"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-07 10:56:36.769923",
+ "modified": "2025-07-07 19:48:23.224219",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",

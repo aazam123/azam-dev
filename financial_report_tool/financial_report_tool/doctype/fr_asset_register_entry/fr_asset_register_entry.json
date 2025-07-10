@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:asset_id",
- "creation": "2025-07-04 20:52:27.287004",
+ "creation": "2025-07-07 12:15:47.063370",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -17,6 +17,7 @@
   "balance_sheet_account_apc",
   "ordinary_depreciation_start_date",
   "column_break_zmlr",
+  "posting_date",
   "depreciation_key",
   "plant",
   "cost_center",
@@ -167,12 +168,17 @@
    "fieldtype": "Float",
    "label": "Ending Book Value",
    "precision": "2"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-04 20:52:27.287004",
+ "modified": "2025-07-07 13:33:07.280677",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",

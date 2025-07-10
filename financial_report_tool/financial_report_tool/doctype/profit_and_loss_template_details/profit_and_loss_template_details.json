@@ -1,0 +1,102 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-07-07 13:40:49.289286",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "account",
+  "note",
+  "amount",
+  "previous_year_amount",
+  "particular_name",
+  "column_break_ojja",
+  "index",
+  "indent_level",
+  "is_bold"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Particular",
+   "link_filters": "[[\"FR Particular\",\"template_type\",\"=\",\"Profit & Loss\"]]",
+   "options": "FR Particular"
+  },
+  {
+   "columns": 1,
+   "fetch_from": "account.note_no",
+   "fieldname": "note",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Note"
+  },
+  {
+   "fetch_from": "account.particular_name",
+   "fetch_if_empty": 1,
+   "fieldname": "particular_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Particular Name"
+  },
+  {
+   "fieldname": "column_break_ojja",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "amount",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "previous_year_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Previous Year Amount"
+  },
+  {
+   "columns": 1,
+   "fieldname": "index",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Index"
+  },
+  {
+   "columns": 1,
+   "description": "(e.g., 0 = header, 1 = child, 2 = sub-child)",
+   "fieldname": "indent_level",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Indent Level",
+   "options": "0\n1\n2\n3\n4\n5"
+  },
+  {
+   "columns": 1,
+   "default": "0",
+   "fieldname": "is_bold",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Bold"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-07-07 14:20:40.544896",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Profit And Loss Template Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
