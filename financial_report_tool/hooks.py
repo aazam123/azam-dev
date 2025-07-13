@@ -247,4 +247,8 @@ fixtures = [
         "dt": "Print Format",
         "filters": [["name", "in", ["Financial Report"]]]
     },
+    {
+        "dt": "Workspace",
+        "filters": [["name", "in", ["Finance"]]]
+    },
 ]

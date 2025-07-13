@@ -18,8 +18,8 @@
   "gl_account",
   "report_type",
   "column_break_vrdw",
-  "consolidation_group",
   "primary_consolidation_group",
+  "consolidation_group",
   "notes",
   "column_break_xtdq",
   "currency",
@@ -104,12 +104,12 @@
    "label": "Notes"
   },
   {
-   "fetch_from": "gl_account.custom_consolidation_group",
+   "fetch_from": "gl_account.custom_secondary_consolidation_group",
    "fetch_if_empty": 1,
    "fieldname": "consolidation_group",
    "fieldtype": "Link",
    "in_standard_filter": 1,
-   "label": "Consolidation Group",
+   "label": "Secondary Consolidation Group",
    "options": "Consolidation Group"
   },
   {
@@ -130,6 +130,7 @@
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
   },
   {
+   "fetch_from": "gl_account.custom_primary_consolidation_group",
    "fetch_if_empty": 1,
    "fieldname": "primary_consolidation_group",
    "fieldtype": "Link",
@@ -141,7 +142,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-08 22:58:16.974511",
+ "modified": "2025-07-13 00:34:50.622855",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Trail Balance Entry",

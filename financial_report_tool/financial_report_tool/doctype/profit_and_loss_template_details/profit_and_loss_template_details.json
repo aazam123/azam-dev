@@ -8,8 +8,6 @@
  "field_order": [
   "account",
   "note",
-  "amount",
-  "previous_year_amount",
   "particular_name",
   "column_break_ojja",
   "index",
@@ -48,20 +46,6 @@
   },
   {
    "columns": 1,
-   "fieldname": "amount",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Amount"
-  },
-  {
-   "columns": 1,
-   "fieldname": "previous_year_amount",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Previous Year Amount"
-  },
-  {
-   "columns": 1,
    "fieldname": "index",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -89,7 +73,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-07 14:20:40.544896",
+ "modified": "2025-07-11 11:12:36.133901",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Profit And Loss Template Details",

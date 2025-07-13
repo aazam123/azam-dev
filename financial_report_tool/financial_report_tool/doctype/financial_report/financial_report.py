@@ -196,43 +196,30 @@ class FinancialReport(Document):
 
 	def get_balance_sheet_data(self, template_name):
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
-		
-		grouped_data = defaultdict(list)
+		data = []
 		for row in balance_sheet_doc.balance_sheet_template_details:
-			grouped_data[row.section].append({
+			data.append({
 				"account": row.particular_name,
 				"note_no": row.note,
 				"amount_2024": row.amount,
 				"amount_2023": row.previous_year_amount,
 				"indent": int(row.indent_level or 0),
-				"is_bold": row.is_bold
+				"is_bold": row.is_bold,
+				"header": row.header,
+				"group": row.group,
 			})
-		
-		return grouped_data
+		return data
 
 	def render_balance_sheet(self, template_name):
-		grouped_data = self.get_balance_sheet_data(template_name)
+		data = self.get_balance_sheet_data(template_name)
 		current_year_date, previous_year_date = self.get_current_and_prevous_year_date()
 
-		# Flatten grouped_data into a single list with section info
-		rows = []
-		for section_title, items in grouped_data.items():
-			for idx, item in enumerate(items):
-				rows.append({
-					"section": section_title,
-					"account": item["account"],
-					"note_no": item.get("note_no"),
-					"amount": item.get("amount_2024"),
-					"previous_year_amount": item.get("amount_2023"),
-					"indent": item.get("indent", 0),
-					"is_bold": item.get("is_bold", False),
-				})
-
 		html = f"""
-		<table style=\"width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;\">
+		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
 			<thead>
-				<tr style=\"background-color: #f1f1f1;\">
-					<th style='text-align:left; padding: 8px; width: 50%; border: 1px solid black;'>Particulars</th>
+				<tr style="background-color: #f1f1f1;">
+					<th style='text-align:left; padding: 8px; width: 5%; border: 1px solid black;'>Index</th>
+					<th style='text-align:left; padding: 8px; width: 45%; border: 1px solid black;'>Particulars</th>
 					<th style='text-align:center; padding: 8px; width: 10%; border: 1px solid black;'>Note No.</th>
 					<th style='text-align:center; padding: 8px; width: 20%; border: 1px solid black;'>As at <br> {current_year_date}</th>
 					<th style='text-align:center; padding: 8px; width: 20%; border: 1px solid black;'>As at <br> {previous_year_date}</th>
@@ -241,15 +228,81 @@ class FinancialReport(Document):
 			<tbody>
 		"""
 
-		for row in rows:
-			indent = "&nbsp;" * (int(row.get("indent", 0)) * 4)
+		header_counter = 0
+		group_counter = 0
+		def to_alpha(idx):
+			return f"({chr(65+idx)})"
+		def to_roman(idx):
+			romans = [
+				'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+				'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'
+			]
+			return f"({romans[idx]})" if idx < len(romans) else f"({idx+1})"
+		def to_lower_alpha(idx):
+			return f"({chr(97+idx)})"
+		def to_lower_roman(idx):
+			romans = [
+				'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
+				'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx'
+			]
+			return f"({romans[idx]})" if idx < len(romans) else f"({idx+1})"
+
+		# Stack to track group/indent context
+		# Each stack entry: {'alpha_counter': int, 'roman_counter': int, 'indent': int, 'last_indent_1': int}
+		group_stack = []
+		# Top-level group
+		group_stack.append({'alpha_counter': 0, 'roman_counter': 0, 'indent': 0, 'last_indent_1': None})
+
+		for idx, row in enumerate(data):
+			indent_val = int(row.get("indent", 0))
+			indent = "&nbsp;" * (indent_val * 4)
 			bold = "font-weight: bold;" if row.get("is_bold") else ""
+			index = ""
+			account_label = row.get('account') or ''
+
+			# Handle header
+			if row.get("header"):
+				index = to_alpha(header_counter)
+				header_counter += 1
+				# Reset group stack for new header
+				group_stack = [{'alpha_counter': 0, 'roman_counter': 0, 'indent': 0, 'last_indent_1': None}]
+			# Handle group
+			elif row.get("group"):
+				index = to_roman(group_counter)
+				group_counter += 1
+				# New group context: push new counters
+				group_stack.append({'alpha_counter': 0, 'roman_counter': 0, 'indent': indent_val, 'last_indent_1': None})
+			# Only non-bold, non-group, non-header accounts get index prefix
+			elif not row.get("is_bold"):
+				# For indent=0, not header/group: use (a), (b), ...
+				if indent_val == 0:
+					alpha_idx = group_stack[-1]['alpha_counter']
+					account_label = f"{to_lower_alpha(alpha_idx)} {account_label}"
+					group_stack[-1]['alpha_counter'] += 1
+				# For indent=1, not header/group: use (i), (ii), ...
+				elif indent_val == 1:
+					if group_stack[-1]['last_indent_1'] != 1:
+						group_stack[-1]['roman_counter'] = 0
+					roman_idx = group_stack[-1]['roman_counter']
+					account_label = f"{to_lower_roman(roman_idx)} {account_label}"
+					group_stack[-1]['roman_counter'] += 1
+					group_stack[-1]['last_indent_1'] = 1
+				else:
+					group_stack[-1]['last_indent_1'] = indent_val
+			else:
+				# For bold, non-group, non-header, do not prefix any index
+				if indent_val == 1:
+					group_stack[-1]['last_indent_1'] = 1
+				else:
+					group_stack[-1]['last_indent_1'] = indent_val
+
 			html += f"""
 			<tr>
-				<td style='text-align:left; padding: 8px; border: 1px solid black; {bold}'>{indent}{row.get("account") or ""}</td>
+				<td style='text-align:left; padding: 8px; border: 1px solid black; {bold}'>{index}</td>
+				<td style='text-align:left; padding: 8px; border: 1px solid black; {bold}'>{indent}{account_label}</td>
 				<td style='text-align:center; padding: 8px; border: 1px solid black;'>{row.get("note_no") or ""}</td>
-				<td style='text-align:right; padding: 8px; border: 1px solid black;'>{"{:,.2f}".format(row["amount"]) if row.get("amount") else ""}</td>
-				<td style='text-align:right; padding: 8px; border: 1px solid black;'>{"{:,.2f}".format(row["previous_year_amount"]) if row.get("previous_year_amount") else ""}</td>
+				<td style='text-align:right; padding: 8px; border: 1px solid black;'>{'{:,.2f}'.format(row["amount_2024"]) if row.get("amount_2024") else ""}</td>
+				<td style='text-align:right; padding: 8px; border: 1px solid black;'>{'{:,.2f}'.format(row["amount_2023"]) if row.get("amount_2023") else ""}</td>
 			</tr>
 			"""
 

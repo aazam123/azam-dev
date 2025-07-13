@@ -1,14 +1,15 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "PRT.####",
  "creation": "2025-07-05 18:23:17.530194",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "particular_name",
-  "note_no",
   "is_total",
+  "has_note_no",
+  "particular_name",
   "consolidation_groups",
   "particulars",
   "column_break_mexs",
@@ -26,11 +27,6 @@
    "fieldtype": "Select",
    "label": "Particular Type",
    "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity\nIncome\nExpenses"
-  },
-  {
-   "fieldname": "note_no",
-   "fieldtype": "Data",
-   "label": "Note No."
   },
   {
    "fieldname": "column_break_mexs",
@@ -61,12 +57,18 @@
    "fieldtype": "Table MultiSelect",
    "label": "Consolidation Group",
    "options": "FR MultiSelect Consolidation Group"
+  },
+  {
+   "default": "0",
+   "fieldname": "has_note_no",
+   "fieldtype": "Check",
+   "label": "Has Note No."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-07 19:48:23.224219",
+ "modified": "2025-07-13 00:00:38.996571",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",
