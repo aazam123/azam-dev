@@ -8,6 +8,9 @@ frappe.ui.form.on('BalanceSheetTemplate', {
 });
 
 frappe.ui.form.on('Balance Sheet Template Details', {
+    account: function(frm, cdt, cdn) {
+        update_note_numbers(frm);
+    },
     balance_sheet_template_details_add: function(frm, cdt, cdn) {
         update_note_numbers(frm);
     },
@@ -23,14 +26,17 @@ frappe.ui.form.on('Balance Sheet Template Details', {
 });
 
 function update_note_numbers(frm) {
-    let start = 1;
     let details = frm.doc.balance_sheet_template_details || [];
-    // Check if any row has has_note_no checked
     let has_note = details.some(row => row.has_note_no);
-    if (has_note) {
-        start = 4;
-    }
-    details.forEach((row, idx) => {
-        frappe.model.set_value(row.doctype, row.name, 'note', start + idx);
+    let start = has_note ? 4 : 1;
+    let note_no = start;
+
+    details.forEach((row) => {
+        if (row.has_note_no) {
+            frappe.model.set_value(row.doctype, row.name, 'note', note_no);
+            note_no++;
+        } else {
+            frappe.model.set_value(row.doctype, row.name, 'note', null);
+        }
     });
 }

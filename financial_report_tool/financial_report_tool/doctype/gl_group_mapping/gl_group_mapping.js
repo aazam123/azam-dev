@@ -1,7 +1,7 @@
 // Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Consolidation Group", {
+// frappe.ui.form.on("GL Group Mapping", {
 // 	refresh(frm) {
 
 // 	},

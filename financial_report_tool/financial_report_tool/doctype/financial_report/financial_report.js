@@ -2,20 +2,6 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Financial Report", {
-    // fiscal_year: async function(frm) {
-    //     if (!frm.doc.fiscal_year) return;
-    
-    //     try {
-    //         const fy = await frappe.db.get_doc('Fiscal Year', frm.doc.fiscal_year);
-    //         const yearEndDate = new Date(fy.year_end_date);
-    //         const prevYearEndDate = new Date(yearEndDate);
-    //         prevYearEndDate.setFullYear(prevYearEndDate.getFullYear() - 1);
-    
-    //         await frm.set_value('previous_year_ending_date', frappe.datetime.obj_to_str(prevYearEndDate));
-    //     } catch (error) {
-    //         console.error("Error fetching fiscal year or setting date:", error);
-    //     }
-    // },    
 	financial_report_template(frm) {
         frappe.call({
             method: 'get_financial_report_template',
@@ -29,11 +15,15 @@ frappe.ui.form.on("Financial Report", {
         if (!frm.is_new()) {
             frm.add_custom_button("Show Report", function () {
                 const print_format = "Financial Report";
-
                 const print_url = `/printview?doctype=Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;
-
                 window.open(print_url, '_blank');
             });
+        }
+        
+        if (frm.doc.docstatus === 0) {
+            frm.add_custom_button("Generate Report", function() {
+                generateFinancialReport(frm);
+            }, "Generate");
         }
     }
 });
@@ -101,4 +91,80 @@ async function subsection(frm, cdt, cdn) {
             console.error("Failed to fetch section description:", error);
         }
     }
+}
+
+async function generateFinancialReport(frm) {
+    if (!frm.doc.company) {
+        frappe.msgprint("Please select a Company", "Error");
+        return;
+    }
+    if (!frm.doc.financial_report_template) {
+        frappe.msgprint("Please select a Financial Report Template", "Error");
+        return;
+    }
+    if (!frm.doc.fiscal_year) {
+        frappe.msgprint("Please select a Fiscal Year", "Error");
+        return;
+    }
+
+    // Show progress dialog
+    const progress_dialog = new frappe.ui.Dialog({
+        title: "Generating Financial Report",
+        size: 'large',
+        fields: [
+            {
+                fieldtype: 'HTML',
+                fieldname: 'progress_html',
+                options: `
+                    <div style="text-align: center; padding: 20px;">
+                        <div class="progress-bar" style="width: 100%; height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">
+                            <div class="progress-fill" style="width: 0%; height: 100%; background-color:rgb(155, 223, 255); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div class="progress-text" style="margin-top: 10px; font-weight: bold;">Initializing...</div>
+                    </div>
+                `
+            }
+        ]
+    });
+
+    progress_dialog.show();
+
+    try {
+        updateProgress(progress_dialog, 25, "Preparing data...");
+        
+        // Use proper async/await pattern
+        const result = await frappe.call({
+            method: 'generate_report',
+            doc: frm.doc
+        });
+        
+        if (result.exc) {
+            progress_dialog.hide();
+            frappe.msgprint("Error generating report: " + result.exc, "Error");
+        } else {
+            updateProgress(progress_dialog, 100, "Complete!");
+            setTimeout(() => {
+                progress_dialog.hide();
+                // Show success message
+                frappe.msgprint("Financial Report generated successfully!", "Success");
+                // Reload the entire document to get fresh data from server
+                frm.reload_doc();
+                // Also refresh the specific field to ensure UI updates
+                frm.refresh_field('financial_report_details');
+            }, 1000);
+        }
+
+    } catch (error) {
+        progress_dialog.hide();
+        frappe.msgprint("Error generating report: " + error.message, "Error");
+        console.error("Generate Report Error:", error);
+    }
+}
+
+function updateProgress(dialog, percentage, message) {
+    const progress_fill = dialog.get_field('progress_html').$wrapper.find('.progress-fill');
+    const progress_text = dialog.get_field('progress_html').$wrapper.find('.progress-text');
+    
+    progress_fill.css('width', percentage + '%');
+    progress_text.text(message);
 }

@@ -15,6 +15,7 @@
   "report_type",
   "root_type",
   "currency",
+  "ind_as_description",
   "column_break_hnhe",
   "parent_consolidation_group",
   "group_type",
@@ -143,16 +144,21 @@
    "fieldtype": "Link",
    "label": "Old Parent",
    "options": "Consolidation Group"
+  },
+  {
+   "fieldname": "ind_as_description",
+   "fieldtype": "Small Text",
+   "label": "Ind AS Description"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2025-07-05 12:20:59.758319",
+ "modified": "2025-07-18 11:44:00.038608",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
- "name": "Consolidation Group",
+ "name": "Standalone Group",
  "naming_rule": "By script",
  "nsm_parent_field": "parent_consolidation_group",
  "owner": "Administrator",
@@ -171,6 +177,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "search_fields": "parent_consolidation_group, consolidation_group_name",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

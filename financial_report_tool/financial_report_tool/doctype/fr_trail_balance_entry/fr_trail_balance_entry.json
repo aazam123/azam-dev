@@ -9,22 +9,20 @@
  "field_order": [
   "fiscal_year",
   "date",
+  "gl_account",
+  "report_type",
+  "currency",
   "column_break_cepk",
   "company",
   "month",
+  "uploaded_amount",
+  "amount",
   "section_break_msbi",
   "column_break_djwj",
-  "head",
-  "gl_account",
-  "report_type",
   "column_break_vrdw",
   "primary_consolidation_group",
   "consolidation_group",
-  "notes",
-  "column_break_xtdq",
-  "currency",
-  "type",
-  "amount"
+  "column_break_xtdq"
  ],
  "fields": [
   {
@@ -53,13 +51,6 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency"
-  },
-  {
-   "fetch_from": "gl_account.balance_must_be",
-   "fieldname": "type",
-   "fieldtype": "Select",
-   "label": "Type",
-   "options": "\nDebit\nCredit"
   },
   {
    "fieldname": "column_break_djwj",
@@ -91,6 +82,7 @@
    "fieldtype": "Section Break"
   },
   {
+   "fetch_from": "gl_account.report_type",
    "fieldname": "report_type",
    "fieldtype": "Select",
    "in_standard_filter": 1,
@@ -99,23 +91,14 @@
    "read_only": 1
   },
   {
-   "fieldname": "notes",
-   "fieldtype": "Data",
-   "label": "Notes"
-  },
-  {
    "fetch_from": "gl_account.custom_secondary_consolidation_group",
    "fetch_if_empty": 1,
    "fieldname": "consolidation_group",
    "fieldtype": "Link",
+   "hidden": 1,
    "in_standard_filter": 1,
    "label": "Secondary Consolidation Group",
-   "options": "Consolidation Group"
-  },
-  {
-   "fieldname": "head",
-   "fieldtype": "Data",
-   "label": "Head"
+   "options": "Standalone Group"
   },
   {
    "fieldname": "column_break_xtdq",
@@ -134,15 +117,22 @@
    "fetch_if_empty": 1,
    "fieldname": "primary_consolidation_group",
    "fieldtype": "Link",
+   "hidden": 1,
    "in_standard_filter": 1,
    "label": "Primary Consolidation Group",
-   "options": "Consolidation Group"
+   "options": "Standalone Group"
+  },
+  {
+   "fieldname": "uploaded_amount",
+   "fieldtype": "Float",
+   "label": "Uploaded Amount",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-13 00:34:50.622855",
+ "modified": "2025-07-21 10:31:07.040460",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Trail Balance Entry",

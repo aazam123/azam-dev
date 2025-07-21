@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestConsolidationGroup(FrappeTestCase):
+class TestStandaloneGroup(FrappeTestCase):
 	pass

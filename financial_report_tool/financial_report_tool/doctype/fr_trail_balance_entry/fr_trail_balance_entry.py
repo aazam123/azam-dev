@@ -10,9 +10,8 @@ class FRTrailBalanceEntry(Document):
         if not self.date:
             import datetime
             self.date = datetime.date.today().isoformat()
-        # Check for previous months' entries for the same GL Account and fiscal year
+
         if self.gl_account and self.fiscal_year and self.month:
-            # Validation: Only one entry per GL Account per month per fiscal year and company
             filters = {
                 "gl_account": self.gl_account,
                 "fiscal_year": self.fiscal_year,
@@ -20,14 +19,7 @@ class FRTrailBalanceEntry(Document):
             }
             if self.company:
                 filters["company"] = self.company
-            duplicate = frappe.get_all(
-                "FR Trail Balance Entry",
-                filters=filters,
-                fields=["name"]
-            )
-            if duplicate:
-                frappe.throw(f"An entry for GL Account {self.gl_account} already exists for {self.month} in fiscal year {self.fiscal_year}{' and company ' + self.company if self.company else ''}.")
-            # Get fiscal year start month
+            
             fiscal_year = frappe.get_doc("Fiscal Year", self.fiscal_year)
             start_date = fiscal_year.year_start_date
             # Get month name from start_date
@@ -59,4 +51,4 @@ class FRTrailBalanceEntry(Document):
                     fields=["amount", "month"]
                 )
                 previous_sum = sum(entry["amount"] or 0 for entry in previous_entries)
-                self.amount = (self.amount or 0) - previous_sum
+                self.amount = (self.uploaded_amount or 0) - previous_sum

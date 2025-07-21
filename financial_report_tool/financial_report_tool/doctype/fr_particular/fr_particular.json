@@ -9,12 +9,15 @@
  "field_order": [
   "is_total",
   "has_note_no",
+  "show_reversed_value",
   "particular_name",
-  "consolidation_groups",
   "particulars",
   "column_break_mexs",
   "particular_type",
-  "template_type"
+  "template_type",
+  "report_type",
+  "section_break_hygu",
+  "primary_and_secondary_group_mapping"
  ],
  "fields": [
   {
@@ -25,8 +28,10 @@
   {
    "fieldname": "particular_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Particular Type",
-   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity\nIncome\nExpenses"
+   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity Share Capital\nOther Equity\nIncome\nExpenses"
   },
   {
    "fieldname": "column_break_mexs",
@@ -35,6 +40,8 @@
   {
    "fieldname": "template_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Template Type",
    "options": "\nProfit & Loss\nBalance Sheet\nCash Flow\nEquity\nConsolidation Note"
   },
@@ -52,23 +59,38 @@
    "options": "FR Particular MultiSelect"
   },
   {
-   "depends_on": "eval: !doc.is_total;",
-   "fieldname": "consolidation_groups",
-   "fieldtype": "Table MultiSelect",
-   "label": "Consolidation Group",
-   "options": "FR MultiSelect Consolidation Group"
-  },
-  {
    "default": "0",
    "fieldname": "has_note_no",
    "fieldtype": "Check",
    "label": "Has Note No."
+  },
+  {
+   "fieldname": "section_break_hygu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval: !doc.is_total;",
+   "fieldname": "primary_and_secondary_group_mapping",
+   "fieldtype": "Table",
+   "label": "Primary and Secondary Group Mapping",
+   "options": "FR Particular Consolation Group"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_reversed_value",
+   "fieldtype": "Check",
+   "label": "Show Reversed Value"
+  },
+  {
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "label": "Report Type"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-13 00:00:38.996571",
+ "modified": "2025-07-18 18:27:26.924643",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",

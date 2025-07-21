@@ -1,26 +1,36 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:cash_flow_template",
  "creation": "2025-07-05 14:41:03.077541",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "cash_flow_template"
+  "cash_flow_template",
+  "cash_flow_template_details"
  ],
  "fields": [
   {
    "fieldname": "cash_flow_template",
    "fieldtype": "Data",
-   "label": "Cash Flow Template"
+   "label": "Cash Flow Template",
+   "unique": 1
+  },
+  {
+   "fieldname": "cash_flow_template_details",
+   "fieldtype": "Table",
+   "label": "Cash Flow Template Details",
+   "options": "Cash Flow Template Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-05 14:47:33.625565",
+ "modified": "2025-07-14 17:21:59.172725",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Cash Flow Template",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

@@ -14,14 +14,14 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Consolidation Group",
-   "options": "Consolidation Group"
+   "options": "Standalone Group"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-05 18:25:11.249947",
+ "modified": "2025-07-21 10:31:05.246468",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR MultiSelect Consolidation Group",

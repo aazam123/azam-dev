@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "GLMP-.#####",
+ "creation": "2025-07-16 17:13:17.909260",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "gl_account",
+  "report_type",
+  "column_break_vrta",
+  "primary_group",
+  "secondary_group"
+ ],
+ "fields": [
+  {
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "label": "Report Type",
+   "options": "\nMonthly\nYearly\nMIS"
+  },
+  {
+   "fieldname": "gl_account",
+   "fieldtype": "Link",
+   "label": "GL Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "column_break_vrta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "primary_group",
+   "fieldtype": "Link",
+   "label": "Primary Group",
+   "options": "Standalone Group"
+  },
+  {
+   "fieldname": "secondary_group",
+   "fieldtype": "Link",
+   "label": "Secondary Group",
+   "options": "Standalone Group"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-07-21 10:31:06.723446",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "GL Group Mapping",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

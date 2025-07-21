@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "financial_report_template_name",
+  "report_type",
   "financial_report_template_details"
  ],
  "fields": [
@@ -21,12 +22,20 @@
    "fieldtype": "Table",
    "label": "Financial Report Template Details",
    "options": "Financial Report Template Details"
+  },
+  {
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Report Type",
+   "options": "\nMonthly\nYearly\nMIS",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-05 21:39:11.080394",
+ "modified": "2025-07-16 17:28:47.565944",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Template",
