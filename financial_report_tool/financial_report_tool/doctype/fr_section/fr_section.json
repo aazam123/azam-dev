@@ -30,8 +30,10 @@
    "depends_on": "eval: !doc.fetch_data_from_trial_balance;",
    "fieldname": "note_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Note Type",
-   "options": "\nProperty, plant and equipment\nOther intangible assets\nRight-of-use assets\nCapital work-in-progress\nIntangible assets under development\nInvestments (Non-current)\nTrade & Other receivables\nEquity Share Capital\nOther Equity\nBorrowings (Non-current)\nBorrowings (Current)\nTrade Payable\nCurrent Tax\nCapital Management"
+   "options": "\nProperty, plant and equipment\nOther intangible assets\nRight-of-use assets\nCapital work-in-progress\nIntangible assets under development\nInvestments (Non-current)\nTrade & Other receivables\nEquity Share Capital\nOther Equity\nBorrowings (Non-current)\nBorrowings (Current)\nTrade Payable\nCurrent Tax\nCapital Management\nChanges in inventories of Finished Goods and Work-In-Progress\nCost of Materials Consumed"
   },
   {
    "fieldname": "column_break_ftjl",
@@ -47,8 +49,10 @@
   {
    "fieldname": "primary_consolidation_group",
    "fieldtype": "Link",
-   "label": "Primary Consolidation Group",
-   "link_filters": "[[\"Consolidation Group\",\"is_primary_group\",\"=\",1]]",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Primary Standalone Group",
+   "link_filters": "[[\"Standalone Group\",\"is_primary_group\",\"=\",1]]",
    "options": "Standalone Group"
   },
   {
@@ -59,7 +63,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-21 10:31:06.480959",
+ "modified": "2025-07-23 17:09:49.675095",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Section",

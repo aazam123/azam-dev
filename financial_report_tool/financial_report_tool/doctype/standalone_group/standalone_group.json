@@ -10,14 +10,15 @@
   "is_group",
   "is_primary_group",
   "disable",
-  "consolidation_group_name",
-  "consolidation_group_number",
+  "standalone_group_name",
+  "standalone_group_number",
   "report_type",
   "root_type",
   "currency",
   "ind_as_description",
   "column_break_hnhe",
   "parent_consolidation_group",
+  "company",
   "group_type",
   "note_no",
   "balance_must_be",
@@ -50,16 +51,16 @@
    "label": "Disable"
   },
   {
-   "fieldname": "consolidation_group_name",
+   "fieldname": "standalone_group_name",
    "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Consolidation Group Name"
+   "label": "Standalone Group Name"
   },
   {
-   "fieldname": "consolidation_group_number",
+   "fieldname": "standalone_group_number",
    "fieldtype": "Data",
-   "label": "Consolidation Group Number"
+   "label": "Standalone Group Number"
   },
   {
    "fetch_from": "parent_consolidation_group.report_type",
@@ -93,9 +94,9 @@
    "ignore_user_permissions": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Parent Consolidation Group",
-   "link_filters": "[[\"Consolidation Group\",\"is_group\",\"=\",1]]",
-   "options": "Consolidation Group"
+   "label": "Parent Standalone Group",
+   "link_filters": "[[\"Standalone Group\",\"is_group\",\"=\",1]]",
+   "options": "Standalone Group"
   },
   {
    "description": "Setting Group Type helps in selecting this Group in transactions.",
@@ -143,19 +144,25 @@
    "fieldname": "old_parent",
    "fieldtype": "Link",
    "label": "Old Parent",
-   "options": "Consolidation Group"
+   "options": "Standalone Group"
   },
   {
    "fieldname": "ind_as_description",
    "fieldtype": "Small Text",
    "label": "Ind AS Description"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2025-07-18 11:44:00.038608",
+ "modified": "2025-07-21 10:37:09.731666",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Standalone Group",
@@ -177,7 +184,7 @@
   }
  ],
  "row_format": "Dynamic",
- "search_fields": "parent_consolidation_group, consolidation_group_name",
+ "search_fields": "parent_consolidation_group, standalone_group_name",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

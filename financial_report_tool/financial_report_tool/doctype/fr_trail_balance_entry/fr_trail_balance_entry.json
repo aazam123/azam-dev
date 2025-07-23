@@ -16,13 +16,7 @@
   "company",
   "month",
   "uploaded_amount",
-  "amount",
-  "section_break_msbi",
-  "column_break_djwj",
-  "column_break_vrdw",
-  "primary_consolidation_group",
-  "consolidation_group",
-  "column_break_xtdq"
+  "amount"
  ],
  "fields": [
   {
@@ -53,10 +47,6 @@
    "options": "Currency"
   },
   {
-   "fieldname": "column_break_djwj",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "amount",
    "fieldtype": "Currency",
    "label": "Amount"
@@ -70,16 +60,8 @@
    "options": "Account"
   },
   {
-   "fieldname": "column_break_vrdw",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "column_break_cepk",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_msbi",
-   "fieldtype": "Section Break"
   },
   {
    "fetch_from": "gl_account.report_type",
@@ -91,36 +73,12 @@
    "read_only": 1
   },
   {
-   "fetch_from": "gl_account.custom_secondary_consolidation_group",
-   "fetch_if_empty": 1,
-   "fieldname": "consolidation_group",
-   "fieldtype": "Link",
-   "hidden": 1,
-   "in_standard_filter": 1,
-   "label": "Secondary Consolidation Group",
-   "options": "Standalone Group"
-  },
-  {
-   "fieldname": "column_break_xtdq",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "month",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Month",
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
-  },
-  {
-   "fetch_from": "gl_account.custom_primary_consolidation_group",
-   "fetch_if_empty": 1,
-   "fieldname": "primary_consolidation_group",
-   "fieldtype": "Link",
-   "hidden": 1,
-   "in_standard_filter": 1,
-   "label": "Primary Consolidation Group",
-   "options": "Standalone Group"
   },
   {
    "fieldname": "uploaded_amount",
@@ -132,7 +90,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-21 10:31:07.040460",
+ "modified": "2025-07-21 11:15:49.156189",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Trail Balance Entry",

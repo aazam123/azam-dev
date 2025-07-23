@@ -13,7 +13,7 @@
    "fieldname": "consolidation_group",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Consolidation Group",
+   "label": "Standalone Group",
    "options": "Standalone Group"
   }
  ],

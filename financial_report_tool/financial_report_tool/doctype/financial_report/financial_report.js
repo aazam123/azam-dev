@@ -118,7 +118,7 @@ async function generateFinancialReport(frm) {
                 options: `
                     <div style="text-align: center; padding: 20px;">
                         <div class="progress-bar" style="width: 100%; height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">
-                            <div class="progress-fill" style="width: 0%; height: 100%; background-color:rgb(155, 223, 255); transition: width 0.3s ease;"></div>
+                            <div class="progress-fill" style="width: 0%; height: 100%; background-color:rgb(122, 122, 122); transition: width 0.3s ease;"></div>
                         </div>
                         <div class="progress-text" style="margin-top: 10px; font-weight: bold;">Initializing...</div>
                     </div>
@@ -145,11 +145,7 @@ async function generateFinancialReport(frm) {
             updateProgress(progress_dialog, 100, "Complete!");
             setTimeout(() => {
                 progress_dialog.hide();
-                // Show success message
-                frappe.msgprint("Financial Report generated successfully!", "Success");
-                // Reload the entire document to get fresh data from server
                 frm.reload_doc();
-                // Also refresh the specific field to ensure UI updates
                 frm.refresh_field('financial_report_details');
             }, 1000);
         }

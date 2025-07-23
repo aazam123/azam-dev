@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"UgOFzsoETB\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Finance</span>\",\"col\":12}},{\"id\":\"xO2YgVbWvU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Templates</b></span>\",\"col\":12}},{\"id\":\"5c-g3ymaS9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report\",\"col\":3}},{\"id\":\"sr2qQoy_9e\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report Template\",\"col\":3}},{\"id\":\"ww8cbiG1Nk\",\"type\":\"paragraph\",\"data\":{\"text\":\"Transaction\",\"col\":12}},{\"id\":\"QtGqKgq_OA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Trail Balance Entry\",\"col\":3}},{\"id\":\"rwDFrq6TWy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Asset Register Entry\",\"col\":3}},{\"id\":\"u5xJ60GaZ8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Payable Entry\",\"col\":3}},{\"id\":\"bZ8tBYEVNu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Receivable Entry\",\"col\":3}},{\"id\":\"uuyGnSNCm1\",\"type\":\"paragraph\",\"data\":{\"text\":\"Masters\",\"col\":12}},{\"id\":\"Tj45RnFZOy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Company\",\"col\":3}},{\"id\":\"ZDnQzb5iMQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account\",\"col\":3}},{\"id\":\"phJ__CbO7Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Consolidation Group\",\"col\":3}},{\"id\":\"ef9kh68ZZr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Section\",\"col\":3}},{\"id\":\"UqxJPUB8XG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Subsection\",\"col\":3}}]",
+ "content": "[{\"id\":\"UgOFzsoETB\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Finance</span>\",\"col\":12}},{\"id\":\"xO2YgVbWvU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Templates</b></span>\",\"col\":12}},{\"id\":\"5c-g3ymaS9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report\",\"col\":3}},{\"id\":\"sr2qQoy_9e\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report Template\",\"col\":3}},{\"id\":\"ww8cbiG1Nk\",\"type\":\"paragraph\",\"data\":{\"text\":\"Transaction\",\"col\":12}},{\"id\":\"QtGqKgq_OA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Trail Balance Entry\",\"col\":3}},{\"id\":\"rwDFrq6TWy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Asset Register Entry\",\"col\":3}},{\"id\":\"u5xJ60GaZ8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Payable Entry\",\"col\":3}},{\"id\":\"bZ8tBYEVNu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Receivable Entry\",\"col\":3}},{\"id\":\"uuyGnSNCm1\",\"type\":\"paragraph\",\"data\":{\"text\":\"Masters\",\"col\":12}},{\"id\":\"Tj45RnFZOy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Company\",\"col\":3}},{\"id\":\"ZDnQzb5iMQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account\",\"col\":3}},{\"id\":\"phJ__CbO7Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Standalone Group\",\"col\":3}},{\"id\":\"ef9kh68ZZr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Section\",\"col\":3}},{\"id\":\"UqxJPUB8XG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Subsection\",\"col\":3}}]",
  "creation": "2025-07-07 16:49:39.646776",
  "custom_blocks": [],
  "docstatus": 0,
@@ -92,8 +92,8 @@
   {
    "color": "Grey",
    "doc_view": "Tree",
-   "label": "Consolidation Group",
-   "link_to": "Consolidation Group",
+   "label": "Standalone Group",
+   "link_to": "Standalone Group",
    "stats_filter": "[]",
    "type": "DocType"
   },

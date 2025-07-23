@@ -7,17 +7,21 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "is_total",
-  "has_note_no",
-  "show_reversed_value",
-  "particular_name",
-  "particulars",
-  "column_break_mexs",
   "particular_type",
   "template_type",
-  "report_type",
+  "particular_name",
+  "particulars",
+  "subtract_particulars",
+  "column_break_mexs",
+  "is_total",
+  "to_subtract",
+  "has_note_no",
+  "show_reversed_value",
+  "fetch_from_schedule",
+  "schedule",
   "section_break_hygu",
-  "primary_and_secondary_group_mapping"
+  "primary_and_secondary_group_mapping",
+  "subtract_primary_and_secondary_group"
  ],
  "fields": [
   {
@@ -69,10 +73,10 @@
    "fieldtype": "Section Break"
   },
   {
-   "depends_on": "eval: !doc.is_total;",
+   "depends_on": "eval: !doc.is_total && !doc.fetch_from_schedule;",
    "fieldname": "primary_and_secondary_group_mapping",
    "fieldtype": "Table",
-   "label": "Primary and Secondary Group Mapping",
+   "label": "Primary and Secondary Group",
    "options": "FR Particular Consolation Group"
   },
   {
@@ -82,15 +86,46 @@
    "label": "Show Reversed Value"
   },
   {
-   "fieldname": "report_type",
-   "fieldtype": "Select",
-   "label": "Report Type"
+   "default": "0",
+   "fieldname": "fetch_from_schedule",
+   "fieldtype": "Check",
+   "label": "Fetch From Schedule"
+  },
+  {
+   "depends_on": "eval: doc.fetch_from_schedule;",
+   "fieldname": "schedule",
+   "fieldtype": "Link",
+   "label": "Schedule",
+   "options": "FR Section"
+  },
+  {
+   "depends_on": "eval: doc.is_total;",
+   "fieldname": "subtract_particulars",
+   "fieldtype": "Table MultiSelect",
+   "hidden": 1,
+   "label": "Subtract Particulars",
+   "options": "FR Particular MultiSelect"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.is_total;",
+   "fieldname": "to_subtract",
+   "fieldtype": "Check",
+   "label": "To Subtract"
+  },
+  {
+   "depends_on": "eval: !doc.is_total && !doc.fetch_from_schedule;",
+   "fieldname": "subtract_primary_and_secondary_group",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Subtract Primary and Secondary Group",
+   "options": "FR Particular Consolation Group"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-18 18:27:26.924643",
+ "modified": "2025-07-22 14:13:29.789552",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",

@@ -16,7 +16,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Primary Group",
-   "link_filters": "[[\"Consolidation Group\",\"is_primary_group\",\"=\",1]]",
+   "link_filters": "[[\"Standalone Group\",\"is_primary_group\",\"=\",1]]",
    "options": "Standalone Group"
   },
   {

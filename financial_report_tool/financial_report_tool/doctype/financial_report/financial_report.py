@@ -10,6 +10,30 @@ from frappe.model.document import Document
 
 
 class FinancialReport(Document):
+	def get_fiscal_year_by_date(self, date_str):
+		"""Get fiscal year name by date"""
+		if isinstance(date_str, str):
+			date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+		else:
+			date_obj = date_str
+		
+		formatted_date = date_obj.strftime("%Y-%m-%d")
+		fiscal_year = frappe.db.exists("Fiscal Year", {
+			'year_start_date': ["<=", formatted_date], 
+			'year_end_date': [">=", formatted_date]
+		})
+		return fiscal_year
+
+	def get_fiscal_year_before(self, fiscal_year_name):
+		"""Get the fiscal year that comes before the given fiscal year"""
+		if not fiscal_year_name:
+			return None
+		
+		fiscal_year_doc = frappe.get_doc("Fiscal Year", fiscal_year_name)
+		# Get the fiscal year that ends on the start date of the given fiscal year
+		previous_fiscal_year = frappe.db.exists("Fiscal Year", {'year_end_date': fiscal_year_doc.year_start_date})
+		return previous_fiscal_year
+
 	def get_current_and_prevous_year_date(self):
 		if isinstance(self.current_year_ending_date, str):
 			current_year_date_obj = datetime.strptime(self.current_year_ending_date, "%Y-%m-%d")
@@ -25,43 +49,6 @@ class FinancialReport(Document):
 		previous_year_date = previous_year_date_obj.strftime("%d-%m-%Y")
 		return current_year_date, previous_year_date
 
-	def get_monthly_dates(self):
-		"""Get formatted dates for monthly reports with proper column labels"""
-		if not self.current_month or not self.previous_month:
-			return "", "", ""
-		
-		# Get fiscal year data
-		current_fiscal_year = frappe.get_doc("Fiscal Year", self.fiscal_year) if self.fiscal_year else None
-		previous_fiscal_year = frappe.get_doc("Fiscal Year", self.previous_fiscal_year) if self.previous_fiscal_year else None
-		
-		if not current_fiscal_year:
-			return "", "", ""
-		
-		# Get current year from fiscal year
-		current_year = self.fiscal_year.split("-")[0] if self.fiscal_year else datetime.now().year
-		
-		# Calculate month end date for current month
-		month_num = {
-			'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-			'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-		}
-		
-		# Get the month number for current month
-		current_month_num = month_num.get(self.current_month, 1)
-		
-		# Calculate the last day of the current month
-		if current_month_num == 12:
-			month_end_date = datetime(int(current_year) + 1, 1, 1) - timedelta(days=1)
-		else:
-			month_end_date = datetime(int(current_year), current_month_num + 1, 1) - timedelta(days=1)
-		
-		# Format the dates according to specifications
-		month_end_label = f"Year Ended {month_end_date.strftime('%d/%m/%Y')}"
-		current_fiscal_year_end_label = f"Year Ended {current_fiscal_year.year_end_date.strftime('%d/%m/%Y')}"
-		previous_fiscal_year_end_label = f"Year Ended {previous_fiscal_year.year_end_date.strftime('%d/%m/%Y')}" if previous_fiscal_year else ""
-		
-		return month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label
-
 	def sum_group_amt(self, primary_group, group, year):
 		gl_accounts = frappe.get_list("GL Group Mapping",{"company":self.company,"report_type": self.report_type, 'primary_group': primary_group, 'secondary_group': group},pluck = 'gl_account')
 		if len(gl_accounts) > 0:
@@ -75,30 +62,24 @@ class FinancialReport(Document):
 		else:
 			return 0
 
-	def sum_group_amt_monthly(self, primary_group, group, month, year):
-		"""Calculate amount for a specific month"""
+	def sum_group_amt_monthly(self, primary_group, group, month, year, is_ftm=False):
+		"""Calculate amount for a specific month or FTM (Fiscal Year to Month)"""
 		gl_accounts = frappe.get_list("GL Group Mapping",{"company":self.company,"report_type": self.report_type, 'primary_group': primary_group, 'secondary_group': group},pluck = 'gl_account')
 		if len(gl_accounts) > 0:
 			placeholders = ','.join(['%s'] * len(gl_accounts))
-			
-			# Get month start and end dates
-			month_num = {
-				'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-				'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-			}
-			
-			month_start = f"{year}-{month_num[month]:02d}-01"
-			if month_num[month] == 12:
-				month_end = f"{int(year)+1}-01-01"
+			if is_ftm:
+				query = f"""
+					SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
+					WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+					AND month = %s
+				"""
 			else:
-				month_end = f"{year}-{month_num[month]+1:02d}-01"
-			
-			query = f"""
-				SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-				WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-				AND date >= %s AND date < %s
-			"""
-			params = [self.company, year] + gl_accounts + [month_start, month_end]
+				query = f"""
+					SELECT SUM(uploaded_amount) FROM `tabFR Trail Balance Entry`
+					WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+					AND month = %s
+				"""
+			params = [self.company, year] + gl_accounts + [month]
 			return (frappe.db.sql(query, params)[0][0] or 0) / 100000
 		else:
 			return 0
@@ -124,7 +105,10 @@ class FinancialReport(Document):
 					note_table = None
 
 					if fetch_data_from_trial_balance == 1:
-						data = self.get_monthly_consolidation_note_data(primary_consolidation_group)
+						if primary_consolidation_group:
+							data = self.get_monthly_consolidation_note_data(primary_consolidation_group)
+						else:
+							data = []
 						note_table = self.monthly_table_for_note_template_1(data)
 						
 					if note_type == "Investments (Non-current)":
@@ -136,7 +120,11 @@ class FinancialReport(Document):
 					if note_type == "Other Equity":
 						note_table = self.get_monthly_other_equity_note_data()
 					if note_type == "Borrowings (Non-current)":
-						note_table = self.get_monthly_borrowing_non_current_note_data("Borrowings (Non-current)")
+						note_table = self.get_monthly_borrowing_non_current_note_data(note_type)
+					if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+						note_table = self.get_monthly_finished_goods_and_wip(note_type, total = False, field=None)
+					if note_type == "Cost of Materials Consumed":
+						note_table = self.get_monthly_cost_of_material_consumed(note_type, total = False, field=None)
 						
 					if note_table:
 						context = {"note_table": note_table}
@@ -148,7 +136,6 @@ class FinancialReport(Document):
 					i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 					i.subsection_description = f'<div style="text-align: justify;">{i.subsection_description}</div>'
-
 		else:
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
@@ -181,6 +168,10 @@ class FinancialReport(Document):
 						note_table = self.get_other_equity_note_data()
 					if note_type == "Borrowings (Non-current)":
 						note_table = self.get_borrowing_non_current_note_data("Borrowings (Non-current)")
+					if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+						note_table = self.get_finished_goods_and_wip(note_type, total = False, field=None)
+					if note_type == "Cost of Materials Consumed":
+						note_table = self.get_cost_of_material_consumed(note_type, total = False, field=None)
 						
 					if note_table:
 						context = {"note_table": note_table}
@@ -200,6 +191,156 @@ class FinancialReport(Document):
 			"doc": self.as_dict()
 		}
 
+	def get_cost_of_material_consumed(self, note_type, total, field):
+		rows = []
+		current_year_date, previous_year_date = self.get_current_and_prevous_year_date()
+
+		closing_stock_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
+		closing_stock_current = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.fiscal_year)
+		purchases_current = self.sum_group_amt("Material consumed", "Cost of goods sold", self.fiscal_year) - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - closing_stock_previous)
+		cost_consumed_current = closing_stock_previous + purchases_current - closing_stock_current
+
+		fiscal_year = self.get_fiscal_year_by_date(self.previous_year_ending_date)
+		fiscal_year_before_previous = self.get_fiscal_year_before(fiscal_year)
+		if fiscal_year_before_previous:
+			closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", fiscal_year_before_previous)
+		else:
+			closing_stock_pre_previous =  12343
+		closing_stock_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
+		purchases_previous = self.sum_group_amt("Material consumed", "Cost of goods sold", self.previous_fiscal_year) - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_previous_year_total') + (closing_stock_previous - closing_stock_pre_previous)
+		cost_consumed_previous = closing_stock_pre_previous + purchases_previous - closing_stock_previous
+		
+		if total:
+			if field == 'cost_consumed_current':
+				return cost_consumed_current
+			elif field == 'cost_consumed_previous':
+				return cost_consumed_previous
+			else:
+				return 0
+		
+		rows.extend([
+			{"particulars": "Opening Stock", "current_amt": closing_stock_previous, "previous_amt": closing_stock_pre_previous, "is_subtotal": False},
+			{"particulars": "Add: purchases & other related costs", "current_amt": purchases_current, "previous_amt": purchases_previous, "is_subtotal": False},
+			{"particulars": "Less: closing stock", "current_amt": closing_stock_current, "previous_amt": closing_stock_previous, "is_subtotal": False},
+			{"particulars": "Cost of materials consumed", "current_amt": cost_consumed_current, "previous_amt": cost_consumed_previous, "is_subtotal": True}
+		])
+		
+		# Generate HTML table
+		html = f'''
+		<table style="width:100%; border-collapse:collapse; font-size:13px;">
+			<thead>
+				<tr>
+					<th style="border:2px solid #222; text-align:left; width:50%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{current_year_date}</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{previous_year_date}</b></th>
+				</tr>
+			</thead>
+			<tbody>
+		'''
+		
+		for row in rows:
+			# Format amounts
+			current_amt_str = f"{row['current_amt']:,.0f}" if row['current_amt'] else "-"
+			previous_amt_str = f"{row['previous_amt']:,.0f}" if row['previous_amt'] else "-"
+			
+			# Style for totals
+			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
+			border_style = "border:2px solid #222;" if row["is_subtotal"] else "border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;"
+			
+			html += f'''
+				<tr>
+					<td style="{border_style} text-align:left; padding:6px 8px; {bold_style}">{row['particulars']}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{current_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_amt_str}</td>
+				</tr>
+			'''
+		
+		html += "</tbody></table>"
+		return html
+
+	def get_finished_goods_and_wip(self, note_type, total, field):
+		rows = []
+		current_year_date, previous_year_date = self.get_current_and_prevous_year_date()
+		
+		end_of_year_finished_goods = self.sum_group_amt("Inventories", "Finished Goods", self.fiscal_year)
+		end_of_year_wip = self.sum_group_amt("Inventories", "Work in Progress", self.fiscal_year)
+		end_of_year_total = end_of_year_finished_goods + end_of_year_wip
+		
+		beginning_of_year_finished_goods = self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+		beginning_of_year_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+		beginning_of_year_total = beginning_of_year_finished_goods + beginning_of_year_wip
+
+		fiscal_year = self.get_fiscal_year_by_date(self.previous_year_ending_date)
+		fiscal_year_before_previous = self.get_fiscal_year_before(fiscal_year)
+		
+		if not fiscal_year_before_previous:
+			beginning_of_previous_year_finished_goods = 0
+			beginning_of_previous_year_wip = 0
+		else:
+			beginning_of_previous_year_finished_goods = self.sum_group_amt("Inventories", "Finished Goods", fiscal_year_before_previous)
+			beginning_of_previous_year_wip = self.sum_group_amt("Inventories", "Work in Progress", fiscal_year_before_previous)
+		beginning_of_previous_year_total = beginning_of_previous_year_finished_goods + beginning_of_previous_year_wip
+		
+		net_increase_finished_goods = end_of_year_finished_goods - beginning_of_year_finished_goods
+		net_increase_wip = end_of_year_wip - beginning_of_year_wip
+		net_increase_total = beginning_of_year_total - end_of_year_total
+		
+		net_increase_previous_year_finished_goods = beginning_of_year_finished_goods - beginning_of_previous_year_finished_goods
+		net_increase_previous_year_wip = beginning_of_year_wip - beginning_of_previous_year_wip
+		net_increase_previous_year_total = beginning_of_previous_year_total - beginning_of_year_total
+		if total:
+			if field == 'net_increase_total':
+				return net_increase_total
+			elif field == 'net_increase_previous_year_total':
+				return net_increase_previous_year_total
+			else:
+				return 0
+		
+		rows.extend([
+			{"particulars": "Inventories at the end of the year","current_amt": 0,"previous_amt": 0,"is_subtotal": True},
+			{"particulars": "Finished goods","current_amt": end_of_year_finished_goods,"previous_amt": beginning_of_year_finished_goods,"is_subtotal": False},
+			{"particulars": "Work-in-progress","current_amt": end_of_year_wip,"previous_amt": beginning_of_year_wip,"is_subtotal": False},
+			{"particulars": "","current_amt": end_of_year_total,"previous_amt": beginning_of_year_total,"is_subtotal": False},
+			{"particulars": "Inventories at the beginning of the year","current_amt": 0,"previous_amt": 0,"is_subtotal": True},
+			{"particulars": "Finished goods","current_amt": beginning_of_year_finished_goods,"previous_amt": beginning_of_previous_year_finished_goods,"is_subtotal": False},
+			{"particulars": "Work-in-progress","current_amt": beginning_of_year_wip,"previous_amt": beginning_of_previous_year_wip,"is_subtotal": False},
+			{"particulars": "","current_amt": beginning_of_year_total,"previous_amt": beginning_of_previous_year_total,"is_subtotal": False},
+			{"particulars": "Net increase","current_amt": net_increase_total,"previous_amt": net_increase_previous_year_total,"is_subtotal": True}
+		])
+		
+		# Generate HTML table
+		html = f'''
+		<table style="width:100%; border-collapse:collapse; font-size:13px;">
+			<thead>
+				<tr>
+					<th style="border:2px solid #222; text-align:left; width:50%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px;"><b>{current_year_date}</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px;"><b>{previous_year_date}</b></th>
+				</tr>
+			</thead>
+			<tbody>
+		'''
+		
+		for row in rows:
+			# Format amounts
+			current_amt_str = f"{row['current_amt']:,.0f}" if row['current_amt'] else "-"
+			previous_amt_str = f"{row['previous_amt']:,.0f}" if row['previous_amt'] else "-"
+			
+			# Style for totals
+			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
+			border_style = "border:2px solid #222;" if row["is_subtotal"] else "border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;"
+			
+			html += f'''
+				<tr>
+					<td style="{border_style} text-align:left; padding:6px 8px; {bold_style}">{row['particulars']}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{current_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_amt_str}</td>
+				</tr>
+			'''
+		
+		html += "</tbody></table>"
+		return html
+
 	def get_borrowing_non_current_note_data(self, primary_group):
 		rows = []
 		
@@ -212,7 +353,7 @@ class FinancialReport(Document):
 			total_current_amt = 0
 			total_previous_amt = 0
 
-		secondary_group = frappe.get_all("Consolidation Group",filters={"parent_consolidation_group": primary_group},
+		secondary_group = frappe.get_all("Standalone Group",filters={"parent_consolidation_group": primary_group},
 			fields=["name", "ind_as_description"]
 		)
 
@@ -714,7 +855,7 @@ class FinancialReport(Document):
 		return table
 
 	def get_consolidation_note_data(self, primary_consolidation_group):
-		secondary_consolidation_groups = frappe.db.get_list("Consolidation Group", {"parent_consolidation_group": primary_consolidation_group}, pluck="name")
+		secondary_consolidation_groups = frappe.db.get_list("Standalone Group", {"parent_consolidation_group": primary_consolidation_group}, pluck="name")
 		data = []
 		
 		if self.report_type == "Monthly":
@@ -841,30 +982,42 @@ class FinancialReport(Document):
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
 		amount_cache = {}
 
-		def calc_amount_for_particular(particular_name, year):
+		def calc_amount_for_particular(particular_name, year, current=0):
 			cache_key = (particular_name, year)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
-
+			amount = 0
 			fr_particular = frappe.get_doc("FR Particular", particular_name)
 			if getattr(fr_particular, "is_total", 0):
-				amount = 0
 				for p in getattr(fr_particular, "particulars", []):
 					child_name = p.particular
 					amount += calc_amount_for_particular(child_name, year)
 				amount = amount * 100000
+			elif getattr(fr_particular, "fetch_from_schedule", 1):
+				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
+				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+					field = 'net_increase_total' if current else 'net_increase_previous_year_total'
+					amount = self.get_finished_goods_and_wip(note_type, total = True, field=field) 
+				if note_type == "Cost of Materials Consumed":
+					field = 'cost_consumed_current' if current else 'cost_consumed_previous'
+					amount = self.get_cost_of_material_consumed(note_type, total = True, field=field)
+				amount = amount * 100000
 			else:
-				gl_code, amount = [], 0
+				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
 					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company, "report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					if len(gl_account) > 0:
-						placeholders = ','.join(['%s'] * len(gl_account))
-						query = f"""
-							SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-							WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-						"""
-						params = [self.company, year] + gl_account
-						amount += (frappe.db.sql(query, params)[0][0] or 0)
+					gl_accounts.extend(gl_account)
+				
+				if len(gl_accounts) == 0:
+					amount = 0
+				else:
+					placeholders = ','.join(['%s'] * len(gl_accounts))
+					query = f"""
+						SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
+						WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+					"""
+					params = [self.company, year] + gl_accounts
+					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
 			# Apply value reversal if show_reversed_value is checked
 			if getattr(fr_particular, "show_reversed_value", 0):
@@ -878,8 +1031,8 @@ class FinancialReport(Document):
 			if not row.account:
 				continue
 			
-			amount_current = calc_amount_for_particular(row.account, self.fiscal_year)
-			amount_previous = calc_amount_for_particular(row.account, self.previous_fiscal_year)
+			amount_current = calc_amount_for_particular(row.account, self.fiscal_year, 1)
+			amount_previous = calc_amount_for_particular(row.account, self.previous_fiscal_year, 0)
 			grouped_data.append({
 				"account": row.particular_name,
 				"note_no": row.note,
@@ -955,19 +1108,19 @@ class FinancialReport(Document):
 					amount += calc_amount_for_particular(child_name, year)
 				amount = amount * 100000
 			else:
-				gl_code = []
+				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
 					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					gl_code.append(gl_account)
-				if len(gl_code) == 0:
+					gl_accounts.extend(gl_account)
+				if len(gl_accounts) == 0:
 					amount = 0
 				else:
-					placeholders = ','.join(['%s'] * len(gl_code))
+					placeholders = ','.join(['%s'] * len(gl_accounts))
 					query = f"""
 						SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-						WHERE company=%s AND fiscal_year=%s AND gl_code IN ({placeholders})
+						WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
 					"""
-					params = [self.company, year] + gl_code
+					params = [self.company, year] + gl_accounts
 					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
 			# Apply value reversal if show_reversed_value is checked
@@ -1104,22 +1257,27 @@ class FinancialReport(Document):
 				return amount_cache[cache_key]
 
 			fr_particular = frappe.get_doc("FR Particular", particular_name)
-			if getattr(fr_particular, "is_total", 0):
+			if getattr(fr_particular, "is_total", 1):
 				amount = 0
 				for p in getattr(fr_particular, "particulars", []):
 					child_name = p.particular
 					amount += calc_amount_for_particular(child_name, year)
+				amount = amount * 100000
 			else:
-				consolidation_groups = [g.consolidation_group for g in getattr(fr_particular, "consolidation_groups", []) if g.consolidation_group]
-				if not consolidation_groups:
+				gl_accounts = []
+				for g in fr_particular.get('primary_and_secondary_group_mapping'):
+					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
+					gl_accounts.extend(gl_account)
+
+				if len(gl_accounts) == 0:
 					amount = 0
 				else:
-					placeholders = ','.join(['%s'] * len(consolidation_groups))
+					placeholders = ','.join(['%s'] * len(gl_accounts))
 					query = f"""
 						SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-						WHERE company=%s AND fiscal_year=%s AND primary_consolidation_group IN ({placeholders})
+						WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
 					"""
-					params = [self.company, year] + consolidation_groups
+					params = [self.company, year] + gl_accounts
 					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
 			# Apply value reversal if show_reversed_value is checked
@@ -1263,13 +1421,220 @@ class FinancialReport(Document):
 			})
 
 	"""	    ################################################################################################
-		#######################                Monthly Financial Report Logic                #######################
+		    ################################################################################################
+		#######################                                                              #####################
+		#######################                                                              #####################
+		#######################                Monthly Financial Report Logic                #####################
+		#######################                                                              #####################
+		#######################                                                              #####################
+		    ################################################################################################
 		    ################################################################################################        """
+
+	def get_monthly_dates(self, only_dates=False):
+		"""Get formatted dates for monthly reports with proper column labels"""
+		if not self.current_month or not self.previous_month:
+			return "", "", ""
+		
+		current_year = int(self.current_year_ending_date.split("-")[0] if self.current_year_ending_date else datetime.now().year) -1
+		month_num = {
+			'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+			'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+		}
+		
+		current_month_num = month_num.get(self.current_month, 1)
+		previous_month_num = month_num.get(self.previous_month, 1)
+		
+		if current_month_num == 12:
+			month_end_date = datetime(int(current_year) + 1, 1, 1) - timedelta(days=1)
+		else:
+			month_end_date = datetime(int(current_year), current_month_num + 1, 1) - timedelta(days=1)
+		
+		if previous_month_num == 12:
+			previous_month_end_date = datetime(int(current_year), 12, 31)
+		elif previous_month_num == 1:
+			previous_month_end_date = datetime(int(current_year) - 1, 12, 31)
+		else:
+			previous_month_end_date = datetime(int(current_year), previous_month_num + 1, 1) - timedelta(days=1)
+
+		if only_dates:
+			return month_end_date, previous_month_end_date
+
+		month_end_label = f"Year Ended {month_end_date.strftime('%d/%m/%Y')}"
+		current_fiscal_year_end_label = f"Year Ended {previous_month_end_date.strftime('%d/%m/%Y')}"
+		if self.previous_year_ending_date:
+			if isinstance(self.previous_year_ending_date, str):
+				previous_year_date_obj = datetime.strptime(self.previous_year_ending_date, "%Y-%m-%d")
+			else:
+				previous_year_date_obj = self.previous_year_ending_date
+			previous_fiscal_year_end_label = f"Year Ended {previous_year_date_obj.strftime('%d/%m/%Y')}"
+		else:
+			previous_fiscal_year_end_label = ""
+		
+		return month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label
+
+
+	def get_monthly_finished_goods_and_wip(self, note_type, total, field=None):
+		rows = []
+		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+		
+		current_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.current_month, self.fiscal_year)
+		current_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.current_month, self.fiscal_year)
+		current_month_total = current_month_finished_goods + current_month_wip
+		
+		previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.previous_month, self.fiscal_year)
+		previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.previous_month, self.fiscal_year)
+		previous_month_total = previous_month_finished_goods + previous_month_wip
+		
+		ftm_finished_goods = current_month_finished_goods - previous_month_finished_goods
+		ftm_wip = current_month_wip - previous_month_wip
+		ftm_total = ftm_finished_goods + ftm_wip
+		
+		net_increase_finished_goods = current_month_finished_goods - previous_month_finished_goods
+		net_increase_wip = current_month_wip - previous_month_wip
+		net_increase_total = current_month_total - previous_month_total
+		
+		if total:
+			if field == 'net_increase_total':
+				return net_increase_total
+			elif field == 'ftm_total':
+				return ftm_total
+			else:
+				return 0
+		
+		rows.extend([
+			{"particulars": "Inventories at the end of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0,"is_subtotal": True},
+			{"particulars": "Finished goods","current_month_amt": current_month_finished_goods,"previous_month_amt": previous_month_finished_goods,"ftm_amt": ftm_finished_goods,"is_subtotal": False},
+			{"particulars": "Work-in-progress","current_month_amt": current_month_wip,"previous_month_amt": previous_month_wip,"ftm_amt": ftm_wip,"is_subtotal": False},
+			{"particulars": "","current_month_amt": current_month_total,"previous_month_amt": previous_month_total,"ftm_amt": ftm_total,"is_subtotal": False},
+			{"particulars": "Inventories at the beginning of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0,"is_subtotal": True},
+			{"particulars": "Finished goods","current_month_amt": previous_month_finished_goods,"previous_month_amt": previous_month_finished_goods,"ftm_amt": previous_month_finished_goods,"is_subtotal": False},
+			{"particulars": "Work-in-progress","current_month_amt": previous_month_wip,"previous_month_amt": previous_month_wip,"ftm_amt": previous_month_wip,"is_subtotal": False},
+			{"particulars": "","current_month_amt": previous_month_total,"previous_month_amt": previous_month_total,"ftm_amt": previous_month_total,"is_subtotal": False},
+			{"particulars": "Net increase","current_month_amt": net_increase_total,"previous_month_amt": 0,"ftm_amt": ftm_total - previous_month_total,"is_subtotal": True}
+		])
+		
+		html = f'''
+		<table style="width:100%; border-collapse:collapse; font-size:13px;">
+			<thead>
+				<tr>
+					<th style="border:2px solid #222; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px;"><b>{month_end_label}</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px;"><b>FTM</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
+				</tr>
+			</thead>
+			<tbody>
+		'''
+		
+		for row in rows:
+			# Format amounts
+			current_month_amt_str = f"{row['current_month_amt']:,.0f}" if row['current_month_amt'] else ""
+			previous_month_amt_str = f"{row['previous_month_amt']:,.0f}" if row['previous_month_amt'] else ""
+			ftm_amt_str = f"{row['ftm_amt']:,.0f}" if row['ftm_amt'] else ""
+			
+			# Style for totals
+			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
+			border_style = "border:2px solid #222;" if row["is_subtotal"] else "border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;"
+			
+			html += f'''
+				<tr>
+					<td style="{border_style} text-align:left; padding:6px 8px; {bold_style}">{row['particulars']}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{current_month_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{ftm_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_month_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}"></td>
+				</tr>
+			'''
+		
+		html += "</tbody></table>"
+		return html
+
+	def get_monthly_cost_of_material_consumed(self, note_type, total, field=None):
+		rows = []
+		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+		
+		# Get opening stock (beginning of month)
+		opening_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year)
+		opening_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.previous_month, self.fiscal_year)
+		
+		# Get purchases and other related costs
+		purchases_current = self.sum_group_amt_monthly("Cost of Goods Sold", "Raw Material Consumption", self.current_month, self.fiscal_year)
+		purchases_previous = self.sum_group_amt_monthly("Cost of Goods Sold", "Raw Material Consumption", self.previous_month, self.fiscal_year)
+		
+		# Get closing stock (end of month)
+		closing_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year)
+		closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.previous_month, self.fiscal_year)
+		
+		# Calculate cost of materials consumed
+		cost_consumed_current = opening_stock_current + purchases_current - closing_stock_current
+		cost_consumed_previous = opening_stock_previous + purchases_previous - closing_stock_previous
+		
+		# FTM calculations
+		ftm_opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year, is_ftm=True)
+		ftm_purchases = self.sum_group_amt_monthly("Cost of Goods Sold", "Raw Material Consumption", self.current_month, self.fiscal_year, is_ftm=True)
+		ftm_closing_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year, is_ftm=True)
+		ftm_cost_consumed = ftm_opening_stock + ftm_purchases - ftm_closing_stock
+		
+		if total:
+			if field == 'cost_consumed_current':
+				return cost_consumed_current
+			elif field == 'cost_consumed_previous':
+				return cost_consumed_previous
+			elif field == 'ftm_cost_consumed':
+				return ftm_cost_consumed
+			else:
+				return 0
+		
+		rows.extend([
+			{"particulars": "Opening Stock", "current_month_amt": opening_stock_current, "previous_month_amt": opening_stock_previous, "ftm_amt": ftm_opening_stock, "is_subtotal": False},
+			{"particulars": "Add: purchases & other related costs", "current_month_amt": purchases_current, "previous_month_amt": purchases_previous, "ftm_amt": ftm_purchases, "is_subtotal": False},
+			{"particulars": "Less: closing stock", "current_month_amt": -closing_stock_current, "previous_month_amt": -closing_stock_previous, "ftm_amt": -ftm_closing_stock, "is_subtotal": False},
+			{"particulars": "Cost of materials consumed", "current_month_amt": cost_consumed_current, "previous_month_amt": cost_consumed_previous, "ftm_amt": ftm_cost_consumed, "is_subtotal": True}
+		])
+		
+		# Generate HTML table
+		html = f'''
+		<table style="width:100%; border-collapse:collapse; font-size:13px;">
+			<thead>
+				<tr>
+					<th style="border:2px solid #222; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>FTM</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{previous_fiscal_year_end_label}</b></th>
+				</tr>
+			</thead>
+			<tbody>
+		'''
+		
+		for row in rows:
+			# Format amounts
+			current_month_amt_str = f"{row['current_month_amt']:,.0f}" if row['current_month_amt'] else "-"
+			ftm_amt_str = f"{row['ftm_amt']:,.0f}" if row['ftm_amt'] else "-"
+			previous_month_amt_str = f"{row['previous_month_amt']:,.0f}" if row['previous_month_amt'] else "-"
+			
+			# Style for totals
+			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
+			border_style = "border:2px solid #222;" if row["is_subtotal"] else "border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;"
+			
+			html += f'''
+				<tr>
+					<td style="{border_style} text-align:left; padding:6px 8px; {bold_style}">{row['particulars']}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{current_month_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{ftm_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_month_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}"></td>
+				</tr>
+			'''
+		
+		html += "</tbody></table>"
+		return html
 
 	@frappe.whitelist()
 	def get_monthly_consolidation_note_data(self, primary_consolidation_group):
 		"""Get monthly consolidation note data with current month, previous month, and FTM amounts"""
-		secondary_consolidation_groups = frappe.db.get_list("Consolidation Group", {"parent_consolidation_group": primary_consolidation_group}, pluck="name")
+		secondary_consolidation_groups = frappe.db.get_list("Standalone Group", {"parent_consolidation_group": primary_consolidation_group}, pluck="name")
 		data = []
 		
 		for sec in secondary_consolidation_groups:
@@ -1282,6 +1647,7 @@ class FinancialReport(Document):
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
+				"previous_year": 0,
 				"indent": 0,
 				"is_bold": 0
 			})
@@ -1300,8 +1666,9 @@ class FinancialReport(Document):
 					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
 					<th style='text-align:center; padding: 5px; width: 10%; border: 1px solid black;'>Note No.</th>
 					<th style='text-align:center; padding: 5px; width: 13%; border: 1px solid black;'>{month_end_label}</th>
+					<th style='text-align:center; padding: 5px; width: 14%; border: 1px solid black;'>FTM</th>
 					<th style='text-align:center; padding: 5px; width: 13%; border: 1px solid black;'>{current_fiscal_year_end_label}</th>
-					<th style='text-align:center; padding: 5px; width: 14%; border: 1px solid black;'>{previous_fiscal_year_end_label}</th>
+					<th style='text-align:center; padding: 5px; width: 13%; border: 1px solid black;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -1374,8 +1741,9 @@ class FinancialReport(Document):
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_label}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["current_month_amount"]) if row.get("current_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["ftm_amount"]) if row.get("ftm_amount") else ""}</td>
+					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
+					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year"]) if row.get("previous_year") else ""}</td>
 				</tr>
 			"""
 
@@ -1384,8 +1752,8 @@ class FinancialReport(Document):
 
 	def render_monthly_profit_and_loss(self, template_name):
 		"""Render monthly profit and loss with optimized table structure"""
+		current_month_end, previous_month_end, previous_fiscal_year_end_label = self.get_monthly_dates()
 		data = self.get_monthly_profit_and_loss_data(template_name)
-		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		html = f"""
 		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
@@ -1394,8 +1762,9 @@ class FinancialReport(Document):
 					<th style='text-align:left; padding: 5px; width: 5%; border: 1px solid black;'></th>
 					<th style='text-align:left; padding: 5px; width: 40%; border: 1px solid black;'>Particulars</th>
 					<th style='text-align:center; padding: 5px; width: 10%; border: 1px solid black;'>Note No.</th>
-					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>{month_end_label}</th>
-					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>{current_fiscal_year_end_label}</th>
+					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>{current_month_end}</th>
+					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>FTM</th>
+					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>{previous_month_end}</th>
 					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
@@ -1424,8 +1793,9 @@ class FinancialReport(Document):
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("account") or ""}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["current_month_amount"]) if row.get("current_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["ftm_amount"]) if row.get("ftm_amount") else ""}</td>
+					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
+					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year"]) if row.get("previous_year") else ""}</td>
 				</tr>
 			"""
 		html += "</tbody></table>"
@@ -1443,6 +1813,7 @@ class FinancialReport(Document):
 					<th style='text-align:center; padding: 5px; width: 5%; border: 1px solid black;'></th>
 					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
 					<th style='text-align:center; padding: 5px; width: 16%; border: 1px solid black;'>{month_end_label}</th>
+					<th style='text-align:center; padding: 5px; width: 16%; border: 1px solid black;'>FTM</th>
 					<th style='text-align:center; padding: 5px; width: 16%; border: 1px solid black;'>{current_fiscal_year_end_label}</th>
 					<th style='text-align:center; padding: 5px; width: 18%; border: 1px solid black;'>{previous_fiscal_year_end_label}</th>
 				</tr>
@@ -1471,8 +1842,9 @@ class FinancialReport(Document):
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("account") or ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["current_month_amount"]) if row.get("current_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["ftm_amount"]) if row.get("ftm_amount") else ""}</td>
+					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
+					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year"]) if row.get("previous_year") else ""}</td>
 				</tr>
 			"""
 		html += "</tbody></table>"
@@ -1542,6 +1914,7 @@ class FinancialReport(Document):
 				<tr style="background-color: #f1f1f1;">
 					<th style='border:2px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
 					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 20%;'>{month_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 20%;'>FTM</th>
 					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 20%;'>{current_fiscal_year_end_label}</th>
 					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 20%;'>{previous_fiscal_year_end_label}</th>
 				</tr>
@@ -1552,21 +1925,25 @@ class FinancialReport(Document):
 		total_current_month = 0
 		total_previous_month = 0
 		total_ftm = 0
+		total_previous_year = 0
 		for i, row in enumerate(data):
 			indent = "&nbsp;" * (int(row.get("indent", 0)) * 4)
 			bold = "font-weight: bold;" if row.get("is_bold") else ""
 			current_month_amount = row.get('current_month_amount') or 0
 			previous_month_amount = row.get('previous_month_amount') or 0
 			ftm_amount = row.get('ftm_amount') or 0
+			previous_year = row.get('previous_year') or 0
 			total_current_month += current_month_amount
 			total_previous_month += previous_month_amount
 			total_ftm += ftm_amount
+			total_previous_year += previous_year
 			note_table += f'''
 			<tr>
 				<td style='text-align:left; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{row.get("account") or ""}</td>
 				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(current_month_amount) if current_month_amount else ''}</td>
-				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(previous_month_amount) if previous_month_amount else ''}</td>
 				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(ftm_amount) if ftm_amount else ''}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(previous_month_amount) if previous_month_amount else ''}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(previous_year) if previous_year else ''}</td>
 			</tr>
 			'''
 		# Add total row as footer
@@ -1574,8 +1951,9 @@ class FinancialReport(Document):
 			<tr>
 				<td style='text-align:left; padding: 5px; border:2px solid #222; font-weight: bold;'>Total</td>
 				<td style='text-align:right; padding: 5px; border:2px solid #222; font-weight: bold;'>{'{:,.2f}'.format(total_current_month)}</td>
-				<td style='text-align:right; padding: 5px; border:2px solid #222; font-weight: bold;'>{'{:,.2f}'.format(total_previous_month)}</td>
 				<td style='text-align:right; padding: 5px; border:2px solid #222; font-weight: bold;'>{'{:,.2f}'.format(total_ftm)}</td>
+				<td style='text-align:right; padding: 5px; border:2px solid #222; font-weight: bold;'>{'{:,.2f}'.format(total_previous_month)}</td>
+				<td style='text-align:right; padding: 5px; border:2px solid #222; font-weight: bold;'>{'{:,.2f}'.format(total_previous_year)}</td>
 			</tr>
 		'''
 		note_table += "</tbody></table>"
@@ -1586,65 +1964,50 @@ class FinancialReport(Document):
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
 		amount_cache = {}
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_ftm=False):
-			cache_key = (particular_name, month, year, is_ftm)
+		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False):
+			cache_key = (particular_name, year)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
 			fr_particular = frappe.get_doc("FR Particular", particular_name)
-			if getattr(fr_particular, "is_total", 0):
+			if getattr(fr_particular, "is_total", 1):
 				amount = 0
 				for p in getattr(fr_particular, "particulars", []):
 					child_name = p.particular
-					amount += calc_amount_for_particular_monthly(child_name, month, year, is_ftm)
+					if getattr(fr_particular, "to_subtract", 1):
+						if amount == 0:
+							amount = calc_amount_for_particular_monthly(child_name, month, year)
+						else:
+							amount -= calc_amount_for_particular_monthly(child_name, month, year)
+					else:
+						amount += calc_amount_for_particular_monthly(child_name, month, year)
+				amount = amount * 100000
+			elif getattr(fr_particular, "fetch_from_schedule", 1):
+				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
+				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+					field = 'ftm_total' if is_current else 'net_increase_total'
+					amount = self.get_monthly_finished_goods_and_wip(note_type, total = True, field=field)
+				elif note_type == "Cost of Materials Consumed":
+					field = 'ftm_cost_consumed' if is_current else 'cost_consumed_current'
+					amount = self.get_monthly_cost_of_material_consumed(note_type, total = True, field=field)
 				amount = amount * 100000
 			else:
-				gl_code, amount = [], 0
+				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
 					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company, "report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					if len(gl_account) > 0:
-						placeholders = ','.join(['%s'] * len(gl_account))
-						
-						if is_ftm:
-							# FTM calculation from fiscal year start to current month
-							month_num = {
-								'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-								'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-							}
-							fiscal_start = f"{year}-04-01"
-							if month_num[month] == 12:
-								month_end = f"{int(year)+1}-01-01"
-							else:
-								month_end = f"{year}-{month_num[month]+1:02d}-01"
-							
-							query = f"""
-								SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-								WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-								AND posting_date >= %s AND posting_date < %s
-							"""
-							params = [self.company, year] + gl_account + [fiscal_start, month_end]
-						else:
-							# Monthly calculation
-							month_num = {
-								'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-								'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-							}
-							month_start = f"{year}-{month_num[month]:02d}-01"
-							if month_num[month] == 12:
-								month_end = f"{int(year)+1}-01-01"
-							else:
-								month_end = f"{year}-{month_num[month]+1:02d}-01"
-							
-							query = f"""
-								SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-								WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-								AND date >= %s AND date < %s
-							"""
-							params = [self.company, year] + gl_account + [month_start, month_end]
-						
-						amount += (frappe.db.sql(query, params)[0][0] or 0)
+					gl_accounts.extend(gl_account)
+				if len(gl_accounts) == 0:
+					amount = 0
+				else:
+					placeholders = ','.join(['%s'] * len(gl_accounts))
+					query = f"""
+						SELECT SUM(uploaded_amount) FROM `tabFR Trail Balance Entry`
+						WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+						AND month = %s
+					"""
+					params = [self.company, year] + gl_accounts + [month]
+					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
-			# Apply value reversal if show_reversed_value is checked
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 			
@@ -1655,8 +2018,7 @@ class FinancialReport(Document):
 		for row in profit_and_loss_doc.profit_and_loss_template_details:
 			if not row.account:
 				continue
-			
-			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year)
+			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
 			
@@ -1666,6 +2028,7 @@ class FinancialReport(Document):
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
+				"previous_year": 0,
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"group": row.group,
@@ -1677,8 +2040,8 @@ class FinancialReport(Document):
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
 		amount_cache = {}
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_ftm=False):
-			cache_key = (particular_name, month, year, is_ftm)
+		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False):
+			cache_key = (particular_name, month, year)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
@@ -1687,58 +2050,34 @@ class FinancialReport(Document):
 				amount = 0
 				for p in getattr(fr_particular, "particulars", []):
 					child_name = p.particular
-					amount += calc_amount_for_particular_monthly(child_name, month, year, is_ftm)
+					amount += calc_amount_for_particular_monthly(child_name, month, year)
 				amount = amount * 100000
+			elif getattr(fr_particular, "fetch_from_schedule", 1):
+				amount = 0
+				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
+				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+					field = 'ftm_total' if is_current else 'net_increase_total'
+					amount = self.get_monthly_finished_goods_and_wip(note_type, total = True, field=field)
+				elif note_type == "Cost of Materials Consumed":
+					field = 'ftm_cost_consumed' if is_current else 'cost_consumed_current'
+					amount = self.get_monthly_cost_of_material_consumed(note_type, total = True, field=field)
 			else:
-				gl_code = []
+				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
 					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					gl_code.append(gl_account)
-				if len(gl_code) == 0:
+					gl_accounts.extend(gl_account)
+				if len(gl_accounts) == 0:
 					amount = 0
 				else:
-					placeholders = ','.join(['%s'] * len(gl_code))
-					
-					if is_ftm:
-						# FTM calculation from fiscal year start to current month
-						month_num = {
-							'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-							'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-						}
-						fiscal_start = f"{year}-04-01"
-						if month_num[month] == 12:
-							month_end = f"{int(year)+1}-01-01"
-						else:
-							month_end = f"{year}-{month_num[month]+1:02d}-01"
-						
-						query = f"""
-							SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-							WHERE company=%s AND fiscal_year=%s AND gl_code IN ({placeholders})
-							AND posting_date >= %s AND posting_date < %s
-						"""
-						params = [self.company, year] + gl_code + [fiscal_start, month_end]
-					else:
-						# Monthly calculation
-						month_num = {
-							'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-							'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-						}
-						month_start = f"{year}-{month_num[month]:02d}-01"
-						if month_num[month] == 12:
-							month_end = f"{int(year)+1}-01-01"
-						else:
-							month_end = f"{year}-{month_num[month]+1:02d}-01"
-						
-						query = f"""
-							SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-							WHERE company=%s AND fiscal_year=%s AND gl_code IN ({placeholders})
-							AND posting_date >= %s AND posting_date < %s
-						"""
-						params = [self.company, year] + gl_code + [month_start, month_end]
-					
+					placeholders = ','.join(['%s'] * len(gl_accounts))
+					query = f"""
+						SELECT SUM(uploaded_amount) FROM `tabFR Trail Balance Entry`
+						WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+						AND month = %s
+					"""
+					params = [self.company, year] + gl_accounts + [month]
 					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
-			# Apply value reversal if show_reversed_value is checked
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 			
@@ -1751,13 +2090,14 @@ class FinancialReport(Document):
 				continue
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
-			ftm_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_ftm=True)
+			ftm_amount = current_month_amount - previous_month_amount
 			data.append({
 				"account": row.particular_name,
 				"note_no": row.note,
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
+				"previous_year": 0,
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"header": row.header,
@@ -1770,60 +2110,34 @@ class FinancialReport(Document):
 		cash_flow_doc = frappe.get_doc("Cash Flow Template", template_name)
 		amount_cache = {}
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_ftm=False):
-			cache_key = (particular_name, month, year, is_ftm)
+		def calc_amount_for_particular_monthly(particular_name, month, year):
+			cache_key = (particular_name, month, year)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
 			fr_particular = frappe.get_doc("FR Particular", particular_name)
-			if getattr(fr_particular, "is_total", 0):
+			if getattr(fr_particular, "is_total", 1):
 				amount = 0
 				for p in getattr(fr_particular, "particulars", []):
 					child_name = p.particular
-					amount += calc_amount_for_particular_monthly(child_name, month, year, is_ftm)
+					amount += calc_amount_for_particular_monthly(child_name, month, year)
+				amount = amount * 100000
 			else:
-				consolidation_groups = [g.consolidation_group for g in getattr(fr_particular, "consolidation_groups", []) if g.consolidation_group]
-				if not consolidation_groups:
+				gl_accounts = []
+				for g in fr_particular.get('primary_and_secondary_group_mapping'):
+					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
+					gl_accounts.extend(gl_account)
+					
+				if len(gl_accounts) == 0:
 					amount = 0
 				else:
-					placeholders = ','.join(['%s'] * len(consolidation_groups))
-					
-					if is_ftm:
-						# FTM calculation from fiscal year start to current month
-						month_num = {
-							'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-							'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-						}
-						fiscal_start = f"{year}-04-01"
-						if month_num[month] == 12:
-							month_end = f"{int(year)+1}-01-01"
-						else:
-							month_end = f"{year}-{month_num[month]+1:02d}-01"
-						
-						query = f"""
-							SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-							WHERE company=%s AND fiscal_year=%s AND primary_consolidation_group IN ({placeholders})
-							AND posting_date >= %s AND posting_date < %s
-						"""
-						params = [self.company, year] + consolidation_groups + [fiscal_start, month_end]
-					else:
-						# Monthly calculation
-						month_num = {
-							'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-							'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-						}
-						month_start = f"{year}-{month_num[month]:02d}-01"
-						if month_num[month] == 12:
-							month_end = f"{int(year)+1}-01-01"
-						else:
-							month_end = f"{year}-{month_num[month]+1:02d}-01"
-						
-						query = f"""
-							SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
-							WHERE company=%s AND fiscal_year=%s AND primary_consolidation_group IN ({placeholders})
-							AND posting_date >= %s AND posting_date < %s
-						"""
-						params = [self.company, year] + consolidation_groups + [month_start, month_end]
+					placeholders = ','.join(['%s'] * len(gl_accounts))
+					query = f"""
+						SELECT SUM(amount) FROM `tabFR Trail Balance Entry`
+						WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
+						AND month >= %s
+					"""
+					params = [self.company, year] + gl_accounts + [month]
 					
 					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
@@ -1840,13 +2154,14 @@ class FinancialReport(Document):
 				continue
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
-			ftm_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_ftm=True)
+			ftm_amount = current_month_amount - previous_month_amount
 			data.append({
 				"account": row.particular_name,
 				"note_no": getattr(row, "note", None),
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
+				"previous_year": 0,
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"group": row.group,
@@ -1861,7 +2176,7 @@ class FinancialReport(Document):
 		total_ftm_amt = 0
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
-		secondary_group = frappe.get_all("Consolidation Group",filters={"parent_consolidation_group": primary_group},
+		secondary_group = frappe.get_all("Standalone Group",filters={"parent_consolidation_group": primary_group},
 			fields=["name", "ind_as_description"]
 		)
 
@@ -2066,6 +2381,7 @@ class FinancialReport(Document):
 		total_current = 0
 		total_previous = 0
 		total_ftm = 0
+		total_previous_year = 0
 
 		for company in all_companies:
 			current_equity_entries = frappe.get_all("FR Equity Entry", 
@@ -2093,7 +2409,7 @@ class FinancialReport(Document):
 			total_current += amount_current
 			total_previous += amount_previous
 			total_ftm += amount_ftm
-
+			total_previous_year += amount_previous
 			data.append({
 				"particulars": company,
 				"face_value": f"₹ {face_value:.0f}" if face_value else "NA",
@@ -2103,6 +2419,8 @@ class FinancialReport(Document):
 				"amount_previous": amount_previous_str,
 				"shares_ftm": shares_ftm_str,
 				"amount_ftm": amount_ftm_str,
+				"shares_previous_year": shares_ftm_str,
+				"amount_previous_year": amount_ftm_str,
 				"bold": 0
 			})
 
@@ -2115,6 +2433,8 @@ class FinancialReport(Document):
 			"amount_previous": f"{total_previous:,.0f}",
 			"shares_ftm": "",
 			"amount_ftm": f"{total_ftm:,.0f}",
+			"shares_previous_year": f"{total_ftm:,.0f}",
+			"amount_previous_year": f"{total_ftm:,.0f}",
 			"bold": 1
 		})
 
@@ -2125,6 +2445,7 @@ class FinancialReport(Document):
 					<th style="border:2px solid #222; text-align:left; width:40%; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
 					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;"><b>Face Value</b></th>
 					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" colspan="2"><b>{month_end_label}</b></th>
+					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" colspan="2"><b>FTM</b></th>
 					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" colspan="2"><b>{current_fiscal_year_end_label}</b></th>
 					<th style="border:2px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" colspan="2"><b>{previous_fiscal_year_end_label}</b></th>
 				</tr>
@@ -2134,9 +2455,11 @@ class FinancialReport(Document):
 					<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>No. of shares</b></th>
 					<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>(₹ in lacs)</b></th>
 					<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>No. of shares</b></th>
-					<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>(₹ in lacs)</b></th>
-					<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>No. of shares</b></th>
-					<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>(₹ in lacs)</b></th>
+						<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>(₹ in lacs)</b></th>
+						<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>No. of shares</b></th>
+						<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>(₹ in lacs)</b></th>
+						<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>No. of shares</b></th>
+						<th style="border:2px solid #222; text-align:center; background:#fafbfc;"><b>(₹ in lacs)</b></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -2152,10 +2475,12 @@ class FinancialReport(Document):
 					<td style="border:2px solid #222; text-align:center;">{row['face_value']}</td>
 					<td style="border:2px solid #222; text-align:right;">{row['shares_current']}</td>
 					<td style="border:2px solid #222; text-align:right;">{row['amount_current']}</td>
-					<td style="border:2px solid #222; text-align:right;">{row['shares_previous']}</td>
-					<td style="border:2px solid #222; text-align:right;">{row['amount_previous']}</td>
 					<td style="border:2px solid #222; text-align:right;">{row['shares_ftm']}</td>
 					<td style="border:2px solid #222; text-align:right;">{row['amount_ftm']}</td>
+					<td style="border:2px solid #222; text-align:right;">{row['shares_previous']}</td>
+					<td style="border:2px solid #222; text-align:right;">{row['amount_previous']}</td>
+					<td style="border:2px solid #222; text-align:right;">{row['shares_previous_year']}</td>
+					<td style="border:2px solid #222; text-align:right;">{row['amount_previous_year']}</td>
 				</tr>
 				'''
 			else:
@@ -2165,10 +2490,12 @@ class FinancialReport(Document):
 					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:center;">{row['face_value']}</td>
 					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['shares_current']}</td>
 					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['amount_current']}</td>
-					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['shares_previous']}</td>
-					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['amount_previous']}</td>
 					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['shares_ftm']}</td>
 					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['amount_ftm']}</td>
+					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['shares_previous']}</td>
+					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;">{row['amount_previous']}</td>
+					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;"></td>
+					<td style="border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; text-align:right;"></td>
 				</tr>
 				'''
 		table += "</tbody></table>"
