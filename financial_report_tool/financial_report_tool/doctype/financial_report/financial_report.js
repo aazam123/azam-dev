@@ -6,6 +6,31 @@ frappe.ui.form.on("Financial Report", {
         frm.set_query('financial_report_template',{
             'company': frm.doc.company
         })
+        
+        // Override grid functions for note number updates
+        if (frm.grid) {
+            const originalAddRow = frm.grid.add_row;
+            const originalDeleteRow = frm.grid.delete_row;
+            const originalMoveRow = frm.grid.move_row;
+            
+            frm.grid.add_row = function(...args) {
+                const result = originalAddRow.apply(this, args);
+                setTimeout(async () => await updateNoteNumbers(frm), 100);
+                return result;
+            };
+            
+            frm.grid.delete_row = function(...args) {
+                const result = originalDeleteRow.apply(this, args);
+                setTimeout(async () => await updateNoteNumbers(frm), 100);
+                return result;
+            };
+            
+            frm.grid.move_row = function(...args) {
+                const result = originalMoveRow.apply(this, args);
+                setTimeout(async () => await updateNoteNumbers(frm), 100);
+                return result;
+            };
+        }
     },
 	financial_report_template(frm) {
         frappe.call({
@@ -13,6 +38,8 @@ frappe.ui.form.on("Financial Report", {
             doc: frm.doc,
             callback: function(rsp){
                 frm.refresh_field('financial_report_details')
+                // Update note numbers after template is loaded
+                setTimeout(async () => await updateNoteNumbers(frm), 200);
             }
         })
 	},
@@ -38,7 +65,16 @@ frappe.ui.form.on("Financial Report", {
             frm.add_custom_button("Generate Report", function() {
                 generateFinancialReport(frm);
             }, "Generate");
+            
+            // Add button to manually update note numbers
+            frm.add_custom_button("Update Note Numbers", async function() {
+                await updateNoteNumbers(frm);
+                frappe.msgprint("Note numbers updated successfully!");
+            }, "Generate");
         }
+        
+        // Update note numbers on form refresh
+        setTimeout(async () => await updateNoteNumbers(frm), 500);
     }
 });
 
@@ -59,14 +95,49 @@ frappe.ui.form.on("Financial Report Details", {
 		}
 
 		frm.refresh_field('financial_report_details');
+		// Update note numbers after section type change
+		setTimeout(async () => await updateNoteNumbers(frm), 100);
 	},
     section: async function(frm, cdt, cdn) {
         await section(frm, cdt, cdn);
+        // Update note numbers after section change
+        setTimeout(async () => await updateNoteNumbers(frm), 100);
     },
 	subsection: async function(frm, cdt, cdn) {
         await subsection(frm, cdt, cdn);
     }
 });
+
+
+// Function to update note numbers
+async function updateNoteNumbers(frm) {
+    if (!frm.doc.financial_report_details) return;
+    
+    let noteCounter = 4;
+    
+    for (let i = 0; i < frm.doc.financial_report_details.length; i++) {
+        const row = frm.doc.financial_report_details[i];
+        
+        if (row.section_type === "Consolidation Note" && row.section) {
+            try {
+                const response = await frappe.db.get_value('FR Section', row.section, 'is_schedule');
+                if (response && response.message && response.message.is_schedule) {
+                    row.note_no = noteCounter.toString();
+                    noteCounter++;
+                } else {
+                    row.note_no = "";
+                }
+            } catch (error) {
+                console.error("Error fetching is_schedule for section:", row.section, error);
+                row.note_no = "";
+            }
+        } else {
+            row.note_no = "";
+        }
+    }
+    
+    frm.refresh_field('financial_report_details');
+}
 
 
 async function section(frm, cdt, cdn) {
