@@ -23,7 +23,6 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Particular",
-   "link_filters": "[[\"FR Particular\",\"template_type\",\"=\",\"Balance Sheet\"]]",
    "options": "FR Particular"
   },
   {
@@ -88,7 +87,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-13 00:08:15.254415",
+ "modified": "2025-07-24 14:15:31.261251",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Balance Sheet Template Details",

@@ -2,6 +2,11 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("Financial Report", {
+    setup(frm){
+        frm.set_query('financial_report_template',{
+            'company': frm.doc.company
+        })
+    },
 	financial_report_template(frm) {
         frappe.call({
             method: 'get_financial_report_template',
@@ -18,6 +23,15 @@ frappe.ui.form.on("Financial Report", {
                 const print_url = `/printview?doctype=Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;
                 window.open(print_url, '_blank');
             });
+            
+            // Add direct export buttons
+            frm.add_custom_button("Export Excel", function() {
+                exportToExcel(frm);
+            }, "Export");
+            
+            frm.add_custom_button("Export PDF", function() {
+                exportToPDF(frm);
+            }, "Export");
         }
         
         if (frm.doc.docstatus === 0) {
@@ -164,3 +178,44 @@ function updateProgress(dialog, percentage, message) {
     progress_fill.css('width', percentage + '%');
     progress_text.text(message);
 }
+
+function exportToExcel(frm) {
+    frappe.call({
+        method: 'export_to_excel',
+        doc: frm.doc,
+        callback: function(r) {
+            if (r.exc) {
+                frappe.msgprint("Error exporting to Excel: " + r.exc, "Error");
+            } else if (r.message) {
+                const link = document.createElement('a');
+                link.href = r.message.file_url;
+                link.download = r.message.file_name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                frappe.msgprint("Excel file exported successfully!", "Success");
+            }
+        }
+    });
+}
+
+function exportToPDF(frm) {
+    frappe.call({
+        method: 'export_to_pdf',
+        doc: frm.doc,
+        callback: function(r) {
+            if (r.exc) {
+                frappe.msgprint("Error exporting to PDF: " + r.exc, "Error");
+            } else if (r.message) {
+                const link = document.createElement('a');
+                link.href = r.message.file_url;
+                link.download = r.message.file_name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                frappe.msgprint("PDF file exported successfully!", "Success");
+            }
+        }
+    });
+}
+

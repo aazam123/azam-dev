@@ -13,6 +13,7 @@
   "note_no",
   "column_break_evum",
   "section",
+  "section_name",
   "column_break_fvni",
   "subsection",
   "section_break_fzud",
@@ -75,6 +76,7 @@
    "read_only": 1
   },
   {
+   "depends_on": "eval: doc.section_type != \"Consolidation Note\";",
    "fieldname": "table_data",
    "fieldtype": "Text Editor",
    "label": "Table Data",
@@ -97,13 +99,19 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Note No."
+  },
+  {
+   "fieldname": "section_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Section Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-08 17:45:11.580628",
+ "modified": "2025-07-24 15:47:10.723095",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Details",

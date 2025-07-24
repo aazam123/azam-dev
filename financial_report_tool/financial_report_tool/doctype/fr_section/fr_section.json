@@ -1,16 +1,19 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
- "autoname": "field:section_type_name",
+ "autoname": "format:{section_type_name}-{company}",
  "creation": "2025-07-04 20:40:45.617341",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "section_type_name",
-  "fetch_data_from_trial_balance",
+  "note_type",
   "primary_consolidation_group",
   "column_break_ftjl",
-  "note_type",
+  "company",
+  "fetch_data_from_trial_balance",
+  "is_schedule",
   "section_break_alpv",
   "section_type_description"
  ],
@@ -19,6 +22,7 @@
    "fieldname": "section_type_name",
    "fieldtype": "Data",
    "label": "Section Name",
+   "reqd": 1,
    "unique": 1
   },
   {
@@ -58,16 +62,29 @@
   {
    "fieldname": "section_break_alpv",
    "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_schedule",
+   "fieldtype": "Check",
+   "label": "Is Schedule"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-23 17:09:49.675095",
+ "modified": "2025-07-24 15:20:10.386527",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Section",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

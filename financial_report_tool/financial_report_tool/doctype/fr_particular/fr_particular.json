@@ -10,18 +10,17 @@
   "particular_type",
   "template_type",
   "particular_name",
+  "schedule",
   "particulars",
-  "subtract_particulars",
   "column_break_mexs",
+  "company",
   "is_total",
   "to_subtract",
   "has_note_no",
   "show_reversed_value",
   "fetch_from_schedule",
-  "schedule",
   "section_break_hygu",
-  "primary_and_secondary_group_mapping",
-  "subtract_primary_and_secondary_group"
+  "primary_and_secondary_group_mapping"
  ],
  "fields": [
   {
@@ -92,19 +91,10 @@
    "label": "Fetch From Schedule"
   },
   {
-   "depends_on": "eval: doc.fetch_from_schedule;",
    "fieldname": "schedule",
    "fieldtype": "Link",
    "label": "Schedule",
    "options": "FR Section"
-  },
-  {
-   "depends_on": "eval: doc.is_total;",
-   "fieldname": "subtract_particulars",
-   "fieldtype": "Table MultiSelect",
-   "hidden": 1,
-   "label": "Subtract Particulars",
-   "options": "FR Particular MultiSelect"
   },
   {
    "default": "0",
@@ -114,18 +104,17 @@
    "label": "To Subtract"
   },
   {
-   "depends_on": "eval: !doc.is_total && !doc.fetch_from_schedule;",
-   "fieldname": "subtract_primary_and_secondary_group",
-   "fieldtype": "Table",
-   "hidden": 1,
-   "label": "Subtract Primary and Secondary Group",
-   "options": "FR Particular Consolation Group"
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-22 14:13:29.789552",
+ "modified": "2025-07-24 14:58:09.590655",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",

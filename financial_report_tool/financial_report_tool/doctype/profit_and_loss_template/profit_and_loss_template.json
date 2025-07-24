@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "profit_and_loss_template",
+  "company",
   "profit_and_loss_template_details"
  ],
  "fields": [
@@ -21,12 +22,20 @@
    "fieldtype": "Table",
    "label": "Profit And Loss Template Details",
    "options": "Profit And Loss Template Details"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-07 14:23:01.978441",
+ "modified": "2025-07-24 14:17:03.397892",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Profit And Loss Template",

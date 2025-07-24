@@ -1,11 +1,17 @@
 // Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
 // For license information, please see license.txt
 
-// frappe.ui.form.on("Financial Report Template", {
-// 	refresh(frm) {
-
-// 	},
-// });
+frappe.ui.form.on("Financial Report Template", {
+	setup(frm) {
+        frm.set_query('section', 'financial_report_template_details', function() {
+            return {
+                filters: {
+                    'company': frm.doc.company
+                }
+            };
+        });
+	},
+});
 
 frappe.ui.form.on("Financial Report Template Details", {
 	section_type(frm, cdt, cdn) {

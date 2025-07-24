@@ -1,10 +1,18 @@
 // Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on('BalanceSheetTemplate', {
+frappe.ui.form.on('Balance Sheet Template', {
     refresh: function(frm) {
+        frm.set_query('account', 'balance_sheet_template_details', function() {
+            return {
+                filters: {
+                    "template_type": "Balance Sheet",
+                    'company': frm.doc.company
+                }
+            };
+        });
         update_note_numbers(frm);
-    }
+    },
 });
 
 frappe.ui.form.on('Balance Sheet Template Details', {
