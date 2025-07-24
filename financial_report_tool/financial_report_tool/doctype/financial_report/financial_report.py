@@ -1040,6 +1040,12 @@ class FinancialReport(Document):
 			amount_cache[cache_key] = int(round(amount / 100000))
 			return amount_cache[cache_key]
 
+		# Get note number mapping from financial report details
+		schedule_note_mapping = {}
+		for detail in self.financial_report_details:
+			if detail.section_type == "Consolidation Note" and detail.section and detail.note_no:
+				schedule_note_mapping[detail.section] = detail.note_no
+
 		grouped_data = []
 		for row in profit_and_loss_doc.profit_and_loss_template_details:
 			if not row.account:
@@ -1047,9 +1053,21 @@ class FinancialReport(Document):
 			
 			amount_current = calc_amount_for_particular(row.account, self.fiscal_year, 1)
 			amount_previous = calc_amount_for_particular(row.account, self.previous_fiscal_year, 0)
+			
+			# Get the schedule from FR Particular
+			fr_particular = frappe.get_doc("FR Particular", row.account)
+			schedule = getattr(fr_particular, "schedule", "")
+			
+			# Use note number from financial report details if available, otherwise use template note
+			note_no = None
+			if schedule and schedule in schedule_note_mapping:
+				note_no = schedule_note_mapping[schedule]
+			else:
+				note_no = row.note
+			
 			grouped_data.append({
 				"account": row.particular_name,
-				"note_no": row.note,
+				"note_no": note_no,
 				"amount": amount_current,
 				"previous_year_amount": amount_previous,
 				"indent": int(row.indent_level or 0),
@@ -1144,6 +1162,12 @@ class FinancialReport(Document):
 			amount_cache[cache_key] = int(round(amount / 100000))
 			return amount_cache[cache_key]
 
+		# Get note number mapping from financial report details
+		schedule_note_mapping = {}
+		for detail in self.financial_report_details:
+			if detail.section_type == "Consolidation Note" and detail.section and detail.note_no:
+				schedule_note_mapping[detail.section] = detail.note_no
+
 		data = []
 		for row in balance_sheet_doc.balance_sheet_template_details:
 			if not row.account:
@@ -1155,9 +1179,16 @@ class FinancialReport(Document):
 			fr_particular = frappe.get_doc("FR Particular", row.account)
 			schedule = getattr(fr_particular, "schedule", "")
 			
+			# Use note number from financial report details if available, otherwise use template note
+			note_no = None
+			if schedule and schedule in schedule_note_mapping:
+				note_no = schedule_note_mapping[schedule]
+			else:
+				note_no = row.note
+			
 			data.append({
 				"account": row.particular_name,
-				"note_no": row.note,
+				"note_no": note_no,
 				"amount_2024": amount_2024,
 				"amount_2023": amount_2023,
 				"indent": int(row.indent_level or 0),
@@ -1254,8 +1285,13 @@ class FinancialReport(Document):
 				else:
 					group_stack[-1]['last_indent_1'] = indent_val
 
+			# Add data-schedule attribute and clickable styling for account rows
+			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
+			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
+			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
+			
 			html += f"""
-				<tr>
+				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_label}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
@@ -1422,6 +1458,19 @@ class FinancialReport(Document):
 
 		template = frappe.get_doc("Financial Report Template", self.financial_report_template)
 
+		# First pass: collect consolidation note sections with is_schedule = 1
+		schedule_note_mapping = {}
+		note_counter = 4  # Start from 4 as requested
+		
+		for d in template.financial_report_template_details:
+			if d.section_type == "Consolidation Note" and d.section:
+				# Check if the FR Section has is_schedule = 1
+				section_data = frappe.db.get_value("FR Section", d.section, ["is_schedule"], as_dict=True)
+				if section_data and section_data.is_schedule == 1:
+					schedule_note_mapping[d.section] = note_counter
+					note_counter += 1
+
+		# Second pass: populate financial report details with note numbers
 		for d in template.financial_report_template_details:
 			context = {
 				"company": self.company
@@ -1431,6 +1480,11 @@ class FinancialReport(Document):
 			subsection_desc = frappe.render_template(d.subsection_description or "", context)
 			subsection_desc = f'<div style="text-align: justify;">{subsection_desc}</div>'
 			
+			# Assign note number if it's a consolidation note with is_schedule = 1
+			note_no = None
+			if d.section_type == "Consolidation Note" and d.section and d.section in schedule_note_mapping:
+				note_no = schedule_note_mapping[d.section]
+			
 			self.append('financial_report_details', {
 				'section_type': d.section_type,
 				'doctype_name': d.doctype_name,
@@ -1438,6 +1492,7 @@ class FinancialReport(Document):
 				'subsection': d.subsection,
 				'section_description': section_desc,
 				'subsection_description': subsection_desc,
+				'note_no': note_no,
 			})
 
 	"""	    ################################################################################################
@@ -1755,8 +1810,13 @@ class FinancialReport(Document):
 				else:
 					group_stack[-1]['last_indent_1'] = indent_val
 
+			# Add data-schedule attribute and clickable styling for account rows
+			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
+			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
+			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
+			
 			html += f"""
-				<tr>
+				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_label}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
@@ -2104,6 +2164,12 @@ class FinancialReport(Document):
 			amount_cache[cache_key] = int(round(amount / 100000))
 			return amount_cache[cache_key]
 
+		# Get note number mapping from financial report details
+		schedule_note_mapping = {}
+		for detail in self.financial_report_details:
+			if detail.section_type == "Consolidation Note" and detail.section and detail.note_no:
+				schedule_note_mapping[detail.section] = detail.note_no
+
 		data = []
 		for row in balance_sheet_doc.balance_sheet_template_details:
 			if not row.account:
@@ -2111,9 +2177,21 @@ class FinancialReport(Document):
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
+			
+			# Get the schedule from FR Particular
+			fr_particular = frappe.get_doc("FR Particular", row.account)
+			schedule = getattr(fr_particular, "schedule", "")
+			
+			# Use note number from financial report details if available, otherwise use template note
+			note_no = None
+			if schedule and schedule in schedule_note_mapping:
+				note_no = schedule_note_mapping[schedule]
+			else:
+				note_no = row.note
+			
 			data.append({
 				"account": row.particular_name,
-				"note_no": row.note,
+				"note_no": note_no,
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
@@ -2122,6 +2200,7 @@ class FinancialReport(Document):
 				"is_bold": row.is_bold,
 				"header": row.header,
 				"group": row.group,
+				"schedule": schedule,
 			})
 		return data
 

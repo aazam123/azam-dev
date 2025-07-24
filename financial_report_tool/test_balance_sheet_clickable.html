@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balance Sheet Clickable Test</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            line-height: 1.4;
+            margin: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            border: 1px solid black;
+            margin-bottom: 30px;
+        }
+        
+        th, td {
+            border: 1px solid black;
+            padding: 5px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f1f1f1;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .clickable-row {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .clickable-row:hover {
+            background-color: #e9ecef !important;
+        }
+        
+        .section-highlight {
+            background-color: #fff3cd !important;
+            border: 2px solid #ffc107 !important;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .financial-section {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            background-color: #f8f9fa;
+        }
+        
+        .section-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Balance Sheet Clickable Test</h1>
+    
+    <!-- Balance Sheet Table -->
+    <h2>Balance Sheet</h2>
+    <table>
+        <thead>
+            <tr>
+                <th width="5%"></th>
+                <th width="45%">Particulars</th>
+                <th width="10%">Note No.</th>
+                <th width="20%">As at 31st March, 2024</th>
+                <th width="20%">As at 31st March, 2023</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr data-schedule="Current Assets" class="clickable-row" style="background-color: #f8f9fa;">
+                <td style="text-align: center;">(A)</td>
+                <td style="font-weight: bold;">CURRENT ASSETS</td>
+                <td style="text-align: center;"></td>
+                <td style="text-align: right; background-color: #e8f5e8;">1,500,000</td>
+                <td style="text-align: right;">1,200,000</td>
+            </tr>
+            <tr data-schedule="Cash and Cash Equivalents" class="clickable-row" style="background-color: #f8f9fa;">
+                <td style="text-align: center;"></td>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;(a) Cash and Cash Equivalents</td>
+                <td style="text-align: center;">1</td>
+                <td style="text-align: right; background-color: #e8f5e8;">500,000</td>
+                <td style="text-align: right;">400,000</td>
+            </tr>
+            <tr data-schedule="Trade Receivables" class="clickable-row" style="background-color: #f8f9fa;">
+                <td style="text-align: center;"></td>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;(b) Trade Receivables</td>
+                <td style="text-align: center;">2</td>
+                <td style="text-align: right; background-color: #e8f5e8;">800,000</td>
+                <td style="text-align: right;">600,000</td>
+            </tr>
+            <tr data-schedule="Inventories" class="clickable-row" style="background-color: #f8f9fa;">
+                <td style="text-align: center;"></td>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;(c) Inventories</td>
+                <td style="text-align: center;">3</td>
+                <td style="text-align: right; background-color: #e8f5e8;">200,000</td>
+                <td style="text-align: right;">200,000</td>
+            </tr>
+            <tr data-schedule="Non-Current Assets" class="clickable-row" style="background-color: #f8f9fa;">
+                <td style="text-align: center;">(B)</td>
+                <td style="font-weight: bold;">NON-CURRENT ASSETS</td>
+                <td style="text-align: center;"></td>
+                <td style="text-align: right; background-color: #e8f5e8;">3,000,000</td>
+                <td style="text-align: right;">2,800,000</td>
+            </tr>
+            <tr data-schedule="Property Plant and Equipment" class="clickable-row" style="background-color: #f8f9fa;">
+                <td style="text-align: center;"></td>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;(a) Property, Plant and Equipment</td>
+                <td style="text-align: center;">4</td>
+                <td style="text-align: right; background-color: #e8f5e8;">2,500,000</td>
+                <td style="text-align: right;">2,300,000</td>
+            </tr>
+            <tr data-schedule="Intangible Assets" class="clickable-row" style="background-color: #f8f9fa;">
+                <td style="text-align: center;"></td>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;(b) Intangible Assets</td>
+                <td style="text-align: center;">5</td>
+                <td style="text-align: right; background-color: #e8f5e8;">500,000</td>
+                <td style="text-align: right;">500,000</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <!-- Financial Report Details Sections -->
+    <h2>Financial Report Details</h2>
+    
+    <div class="financial-section" data-section="Current Assets">
+        <div class="section-title">1: Current Assets</div>
+        <p>This section includes all assets that are expected to be converted to cash or consumed within one year from the reporting date. Current assets are presented in order of liquidity.</p>
+        <p>Key components include cash and cash equivalents, trade receivables, inventories, and other short-term assets.</p>
+    </div>
+    
+    <div class="financial-section" data-section="Cash and Cash Equivalents">
+        <div class="section-title">1: Cash and Cash Equivalents</div>
+        <p>Cash and cash equivalents comprise cash on hand and demand deposits, together with other short-term, highly liquid investments that are readily convertible to a known amount of cash and which are subject to an insignificant risk of changes in value.</p>
+        <p>This includes bank balances, petty cash, and short-term investments with maturities of three months or less from the date of acquisition.</p>
+    </div>
+    
+    <div class="financial-section" data-section="Trade Receivables">
+        <div class="section-title">2: Trade Receivables</div>
+        <p>Trade receivables are amounts due from customers for goods sold or services rendered in the ordinary course of business. They are initially recognized at fair value and subsequently measured at amortized cost using the effective interest method.</p>
+        <p>An allowance for doubtful debts is maintained to cover potential losses from uncollectible receivables.</p>
+    </div>
+    
+    <div class="financial-section" data-section="Inventories">
+        <div class="section-title">3: Inventories</div>
+        <p>Inventories are measured at the lower of cost and net realizable value. Cost includes all costs of purchase, costs of conversion, and other costs incurred in bringing the inventories to their present location and condition.</p>
+        <p>Net realizable value is the estimated selling price in the ordinary course of business, less the estimated costs of completion and the estimated costs necessary to make the sale.</p>
+    </div>
+    
+    <div class="financial-section" data-section="Non-Current Assets">
+        <div class="section-title">4: Non-Current Assets</div>
+        <p>Non-current assets are assets that are not expected to be converted to cash or consumed within one year from the reporting date. These assets are held for use in the production or supply of goods or services, for rental to others, or for administrative purposes.</p>
+        <p>They are initially recognized at cost and subsequently measured using various accounting policies depending on the nature of the asset.</p>
+    </div>
+    
+    <div class="financial-section" data-section="Property Plant and Equipment">
+        <div class="section-title">4: Property, Plant and Equipment</div>
+        <p>Property, plant and equipment are tangible items that are held for use in the production or supply of goods or services, for rental to others, or for administrative purposes and are expected to be used during more than one period.</p>
+        <p>They are initially recognized at cost and subsequently measured at cost less accumulated depreciation and accumulated impairment losses.</p>
+    </div>
+    
+    <div class="financial-section" data-section="Intangible Assets">
+        <div class="section-title">5: Intangible Assets</div>
+        <p>Intangible assets are identifiable non-monetary assets without physical substance. They are initially recognized at cost and subsequently measured at cost less accumulated amortization and accumulated impairment losses.</p>
+        <p>Common examples include patents, trademarks, software, and goodwill.</p>
+    </div>
+    
+    <script>
+        function handleBalanceSheetRowClick(event) {
+            const row = event.target.closest('tr');
+            if (!row) return;
+            
+            const schedule = row.getAttribute('data-schedule');
+            if (!schedule) return;
+            
+            // Remove previous highlights
+            document.querySelectorAll('.section-highlight').forEach(el => {
+                el.classList.remove('section-highlight');
+            });
+            
+            // Find the target section
+            const targetSection = document.querySelector(`[data-section=\"${schedule}\"]`);
+            if (targetSection) {
+                // Scroll to the section
+                targetSection.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+                
+                // Highlight the section
+                targetSection.classList.add('section-highlight');
+                
+                // Remove highlight after 3 seconds
+                setTimeout(() => {
+                    targetSection.classList.remove('section-highlight');
+                }, 3000);
+            }
+        }
+        
+        // Add click event listeners when document is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click handlers to balance sheet rows
+            document.querySelectorAll('tr[data-schedule]').forEach(row => {
+                row.addEventListener('click', handleBalanceSheetRowClick);
+            });
+        });
+    </script>
+</body>
+</html> 
