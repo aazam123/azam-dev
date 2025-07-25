@@ -70,6 +70,12 @@ app_license = "mit"
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
 
+# Website Routes
+# ------------
+
+# Remove the website route as it's not working properly
+# We'll use the standard API method approach instead
+
 # Jinja
 # ----------
 

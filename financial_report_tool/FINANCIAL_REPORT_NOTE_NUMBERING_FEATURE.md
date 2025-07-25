@@ -2,7 +2,7 @@
 
 ## Overview
 
-This feature automatically assigns note numbers to "Consolidation Note" sections in Financial Reports, starting from 4. The note numbers are automatically updated when rows are added, deleted, or moved up/down.
+This feature automatically assigns note numbers to "Consolidation Note" sections in Financial Reports, starting from 4. The note numbers are automatically updated when rows are added, deleted, or moved up/down. Additionally, these note numbers are mapped to corresponding rows in Balance Sheet and Profit & Loss templates based on the schedule field.
 
 ## Features
 
@@ -25,6 +25,12 @@ This feature automatically assigns note numbers to "Consolidation Note" sections
 - **Grid Operations**: Note numbers update immediately after grid operations
 - **Form Refresh**: Note numbers are updated when the form is refreshed
 - **Template Loading**: Note numbers are updated after financial report template is loaded
+
+### 4. **Cross-Template Note Number Mapping**
+- **Balance Sheet Integration**: Note numbers from Financial Report are mapped to Balance Sheet rows based on schedule
+- **Profit & Loss Integration**: Note numbers from Financial Report are mapped to P&L rows based on schedule
+- **Monthly Reports**: Note number mapping works for both regular and monthly reports
+- **Automatic Fallback**: If no schedule mapping exists, falls back to template note numbers
 
 ## Technical Implementation
 
@@ -68,6 +74,52 @@ def update_note_numbers(self):
     self.update_consolidation_note_numbers()
     self.save()
     frappe.msgprint("Note numbers updated successfully!")
+```
+
+**5. Balance Sheet Note Number Mapping**
+```python
+def get_balance_sheet_data(self, template_name):
+    # Get note number mapping from financial report details
+    schedule_note_mapping = {}
+    for detail in self.financial_report_details:
+        if detail.section_type == "Consolidation Note" and detail.section and detail.note_no:
+            schedule_note_mapping[detail.section] = detail.note_no
+
+    # For each balance sheet row
+    for row in balance_sheet_doc.balance_sheet_template_details:
+        # Get the schedule from FR Particular
+        fr_particular = frappe.get_doc("FR Particular", row.account)
+        schedule = getattr(fr_particular, "schedule", "")
+        
+        # Use note number from financial report details if available, otherwise use template note
+        note_no = None
+        if schedule and schedule in schedule_note_mapping:
+            note_no = schedule_note_mapping[schedule]
+        else:
+            note_no = row.note
+```
+
+**6. Profit & Loss Note Number Mapping**
+```python
+def get_profit_and_loss_data(self, template_name):
+    # Get note number mapping from financial report details
+    schedule_note_mapping = {}
+    for detail in self.financial_report_details:
+        if detail.section_type == "Consolidation Note" and detail.section and detail.note_no:
+            schedule_note_mapping[detail.section] = detail.note_no
+
+    # For each P&L row
+    for row in profit_and_loss_doc.profit_and_loss_template_details:
+        # Get the schedule from FR Particular
+        fr_particular = frappe.get_doc("FR Particular", row.account)
+        schedule = getattr(fr_particular, "schedule", "")
+        
+        # Use note number from financial report details if available, otherwise use template note
+        note_no = None
+        if schedule and schedule in schedule_note_mapping:
+            note_no = schedule_note_mapping[schedule]
+        else:
+            note_no = row.note
 ```
 
 ### Frontend (JavaScript)
@@ -159,6 +211,12 @@ section: async function(frm, cdt, cdn) {
 2. System will recalculate and assign note numbers
 3. Success message will be displayed
 
+### 5. **Cross-Template Note Number Mapping**
+1. **Automatic Mapping**: When you generate a Financial Report, note numbers are automatically mapped to Balance Sheet and P&L rows
+2. **Schedule-Based**: Mapping is based on the `schedule` field in FR Particular records
+3. **Fallback**: If no schedule mapping exists, the original template note numbers are used
+4. **Consistency**: Same note numbers appear across Financial Report, Balance Sheet, and P&L for related items
+
 ## Data Structure
 
 ### Financial Report Details Child Table
@@ -173,6 +231,15 @@ IF section_type == "Consolidation Note" AND section IS NOT EMPTY:
     note_no = sequential_number_starting_from_4
 ELSE:
     note_no = ""
+```
+
+### Cross-Template Note Number Mapping Logic
+```
+FOR each row in Balance Sheet/P&L:
+    IF fr_particular.schedule EXISTS AND schedule IN financial_report_details:
+        note_no = financial_report_details[schedule].note_no
+    ELSE:
+        note_no = template_row.note
 ```
 
 ## Configuration

@@ -23,6 +23,22 @@ class FinancialReport(Document):
 			if i.section_type == "Consolidation Note" and i.section:
 				i.section_name = frappe.get_value("FR Section", i.section, 'section_type_name')
 
+	def get_note_number_for_schedule(self, schedule_name):
+		"""Get the note number for a given schedule"""
+		if not schedule_name:
+			return ""
+		
+		note_counter = 4
+		for i in self.financial_report_details:
+			if i.section_type == "Consolidation Note" and i.section:
+				# Check if the FR Section has is_schedule = 1
+				section_data = frappe.db.get_value("FR Section", i.section, ["is_schedule"], as_dict=True)
+				if section_data and section_data.is_schedule == 1:
+					if i.section == schedule_name:
+						return str(note_counter)
+					note_counter += 1
+		return ""
+
 	def update_consolidation_note_numbers(self):
 		"""Update note numbers for consolidation notes starting from 4"""
 		note_counter = 4
@@ -1075,14 +1091,27 @@ class FinancialReport(Document):
 			
 			amount_current = calc_amount_for_particular(row.account, self.fiscal_year, 1)
 			amount_previous = calc_amount_for_particular(row.account, self.previous_fiscal_year, 0)
+			
+			# Get the schedule from FR Particular
+			fr_particular = frappe.get_doc("FR Particular", row.account)
+			schedule = getattr(fr_particular, "schedule", "")
+			
+			# Get note number for schedule if it exists
+			note_no = row.note
+			if schedule:
+				schedule_note_no = self.get_note_number_for_schedule(schedule)
+				if schedule_note_no:
+					note_no = schedule_note_no
+			
 			grouped_data.append({
 				"account": row.particular_name,
-				"note_no": row.note,
+				"note_no": note_no,
 				"amount": amount_current,
 				"previous_year_amount": amount_previous,
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"group": row.group,
+				"schedule": schedule,
 			})
 		return grouped_data
 
@@ -1122,8 +1151,14 @@ class FinancialReport(Document):
 				group_counter += 1
 			else:
 				index = ""
+			
+			# Add data-schedule attribute and clickable styling for account rows
+			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
+			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
+			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
+			
 			html += f"""
-				<tr>
+				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{index}</td>
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("particular_name") or row.get("account") or ""}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
@@ -1183,9 +1218,16 @@ class FinancialReport(Document):
 			fr_particular = frappe.get_doc("FR Particular", row.account)
 			schedule = getattr(fr_particular, "schedule", "")
 			
+			# Get note number for schedule if it exists
+			note_no = row.note
+			if schedule:
+				schedule_note_no = self.get_note_number_for_schedule(schedule)
+				if schedule_note_no:
+					note_no = schedule_note_no
+			
 			data.append({
 				"account": row.particular_name,
-				"note_no": row.note,
+				"note_no": note_no,
 				"amount_2024": amount_2024,
 				"amount_2023": amount_2023,
 				"indent": int(row.indent_level or 0),
@@ -1845,8 +1887,14 @@ class FinancialReport(Document):
 				group_counter += 1
 			else:
 				index = ""
+			
+			# Add data-schedule attribute and clickable styling for account rows
+			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
+			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
+			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
+			
 			html += f"""
-				<tr>
+				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{index}</td>
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("account") or ""}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
@@ -2080,9 +2128,20 @@ class FinancialReport(Document):
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
 			
+			# Get the schedule from FR Particular
+			fr_particular = frappe.get_doc("FR Particular", row.account)
+			schedule = getattr(fr_particular, "schedule", "")
+			
+			# Get note number for schedule if it exists
+			note_no = ""
+			if schedule:
+				schedule_note_no = self.get_note_number_for_schedule(schedule)
+				if schedule_note_no:
+					note_no = schedule_note_no
+			
 			grouped_data.append({
 				"account": row.particular_name,
-				"note_no": row.note,
+				"note_no": note_no,
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
@@ -2090,6 +2149,7 @@ class FinancialReport(Document):
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"group": row.group,
+				"schedule": schedule,
 			})
 		return grouped_data
 
@@ -2154,9 +2214,16 @@ class FinancialReport(Document):
 			fr_particular = frappe.get_doc("FR Particular", row.account)
 			schedule = getattr(fr_particular, "schedule", "")
 			
+			# Get note number for schedule if it exists
+			note_no = ""
+			if schedule:
+				schedule_note_no = self.get_note_number_for_schedule(schedule)
+				if schedule_note_no:
+					note_no = schedule_note_no
+			
 			data.append({
 				"account": row.particular_name,
-				"note_no": row.note,
+				"note_no": note_no,
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,

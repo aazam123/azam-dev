@@ -56,7 +56,7 @@ frappe.ui.form.on("Financial Report", {
                 exportToExcel(frm);
             }, "Export");
             
-            frm.add_custom_button("Export PDF", function() {
+            frm.add_custom_button("Export PDF (with Note Linking)", function() {
                 exportToPDF(frm);
             }, "Export");
         }
@@ -128,7 +128,6 @@ async function updateNoteNumbers(frm) {
                     row.note_no = "";
                 }
             } catch (error) {
-                console.error("Error fetching is_schedule for section:", row.section, error);
                 row.note_no = "";
             }
         } else {
@@ -271,21 +270,30 @@ function exportToExcel(frm) {
 }
 
 function exportToPDF(frm) {
+    // Show loading message
+    frappe.msgprint("Generating PDF with note linking...", "Info");
+    
     frappe.call({
         method: 'export_to_pdf',
         doc: frm.doc,
         callback: function(r) {
-            if (r.exc) {
+            if (r && r.exc) {
                 frappe.msgprint("Error exporting to PDF: " + r.exc, "Error");
-            } else if (r.message) {
+            } else if (r && r.message) {
+                // Create a link to download the file
                 const link = document.createElement('a');
                 link.href = r.message.file_url;
                 link.download = r.message.file_name;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                frappe.msgprint("PDF file exported successfully!", "Success");
+                frappe.msgprint("PDF exported successfully with note linking!", "Success");
+            } else {
+                frappe.msgprint("PDF exported successfully!", "Success");
             }
+        },
+        error: function(xhr, status, error) {
+            frappe.msgprint("Error exporting PDF: " + error, "Error");
         }
     });
 }

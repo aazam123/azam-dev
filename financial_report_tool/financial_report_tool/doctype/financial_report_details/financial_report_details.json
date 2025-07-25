@@ -76,7 +76,6 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval: doc.section_type != \"Consolidation Note\";",
    "fieldname": "table_data",
    "fieldtype": "Text Editor",
    "label": "Table Data",
