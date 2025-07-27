@@ -23,6 +23,15 @@ class FinancialReport(Document):
 			if i.section_type == "Consolidation Note" and i.section:
 				i.section_name = frappe.get_value("FR Section", i.section, 'section_type_name')
 
+	def generate_note_id(self, note_no, note_title):
+		"""Generate consistent ID for note anchors"""
+		if not note_no or not note_title:
+			return ""
+		# Clean the title for use as ID (remove special chars, replace spaces with underscores)
+		clean_title = re.sub(r'[^a-zA-Z0-9\s]', '', note_title).strip()
+		clean_title = re.sub(r'\s+', '_', clean_title).lower()
+		return f"note_{note_no}_{clean_title}"
+
 	def get_note_number_for_schedule(self, schedule_name):
 		"""Get the note number for a given schedule"""
 		if not schedule_name:
@@ -192,6 +201,12 @@ class FinancialReport(Document):
 					i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 					i.subsection_description = f'<div style="text-align: justify;">{i.subsection_description}</div>'
+					
+					# Wrap consolidation note with anchor ID for PDF navigation
+					if i.note_no and i.section_name:
+						note_id = self.generate_note_id(i.note_no, i.section_name)
+						if note_id:
+							i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
 		else:
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
@@ -239,6 +254,12 @@ class FinancialReport(Document):
 					i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 					i.subsection_description = f'<div style="text-align: justify;">{i.subsection_description}</div>'
+					
+					# Wrap consolidation note with anchor ID for PDF navigation
+					if i.note_no and i.section_name:
+						note_id = self.generate_note_id(i.note_no, i.section_name)
+						if note_id:
+							i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
 
 		self.save()		
 		return {
@@ -1157,10 +1178,17 @@ class FinancialReport(Document):
 			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
 			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
 			
+			# Add anchor link for schedule navigation
+			account_text = row.get("particular_name") or row.get("account") or ""
+			if row.get("schedule") and row.get("note_no"):
+				note_id = self.generate_note_id(row.get("note_no"), account_text)
+				if note_id:
+					account_text = f'<a href="#{note_id}" style="color: #000000;">{account_text}</a>'
+			
 			html += f"""
 				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{index}</td>
-					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("particular_name") or row.get("account") or ""}</td>
+					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_text}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["amount"]) if row.get("amount") else ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year_amount"]) if row.get("previous_year_amount") else ""}</td>
@@ -1329,10 +1357,17 @@ class FinancialReport(Document):
 			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
 			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
 			
+			# Add anchor link for schedule navigation
+			account_text = account_label
+			if row.get("schedule") and row.get("note_no"):
+				note_id = self.generate_note_id(row.get("note_no"), account_label)
+				if note_id:
+					account_text = f'<a href="#{note_id}" style="color: #000000;">{account_label}</a>'
+			
 			html += f"""
 				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
-					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_label}</td>
+					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_text}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["amount_2024"]) if row.get("amount_2024") else ""}</td>
 					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["amount_2023"]) if row.get("amount_2023") else ""}</td>
@@ -1749,67 +1784,55 @@ class FinancialReport(Document):
 		return data
 
 	def render_monthly_balance_sheet(self, template_name):
-		"""Render monthly balance sheet with optimized table structure"""
+		"""Render monthly balance sheet with note-style UI"""
 		data = self.get_monthly_balance_sheet_data(template_name)
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		html = f"""
-		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
 				<tr style="background-color: #f1f1f1;">
-					<th style='text-align:center; padding: 5px; width: 5%; border: 1px solid black;'></th>
-					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
-					<th style='text-align:center; padding: 5px; width: 10%; border: 1px solid black;'>Note No.</th>
-					<th style='text-align:center; padding: 5px; width: 13%; border: 1px solid black; background-color: #e8f5e8;'>{month_end_label}</th>
-					<th style='text-align:center; padding: 5px; width: 14%; border: 1px solid black;'>FTM</th>
-					<th style='text-align:center; padding: 5px; width: 13%; border: 1px solid black;'>{current_fiscal_year_end_label}</th>
-					<th style='text-align:center; padding: 5px; width: 13%; border: 1px solid black;'>{previous_fiscal_year_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 5%;'></th>
+					<th style='border:2px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>Note No.</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 15%; background-color: #e8f5e8;'>{month_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>FTM</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>{current_fiscal_year_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
 		"""
 
+		# Counters for structured index generation
 		header_counter = 0
 		group_counter = 0
-		def to_alpha(idx):
-			return f"({chr(65+idx)})"
-		def to_roman(idx):
-			romans = [
-				'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
-				'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'
-			]
-			return f"({romans[idx]})" if idx < len(romans) else f"({idx+1})"
-		def to_lower_alpha(idx):
-			return f"({chr(97+idx)})"
-		def to_lower_roman(idx):
-			romans = [
-				'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x',
-				'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx'
-			]
-			return f"({romans[idx]})" if idx < len(romans) else f"({idx+1})"
+		group_stack = [{'alpha_counter': 0, 'roman_counter': 0, 'indent': 0, 'last_indent_1': None}]
 
-		# Stack to track group/indent context
-		group_stack = []
-		group_stack.append({'alpha_counter': 0, 'roman_counter': 0, 'indent': 0, 'last_indent_1': None})
+		# Helpers for indices
+		def to_alpha(idx): return f"({chr(65+idx)})"
+		def to_roman(idx): return f"({['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX'][idx]})"
+		def to_lower_alpha(idx): return f"({chr(97+idx)})"
+		def to_lower_roman(idx): return f"({['i','ii','iii','iv','v','vi','vii','viii','ix','x','xi','xii','xiii','xiv','xv','xvi','xvii','xviii','xix','xx'][idx]})"
 
-		for idx, row in enumerate(data):
+		for row in data:
 			indent_val = int(row.get("indent", 0))
 			indent = "&nbsp;" * (indent_val * 4)
 			bold = "font-weight: bold;" if row.get("is_bold") else ""
+			account_label = row.get("account") or ""
+			note_no = row.get("note_no")
+			schedule = row.get("schedule")
 			index = ""
-			account_label = row.get('account') or ''
 
-			# Handle header
+			# Section Headers
 			if row.get("header"):
 				index = to_alpha(header_counter)
 				header_counter += 1
 				group_stack = [{'alpha_counter': 0, 'roman_counter': 0, 'indent': 0, 'last_indent_1': None}]
-			# Handle group
 			elif row.get("group"):
 				index = to_roman(group_counter)
 				group_counter += 1
 				group_stack.append({'alpha_counter': 0, 'roman_counter': 0, 'indent': indent_val, 'last_indent_1': None})
-			# Only non-bold, non-group, non-header accounts get index prefix
 			elif not row.get("is_bold"):
 				if indent_val == 0:
 					alpha_idx = group_stack[-1]['alpha_counter']
@@ -1824,135 +1847,132 @@ class FinancialReport(Document):
 					group_stack[-1]['last_indent_1'] = 1
 				else:
 					group_stack[-1]['last_indent_1'] = indent_val
-			else:
-				if indent_val == 1:
-					group_stack[-1]['last_indent_1'] = 1
-				else:
-					group_stack[-1]['last_indent_1'] = indent_val
 
-			# Add data-schedule attribute and clickable styling for account rows
-			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
-			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
-			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
-			
+			# Add anchor link if schedule exists
+			account_text = account_label
+			if schedule and note_no:
+				note_id = self.generate_note_id(note_no, account_label)
+				account_text = f'<a href="#{note_id}" style="color: #000000;">{account_label}</a>'
+
+			# Final row
 			html += f"""
-				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
-					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
-					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_label}</td>
-					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["current_month_amount"]) if row.get("current_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["ftm_amount"]) if row.get("ftm_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year"]) if row.get("previous_year") else ""}</td>
-				</tr>
+			<tr>
+				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{index}</td>
+				<td style='text-align:left; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{account_text}</td>
+				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{note_no or ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8;'>{'{:,.2f}'.format(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+			</tr>
 			"""
 
 		html += "</tbody></table>"
 		return html
 
+
 	def render_monthly_profit_and_loss(self, template_name):
-		"""Render monthly profit and loss with optimized table structure"""
+		"""Render monthly profit and loss with note-style UI"""
 		current_month_end, previous_month_end, previous_fiscal_year_end_label = self.get_monthly_dates()
 		data = self.get_monthly_profit_and_loss_data(template_name)
 
 		html = f"""
-		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
 				<tr style="background-color: #f1f1f1;">
-					<th style='text-align:left; padding: 5px; width: 5%; border: 1px solid black;'></th>
-					<th style='text-align:left; padding: 5px; width: 40%; border: 1px solid black;'>Particulars</th>
-					<th style='text-align:center; padding: 5px; width: 10%; border: 1px solid black;'>Note No.</th>
-					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black; background-color: #e8f5e8;'>{current_month_end}</th>
-					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>FTM</th>
-					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>{previous_month_end}</th>
-					<th style='text-align:center; padding: 5px; width: 15%; border: 1px solid black;'>{previous_fiscal_year_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 5%;'></th>
+					<th style='border:2px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>Note No.</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 15%; background-color: #e8f5e8;'>{current_month_end}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>FTM</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>{previous_month_end}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
 		"""
-		
-		def to_roman(idx):
-			romans = [
-				'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
-				'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'
-			]
-			return romans[idx] if idx < len(romans) else str(idx+1)
 
+		def to_roman(idx):
+			romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX']
+			return f"({romans[idx]})" if idx < len(romans) else f"({idx+1})"
+		
 		group_counter = 0
 		for row in data:
-			indent = "&nbsp;" * (int(row.get("indent", 0)) * 4)
+			indent_val = int(row.get("indent", 0))
+			indent = "&nbsp;" * (indent_val * 4)
 			bold = "font-weight: bold;" if row.get("is_bold") else ""
-			if row.get("group"):
-				index = to_roman(group_counter)
-				group_counter += 1
-			else:
-				index = ""
-			
-			# Add data-schedule attribute and clickable styling for account rows
-			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
-			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
-			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
-			
+			index = to_roman(group_counter) if row.get("group") else ""
+			if row.get("group"): group_counter += 1
+
+			# Handle anchor link for schedule
+			account_text = row.get("account") or ""
+			note_no = row.get("note_no")
+			schedule = row.get("schedule")
+			if schedule and note_no:
+				note_id = self.generate_note_id(note_no, account_text)
+				if note_id:
+					account_text = f'<a href="#' + note_id + '" style="color: #000000;">' + account_text + '</a>'
+
 			html += f"""
-				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
-					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{index}</td>
-					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("account") or ""}</td>
-					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["current_month_amount"]) if row.get("current_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["ftm_amount"]) if row.get("ftm_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year"]) if row.get("previous_year") else ""}</td>
-				</tr>
+			<tr>
+				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{index}</td>
+				<td style='text-align:left; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{account_text}</td>
+				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{note_no or ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8;'>{'{:,.2f}'.format(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+			</tr>
 			"""
+
 		html += "</tbody></table>"
 		return html
 
 	def render_monthly_cash_flow(self, template_name):
-		"""Render monthly cash flow with optimized table structure"""
+		"""Render monthly cash flow with note-style UI"""
 		data = self.get_monthly_cash_flow_data(template_name)
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		html = f"""
-		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
 				<tr style="background-color: #f1f1f1;">
-					<th style='text-align:center; padding: 5px; width: 5%; border: 1px solid black;'></th>
-					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
-					<th style='text-align:center; padding: 5px; width: 16%; border: 1px solid black; background-color: #e8f5e8;'>{month_end_label}</th>
-					<th style='text-align:center; padding: 5px; width: 16%; border: 1px solid black;'>FTM</th>
-					<th style='text-align:center; padding: 5px; width: 16%; border: 1px solid black;'>{current_fiscal_year_end_label}</th>
-					<th style='text-align:center; padding: 5px; width: 18%; border: 1px solid black;'>{previous_fiscal_year_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 5%;'></th>
+					<th style='border:2px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 15%; background-color: #e8f5e8;'>{month_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>FTM</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>{current_fiscal_year_end_label}</th>
+					<th style='border:2px solid #222; text-align:center; padding: 5px; width: 10%;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
 		"""
 
 		def to_roman(idx):
-			romans = [
-				'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
-				'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'
-			]
-			return romans[idx] if idx < len(romans) else str(idx+1)
+			romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX']
+			return f"({romans[idx]})" if idx < len(romans) else f"({idx+1})"
 
 		group_counter = 0
 		for row in data:
-			indent = "&nbsp;" * (int(row.get("indent", 0)) * 4)
+			indent_val = int(row.get("indent", 0))
+			indent = "&nbsp;" * (indent_val * 4)
 			bold = "font-weight: bold;" if row.get("is_bold") else ""
-			if row.get("group"):
-				index = to_roman(group_counter)
-				group_counter += 1
-			else:
-				index = ""
+			index = to_roman(group_counter) if row.get("group") else ""
+			if row.get("group"): group_counter += 1
+
+			account_text = row.get("account") or ""
+
 			html += f"""
-				<tr>
-					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
-					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("account") or ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["current_month_amount"]) if row.get("current_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["ftm_amount"]) if row.get("ftm_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_month_amount"]) if row.get("previous_month_amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year"]) if row.get("previous_year") else ""}</td>
-				</tr>
+			<tr>
+				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{index}</td>
+				<td style='text-align:left; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{account_text}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8;'>{'{:,.2f}'.format(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{'{:,.2f}'.format(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+			</tr>
 			"""
+
 		html += "</tbody></table>"
 		return html
 
@@ -2070,7 +2090,7 @@ class FinancialReport(Document):
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
 		amount_cache = {}
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False):
+		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False):
 			cache_key = (particular_name, year)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
@@ -2108,10 +2128,13 @@ class FinancialReport(Document):
 					placeholders = ','.join(['%s'] * len(gl_accounts))
 					query = f"""
 						SELECT SUM(uploaded_amount) FROM `tabFR Trail Balance Entry`
-						WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-						AND month = %s
+						WHERE company = %s AND fiscal_year = %s AND gl_account IN ({placeholders})
 					"""
-					params = [self.company, year] + gl_accounts + [month]
+					params = [self.company, year] + gl_accounts
+
+					if not is_yearly:
+						query += " AND month = %s"
+						params.append(month)
 					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
 			if getattr(fr_particular, "show_reversed_value", 0):
@@ -2127,6 +2150,7 @@ class FinancialReport(Document):
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, is_yearly = True)
 			
 			# Get the schedule from FR Particular
 			fr_particular = frappe.get_doc("FR Particular", row.account)
@@ -2145,7 +2169,7 @@ class FinancialReport(Document):
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
-				"previous_year": 0,
+				"previous_year": previous_year_amount,
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"group": row.group,
@@ -2158,47 +2182,55 @@ class FinancialReport(Document):
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
 		amount_cache = {}
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False):
+		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False):
 			cache_key = (particular_name, month, year)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
 			fr_particular = frappe.get_doc("FR Particular", particular_name)
-			if getattr(fr_particular, "is_total", 1):
-				amount = 0
-				for p in getattr(fr_particular, "particulars", []):
-					child_name = p.particular
-					amount += calc_amount_for_particular_monthly(child_name, month, year)
-				amount = amount * 100000
-			elif getattr(fr_particular, "fetch_from_schedule", 1):
-				amount = 0
+			def get_schedule_amount():
 				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'ftm_total' if is_current else 'net_increase_total'
-					amount = self.get_monthly_finished_goods_and_wip(note_type, total = True, field=field)
+					return self.get_monthly_finished_goods_and_wip(note_type, total=True, field=field)
 				elif note_type == "Cost of Materials Consumed":
 					field = 'ftm_cost_consumed' if is_current else 'cost_consumed_current'
-					amount = self.get_monthly_cost_of_material_consumed(note_type, total = True, field=field)
-			else:
+					return self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
+				return 0
+
+			def get_grouped_gl_amount():
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
-					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					gl_accounts.extend(gl_account)
-				if len(gl_accounts) == 0:
-					amount = 0
-				else:
-					placeholders = ','.join(['%s'] * len(gl_accounts))
-					query = f"""
-						SELECT SUM(uploaded_amount) FROM `tabFR Trail Balance Entry`
-						WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-						AND month = %s
-					"""
-					params = [self.company, year] + gl_accounts + [month]
-					amount = (frappe.db.sql(query, params)[0][0] or 0)
-			
+					accounts = frappe.get_list("GL Group Mapping", filters={"company": self.company, "report_type": self.report_type, "primary_group": g.primary_group, "secondary_group": g.secondary_group}, pluck="gl_account")
+					gl_accounts.extend(accounts)
+
+				if not gl_accounts:
+					return 0
+
+				placeholders = ','.join(['%s'] * len(gl_accounts))
+				base_query = f"""
+					SELECT SUM(uploaded_amount) FROM `tabFR Trail Balance Entry`
+					WHERE company = %s AND fiscal_year = %s AND gl_account IN ({placeholders})
+				"""
+				params = [self.company, year] + gl_accounts
+
+				if not is_yearly:
+					base_query += " AND month = %s"
+					params.append(month)
+
+				return frappe.db.sql(base_query, params)[0][0] or 0
+
+			# Main logic
+			if getattr(fr_particular, "is_total", 1):
+				amount = sum(calc_amount_for_particular_monthly(p.particular, month, year)for p in fr_particular.get("particulars", [])) * 100000
+			elif getattr(fr_particular, "fetch_from_schedule", 1):
+				amount = get_schedule_amount()
+			else:
+				amount = get_grouped_gl_amount()
+
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
-			
+
 			amount_cache[cache_key] = int(round(amount / 100000))
 			return amount_cache[cache_key]
 
@@ -2209,6 +2241,7 @@ class FinancialReport(Document):
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly = True)
 			
 			# Get the schedule from FR Particular
 			fr_particular = frappe.get_doc("FR Particular", row.account)
@@ -2227,7 +2260,7 @@ class FinancialReport(Document):
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
-				"previous_year": 0,
+				"previous_year": previous_year_amount,
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"header": row.header,
@@ -2653,16 +2686,16 @@ class FinancialReport(Document):
 		for section_detail in doc.financial_report_details:
 			if not section_detail.table_data:
 				continue
-
 			if section_detail.section_type == "Consolidation Note":
 				sheet_name = f"SCH-{sch_counter}"
 				if section_detail.section_name:
 					section_title = f" Note {sch_counter}: {section_detail.section_name}"
+				else:
+					continue
 				sch_counter += 1
 			else:
 				sheet_name = section_detail.section_type.replace(" & ", "_").replace(" ", "_")
-				if section_detail.section_name:
-					section_title = section_detail.section_name
+				section_title = section_detail.section_type
 			
 			ws = wb.create_sheet(title=sheet_name)
 			
@@ -2755,101 +2788,35 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def export_to_pdf(self):
-		"""Export financial report to PDF"""
-		import os
 		from frappe.utils import get_site_path
 		from frappe.utils.pdf import get_pdf
-		
-		# Get the financial report document
+		from frappe.utils.jinja import render_template
+		from frappe.utils.file_manager import save_file
+
 		doc = frappe.get_doc("Financial Report", self.name)
-		
-		# Generate HTML content for PDF
-		html_content = self.generate_pdf_html(doc)
-		
-		# Generate PDF
-		pdf_content = get_pdf(html_content)
-		
-		# Save the PDF
-		file_name = f"Financial_Report_{self.name}_{frappe.utils.nowdate()}.pdf"
-		file_path = os.path.join(get_site_path(), 'private', 'files', file_name)
-		
-		# Ensure directory exists
-		os.makedirs(os.path.dirname(file_path), exist_ok=True)
-		
-		with open(file_path, 'wb') as f:
-			f.write(pdf_content)
-		
-		# Create file document
-		file_doc = frappe.get_doc({
-			"doctype": "File",
-			"file_name": file_name,
-			"file_url": f"/private/files/{file_name}",
-			"is_private": 1,
-			"attached_to_doctype": "Financial Report",
-			"attached_to_name": self.name
-		})
-		file_doc.insert(ignore_permissions=True)
-		
+
+		# Render the print format (replace 'Financial Report' with your Print Format name if different)
+		html = frappe.get_print(
+			doctype="Financial Report",
+			name=self.name,
+			print_format="Financial Report",
+			style="Standard"
+		)
+
+		# Generate PDF content
+		pdf_content = get_pdf(html)
+
+		# Save PDF to File Doc
+		file_doc = save_file(
+			f"Financial_Report_{self.name}.pdf",
+			pdf_content,
+			"Financial Report",
+			self.name,
+			is_private=True
+		)
+
 		return {
 			"file_url": file_doc.file_url,
-			"file_name": file_name
+			"file_name": file_doc.file_name
 		}
 
-	def generate_pdf_html(self, doc):
-		"""Generate HTML content for PDF export"""
-		html = f"""
-		<html>
-		<head>
-			<style>
-				body {{ font-family: Arial, sans-serif; margin: 20px; }}
-				table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-				th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-				th {{ background-color: #f2f2f2; font-weight: bold; }}
-				.page-break {{ page-break-before: always; }}
-				.section-title {{ font-size: 18px; font-weight: bold; margin: 20px 0 10px 0; color: #333; }}
-				.section-subtitle {{ font-size: 16px; font-weight: bold; margin: 15px 0 8px 0; color: #555; }}
-				.note-title {{ font-size: 16px; font-weight: bold; margin: 15px 0 8px 0; }}
-				.note-desc {{ margin-bottom: 10px; text-align: justify; line-height: 1.4; }}
-				.report-header {{ text-align: center; margin-bottom: 30px; }}
-				.report-header h1 {{ color: #2c3e50; margin-bottom: 10px; }}
-				.report-header h2 {{ color: #34495e; margin-bottom: 15px; }}
-				.report-info {{ background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
-			</style>
-		</head>
-		<body>
-			<div class="report-header">
-				<h1>{doc.company}</h1>
-				<h2>Financial Report</h2>
-			</div>
-			<div class="report-info">
-				<p><strong>Fiscal Year:</strong> {doc.fiscal_year}</p>
-				<p><strong>Report Type:</strong> {doc.report_type}</p>
-			</div>
-		"""
-		
-		sch_counter = 4
-		for section_detail in doc.financial_report_details:
-			if not section_detail.table_data:
-				continue
-			
-			# Add section title with detailed information
-			if section_detail.section_type == "Consolidation Note":
-				section_title = f"Note-{sch_counter}: {section_detail.section_name}"
-				sch_counter += 1
-			else:
-				section_title = section_detail.section_type
-			
-			html += f'<div class="section-title">{section_title}</div>'
-
-			# Add table data
-			html += section_detail.table_data
-			
-			# Add page break for next section
-			html += '<div class="page-break"></div>'
-		
-		html += """
-		</body>
-		</html>
-		"""
-		
-		return html
