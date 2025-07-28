@@ -197,10 +197,8 @@ class FinancialReport(Document):
 					context = {
 						"company": self.company
 					}
-					i.section_description = section_desc = frappe.render_template(i.section_description or "", context)
-					i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
+					i.section_description = frappe.render_template(section_description or "", context)
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
-					i.subsection_description = f'<div style="text-align: justify;">{i.subsection_description}</div>'
 					
 					# Wrap consolidation note with anchor ID for PDF navigation
 					if i.note_no and i.section_name:
