@@ -2133,6 +2133,7 @@ class FinancialReport(Document):
 					if not is_yearly:
 						query += " AND month = %s"
 						params.append(month)
+
 					amount = (frappe.db.sql(query, params)[0][0] or 0)
 			
 			if getattr(fr_particular, "show_reversed_value", 0):
@@ -2148,7 +2149,7 @@ class FinancialReport(Document):
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
-			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, is_yearly = True)
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly = True)
 			
 			# Get the schedule from FR Particular
 			fr_particular = frappe.get_doc("FR Particular", row.account)
