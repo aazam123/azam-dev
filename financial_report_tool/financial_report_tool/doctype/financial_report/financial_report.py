@@ -155,12 +155,16 @@ class FinancialReport(Document):
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
 					i.table_data = self.render_monthly_balance_sheet(i.section)
+					i.section_description = i.table_data
 				if i.section_type == "Profit & Loss":
 					i.table_data = self.render_monthly_profit_and_loss(i.section)
+					i.section_description = i.table_data
 				if i.section_type == "Cash Flow":
 					i.table_data = self.render_monthly_cash_flow(i.section)
+					i.section_description = i.table_data
 				if i.section_type == "Equity":
 					i.table_data = self.render_monthly_equity_share_table()
+					i.section_description = i.table_data
 				if i.section_type == "Consolidation Note":
 					section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
 					section_description = section_data.section_type_description if section_data else ""
@@ -194,10 +198,12 @@ class FinancialReport(Document):
 					if note_table:
 						context = {"note_table": note_table}
 						i.table_data = frappe.render_template(section_description or "", context)	
+						i.section_description = frappe.render_template(section_description or "", context)	
+
 					context = {
 						"company": self.company
 					}
-					i.section_description = frappe.render_template(section_description or "", context)
+					i.section_description = frappe.render_template(i.section_description or "", context)
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 					
 					# Wrap consolidation note with anchor ID for PDF navigation
@@ -297,7 +303,7 @@ class FinancialReport(Document):
 			{"particulars": "Opening Stock", "current_amt": closing_stock_previous, "previous_amt": closing_stock_pre_previous, "is_subtotal": False},
 			{"particulars": "Add: purchases & other related costs", "current_amt": purchases_current, "previous_amt": purchases_previous, "is_subtotal": False},
 			{"particulars": "Less: closing stock", "current_amt": closing_stock_current, "previous_amt": closing_stock_previous, "is_subtotal": False},
-			{"particulars": "Cost of materials consumed", "current_amt": cost_consumed_current, "previous_amt": cost_consumed_previous, "is_subtotal": True}
+			{"particulars": "Cost of Materials Consumed", "current_amt": cost_consumed_current, "previous_amt": cost_consumed_previous, "is_subtotal": True}
 		])
 		
 		# Generate HTML table
@@ -1171,27 +1177,27 @@ class FinancialReport(Document):
 			else:
 				index = ""
 			
-			# Add data-schedule attribute and clickable styling for account rows
-			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
-			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
-			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
+		schedule_attr = f' data-schedule="{row.get("note_no", "")}"' if row.get("note_no") else ""
+		clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("note_no") else ""
+		hover_style = "background-color: #e9ecef;" if row.get("note_no") else ""
 			
-			# Add anchor link for schedule navigation
-			account_text = row.get("particular_name") or row.get("account") or ""
-			if row.get("schedule") and row.get("note_no"):
-				note_id = self.generate_note_id(row.get("note_no"), account_text)
-				if note_id:
-					account_text = f'<a href="#{note_id}" style="color: #000000;">{account_text}</a>'
-			
-			html += f"""
-				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
-					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{index}</td>
-					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_text}</td>
-					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["amount"]) if row.get("amount") else ""}</td>
-					<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year_amount"]) if row.get("previous_year_amount") else ""}</td>
-				</tr>
-			"""
+		account_text = row.get("particular_name") or row.get("account") or ""
+		if row.get("schedule") and row.get("note_no"):
+			note_id = self.generate_note_id(row.get("note_no"), account_text)
+			if note_id:
+				account_text = f'<a href="#{note_id}" style="color: #000000;">{account_text}</a>'
+		
+		html += f"""
+			<tr{schedule_attr} class="clickable-row" style="{clickable_style}">
+				<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{index}</td>
+				<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_text}</td>
+				<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
+				<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["amount"]) if row.get("amount") else ""}</td>
+				<td style='text-align:right; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year_amount"]) if row.get("previous_year_amount") else ""}</td>
+			</tr>
+		"""
+
+		html += "</tbody></table>"
 		return html
 
 	def get_balance_sheet_data(self, template_name):
@@ -1351,9 +1357,9 @@ class FinancialReport(Document):
 					group_stack[-1]['last_indent_1'] = indent_val
 
 			# Add data-schedule attribute and clickable styling for account rows
-			schedule_attr = f' data-schedule="{row.get("schedule", "")}"' if row.get("schedule") else ""
-			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("schedule") else ""
-			hover_style = "background-color: #e9ecef;" if row.get("schedule") else ""
+			schedule_attr = f' data-schedule="{row.get("note_no", "")}"' if row.get("note_no") else ""
+			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("note_no") else ""
+			hover_style = "background-color: #e9ecef;" if row.get("note_no") else ""
 			
 			# Add anchor link for schedule navigation
 			account_text = account_label
@@ -1361,9 +1367,9 @@ class FinancialReport(Document):
 				note_id = self.generate_note_id(row.get("note_no"), account_label)
 				if note_id:
 					account_text = f'<a href="#{note_id}" style="color: #000000;">{account_label}</a>'
-			
+
 			html += f"""
-				<tr{schedule_attr} style="{clickable_style}" onmouseover="this.style.backgroundColor='{hover_style}'" onmouseout="this.style.backgroundColor='{clickable_style.replace('background-color: #f8f9fa;', '')}'">
+				<tr{schedule_attr} class="clickable-row" style="{clickable_style}">
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
 					<td style='text-align:left; padding: 5px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_text}</td>
 					<td style='text-align:center; padding: 5px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
@@ -1608,37 +1614,45 @@ class FinancialReport(Document):
 		current_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.current_month, self.fiscal_year)
 		current_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.current_month, self.fiscal_year)
 		current_month_total = current_month_finished_goods + current_month_wip
+
+		cls_previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.previous_month, self.fiscal_year)
+		cls_previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.previous_month, self.fiscal_year)
+		cls_previous_month_total = cls_previous_month_finished_goods + cls_previous_month_wip
 		
-		previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.previous_month, self.fiscal_year)
-		previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.previous_month, self.fiscal_year)
+		previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", "March", self.previous_fiscal_year)
+		previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", "March", self.previous_fiscal_year)
 		previous_month_total = previous_month_finished_goods + previous_month_wip
 		
-		ftm_finished_goods = current_month_finished_goods - previous_month_finished_goods
-		ftm_wip = current_month_wip - previous_month_wip
+		ftm_finished_goods = cls_previous_month_finished_goods - current_month_finished_goods
+		ftm_wip = cls_previous_month_wip - current_month_wip
 		ftm_total = ftm_finished_goods + ftm_wip
 		
 		net_increase_finished_goods = current_month_finished_goods - previous_month_finished_goods
-		net_increase_wip = current_month_wip - previous_month_wip
-		net_increase_total = current_month_total - previous_month_total
+		net_increase_wip = previous_month_wip - current_month_wip
+		net_increase_total = previous_month_total - current_month_total
+
+		prev_net_total = previous_month_total - cls_previous_month_total
 		
 		if total:
 			if field == 'net_increase_total':
 				return net_increase_total
 			elif field == 'ftm_total':
 				return ftm_total
+			elif field == 'previous_month_amt':
+				return prev_net_total
 			else:
 				return 0
 		
 		rows.extend([
 			{"particulars": "Inventories at the end of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0,"is_subtotal": True},
-			{"particulars": "Finished goods","current_month_amt": current_month_finished_goods,"previous_month_amt": previous_month_finished_goods,"ftm_amt": ftm_finished_goods,"is_subtotal": False},
-			{"particulars": "Work-in-progress","current_month_amt": current_month_wip,"previous_month_amt": previous_month_wip,"ftm_amt": ftm_wip,"is_subtotal": False},
-			{"particulars": "","current_month_amt": current_month_total,"previous_month_amt": previous_month_total,"ftm_amt": ftm_total,"is_subtotal": False},
+			{"particulars": "Finished goods","current_month_amt": current_month_finished_goods,"previous_month_amt": cls_previous_month_finished_goods ,"ftm_amt": ftm_finished_goods,"is_subtotal": False},
+			{"particulars": "Work-in-progress","current_month_amt": current_month_wip,"previous_month_amt": cls_previous_month_wip,"ftm_amt": ftm_wip,"is_subtotal": False},
+			{"particulars": "","current_month_amt": current_month_total,"previous_month_amt": cls_previous_month_total ,"ftm_amt": ftm_total,"is_subtotal": False},
 			{"particulars": "Inventories at the beginning of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0,"is_subtotal": True},
-			{"particulars": "Finished goods","current_month_amt": previous_month_finished_goods,"previous_month_amt": previous_month_finished_goods,"ftm_amt": previous_month_finished_goods,"is_subtotal": False},
-			{"particulars": "Work-in-progress","current_month_amt": previous_month_wip,"previous_month_amt": previous_month_wip,"ftm_amt": previous_month_wip,"is_subtotal": False},
-			{"particulars": "","current_month_amt": previous_month_total,"previous_month_amt": previous_month_total,"ftm_amt": previous_month_total,"is_subtotal": False},
-			{"particulars": "Net increase","current_month_amt": net_increase_total,"previous_month_amt": 0,"ftm_amt": ftm_total - previous_month_total,"is_subtotal": True}
+			{"particulars": "Finished goods","current_month_amt": previous_month_finished_goods,"previous_month_amt": previous_month_finished_goods,"ftm_amt": 0,"is_subtotal": False},
+			{"particulars": "Work-in-progress","current_month_amt": previous_month_wip,"previous_month_amt": previous_month_wip,"ftm_amt": 0,"is_subtotal": False},
+			{"particulars": "","current_month_amt": previous_month_total,"previous_month_amt": previous_month_total,"ftm_amt": 0,"is_subtotal": False},
+			{"particulars": "Net increase","current_month_amt": net_increase_total,"previous_month_amt": prev_net_total,"ftm_amt": prev_net_total - net_increase_total,"is_subtotal": True}
 		])
 		
 		html = f'''
@@ -1683,26 +1697,25 @@ class FinancialReport(Document):
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 		
 		# Get opening stock (beginning of month)
-		opening_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year)
-		opening_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.previous_month, self.fiscal_year)
-		
-		# Get purchases and other related costs
-		purchases_current = self.sum_group_amt_monthly("Cost of Goods Sold", "Raw Material Consumption", self.current_month, self.fiscal_year)
-		purchases_previous = self.sum_group_amt_monthly("Cost of Goods Sold", "Raw Material Consumption", self.previous_month, self.fiscal_year)
+		opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", "March", self.previous_fiscal_year)
 		
 		# Get closing stock (end of month)
-		closing_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year)
-		closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.previous_month, self.fiscal_year)
+		closing_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
+		closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
 		
+		# Get purchases and other related costsMaterial consumed
+		purchases_current = self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.current_month, self.fiscal_year)  - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - opening_stock)
+		purchases_previous = self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year) - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='previous_month_amt') + (closing_stock_previous - opening_stock)
+		# frappe.throw(f"{self.sum_group_amt_monthly('Material consumed', 'Cost of Goods Sold', self.previous_month, self.fiscal_year)},  {self.get_monthly_finished_goods_and_wip(note_type, total = True, field='previous_month_amt')}, {closing_stock_previous},  {opening_stock}")
+
 		# Calculate cost of materials consumed
-		cost_consumed_current = opening_stock_current + purchases_current - closing_stock_current
-		cost_consumed_previous = opening_stock_previous + purchases_previous - closing_stock_previous
+		cost_consumed_current = opening_stock + purchases_current - closing_stock_current
+		cost_consumed_previous = opening_stock + purchases_previous - closing_stock_previous
 		
 		# FTM calculations
-		ftm_opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year, is_ftm=True)
-		ftm_purchases = self.sum_group_amt_monthly("Cost of Goods Sold", "Raw Material Consumption", self.current_month, self.fiscal_year, is_ftm=True)
-		ftm_closing_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials", self.current_month, self.fiscal_year, is_ftm=True)
-		ftm_cost_consumed = ftm_opening_stock + ftm_purchases - ftm_closing_stock
+		ftm_purchases = purchases_current - purchases_previous
+		ftm_closing_stock = closing_stock_current - closing_stock_previous
+		ftm_cost_consumed = cost_consumed_current - cost_consumed_previous
 		
 		if total:
 			if field == 'cost_consumed_current':
@@ -1715,12 +1728,12 @@ class FinancialReport(Document):
 				return 0
 		
 		rows.extend([
-			{"particulars": "Opening Stock", "current_month_amt": opening_stock_current, "previous_month_amt": opening_stock_previous, "ftm_amt": ftm_opening_stock, "is_subtotal": False},
+			{"particulars": "Opening Stock", "current_month_amt": opening_stock, "previous_month_amt": opening_stock, "ftm_amt": 0, "is_subtotal": False},
 			{"particulars": "Add: purchases & other related costs", "current_month_amt": purchases_current, "previous_month_amt": purchases_previous, "ftm_amt": ftm_purchases, "is_subtotal": False},
-			{"particulars": "Less: closing stock", "current_month_amt": -closing_stock_current, "previous_month_amt": -closing_stock_previous, "ftm_amt": -ftm_closing_stock, "is_subtotal": False},
-			{"particulars": "Cost of materials consumed", "current_month_amt": cost_consumed_current, "previous_month_amt": cost_consumed_previous, "ftm_amt": ftm_cost_consumed, "is_subtotal": True}
+			{"particulars": "Less: closing stock", "current_month_amt": closing_stock_current, "previous_month_amt":  closing_stock_previous, "ftm_amt": ftm_closing_stock, "is_subtotal": False},
+			{"particulars": "Cost of Materials Consumed", "current_month_amt": cost_consumed_current, "previous_month_amt": cost_consumed_previous, "ftm_amt": ftm_cost_consumed, "is_subtotal": True}
 		])
-		
+
 		# Generate HTML table
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
@@ -1762,20 +1775,22 @@ class FinancialReport(Document):
 	@frappe.whitelist()
 	def get_monthly_consolidation_note_data(self, primary_consolidation_group):
 		"""Get monthly consolidation note data with current month, previous month, and FTM amounts"""
-		secondary_consolidation_groups = frappe.db.get_list("Standalone Group", {"parent_consolidation_group": primary_consolidation_group}, pluck="name")
+		secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": primary_consolidation_group}, pluck="secondary_group")
+		secondary_consolidation_groups = set(sorted([g for g in secondary_groups if g]))
 		data = []
 		
 		for sec in secondary_consolidation_groups:
 			current_month_amount = self.sum_group_amt_monthly(primary_consolidation_group, sec, self.current_month, self.fiscal_year)
 			previous_month_amount = self.sum_group_amt_monthly(primary_consolidation_group, sec, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
+			previous_year_amount = self.sum_group_amt(primary_consolidation_group, sec, self.previous_fiscal_year)
 			
 			data.append({
 				"account": sec,
 				"current_month_amount": current_month_amount,
 				"previous_month_amount": previous_month_amount,
 				"ftm_amount": ftm_amount,
-				"previous_year": 0,
+				"previous_year": previous_year_amount,
 				"indent": 0,
 				"is_bold": 0
 			})
@@ -1846,6 +1861,10 @@ class FinancialReport(Document):
 				else:
 					group_stack[-1]['last_indent_1'] = indent_val
 
+			# Add data-schedule attribute and clickable styling for account rows
+			schedule_attr = f' data-schedule="{note_no}"' if note_no else ""
+			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if note_no else ""
+			
 			# Add anchor link if schedule exists
 			account_text = account_label
 			if schedule and note_no:
@@ -1854,7 +1873,7 @@ class FinancialReport(Document):
 
 			# Final row
 			html += f"""
-			<tr>
+			<tr{schedule_attr} class="clickable-row" style="{clickable_style}">
 				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{note_no or ""}</td>
@@ -1896,15 +1915,19 @@ class FinancialReport(Document):
 		
 		group_counter = 0
 		for row in data:
+			note_no = row.get("note_no")
 			indent_val = int(row.get("indent", 0))
 			indent = "&nbsp;" * (indent_val * 4)
 			bold = "font-weight: bold;" if row.get("is_bold") else ""
 			index = to_roman(group_counter) if row.get("group") else ""
 			if row.get("group"): group_counter += 1
 
+			# Add data-schedule attribute and clickable styling for account rows
+			schedule_attr = f' data-schedule="{note_no}"' if note_no else ""
+			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if note_no else ""
+			
 			# Handle anchor link for schedule
 			account_text = row.get("account") or ""
-			note_no = row.get("note_no")
 			schedule = row.get("schedule")
 			if schedule and note_no:
 				note_id = self.generate_note_id(note_no, account_text)
@@ -1912,7 +1935,7 @@ class FinancialReport(Document):
 					account_text = f'<a href="#' + note_id + '" style="color: #000000;">' + account_text + '</a>'
 
 			html += f"""
-			<tr>
+			<tr{schedule_attr} class="clickable-row" style="{clickable_style}">
 				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 5px; border-left:2px solid #222; border-right:2px solid #222; border-top:none; border-bottom:none;'>{note_no or ""}</td>
@@ -1952,8 +1975,7 @@ class FinancialReport(Document):
 
 		group_counter = 0
 		for row in data:
-			indent_val = int(row.get("indent", 0))
-			indent = "&nbsp;" * (indent_val * 4)
+			indent = "&nbsp;" * (int(row.get("indent", 0)) * 4)
 			bold = "font-weight: bold;" if row.get("is_bold") else ""
 			index = to_roman(group_counter) if row.get("group") else ""
 			if row.get("group"): group_counter += 1
@@ -2020,7 +2042,7 @@ class FinancialReport(Document):
 					<td style="padding: 8px; border-left: 1px solid black; border-right: 1px solid black; {bold_class} width: 40%;">{row['particular']}</td>
 					<td style="padding: 8px; text-align: right; border-left: 1px solid black; border-right: 1px solid black; width: 20%;">{row['shares']}</td>
 					<td style="padding: 8px; text-align: right; border-left: 1px solid black; border-right: 1px solid black; width: 13%; background-color: #e8f5e8;">{row['amount']}</td>
-					<td style="padding: 8px; text-align: right; border-left: 1px solid black; border-right: 1px solid black; width: 13%;">{row['amount']}</td>
+					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 13%;">{row['amount']}</td>
 					<td style="padding: 8px; text-align: right; border-left: 1px solid black; border-right: 1px solid black; width: 14%;">{row['amount']}</td>
 				</tr>
 			'''
@@ -2100,26 +2122,29 @@ class FinancialReport(Document):
 					child_name = p.particular
 					if getattr(fr_particular, "to_subtract", 1):
 						if amount == 0:
-							amount = calc_amount_for_particular_monthly(child_name, month, year)
+							amount = calc_amount_for_particular_monthly(child_name, month, year, is_current, is_yearly)
 						else:
-							amount -= calc_amount_for_particular_monthly(child_name, month, year)
+							amount -= calc_amount_for_particular_monthly(child_name, month, year, is_current, is_yearly)
 					else:
-						amount += calc_amount_for_particular_monthly(child_name, month, year)
+						amount += calc_amount_for_particular_monthly(child_name, month, year, is_current, is_yearly)
 				amount = amount * 100000
 			elif getattr(fr_particular, "fetch_from_schedule", 1):
+				amount = 0
 				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-					field = 'ftm_total' if is_current else 'net_increase_total'
+					field = 'net_increase_total' if is_current else 'ftm_amt'
 					amount = self.get_monthly_finished_goods_and_wip(note_type, total = True, field=field)
 				elif note_type == "Cost of Materials Consumed":
-					field = 'ftm_cost_consumed' if is_current else 'cost_consumed_current'
+					field = 'cost_consumed_current' if is_current else 'cost_consumed_previous'
 					amount = self.get_monthly_cost_of_material_consumed(note_type, total = True, field=field)
+					
 				amount = amount * 100000
 			else:
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
 					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company, "report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
 					gl_accounts.extend(gl_account)
+				
 				if len(gl_accounts) == 0:
 					amount = 0
 				else:
@@ -2141,12 +2166,12 @@ class FinancialReport(Document):
 			
 			amount_cache[cache_key] = int(round(amount / 100000))
 			return amount_cache[cache_key]
-
+		 
 		grouped_data = []
 		for row in profit_and_loss_doc.profit_and_loss_template_details:
 			if not row.account:
 				continue
-			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, True)
+			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current = True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
 			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly = True)
@@ -2193,7 +2218,7 @@ class FinancialReport(Document):
 					field = 'ftm_total' if is_current else 'net_increase_total'
 					return self.get_monthly_finished_goods_and_wip(note_type, total=True, field=field)
 				elif note_type == "Cost of Materials Consumed":
-					field = 'ftm_cost_consumed' if is_current else 'cost_consumed_current'
+					field = 'cost_consumed_previous' if is_current else 'cost_consumed_current'
 					return self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
 				return 0
 
@@ -2813,6 +2838,42 @@ class FinancialReport(Document):
 			self.name,
 			is_private=True
 		)
+	
+	@frappe.whitelist()
+	def test_clickable_functionality(self):
+		"""Test method to verify clickable functionality is working"""
+		try:
+			# Get a sample financial report
+			reports = frappe.get_all("Financial Report", limit=1)
+			if not reports:
+				return {"status": "error", "message": "No financial reports found"}
+			
+			report_name = reports[0].name
+			doc = frappe.get_doc("Financial Report", report_name)
+			
+			# Check if the report has data
+			if not doc.financial_report_details:
+				return {"status": "error", "message": "Financial report has no details"}
+			
+			# Check for schedules in the data
+			schedules_found = []
+			for detail in doc.financial_report_details:
+				if detail.section_type == "Balance Sheet":
+					# Get balance sheet data to check for schedules
+					data = self.get_balance_sheet_data(detail.section) if detail.section else []
+					for row in data:
+						if row.get("schedule"):
+							schedules_found.append(row["schedule"])
+			
+			return {
+				"status": "success", 
+				"message": f"Clickable functionality test completed. Found {len(schedules_found)} schedules: {schedules_found[:5]}",
+				"schedules_found": schedules_found
+			}
+			
+		except Exception as e:
+			frappe.log_error(f"Clickable functionality test error: {str(e)}", "Financial Report Clickable Test Error")
+			return {"status": "error", "message": str(e)}
 
 		return {
 			"file_url": file_doc.file_url,

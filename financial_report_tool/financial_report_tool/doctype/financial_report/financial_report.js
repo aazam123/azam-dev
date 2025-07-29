@@ -75,6 +75,21 @@ frappe.ui.form.on("Financial Report", {
         
         // Update note numbers on form refresh
         setTimeout(async () => await updateNoteNumbers(frm), 500);
+
+        // // Add test clickable functionality button
+        // frm.add_custom_button(__('Test Clickable'), function() {
+        //     frm.call({
+        //         method: 'test_clickable_functionality',
+        //         doc: frm.doc,
+        //         callback: function(r) {
+        //             if (r.exc) {
+        //                 frappe.msgprint(__('Clickable test failed: ') + r.exc);
+        //             } else if (r.message) {
+        //                 frappe.msgprint(r.message.message || r.message);
+        //             }
+        //         }
+        //     });
+        // }, __('Actions'));
     }
 });
 
