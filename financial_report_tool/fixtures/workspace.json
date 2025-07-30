@@ -64,7 +64,7 @@
     "icon": null,
     "kanban_board": null,
     "label": "Trail Balance Entry",
-    "link_to": "FR Trail Balance Entry",
+    "link_to": "FR Trial Balance Entry",
     "parent": "Finance",
     "parentfield": "shortcuts",
     "parenttype": "Workspace",

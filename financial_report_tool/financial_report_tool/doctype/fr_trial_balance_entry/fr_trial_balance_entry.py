@@ -5,7 +5,7 @@ import frappe
 from frappe.model.document import Document
 
 
-class FRTrailBalanceEntry(Document):
+class FRTrialBalanceEntry(Document):
     def before_insert(self):
         if not self.date:
             import datetime
@@ -46,7 +46,7 @@ class FRTrailBalanceEntry(Document):
                 if self.company:
                     prev_filters["company"] = self.company
                 previous_entries = frappe.get_all(
-                    "FR Trail Balance Entry",
+                    "FR Trial Balance Entry",
                     filters=prev_filters,
                     fields=["amount", "month"]
                 )

@@ -197,10 +197,7 @@ async function generateFinancialReport(frm) {
         frappe.msgprint("Please select a Company", "Error");
         return;
     }
-    if (!frm.doc.financial_report_template) {
-        frappe.msgprint("Please select a Financial Report Template", "Error");
-        return;
-    }
+
     if (!frm.doc.fiscal_year) {
         frappe.msgprint("Please select a Fiscal Year", "Error");
         return;

@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestFRTrailBalanceEntry(FrappeTestCase):
+class TestFRTrialBalanceEntry(FrappeTestCase):
 	pass

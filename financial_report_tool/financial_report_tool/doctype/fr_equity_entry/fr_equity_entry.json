@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "FEE-.#####",
  "creation": "2025-07-10 17:18:25.722027",
@@ -38,7 +39,7 @@
    "fieldname": "category",
    "fieldtype": "Select",
    "label": "Category",
-   "options": "\nEquity Shares\nPreference Shares"
+   "options": "\nEquity Shares\nIND AS\nPreference Shares"
   },
   {
    "fieldname": "capital_type",
@@ -52,6 +53,7 @@
   },
   {
    "fetch_from": "company.parent_company",
+   "fetch_if_empty": 1,
    "fieldname": "holding_company",
    "fieldtype": "Link",
    "label": "Holding company",
@@ -69,7 +71,7 @@
   },
   {
    "fieldname": "face_value",
-   "fieldtype": "Float",
+   "fieldtype": "Data",
    "label": "Face Value"
   },
   {
@@ -81,7 +83,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-10 17:25:07.367108",
+ "modified": "2025-07-30 15:21:34.021922",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Equity Entry",
