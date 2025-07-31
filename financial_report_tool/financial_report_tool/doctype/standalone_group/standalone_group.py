@@ -6,10 +6,11 @@ from frappe.utils.nestedset import NestedSet
 
 
 class StandaloneGroup(NestedSet):
-	def autoname(self):
-		name = ""
-		if self.standalone_group_number:
-			name = f"{self.standalone_group_number} - "
+	pass
+	# def autoname(self):
+	# 	name = ""
+	# 	if self.standalone_group_number:
+	# 		name = f"{self.standalone_group_number} - "
 
-		name += f"{self.standalone_group_name}"
-		self.name = name
+	# 	name += f"{self.standalone_group_name}"
+	# 	self.name = name

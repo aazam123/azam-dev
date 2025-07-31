@@ -2,6 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "allow_rename": 1,
+ "autoname": "format:{standalone_group_name}-{company_abbr}",
  "creation": "2025-07-02 15:05:08.451583",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -11,14 +12,14 @@
   "is_primary_group",
   "disable",
   "standalone_group_name",
-  "standalone_group_number",
   "report_type",
   "root_type",
   "currency",
   "ind_as_description",
   "column_break_hnhe",
-  "parent_consolidation_group",
+  "parent_standalone_group",
   "company",
+  "company_abbr",
   "group_type",
   "note_no",
   "balance_must_be",
@@ -58,11 +59,6 @@
    "label": "Standalone Group Name"
   },
   {
-   "fieldname": "standalone_group_number",
-   "fieldtype": "Data",
-   "label": "Standalone Group Number"
-  },
-  {
    "fetch_from": "parent_consolidation_group.report_type",
    "fieldname": "report_type",
    "fieldtype": "Select",
@@ -87,16 +83,6 @@
   {
    "fieldname": "column_break_hnhe",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "parent_consolidation_group",
-   "fieldtype": "Link",
-   "ignore_user_permissions": 1,
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Parent Standalone Group",
-   "link_filters": "[[\"Standalone Group\",\"is_group\",\"=\",1]]",
-   "options": "Standalone Group"
   },
   {
    "description": "Setting Group Type helps in selecting this Group in transactions.",
@@ -156,18 +142,36 @@
    "fieldtype": "Link",
    "label": "Company",
    "options": "Company"
+  },
+  {
+   "fieldname": "parent_standalone_group",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Parent Standalone Group",
+   "link_filters": "[[\"Standalone Group\",\"is_group\",\"=\",1]]",
+   "options": "Standalone Group"
+  },
+  {
+   "fetch_from": "company.abbr",
+   "fetch_if_empty": 1,
+   "fieldname": "company_abbr",
+   "fieldtype": "Data",
+   "label": "Company Abbr",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2025-07-21 10:37:09.731666",
+ "modified": "2025-07-31 21:12:15.039902",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Standalone Group",
- "naming_rule": "By script",
- "nsm_parent_field": "parent_consolidation_group",
+ "naming_rule": "Expression",
+ "nsm_parent_field": "parent_standalone_group",
  "owner": "Administrator",
  "permissions": [
   {
@@ -184,7 +188,7 @@
   }
  ],
  "row_format": "Dynamic",
- "search_fields": "parent_consolidation_group, standalone_group_name",
+ "search_fields": "parent_standalone_group, standalone_group_name",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
