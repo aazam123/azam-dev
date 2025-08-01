@@ -5,7 +5,7 @@
  "creation": "2025-07-04 20:50:53.837760",
  "doctype": "DocType",
  "engine": "InnoDB",
-   "field_order": [
+ "field_order": [
   "company",
   "financial_report_template",
   "report_type",
@@ -36,6 +36,8 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Company",
    "options": "Company"
   },
@@ -103,7 +105,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-21 10:50:01.810725",
+ "modified": "2025-08-01 12:09:27.150679",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",

@@ -2,7 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:{standalone_group_name}-{company_abbr}",
+ "autoname": "format:{standalone_group_name}",
  "creation": "2025-07-02 15:05:08.451583",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -18,8 +18,6 @@
   "ind_as_description",
   "column_break_hnhe",
   "parent_standalone_group",
-  "company",
-  "company_abbr",
   "group_type",
   "note_no",
   "balance_must_be",
@@ -138,12 +136,6 @@
    "label": "Ind AS Description"
   },
   {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company"
-  },
-  {
    "fieldname": "parent_standalone_group",
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
@@ -152,21 +144,13 @@
    "label": "Parent Standalone Group",
    "link_filters": "[[\"Standalone Group\",\"is_group\",\"=\",1]]",
    "options": "Standalone Group"
-  },
-  {
-   "fetch_from": "company.abbr",
-   "fetch_if_empty": 1,
-   "fieldname": "company_abbr",
-   "fieldtype": "Data",
-   "label": "Company Abbr",
-   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2025-07-31 21:12:15.039902",
+ "modified": "2025-08-01 12:05:38.442016",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Standalone Group",

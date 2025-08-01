@@ -7,7 +7,6 @@
  "engine": "InnoDB",
  "field_order": [
   "cash_flow_template",
-  "company",
   "cash_flow_template_details"
  ],
  "fields": [
@@ -22,20 +21,12 @@
    "fieldtype": "Table",
    "label": "Cash Flow Template Details",
    "options": "Cash Flow Template Details"
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-24 14:22:59.415333",
+ "modified": "2025-08-01 12:06:29.111656",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Cash Flow Template",

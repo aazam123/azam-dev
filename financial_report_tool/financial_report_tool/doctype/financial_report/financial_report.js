@@ -3,10 +3,6 @@
 
 frappe.ui.form.on("Financial Report", {
     setup(frm){
-        frm.set_query('financial_report_template',{
-            'company': frm.doc.company
-        })
-        
         // Override grid functions for note number updates
         if (frm.grid) {
             const originalAddRow = frm.grid.add_row;
@@ -38,7 +34,6 @@ frappe.ui.form.on("Financial Report", {
             doc: frm.doc,
             callback: function(rsp){
                 frm.refresh_field('financial_report_details')
-                // Update note numbers after template is loaded
                 setTimeout(async () => await updateNoteNumbers(frm), 200);
             }
         })
@@ -66,30 +61,13 @@ frappe.ui.form.on("Financial Report", {
                 generateFinancialReport(frm);
             }, "Generate");
             
-            // Add button to manually update note numbers
             frm.add_custom_button("Update Note Numbers", async function() {
                 await updateNoteNumbers(frm);
                 frappe.msgprint("Note numbers updated successfully!");
             }, "Generate");
         }
         
-        // Update note numbers on form refresh
         setTimeout(async () => await updateNoteNumbers(frm), 500);
-
-        // // Add test clickable functionality button
-        // frm.add_custom_button(__('Test Clickable'), function() {
-        //     frm.call({
-        //         method: 'test_clickable_functionality',
-        //         doc: frm.doc,
-        //         callback: function(r) {
-        //             if (r.exc) {
-        //                 frappe.msgprint(__('Clickable test failed: ') + r.exc);
-        //             } else if (r.message) {
-        //                 frappe.msgprint(r.message.message || r.message);
-        //             }
-        //         }
-        //     });
-        // }, __('Actions'));
     }
 });
 
