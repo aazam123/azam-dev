@@ -156,7 +156,7 @@ class FinancialReport(Document):
 		return current_year_date, previous_year_date
 
 	def sum_group_amt(self, primary_group, group, year):
-		gl_accounts = frappe.get_list("GL Group Mapping",{"company":self.company,"report_type": self.report_type, 'primary_group': primary_group, 'secondary_group': group},pluck = 'gl_account')
+		gl_accounts = frappe.get_list("GL Group Mapping",{"company":self.company, "report_type": self.report_type, 'primary_group': primary_group, 'secondary_group': group},pluck = 'gl_account')
 		if len(gl_accounts) > 0:
 			placeholders = ','.join(['%s'] * len(gl_accounts))
 			query = f"""
@@ -1753,8 +1753,8 @@ class FinancialReport(Document):
 		closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
 		
 		# Get purchases and other related costsMaterial consumed
-		purchases_current = self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.current_month, self.fiscal_year)  - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - opening_stock)
-		purchases_previous = self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year) - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='previous_month_amt') + (closing_stock_previous - opening_stock)
+		purchases_current = self.sum_group_amt_monthly("Material consumed", "Cost of goods sold", self.current_month, self.fiscal_year)  - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - opening_stock)
+		purchases_previous = self.sum_group_amt_monthly("Material consumed", "Cost of goods sold", self.previous_month, self.fiscal_year) - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='previous_month_amt') + (closing_stock_previous - opening_stock)
 
 		# Calculate cost of materials consumed
 		cost_consumed_current = opening_stock + purchases_current - closing_stock_current
