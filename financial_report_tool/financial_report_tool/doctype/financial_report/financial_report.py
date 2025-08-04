@@ -1833,6 +1833,7 @@ class FinancialReport(Document):
 	@frappe.whitelist()
 	def get_monthly_consolidation_note_data(self, primary_consolidation_group):
 		"""Get monthly consolidation note data with current month, previous month, and FTM amounts"""
+		show_reversed_value = frappe.get_value("Standalone Group", primary_consolidation_group, "show_reversed_value")
 		secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": primary_consolidation_group}, pluck="secondary_group")
 		secondary_consolidation_groups = set(sorted([g for g in secondary_groups if g]))
 		data = []
@@ -1844,14 +1845,14 @@ class FinancialReport(Document):
 			previous_year_amount = self.sum_group_amt(primary_consolidation_group, sec, self.previous_fiscal_year)
 			
 			data.append({
-				"account": sec,
-				"current_month_amount": int(current_month_amount or 0),
-				"previous_month_amount": int(previous_month_amount or 0),
-				"ftm_amount": int(ftm_amount or 0),
-				"previous_year": int(previous_year_amount or 0),
-				"indent": 0,
-				"is_bold": 0
+				"account": sec, 
+				"current_month_amount": int(-current_month_amount if show_reversed_value and current_month_amount < 0 else current_month_amount or 0), 
+				"previous_month_amount": int(-previous_month_amount if show_reversed_value and previous_month_amount < 0 else previous_month_amount or 0), 
+				"ftm_amount": int(-ftm_amount if show_reversed_value and ftm_amount < 0 else ftm_amount or 0), 
+				"previous_year": int(-previous_year_amount if show_reversed_value and previous_year_amount < 0 else previous_year_amount or 0), 
+				"indent": 0, "is_bold": 0
 			})
+
 
 		return data
 
