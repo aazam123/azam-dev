@@ -1654,19 +1654,24 @@ class FinancialReport(Document):
 		
 		current_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.current_month, self.fiscal_year)
 		current_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.current_month, self.fiscal_year)
-		current_month_total = current_month_finished_goods + current_month_wip
+		current_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", self.current_month, self.fiscal_year)
+		current_month_total = current_month_finished_goods + current_month_wip + current_month_sit
 
 		cls_previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.previous_month, self.fiscal_year)
 		cls_previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.previous_month, self.fiscal_year)
-		cls_previous_month_total = cls_previous_month_finished_goods + cls_previous_month_wip
+		cls_previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", self.previous_month, self.fiscal_year)
+		cls_previous_month_total = cls_previous_month_finished_goods + cls_previous_month_wip + cls_previous_month_sit
+
 		
 		previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", "March", self.previous_fiscal_year)
 		previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", "March", self.previous_fiscal_year)
+		previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", "March", self.previous_fiscal_year)
 		previous_month_total = previous_month_finished_goods + previous_month_wip
 		
 		ftm_finished_goods = cls_previous_month_finished_goods - current_month_finished_goods
 		ftm_wip = cls_previous_month_wip - current_month_wip
-		ftm_total = ftm_finished_goods + ftm_wip
+		ftm_sit = current_month_sit - cls_previous_month_sit
+		ftm_total = ftm_finished_goods + ftm_wip + ftm_sit
 		
 		net_increase_finished_goods = current_month_finished_goods - previous_month_finished_goods
 		net_increase_wip = previous_month_wip - current_month_wip
@@ -1675,9 +1680,12 @@ class FinancialReport(Document):
 		
 		closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", "23-24")
 		closing_fg_pre_previous = self.sum_group_amt("Inventories", "Finished Goods", "23-24")
-		prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+		closing_sit_pre_previous = self.sum_group_amt("Inventories", "Stock In Trade", "23-24")
+
 		prev_year_closing_fg = self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
-		prev_year_amt = (closing_wip_pre_previous + closing_fg_pre_previous) - (prev_year_closing_wip + prev_year_closing_fg)
+		prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+		prev_year_closing_sit = self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+		prev_year_amt = (closing_wip_pre_previous+closing_fg_pre_previous+closing_sit_pre_previous) - (prev_year_closing_wip+prev_year_closing_fg+prev_year_closing_sit)
 		
 		if total:
 			if field == 'net_increase_total':
@@ -1695,11 +1703,13 @@ class FinancialReport(Document):
 			{"particulars": "Inventories at the end of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0, "previous_year_amt": 0, "is_subtotal": True},
 			{"particulars": "Finished goods","current_month_amt": current_month_finished_goods,"previous_month_amt": cls_previous_month_finished_goods ,"ftm_amt": ftm_finished_goods, "previous_year_amt": prev_year_closing_fg, "is_subtotal": False},
 			{"particulars": "Work-in-progress","current_month_amt": current_month_wip,"previous_month_amt": cls_previous_month_wip,"ftm_amt": ftm_wip, "previous_year_amt": prev_year_closing_wip, "is_subtotal": False},
-			{"particulars": "","current_month_amt": current_month_total,"previous_month_amt": cls_previous_month_total ,"ftm_amt": ftm_total, "previous_year_amt": (prev_year_closing_wip + prev_year_closing_fg), "is_subtotal": False},
+			{"particulars": "Stock-in-trade","current_month_amt": current_month_sit,"previous_month_amt": cls_previous_month_sit,"ftm_amt": ftm_sit, "previous_year_amt": prev_year_closing_sit, "is_subtotal": False},
+			{"particulars": "","current_month_amt": current_month_total,"previous_month_amt": cls_previous_month_total ,"ftm_amt": ftm_total, "previous_year_amt": (prev_year_closing_wip+prev_year_closing_fg+prev_year_closing_sit), "is_subtotal": False},
 			{"particulars": "Inventories at the beginning of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0, "previous_year_amt": 0, "is_subtotal": True},
 			{"particulars": "Finished goods","current_month_amt": previous_month_finished_goods,"previous_month_amt": previous_month_finished_goods,"ftm_amt": 0, "previous_year_amt": closing_fg_pre_previous, "is_subtotal": False},
 			{"particulars": "Work-in-progress","current_month_amt": previous_month_wip,"previous_month_amt": previous_month_wip,"ftm_amt": 0, "previous_year_amt": closing_wip_pre_previous, "is_subtotal": False},
-			{"particulars": "","current_month_amt": previous_month_total,"previous_month_amt": previous_month_total,"ftm_amt": 0, "previous_year_amt": (closing_wip_pre_previous + closing_fg_pre_previous), "is_subtotal": False},
+			{"particulars": "Stock-in-trade", "current_month_amt": previous_month_sit, "previous_month_amt": previous_month_sit, "ftm_amt": 0, "previous_year_amt": closing_sit_pre_previous, "is_subtotal": False},
+			{"particulars": "","current_month_amt": previous_month_total,"previous_month_amt": previous_month_total,"ftm_amt": 0, "previous_year_amt": (closing_wip_pre_previous + closing_fg_pre_previous+closing_sit_pre_previous), "is_subtotal": False},
 			{"particulars": "Net increase","current_month_amt": net_increase_total,"previous_month_amt": prev_net_total,"ftm_amt": prev_net_total - net_increase_total, "previous_year_amt": prev_year_amt,"is_subtotal": True}
 		])
 		
@@ -1753,8 +1763,10 @@ class FinancialReport(Document):
 		closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
 		
 		# Get purchases and other related costsMaterial consumed
-		purchases_current = self.sum_group_amt_monthly("Material consumed", "Cost of goods sold", self.current_month, self.fiscal_year)  - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - opening_stock)
-		purchases_previous = self.sum_group_amt_monthly("Material consumed", "Cost of goods sold", self.previous_month, self.fiscal_year) - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='previous_month_amt') + (closing_stock_previous - opening_stock)
+		curr_month_purchase_sit = self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
+		prev_month_purchase_sit = self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
+		purchases_current = self.sum_group_amt_monthly("Material consumed", "Cost of goods sold", self.current_month, self.fiscal_year)  - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - opening_stock) - curr_month_purchase_sit
+		purchases_previous = self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year) - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='previous_month_amt') + (closing_stock_previous - opening_stock) - prev_month_purchase_sit
 
 		# Calculate cost of materials consumed
 		cost_consumed_current = opening_stock + purchases_current - closing_stock_current
@@ -1769,7 +1781,8 @@ class FinancialReport(Document):
 		prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
 		closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", "23-24") + self.sum_group_amt("Inventories", "Finished Goods", "23-24")
 		prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year) + self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
-		prev_year_purchases = self.sum_group_amt("Material consumed", "Cost of goods sold", self.previous_fiscal_year) + (prev_year_closing_wip - closing_wip_pre_previous)  + (prev_year_closing_stock - closing_stock_pre_previous)
+		pre_purchase_sit = self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
+		prev_year_purchases = self.sum_group_amt("Material consumed", "Cost of goods sold", self.previous_fiscal_year) + (prev_year_closing_wip - closing_wip_pre_previous)  + (prev_year_closing_stock - closing_stock_pre_previous) - pre_purchase_sit
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
 				
 		if total:
