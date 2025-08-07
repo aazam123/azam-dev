@@ -1666,7 +1666,7 @@ class FinancialReport(Document):
 		previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", "March", self.previous_fiscal_year)
 		previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", "March", self.previous_fiscal_year)
 		previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", "March", self.previous_fiscal_year)
-		previous_month_total = previous_month_finished_goods + previous_month_wip
+		previous_month_total = previous_month_finished_goods + previous_month_wip + previous_month_sit
 		
 		ftm_finished_goods = cls_previous_month_finished_goods - current_month_finished_goods
 		ftm_wip = cls_previous_month_wip - current_month_wip
@@ -1779,8 +1779,8 @@ class FinancialReport(Document):
 
 		closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", "23-24")
 		prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
-		closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", "23-24") + self.sum_group_amt("Inventories", "Finished Goods", "23-24")
-		prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year) + self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+		closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", "23-24") + self.sum_group_amt("Inventories", "Finished Goods", "23-24") + self.sum_group_amt("Inventories", "Stock In Trade", "23-24")
+		prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year) + self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year) + self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
 		pre_purchase_sit = self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
 		prev_year_purchases = self.sum_group_amt("Material consumed", "Cost of goods sold", self.previous_fiscal_year) + (prev_year_closing_wip - closing_wip_pre_previous)  + (prev_year_closing_stock - closing_stock_pre_previous) - pre_purchase_sit
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock

@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-07 12:50:37.780875",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "current_fiscal_year",
+  "previous_fiscal_year"
+ ],
+ "fields": [
+  {
+   "fieldname": "current_fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Current Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "previous_fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Previous Fiscal Year",
+   "options": "Fiscal Year"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-08-07 12:51:24.858589",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Previous Fiscal Year",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
