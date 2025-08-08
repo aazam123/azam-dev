@@ -1668,8 +1668,8 @@ class FinancialReport(Document):
 		previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", "March", self.previous_fiscal_year)
 		previous_month_total = previous_month_finished_goods + previous_month_wip + previous_month_sit
 		
-		ftm_finished_goods = cls_previous_month_finished_goods - current_month_finished_goods
-		ftm_wip = cls_previous_month_wip - current_month_wip
+		ftm_finished_goods =current_month_finished_goods - cls_previous_month_finished_goods
+		ftm_wip = current_month_wip - cls_previous_month_wip
 		ftm_sit = current_month_sit - cls_previous_month_sit
 		ftm_total = ftm_finished_goods + ftm_wip + ftm_sit
 		
@@ -1848,7 +1848,7 @@ class FinancialReport(Document):
 		"""Get monthly consolidation note data with current month, previous month, and FTM amounts"""
 		show_reversed_value = frappe.get_value("Standalone Group", primary_consolidation_group, "show_reversed_value")
 		secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": primary_consolidation_group}, pluck="secondary_group")
-		secondary_consolidation_groups = set(sorted([g for g in secondary_groups if g]))
+		secondary_consolidation_groups = sorted(set(g for g in secondary_groups if g))
 		data = []
 		
 		for sec in secondary_consolidation_groups:
