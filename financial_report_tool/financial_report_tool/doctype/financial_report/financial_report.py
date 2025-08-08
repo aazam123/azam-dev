@@ -2629,9 +2629,9 @@ class FinancialReport(Document):
 		trade_receivables_previous = round(self.sum_group_amt_monthly("Trade receivables", "Trade receivables", self.previous_month, self.fiscal_year)) or 0
 		trade_receivables_ftm = trade_receivables_current - trade_receivables_previous
 
-		unsecured_good_current = trade_receivables_current - credit_impaired_current
-		unsecured_good_previous = trade_receivables_previous - credit_impaired_previous
-		unsecured_good_ftm = trade_receivables_ftm - credit_impaired_ftm
+		unsecured_good_current = trade_receivables_current + credit_impaired_current
+		unsecured_good_previous = trade_receivables_previous + credit_impaired_previous
+		unsecured_good_ftm = trade_receivables_ftm + credit_impaired_ftm
 
 		other_receivables_current = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", self.current_month, self.fiscal_year)) or 0
 		other_receivables_previous = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", self.previous_month, self.fiscal_year)) or 0
