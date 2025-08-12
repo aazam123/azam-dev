@@ -2492,15 +2492,17 @@ class FinancialReport(Document):
 		total_previous_year = 0
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
-		secondary_group = frappe.get_all("Standalone Group",filters={"parent_consolidation_group": primary_group},
-			fields=["name", "ind_as_description"]
-		)
+		# secondary_group = frappe.get_all("Standalone Group",filters={"parent_standalone_group": primary_group},
+		# 	fields=["name", "ind_as_description"]
+		# )
+		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
 
-		for g in secondary_group:
-			html_particulars = f"<b>{g.name}</b><br>{g.ind_as_description or ''}"
+		for secondary_group in secondary_groups:
+			ind_as_description = frappe.get_value("Standalone Group", secondary_group, 'ind_as_description')
+			html_particulars = f"<b>{secondary_group}</b><br>{ind_as_description or ''}"
 			
-			current_month_amt = self.sum_group_amt_monthly(primary_group, g.name, self.current_month, self.fiscal_year)
-			previous_month_amt = self.sum_group_amt_monthly(primary_group, g.name, self.previous_month, self.fiscal_year)
+			current_month_amt = self.sum_group_amt_monthly(primary_group, secondary_group, self.current_month, self.fiscal_year)
+			previous_month_amt = self.sum_group_amt_monthly(primary_group, secondary_group, self.previous_month, self.fiscal_year)
 			ftm_amt = current_month_amt - previous_month_amt
 			previous_year = 0
 
