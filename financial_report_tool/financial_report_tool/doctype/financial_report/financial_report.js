@@ -28,6 +28,14 @@ frappe.ui.form.on("Financial Report", {
             };
         }
     },
+    company: function(frm) {
+        frappe.db.get_value('Company', frm.doc.company, 'default_currency')
+        .then(r => {
+            if (r.message && r.message.default_currency) {
+                frm.set_value('currency', r.message.default_currency);
+            }
+        });
+    },
 	financial_report_template(frm) {
         frappe.call({
             method: 'get_financial_report_template',

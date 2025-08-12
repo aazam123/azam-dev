@@ -1846,27 +1846,44 @@ class FinancialReport(Document):
 	@frappe.whitelist()
 	def get_monthly_consolidation_note_data(self, primary_consolidation_group):
 		"""Get monthly consolidation note data with current month, previous month, and FTM amounts"""
-		show_reversed_value = frappe.get_value("Standalone Group", primary_consolidation_group, "show_reversed_value")
-		secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": primary_consolidation_group}, pluck="secondary_group")
-		secondary_consolidation_groups = sorted(set(g for g in secondary_groups if g))
+		show_reversed_value, group_type = frappe.get_value("Standalone Group", primary_consolidation_group, ["show_reversed_value", "group_type"])
 		data = []
-		
-		for sec in secondary_consolidation_groups:
-			current_month_amount = self.sum_group_amt_monthly(primary_consolidation_group, sec, self.current_month, self.fiscal_year)
-			previous_month_amount = self.sum_group_amt_monthly(primary_consolidation_group, sec, self.previous_month, self.fiscal_year)
-			ftm_amount = current_month_amount - previous_month_amount
-			previous_year_amount = self.sum_group_amt(primary_consolidation_group, sec, self.previous_fiscal_year)
-			
+
+		def format_amount(val):
+			return int(-val if show_reversed_value and val < 0 else val or 0)
+
+		def append_data(account, cm, pm, ftm, py):
 			data.append({
-				"account": sec, 
-				"current_month_amount": int(-current_month_amount if show_reversed_value and current_month_amount < 0 else current_month_amount or 0), 
-				"previous_month_amount": int(-previous_month_amount if show_reversed_value and previous_month_amount < 0 else previous_month_amount or 0), 
-				"ftm_amount": int(-ftm_amount if show_reversed_value and ftm_amount < 0 else ftm_amount or 0), 
-				"previous_year": int(-previous_year_amount if show_reversed_value and previous_year_amount < 0 else previous_year_amount or 0), 
-				"indent": 0, "is_bold": 0
+				"account": account,
+				"current_month_amount": format_amount(cm),
+				"previous_month_amount": format_amount(pm),
+				"ftm_amount": format_amount(ftm),
+				"previous_year": format_amount(py),
+				"indent": 0,
+				"is_bold": 0
 			})
 
+		if group_type in ("Other Income", "Other Expense"):
+			primary_groups = frappe.get_list("Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
+		else:
+			primary_groups = [primary_consolidation_group]
 
+		for primary_group in primary_groups:
+			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group]}, pluck="secondary_group")
+			secondary_consolidation_groups = sorted(set(filter(None, secondary_groups)))
+			for sec in secondary_consolidation_groups:
+				cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year)
+				pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year)
+				ftm = cm - pm
+				py = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
+
+				if group_type in ("Other Income", "Other Expense"):
+					if all(val <= 0 for val in (cm, pm, py)) and group_type == "Other Income" or all(val >= 0 for val in (cm, pm, py)) and group_type == "Other Expense":
+						if not all(val == 0 for val in (cm, pm, py)):
+							append_data(sec, cm, pm, ftm, py)
+				else:
+					if all(val != 0 for val in (cm, pm, py)):
+						append_data(sec, cm, pm, ftm, py)
 		return data
 
 	def render_monthly_balance_sheet(self, template_name):
@@ -1995,7 +2012,7 @@ class FinancialReport(Document):
 
 			# Add data-schedule attribute and clickable styling for account rows
 			schedule_attr = f' data-schedule="{note_no}"' if note_no else ""
-			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if note_no else ""
+			clickable_style = "cursor: pointer;" if note_no else ""
 			
 			# Handle anchor link for schedule
 			account_text = row.get("account") or ""
@@ -2176,118 +2193,139 @@ class FinancialReport(Document):
 		note_table += "</tbody></table>"
 		return note_table
 
+	@frappe.whitelist()
 	def get_monthly_profit_and_loss_data(self, template_name, fetch_for_other_equity=False):
-		"""Get monthly P&L data with current month, previous month, and FTM amounts"""
+		"""Optimized: Get monthly P&L data with current month, previous month, FTM, and previous year amounts"""
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
 		amount_cache = {}
+		group_mapping_cache = {}
+		fr_particular_cache = {}
+		fr_section_cache = {}
+		standalone_group_cache = {}
+
+		def get_fr_particular(name):
+			if name not in fr_particular_cache:
+				fr_particular_cache[name] = frappe.get_doc("FR Particular", name)
+			return fr_particular_cache[name]
+
+		def get_fr_section(name):
+			if name not in fr_section_cache:
+				fr_section_cache[name] = frappe.get_doc("FR Section", name)
+			return fr_section_cache[name]
+
+		def get_standalone_group(name):
+			if name not in standalone_group_cache:
+				standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
+			return standalone_group_cache[name]
+
+		def get_secondary_groups(primary_group):
+			"""Cached retrieval of secondary groups"""
+			if primary_group not in group_mapping_cache:
+				group_mapping_cache[primary_group] = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+			return group_mapping_cache[primary_group]
 
 		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False):
-			cache_key = (particular_name, month, year)
+			cache_key = (particular_name, month, year, is_current, is_yearly)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
-			fr_particular = frappe.get_doc("FR Particular", particular_name)
-			if getattr(fr_particular, "is_total", 1):
-				amount = 0
-				for p in getattr(fr_particular, "particulars", []):
-					child_name = p.particular
-					if getattr(fr_particular, "to_subtract", 1):
-						if amount == 0:
-							amount = calc_amount_for_particular_monthly(child_name, month, year, is_current, is_yearly)
-						else:
-							amount -= calc_amount_for_particular_monthly(child_name, month, year, is_current, is_yearly)
-					else:
-						amount += calc_amount_for_particular_monthly(child_name, month, year, is_current, is_yearly)
-				amount = amount * 100000
-			elif getattr(fr_particular, "fetch_from_schedule", 1):
-				amount = 0
-				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
+			fr_particular = get_fr_particular(particular_name)
+			amount = 0
+
+			if fr_particular.is_total:
+				for idx, p in enumerate(fr_particular.particulars or []):
+					child_amount = calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly)
+					amount = (child_amount if idx == 0 and amount == 0 else amount - child_amount) if fr_particular.to_subtract else amount + child_amount
+
+			elif fr_particular.fetch_from_schedule:
+				note_type = get_fr_section(fr_particular.schedule).note_type
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-					if is_current:
-						field = 'net_increase_total' 
-					elif is_yearly:
-						field = 'prev_year_amt'
-					else:
-						field = 'previous_month_amt'
-					amount = self.get_monthly_finished_goods_and_wip(note_type, total = True, field=field)
+					field = 'net_increase_total' if is_current else ('prev_year_amt' if is_yearly else 'previous_month_amt')
+					amount = self.get_monthly_finished_goods_and_wip(note_type, total=True, field=field)
 				elif note_type == "Cost of Materials Consumed":
-					if is_current:
-						field = 'cost_consumed_current'
-					elif is_yearly:
-						field = 'prev_year_cost_consumed'
-					else:
-						field = 'cost_consumed_previous'
-				
-					amount = self.get_monthly_cost_of_material_consumed(note_type, total = True, field=field)
-					
-				amount = amount * 100000
-			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping'):
-					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company, "report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					gl_accounts.extend(gl_account)
-				
-				if len(gl_accounts) == 0:
-					amount = 0
+					field = 'cost_consumed_current' if is_current else ('prev_year_cost_consumed' if is_yearly else 'cost_consumed_previous')
+					amount = self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
+
+			elif fr_particular.schedule:
+				fr_section = get_fr_section(fr_particular.schedule)
+				if fr_section.fetch_data_from_trial_balance:
+					group_info = get_standalone_group(fr_section.primary_consolidation_group)
+					group_type = group_info.group_type
+					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
+						if group_type in ("Other Income", "Other Expense") else
+						{fr_section.primary_consolidation_group}
+					)
+
+					for pg in primary_groups:
+						for sec in get_secondary_groups(pg):
+							face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
+							if (group_type == "Other Income" and face_amount < 0) or (group_type == "Other Expense" and face_amount > 0) or (group_type not in ("Other Income", "Other Expense") and face_amount != 0):
+								amount += face_amount
 				else:
-					placeholders = ','.join(['%s'] * len(gl_accounts))
-					query = f"""
-						SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
-						WHERE company = %s AND fiscal_year = %s AND gl_account IN ({placeholders})
-					"""
-					params = [self.company, year] + gl_accounts
+					gl_accounts = []
+					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
+						gl_accounts.extend(
+							frappe.get_list("GL Group Mapping", {
+								"company": self.company,
+								"report_type": self.report_type,
+								"primary_group": g.primary_group,
+								"secondary_group": g.secondary_group
+							}, pluck='gl_account')
+						)
+					if gl_accounts:
+						placeholders = ','.join(['%s'] * len(gl_accounts))
+						query = f"""
+							SELECT SUM(uploaded_amount) 
+							FROM `tabFR Trial Balance Entry`
+							WHERE company = %s AND fiscal_year = %s AND gl_account IN ({placeholders})
+						"""
+						params = [self.company, year] + gl_accounts
+						if not is_yearly:
+							query += " AND month = %s"
+							params.append(month)
+						amount = frappe.db.sql(query, params)[0][0] or 0
 
-					if not is_yearly:
-						query += " AND month = %s"
-						params.append(month)
-
-					amount = (frappe.db.sql(query, params)[0][0] or 0)
-			
-			if getattr(fr_particular, "show_reversed_value", 0):
+			if fr_particular.show_reversed_value:
 				amount = -amount
-			
-			amount_cache[cache_key] = int(round(amount / 100000))
+
+			amount_cache[cache_key] = int(round(amount))
 			return amount_cache[cache_key]
-		 
-		grouped_data = []
+
 		if fetch_for_other_equity:
 			account = profit_and_loss_doc.profit_and_loss_template_details[-1].account
-			current_month_amount = calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current = True)
-			previous_month_amount = calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year)
-			previous_year_amount = calc_amount_for_particular_monthly(account, self.previous_month, self.previous_fiscal_year, is_yearly = True)
-			return current_month_amount, previous_month_amount, previous_year_amount
+			return (
+				calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current=True),
+				calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year),
+				calc_amount_for_particular_monthly(account, self.previous_month, self.previous_fiscal_year, is_yearly=True)
+			)
 
+		grouped_data = []
 		for row in profit_and_loss_doc.profit_and_loss_template_details:
 			if not row.account:
 				continue
-			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current = True)
+
+			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
-			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly = True)
-			
-			# Get the schedule from FR Particular
-			fr_particular = frappe.get_doc("FR Particular", row.account)
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly=True)
+
+			fr_particular = get_fr_particular(row.account)
 			schedule = getattr(fr_particular, "schedule", "")
-			
-			# Get note number for schedule if it exists
-			note_no = ""
-			if schedule:
-				schedule_note_no = self.get_note_number_for_schedule(schedule)
-				if schedule_note_no:
-					note_no = schedule_note_no
-			
+			note_no = self.get_note_number_for_schedule(schedule) if schedule else ""
+
 			grouped_data.append({
 				"account": row.particular_name,
-				"note_no": note_no,
-				"current_month_amount": int(current_month_amount),
-				"previous_month_amount": int(previous_month_amount),
-				"ftm_amount": int(ftm_amount),
-				"previous_year": int(previous_year_amount),
+				"note_no": note_no or "",
+				"current_month_amount": current_month_amount,
+				"previous_month_amount": previous_month_amount,
+				"ftm_amount": ftm_amount,
+				"previous_year": previous_year_amount,
 				"indent": int(row.indent_level or 0),
 				"is_bold": row.is_bold,
 				"group": row.group,
 				"schedule": schedule,
 			})
+
 		return grouped_data
 
 	def get_monthly_balance_sheet_data(self, template_name):
@@ -2466,6 +2504,13 @@ class FinancialReport(Document):
 			ftm_amt = current_month_amt - previous_month_amt
 			previous_year = 0
 
+			if current_month_amt < 0:
+				current_month_amt = -current_month_amt
+			if previous_month_amt < 0:
+				previous_month_amt = -previous_month_amt
+			if ftm_amt < 0:
+				ftm_amt = -ftm_amt
+
 			rows.append({
 				"particulars": html_particulars,
 				"current_month_amt": f"{current_month_amt:,.0f}" if current_month_amt else "-",
@@ -2643,9 +2688,9 @@ class FinancialReport(Document):
 
 		main_table = [
 			("Unsecured, considered good", unsecured_good_current, unsecured_good_previous, unsecured_good_ftm, False),
-			("Credit impaired", credit_impaired_current, credit_impaired_previous, credit_impaired_ftm, False),
+			("Credit impaired", -credit_impaired_current, credit_impaired_previous, credit_impaired_ftm, False),
 			("", trade_receivables_current, trade_receivables_previous, trade_receivables_ftm, False),
-			("Less: Provision for credit impaired trade receivables", credit_impaired_current, credit_impaired_previous, credit_impaired_ftm, False),
+			("Less: Provision for credit impaired trade receivables", -credit_impaired_current, credit_impaired_previous, credit_impaired_ftm, False),
 			("Other receivables", "", "", "", True),
 			("Unsecured, considered good", other_receivables_current, other_receivables_previous, other_receivables_ftm, False),
 			("Total", total_current, total_previous, total_ftm, True),

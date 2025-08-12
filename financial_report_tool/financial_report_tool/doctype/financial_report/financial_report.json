@@ -9,6 +9,7 @@
   "company",
   "financial_report_template",
   "report_type",
+  "currency",
   "column_break_nyhx",
   "fiscal_year",
   "current_year_ending_date",
@@ -100,12 +101,18 @@
    "fieldtype": "Select",
    "label": "Report Type",
    "options": "\nMonthly\nYearly\nMIS"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-01 12:09:27.150679",
+ "modified": "2025-08-12 10:08:35.445588",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",
