@@ -2277,12 +2277,9 @@ class FinancialReport(Document):
 						query = f"""
 							SELECT SUM(uploaded_amount) 
 							FROM `tabFR Trial Balance Entry`
-							WHERE company = %s AND fiscal_year = %s AND gl_account IN ({placeholders})
+							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 						"""
-						params = [self.company, year] + gl_accounts
-						if not is_yearly:
-							query += " AND month = %s"
-							params.append(month)
+						params = [self.company, year, month] + gl_accounts
 						amount = frappe.db.sql(query, params)[0][0] or 0
 
 			if fr_particular.show_reversed_value:
@@ -2296,7 +2293,7 @@ class FinancialReport(Document):
 			return (
 				calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current=True),
 				calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year),
-				calc_amount_for_particular_monthly(account, self.previous_month, self.previous_fiscal_year, is_yearly=True)
+				calc_amount_for_particular_monthly(account, "March", self.previous_fiscal_year)
 			)
 
 		grouped_data = []
@@ -2307,7 +2304,7 @@ class FinancialReport(Document):
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
-			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly=True)
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, "March", self.previous_fiscal_year)
 
 			fr_particular = get_fr_particular(row.account)
 			schedule = getattr(fr_particular, "schedule", "")
@@ -2492,9 +2489,6 @@ class FinancialReport(Document):
 		total_previous_year = 0
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
-		# secondary_group = frappe.get_all("Standalone Group",filters={"parent_standalone_group": primary_group},
-		# 	fields=["name", "ind_as_description"]
-		# )
 		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
 
 		for secondary_group in secondary_groups:
