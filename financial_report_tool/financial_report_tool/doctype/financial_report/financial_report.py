@@ -2293,7 +2293,7 @@ class FinancialReport(Document):
 			return (
 				calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current=True),
 				calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year),
-				calc_amount_for_particular_monthly(account, "March", self.previous_fiscal_year)
+				calc_amount_for_particular_monthly(account, "March", self.previous_fiscal_year, is_yearly=True)
 			)
 
 		grouped_data = []
@@ -2304,7 +2304,7 @@ class FinancialReport(Document):
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
-			previous_year_amount = calc_amount_for_particular_monthly(row.account, "March", self.previous_fiscal_year)
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, "March", self.previous_fiscal_year, is_yearly=True)
 
 			fr_particular = get_fr_particular(row.account)
 			schedule = getattr(fr_particular, "schedule", "")
