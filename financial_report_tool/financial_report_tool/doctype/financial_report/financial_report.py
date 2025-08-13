@@ -2274,7 +2274,27 @@ class FinancialReport(Document):
 							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 						"""
 						params = [self.company, year, month] + gl_accounts
-						amount = frappe.db.sql(query, params)[0][0] or 0
+						amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+			else:
+				gl_accounts = []
+				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
+					gl_accounts.extend(
+						frappe.get_list("GL Group Mapping", {
+							"company": self.company,
+							"report_type": self.report_type,
+							"primary_group": g.primary_group,
+							"secondary_group": g.secondary_group
+						}, pluck='gl_account')
+					)
+				if gl_accounts:
+					placeholders = ','.join(['%s'] * len(gl_accounts))
+					query = f"""
+						SELECT SUM(uploaded_amount) 
+						FROM `tabFR Trial Balance Entry`
+						WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
+					"""
+					params = [self.company, year, month] + gl_accounts
+					amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
 
 			if fr_particular.show_reversed_value:
 				amount = -amount
