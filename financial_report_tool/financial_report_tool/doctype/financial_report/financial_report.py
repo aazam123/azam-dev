@@ -1861,10 +1861,11 @@ class FinancialReport(Document):
 			primary_groups = frappe.get_list("Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
 		else:
 			primary_groups = [primary_group]
-
+		
 		for primary_group in primary_groups:
 			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group]}, pluck="secondary_group")
 			secondary_consolidation_groups = sorted(set(filter(None, secondary_groups)))
+			
 			for sec in secondary_consolidation_groups:
 				cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year)
 				pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year)
@@ -1872,12 +1873,13 @@ class FinancialReport(Document):
 				py = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
 
 				if group_type in ("Other Income", "Other Expense"):
-					if all(val <= 0 for val in (cm, pm, py)) and group_type == "Other Income" or all(val >= 0 for val in (cm, pm, py)) and group_type == "Other Expense":
-						if not all(val == 0 for val in (cm, pm, py)):
+					if any(val <= 0 for val in (cm, pm, py)) and group_type == "Other Income" or any(val >= 0 for val in (cm, pm, py)) and group_type == "Other Expense":
+						if not any(val == 0 for val in (cm, pm, py)):
 							append_data(sec, cm, pm, ftm, py)
 				else:
-					if all(val != 0 for val in (cm, pm, py)):
+					if any(val != 0 for val in (cm, pm, py)):
 						append_data(sec, cm, pm, ftm, py)
+
 		return data
 
 	def render_monthly_balance_sheet(self, template_name):
