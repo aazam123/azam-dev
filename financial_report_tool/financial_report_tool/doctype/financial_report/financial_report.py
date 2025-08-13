@@ -210,14 +210,14 @@ class FinancialReport(Document):
 					section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
 					section_description = section_data.section_type_description if section_data else ""
 					fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
-					primary_consolidation_group = section_data.primary_consolidation_group if section_data else ""
+					primary_group = section_data.primary_consolidation_group if section_data else ""
 					note_type = section_data.note_type if section_data else ""
 					note_table = None
 
 					if fetch_data_from_trial_balance == 1:
 						data = []
-						if primary_consolidation_group:
-							data = self.get_monthly_consolidation_note_data(primary_consolidation_group)
+						if primary_group:
+							data = self.get_monthly_consolidation_note_data(primary_group)
 						note_table = self.monthly_table_for_note_template_1(data)
 						
 					if note_type == "Investments (Non-current)":
@@ -265,12 +265,12 @@ class FinancialReport(Document):
 					section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
 					section_description = section_data.section_type_description if section_data else ""
 					fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
-					primary_consolidation_group = section_data.primary_consolidation_group if section_data else ""
+					primary_group = section_data.primary_consolidation_group if section_data else ""
 					note_type = section_data.note_type if section_data else ""
 					note_table = None
 
 					if fetch_data_from_trial_balance == 1:
-						data = self.get_consolidation_note_data(primary_consolidation_group)
+						data = self.get_consolidation_note_data(primary_group)
 						note_table = self.table_for_note_template_1(data)
 						
 					if note_type == "Investments (Non-current)":
@@ -291,9 +291,8 @@ class FinancialReport(Document):
 					if note_table:
 						context = {"note_table": note_table}
 						i.section_description = frappe.render_template(section_description or "", context)	
-					context = {
-						"company": self.company
-					}
+
+					context = {"company": self.company}
 					i.section_description = section_desc = frappe.render_template(i.section_description or "", context)
 					i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
@@ -475,16 +474,14 @@ class FinancialReport(Document):
 			total_current_amt = 0
 			total_previous_amt = 0
 
-		secondary_group = frappe.get_all("Standalone Group",filters={"parent_consolidation_group": primary_group},
-			fields=["name", "ind_as_description"]
-		)
-
-		for g in secondary_group:
-			html_particulars = f"<b>{g.name}</b><br>{g.ind_as_description or ''}"
+		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+		for secondary_group in secondary_groups:
+			ind_as_description = frappe.get_value("Standalone Group", secondary_group, 'ind_as_description')
+			html_particulars = f"<b>{secondary_group}</b><br>{ind_as_description or ''}"
 			
 			if self.report_type == "Monthly":
-				current_month_amt = self.sum_group_amt_monthly(primary_group, g.name, self.current_month, self.fiscal_year)
-				previous_month_amt = self.sum_group_amt_monthly(primary_group, g.name, self.previous_month, self.fiscal_year)
+				current_month_amt = self.sum_group_amt_monthly(primary_group, secondary_group, self.current_month, self.fiscal_year)
+				previous_month_amt = self.sum_group_amt_monthly(primary_group, secondary_group, self.previous_month, self.fiscal_year)
 				ftm_amt = current_month_amt - previous_month_amt
 
 				rows.append({
@@ -499,8 +496,8 @@ class FinancialReport(Document):
 				total_previous_month_amt += previous_month_amt or 0
 				total_ftm_amt += ftm_amt or 0
 			else:
-				current_amt = self.sum_group_amt(primary_group, g.name, self.fiscal_year)
-				previous_amt = self.sum_group_amt(primary_group, g.name, self.previous_fiscal_year)
+				current_amt = self.sum_group_amt(primary_group, secondary_group, self.fiscal_year)
+				previous_amt = self.sum_group_amt(primary_group, secondary_group, self.previous_fiscal_year)
 
 				rows.append({
 					"particulars": html_particulars,
@@ -978,15 +975,14 @@ class FinancialReport(Document):
 		table += "</tbody></table>"
 		return table
 
-	def get_consolidation_note_data(self, primary_consolidation_group):
-		secondary_consolidation_groups = frappe.db.get_list("Standalone Group", {"parent_consolidation_group": primary_consolidation_group}, pluck="name")
+	def get_consolidation_note_data(self, primary_group):
+		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
 		data = []
 		
 		if self.report_type == "Monthly":
-			# For monthly reports, get current month, previous month, and FTM data
-			for sec in secondary_consolidation_groups:
-				current_month_amount = self.sum_group_amt_monthly(primary_consolidation_group, sec, self.current_month, self.fiscal_year)
-				previous_month_amount = self.sum_group_amt_monthly(primary_consolidation_group, sec, self.previous_month, self.fiscal_year)
+			for sec in secondary_groups:
+				current_month_amount = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year)
+				previous_month_amount = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year)
 				ftm_amount = current_month_amount - previous_month_amount
 				
 				data.append({
@@ -998,10 +994,9 @@ class FinancialReport(Document):
 					"is_bold": 0
 				})
 		else:
-			# For yearly reports, get current year and previous year data
-			for sec in secondary_consolidation_groups:
-				amount = self.sum_group_amt(primary_consolidation_group, sec, self.fiscal_year)
-				previous_year_amount = self.sum_group_amt(primary_consolidation_group, sec, self.previous_fiscal_year)
+			for sec in secondary_groups:
+				amount = self.sum_group_amt(primary_group, sec, self.fiscal_year)
+				previous_year_amount = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
 				data.append({
 					"account": sec,
 					"amount": amount,
@@ -1014,7 +1009,6 @@ class FinancialReport(Document):
 	def table_for_note_template_1(self, data):
 		if self.report_type == "Monthly":
 			current_month_date, previous_month_date, ftm_date = self.get_monthly_dates()
-			
 			note_table = f'''
 			<table style="width:100%; border-collapse:collapse; font-size:13px;">
 				<thead>
@@ -1844,9 +1838,9 @@ class FinancialReport(Document):
 		return html
 
 	@frappe.whitelist()
-	def get_monthly_consolidation_note_data(self, primary_consolidation_group):
+	def get_monthly_consolidation_note_data(self, primary_group):
 		"""Get monthly consolidation note data with current month, previous month, and FTM amounts"""
-		show_reversed_value, group_type = frappe.get_value("Standalone Group", primary_consolidation_group, ["show_reversed_value", "group_type"])
+		show_reversed_value, group_type = frappe.get_value("Standalone Group", primary_group, ["show_reversed_value", "group_type"])
 		data = []
 
 		def format_amount(val):
@@ -1866,7 +1860,7 @@ class FinancialReport(Document):
 		if group_type in ("Other Income", "Other Expense"):
 			primary_groups = frappe.get_list("Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
 		else:
-			primary_groups = [primary_consolidation_group]
+			primary_groups = [primary_group]
 
 		for primary_group in primary_groups:
 			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group]}, pluck="secondary_group")
@@ -2252,9 +2246,7 @@ class FinancialReport(Document):
 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 					group_type = group_info.group_type
 					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
-						if group_type in ("Other Income", "Other Expense") else
-						{fr_section.primary_consolidation_group}
-					)
+						if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
 
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
@@ -2488,7 +2480,6 @@ class FinancialReport(Document):
 		total_ftm_amt = 0
 		total_previous_year = 0
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-
 		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
 
 		for secondary_group in secondary_groups:
