@@ -1874,7 +1874,7 @@ class FinancialReport(Document):
 
 				if group_type in ("Other Income", "Other Expense"):
 					if any(val <= 0 for val in (cm, pm, py)) and group_type == "Other Income" or any(val >= 0 for val in (cm, pm, py)) and group_type == "Other Expense":
-						if not any(val == 0 for val in (cm, pm, py)):
+						if any(val != 0 for val in (cm, pm, py)):
 							append_data(sec, cm, pm, ftm, py)
 				else:
 					if any(val != 0 for val in (cm, pm, py)):
