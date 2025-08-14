@@ -13,7 +13,6 @@
   "schedule",
   "particulars",
   "column_break_mexs",
-  "company",
   "is_total",
   "to_subtract",
   "has_note_no",
@@ -102,19 +101,12 @@
    "fieldname": "to_subtract",
    "fieldtype": "Check",
    "label": "To Subtract"
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-24 14:58:09.590655",
+ "modified": "2025-08-14 14:44:27.040883",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",
