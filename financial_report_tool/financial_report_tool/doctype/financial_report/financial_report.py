@@ -2448,7 +2448,7 @@ class FinancialReport(Document):
 			if not row.account:
 				continue
 
-			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year)
+			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current = True)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
 			ftm_amount = current_month_amount - previous_month_amount
 			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly=True)
@@ -2665,9 +2665,11 @@ class FinancialReport(Document):
 		grand_total_current = retained_tot_current + cc_closing_current + bal_sp_tot_current
 		grand_total_previous = retained_tot_prev + cc_closing_previous + bal_sp_tot_prev
 		grand_total_prev_year = retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year
-		if total:
+
+		if total and field:
 			if field == "grand_total_current":
 				return grand_total_current
+	
 			elif field == "grand_total_prev_year":
 				return grand_total_prev_year
 			else:
