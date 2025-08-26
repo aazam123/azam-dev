@@ -1,0 +1,38 @@
+{
+ "add_total_row": 1,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2025-08-26 17:31:48.938382",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "mandatory": 1,
+   "options": "Company",
+   "wildcard_filter": 0
+  }
+ ],
+ "idx": 0,
+ "is_standard": "Yes",
+ "letterhead": null,
+ "modified": "2025-08-26 17:31:53.819305",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Accounts with Parent & Groups",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "query": "SELECT \n    t.report_type AS \"Report Type:Data:200\",\n    t.gl_account AS \"GL Account:Link/Account:200\",\n    acc.parent_account AS \"Parent Account:Link/Account:200\",\n    gm.primary_group AS \"Primary Group:Data:180\",\n    gm.secondary_group AS \"Secondary Group:Data:220\"\nFROM `tabFR Trial Balance Entry` t\nINNER JOIN `tabGL Group Mapping` gm \n    ON t.gl_account = gm.gl_account \n    AND t.company = gm.company\nINNER JOIN `tabAccount` acc\n    ON t.gl_account = acc.name \n    AND t.company = acc.company\nWHERE t.company = %(company)s\nGROUP BY \n    t.report_type,\n    t.gl_account,\n    acc.parent_account,\n    gm.primary_group, \n    gm.secondary_group;\n",
+ "ref_doctype": "Account",
+ "report_name": "Accounts with Parent & Groups",
+ "report_type": "Query Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "timeout": 0
+}

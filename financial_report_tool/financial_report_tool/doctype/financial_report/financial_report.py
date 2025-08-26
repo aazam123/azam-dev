@@ -2623,6 +2623,9 @@ class FinancialReport(Document):
 				elif note_type == "Other Equity" and not for_other_equity and not account:
 					field = 'grand_total_current' if is_current else 'grand_total_prev_year'
 					amount = self.get_monthly_other_equity_note_data(note_type, total=True, field=field)
+				elif note_type == "Borrowings (Non-current)":
+					field = 'total_current_month_amt' if is_current else 'total_previous_year'
+					amount = self.get_monthly_borrowing_non_current_note_data(note_type, total=True, field=field)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
@@ -2657,8 +2660,8 @@ class FinancialReport(Document):
 			# Apply FX only on leaf nodes (not totals, not schedule fetches)
 			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
 				amount *= fx_rate
-
-			amount_cache[cache_key] = int(round(amount))
+		
+			amount_cache[cache_key] = int(round(amount if amount else 0))
 			return amount_cache[cache_key]
 
 		# --- Main loop ---
@@ -2929,7 +2932,7 @@ class FinancialReport(Document):
 			})
 		return data
 
-	def get_monthly_borrowing_non_current_note_data(self, primary_group):
+	def get_monthly_borrowing_non_current_note_data(self, primary_group, total=False, field=None):
 		"""Get monthly borrowing non-current note data with optimized structure"""
 		rows = []
 		total_current_month_amt = 0
@@ -2937,7 +2940,7 @@ class FinancialReport(Document):
 		total_ftm_amt = 0
 		total_previous_year = 0
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group, "company": self.company}, pluck="secondary_group") if g))
 
 		for secondary_group in secondary_groups:
 			ind_as_description = frappe.get_value("Standalone Group", secondary_group, 'ind_as_description')
@@ -2968,6 +2971,14 @@ class FinancialReport(Document):
 			total_previous_month_amt += previous_month_amt or 0
 			total_ftm_amt += ftm_amt or 0
 			total_previous_year += previous_year or 0
+
+		if total:
+			if field == "total_current_month_amt":
+				return total_current_month_amt
+			elif field == "total_previous_year":
+				return total_previous_year
+			else:
+				return 0
 
 		# HTML rendering with optimized structure
 		html = f'''
