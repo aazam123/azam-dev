@@ -2678,12 +2678,12 @@ class FinancialReport(Document):
 
 			# Special case: Equity Share Capital → fixed INR investment value
 			if default_currency != self.currency and particular_type == "Equity Share Capital":
-				investment_value = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+				investment_value = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
 				current_month_amount = previous_month_amount = previous_year_amount = investment_value
 			else:
-				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx)
-				previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx)
-				previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
+				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
+				previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx) or 0
+				previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx) or 0
 
 			ftm_amount = current_month_amount - previous_month_amount
 			schedule = getattr(fr_particular, "schedule", "")
