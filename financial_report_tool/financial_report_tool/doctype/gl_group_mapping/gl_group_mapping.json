@@ -20,7 +20,8 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Report Type",
-   "options": "\nMonthly\nYearly\nMIS"
+   "options": "\nMonthly\nYearly\nMIS",
+   "reqd": 1
   },
   {
    "fieldname": "gl_account",
@@ -28,7 +29,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "GL Account",
-   "options": "Account"
+   "options": "Account",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_vrta",
@@ -40,7 +42,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Primary Group",
-   "options": "Standalone Group"
+   "options": "Standalone Group",
+   "reqd": 1
   },
   {
    "fieldname": "secondary_group",
@@ -48,20 +51,22 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Secondary Group",
-   "options": "Standalone Group"
+   "options": "Standalone Group",
+   "reqd": 1
   },
   {
    "fieldname": "company",
    "fieldtype": "Link",
    "in_standard_filter": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-21 16:57:00.328288",
+ "modified": "2025-08-25 13:21:47.112551",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "GL Group Mapping",

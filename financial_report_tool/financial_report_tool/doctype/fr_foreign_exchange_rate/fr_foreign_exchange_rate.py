@@ -7,6 +7,12 @@ from frappe.model.document import Document
 
 
 class FRForeignExchangeRate(Document):
+	def before_insert(self):
+		filters = {"date": self.date, "fiscal_year": self.fiscal_year, "from_currency": self.from_currency, "to_currency": self.to_currency,}
+		exist = frappe.db.exists("FR Foreign Exchange Rate", filters)
+		if exist:
+			frappe.throw(f"Duplicate Foreign Exchange Rate already exists: {exist}")
+
 	def before_save(self):
 		if self.date:
 			if isinstance(self.date, str):

@@ -20,9 +20,57 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 class FinancialReport(Document):
 	def before_save(self):
 		self.update_consolidation_note_numbers()
+
+		# Update section names
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
 				i.section_name = frappe.get_value("FR Section", i.section, 'section_type_name')
+
+		default_currency = frappe.get_value("Company", self.company, "default_currency")
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		current_cls_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate')
+		previous_cls_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate')
+		previous_year_cls_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'closing_rate')
+		
+		current_avg_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate')
+		previous_avg_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate')
+		previous_year_avg_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
+
+		# Build HTML table
+		foreign_exchange_rate = f"""
+			<table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:-35px 0;">
+				<thead>
+					<tr style="background-color:#f9f9f9;">
+						<th style="border:1px solid #ddd; padding:4px;">Month</th>
+						<th style="border:1px solid #ddd; padding:4px;">Year</th>
+						<th style="border:1px solid #ddd; padding:4px;">Closing Rate</th>
+						<th style="border:1px solid #ddd; padding:4px;">Average Rate</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="border:1px solid #ddd; padding:4px;"><b>{self.current_month}</b></td>
+						<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
+						<td style="border:1px solid #ddd; padding:4px;">{current_cls_fx or "-"}</td>
+						<td style="border:1px solid #ddd; padding:4px;">{current_avg_fx or "-"}</td>
+					</tr>
+					<tr>
+						<td style="border:1px solid #ddd; padding:4px;"><b>{self.previous_month}</b></td>
+						<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
+						<td style="border:1px solid #ddd; padding:4px;">{previous_cls_fx or "-"}</td>
+						<td style="border:1px solid #ddd; padding:4px;">{previous_avg_fx or "-"}</td>
+					</tr>
+					<tr>
+						<td style="border:1px solid #ddd; padding:4px;"><b>{cls_month}</b></td>
+						<td style="border:1px solid #ddd; padding:4px;">{self.previous_fiscal_year}</td>
+						<td style="border:1px solid #ddd; padding:4px;">{previous_year_cls_fx or "-"}</td>
+						<td style="border:1px solid #ddd; padding:4px;">{previous_year_avg_fx or "-"}</td>
+					</tr>
+				</tbody>
+			</table>
+		"""
+		self.foreign_exchange_rate = foreign_exchange_rate
+
 
 	def generate_note_id(self, note_no, note_title):
 		"""Generate consistent ID for note anchors"""
@@ -124,10 +172,7 @@ class FinancialReport(Document):
 			date_obj = date_str
 		
 		formatted_date = date_obj.strftime("%Y-%m-%d")
-		fiscal_year = frappe.db.exists("Fiscal Year", {
-			'year_start_date': ["<=", formatted_date], 
-			'year_end_date': [">=", formatted_date]
-		})
+		fiscal_year = frappe.db.exists("Fiscal Year", {'year_start_date': ["<=", formatted_date], 'year_end_date': [">=", formatted_date]})
 		return fiscal_year
 
 	def get_fiscal_year_before(self, fiscal_year_name):
@@ -136,7 +181,6 @@ class FinancialReport(Document):
 			return None
 		
 		fiscal_year_doc = frappe.get_doc("Fiscal Year", fiscal_year_name)
-		# Get the fiscal year that ends on the start date of the given fiscal year
 		previous_fiscal_year = frappe.db.exists("Fiscal Year", {'year_end_date': fiscal_year_doc.year_start_date})
 		return previous_fiscal_year
 
@@ -154,6 +198,16 @@ class FinancialReport(Document):
 		current_year_date = current_year_date_obj.strftime("%d-%m-%Y")
 		previous_year_date = previous_year_date_obj.strftime("%d-%m-%Y")
 		return current_year_date, previous_year_date
+
+	def get_previous_year_cls_month(self, year):
+		month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		previous_year = frappe.get_value("FR Previous Fiscal Year",{"current_fiscal_year": year},"previous_fiscal_year")
+		return month, previous_year
+
+	def get_fx_rate(self, default_currency, month, fiscal_year, field_name):
+		if default_currency == self.currency:
+			return 1
+		return frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
 
 	def sum_group_amt(self, primary_group, group, year):
 		gl_accounts = frappe.get_list("GL Group Mapping",{"company":self.company, "report_type": self.report_type, 'primary_group': primary_group, 'secondary_group': group},pluck = 'gl_account')
@@ -242,9 +296,7 @@ class FinancialReport(Document):
 						i.table_data = frappe.render_template(section_description or "", context)	
 						i.section_description = frappe.render_template(section_description or "", context)	
 
-					context = {
-						"company": self.company
-					}
+					context = {"company": self.company}
 					i.section_description = frappe.render_template(i.section_description or "", context)
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 					
@@ -316,10 +368,18 @@ class FinancialReport(Document):
 	def get_cost_of_material_consumed(self, note_type, total, field):
 		rows = []
 		current_year_date, previous_year_date = self.get_current_and_prevous_year_date()
+		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		if default_currency != self.currency:
+			current_fx = self.get_fx_rate(self.currency, cls_month, self.fiscal_year, 'closing_rate')
+			previous_fx = self.get_fx_rate(self.currency, cls_month, self.previous_fiscal_year, 'closing_rate')
+		else:
+			current_fx = 1
+			previous_fx = 1
 
-		closing_stock_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
-		closing_stock_current = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.fiscal_year)
-		purchases_current = self.sum_group_amt("Material consumed", "Cost of goods sold", self.fiscal_year) - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - closing_stock_previous)
+		closing_stock_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year) * previous_fx
+		closing_stock_current = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.fiscal_year) * current_fx
+		purchases_current = (self.sum_group_amt("Material consumed", "Cost of goods sold", self.fiscal_year) * current_fx) - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - closing_stock_previous)
 		cost_consumed_current = closing_stock_previous + purchases_current - closing_stock_current
 
 		fiscal_year = self.get_fiscal_year_by_date(self.previous_year_ending_date)
@@ -329,8 +389,8 @@ class FinancialReport(Document):
 		else:
 			closing_stock_pre_previous =  12343
 
-		closing_stock_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
-		purchases_previous = self.sum_group_amt("Material consumed", "Cost of goods sold", self.previous_fiscal_year) - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_previous_year_total') + (closing_stock_previous - closing_stock_pre_previous)
+		closing_stock_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year) * previous_fx
+		purchases_previous = (self.sum_group_amt("Material consumed", "Cost of goods sold", self.previous_fiscal_year) * current_fx) - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_previous_year_total') + (closing_stock_previous - closing_stock_pre_previous)
 		cost_consumed_previous = closing_stock_pre_previous + purchases_previous - closing_stock_previous
 		
 		if total:
@@ -1644,10 +1704,13 @@ class FinancialReport(Document):
 		return month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label
 
 
-	def get_monthly_finished_goods_and_wip(self, note_type, total, field=None):
+	def get_monthly_finished_goods_and_wip(self, note_type, total, get_face=None, field=None):
 		rows = []
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-		
+
 		current_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.current_month, self.fiscal_year)
 		current_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.current_month, self.fiscal_year)
 		current_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", self.current_month, self.fiscal_year)
@@ -1657,11 +1720,10 @@ class FinancialReport(Document):
 		cls_previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.previous_month, self.fiscal_year)
 		cls_previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", self.previous_month, self.fiscal_year)
 		cls_previous_month_total = cls_previous_month_finished_goods + cls_previous_month_wip + cls_previous_month_sit
-
 		
-		previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", "March", self.previous_fiscal_year)
-		previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", "March", self.previous_fiscal_year)
-		previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", "March", self.previous_fiscal_year)
+		previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", cls_month, self.previous_fiscal_year)
+		previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", cls_month, self.previous_fiscal_year)
+		previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", cls_month, self.previous_fiscal_year)
 		previous_month_total = previous_month_finished_goods + previous_month_wip + previous_month_sit
 		
 		ftm_finished_goods =current_month_finished_goods - cls_previous_month_finished_goods
@@ -1674,16 +1736,16 @@ class FinancialReport(Document):
 		net_increase_total = previous_month_total - current_month_total
 		prev_net_total = previous_month_total - cls_previous_month_total
 		
-		closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", "23-24")
-		closing_fg_pre_previous = self.sum_group_amt("Inventories", "Finished Goods", "23-24")
-		closing_sit_pre_previous = self.sum_group_amt("Inventories", "Stock In Trade", "23-24")
+		closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", pre_year)
+		closing_fg_pre_previous = self.sum_group_amt("Inventories", "Finished Goods", pre_year)
+		closing_sit_pre_previous = self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
 
 		prev_year_closing_fg = self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
 		prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
 		prev_year_closing_sit = self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
 		prev_year_amt = (closing_wip_pre_previous+closing_fg_pre_previous+closing_sit_pre_previous) - (prev_year_closing_wip+prev_year_closing_fg+prev_year_closing_sit)
 		
-		if total:
+		if total and not get_face:
 			if field == 'net_increase_total':
 				return net_increase_total
 			elif field == 'ftm_total':
@@ -1694,7 +1756,60 @@ class FinancialReport(Document):
 				return prev_year_amt
 			else:
 				return 0
-		
+
+		if default_currency != self.currency:
+			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate')
+			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate')
+			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'closing_rate')
+			pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'closing_rate')
+
+			current_month_finished_goods *= current_fx
+			current_month_wip *= current_fx
+			current_month_sit *= current_fx
+			current_month_total *= current_fx
+
+			cls_previous_month_finished_goods *= previous_fx
+			cls_previous_month_wip *= previous_fx
+			cls_previous_month_sit *= previous_fx
+			cls_previous_month_total *= previous_fx
+
+			previous_month_finished_goods *= prev_year_fx
+			previous_month_wip *= prev_year_fx
+			previous_month_sit *= prev_year_fx
+			previous_month_total *= prev_year_fx
+
+			ftm_finished_goods = current_month_finished_goods - cls_previous_month_finished_goods
+			ftm_wip = current_month_wip - cls_previous_month_wip
+			ftm_sit = current_month_sit - cls_previous_month_sit
+			ftm_total = ftm_finished_goods + ftm_wip + ftm_sit
+
+			net_increase_finished_goods = current_month_finished_goods - previous_month_finished_goods
+			net_increase_wip = current_month_wip - previous_month_wip
+			net_increase_total = previous_month_total - current_month_total
+			prev_net_total = previous_month_total - cls_previous_month_total
+
+			prev_year_closing_fg *= prev_year_fx
+			prev_year_closing_wip *= prev_year_fx
+			prev_year_closing_sit *= prev_year_fx
+
+			closing_fg_pre_previous *= pre_prev_year_fx
+			closing_wip_pre_previous *= pre_prev_year_fx
+			closing_sit_pre_previous *= pre_prev_year_fx
+
+			prev_year_amt = ((closing_wip_pre_previous + closing_fg_pre_previous + closing_sit_pre_previous) - (prev_year_closing_wip + prev_year_closing_fg + prev_year_closing_sit))
+
+		if get_face and total:
+			if field == 'net_increase_total':
+				return net_increase_total
+			elif field == 'ftm_total':
+				return ftm_total
+			elif field == 'previous_month_amt':
+				return prev_net_total
+			elif field == 'prev_year_amt':
+				return prev_year_amt
+			else:
+				return 0
+
 		rows.extend([
 			{"particulars": "Inventories at the end of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0, "previous_year_amt": 0, "is_subtotal": True},
 			{"particulars": "Finished goods","current_month_amt": current_month_finished_goods,"previous_month_amt": cls_previous_month_finished_goods ,"ftm_amt": ftm_finished_goods, "previous_year_amt": prev_year_closing_fg, "is_subtotal": False},
@@ -1749,38 +1864,91 @@ class FinancialReport(Document):
 
 	def get_monthly_cost_of_material_consumed(self, note_type, total, field=None):
 		rows = []
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-		
-		# Get opening stock (beginning of month)
-		opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", "March", self.previous_fiscal_year)
-		
-		# Get closing stock (end of month)
+
+		# --- Current & Previous Month Stocks ---
+		opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
 		closing_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
 		closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
-		
-		# Get purchases and other related costsMaterial consumed
+
+		# --- Purchases & SIT ---
 		curr_month_purchase_sit = self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
 		prev_month_purchase_sit = self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
-		purchases_current = self.sum_group_amt_monthly("Material consumed", "Cost of goods sold", self.current_month, self.fiscal_year)  - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - opening_stock) - curr_month_purchase_sit
-		purchases_previous = self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year) - self.get_monthly_finished_goods_and_wip(note_type, total = True, field='previous_month_amt') + (closing_stock_previous - opening_stock) - prev_month_purchase_sit
 
-		# Calculate cost of materials consumed
+		purchases_current = (
+			self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.current_month, self.fiscal_year)
+			- self.get_monthly_finished_goods_and_wip(note_type, total=True, field='net_increase_total')
+			+ (closing_stock_current - opening_stock)
+			- curr_month_purchase_sit
+		)
+
+		purchases_previous = (
+			self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year)
+			- self.get_monthly_finished_goods_and_wip(note_type, total=True, field='previous_month_amt')
+			+ (closing_stock_previous - opening_stock)
+			- prev_month_purchase_sit
+		)
+
+		# --- Cost of Materials Consumed ---
 		cost_consumed_current = opening_stock + purchases_current - closing_stock_current
 		cost_consumed_previous = opening_stock + purchases_previous - closing_stock_previous
-		
-		# FTM calculations
+
+		# --- FTM ---
 		ftm_purchases = purchases_current - purchases_previous
 		ftm_closing_stock = closing_stock_current - closing_stock_previous
 		ftm_cost_consumed = cost_consumed_current - cost_consumed_previous
 
-		closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", "23-24")
+		# --- Previous Year (same month) ---
+		closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
 		prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
-		closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", "23-24") + self.sum_group_amt("Inventories", "Finished Goods", "23-24") + self.sum_group_amt("Inventories", "Stock In Trade", "23-24")
-		prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year) + self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year) + self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+
+		closing_wip_pre_previous = (
+			self.sum_group_amt("Inventories", "Work in Progress", pre_year)
+			+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
+			+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
+		)
+		prev_year_closing_wip = (
+			self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+			+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+			+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+		)
+
 		pre_purchase_sit = self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
-		prev_year_purchases = self.sum_group_amt("Material consumed", "Cost of goods sold", self.previous_fiscal_year) + (prev_year_closing_wip - closing_wip_pre_previous)  + (prev_year_closing_stock - closing_stock_pre_previous) - pre_purchase_sit
+
+		prev_year_purchases = (
+			self.sum_group_amt("Material consumed", "Cost of Goods Sold", self.previous_fiscal_year)
+			+ (prev_year_closing_wip - closing_wip_pre_previous)
+			+ (prev_year_closing_stock - closing_stock_pre_previous)
+			- pre_purchase_sit
+		)
+
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
-				
+
+		# --- Currency Conversion ---
+		if default_currency != self.currency:
+			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate')
+			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate')
+			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
+			pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'average_rate')
+
+			# Apply conversion
+			cost_consumed_current *= current_fx
+			cost_consumed_previous *= previous_fx
+			ftm_cost_consumed *= current_fx  # assumption: FTM aligned to current period rate
+			prev_year_cost_consumed *= prev_year_fx
+
+			opening_stock *= previous_fx
+			purchases_current *= current_fx
+			purchases_previous *= previous_fx
+			closing_stock_current *= current_fx
+			closing_stock_previous *= previous_fx
+			prev_year_purchases *= prev_year_fx
+			closing_stock_pre_previous *= pre_prev_year_fx
+
+		# --- If only returning totals ---
 		if total:
 			if field == 'cost_consumed_current':
 				return cost_consumed_current
@@ -1792,13 +1960,43 @@ class FinancialReport(Document):
 				return prev_year_cost_consumed
 			else:
 				return 0
-		
+
+		# --- Final Rows ---
 		rows.extend([
-			{"particulars": "Opening Stock", "current_month_amt": opening_stock, "previous_month_amt": opening_stock, "ftm_amt": 0, "previous_year_amt": closing_stock_pre_previous,"is_subtotal": False},
-			{"particulars": "Add: purchases & other related costs", "current_month_amt": purchases_current, "previous_month_amt": purchases_previous, "ftm_amt": ftm_purchases, "previous_year_amt": prev_year_purchases, "is_subtotal": False},
-			{"particulars": "Less: closing stock", "current_month_amt": closing_stock_current, "previous_month_amt":  closing_stock_previous, "ftm_amt": ftm_closing_stock, "previous_year_amt": opening_stock, "is_subtotal": False},
-			{"particulars": "Cost of Materials Consumed", "current_month_amt": cost_consumed_current, "previous_month_amt": cost_consumed_previous, "ftm_amt": ftm_cost_consumed, "previous_year_amt": prev_year_cost_consumed, "is_subtotal": True}
+			{
+				"particulars": "Opening Stock",
+				"current_month_amt": opening_stock,
+				"previous_month_amt": opening_stock,
+				"ftm_amt": 0,
+				"previous_year_amt": closing_stock_pre_previous,
+				"is_subtotal": False
+			},
+			{
+				"particulars": "Add: purchases & other related costs",
+				"current_month_amt": purchases_current,
+				"previous_month_amt": purchases_previous,
+				"ftm_amt": ftm_purchases,
+				"previous_year_amt": prev_year_purchases,
+				"is_subtotal": False
+			},
+			{
+				"particulars": "Less: closing stock",
+				"current_month_amt": closing_stock_current,
+				"previous_month_amt": closing_stock_previous,
+				"ftm_amt": ftm_closing_stock,
+				"previous_year_amt": opening_stock,
+				"is_subtotal": False
+			},
+			{
+				"particulars": "Cost of Materials Consumed",
+				"current_month_amt": cost_consumed_current,
+				"previous_month_amt": cost_consumed_previous,
+				"ftm_amt": ftm_cost_consumed,
+				"previous_year_amt": prev_year_cost_consumed,
+				"is_subtotal": True
+			}
 		])
+
 
 		# Generate HTML table
 		html = f'''
@@ -1867,15 +2065,33 @@ class FinancialReport(Document):
 		for primary_group in primary_groups:
 			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group]}, pluck="secondary_group")
 			secondary_consolidation_groups = sorted(set(filter(None, secondary_groups)))
+
+			report_type = frappe.get_value("Standalone Group", primary_group, 'report_type')
+			default_currency = frappe.get_value("Company", self.company, 'default_currency')
+			cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+			if default_currency != self.currency:
+				if report_type == "Balance Sheet":
+					field_name = 'closing_rate'
+				elif report_type == "Profit & Loss":
+					field_name = 'average_rate'
+				else:
+					field_name = None
+			else:
+				field_name = None
+
+			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, field_name) if field_name else 1
+			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, field_name) if field_name else 1
+			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, field_name) if field_name else 1 
 			
 			for sec in secondary_consolidation_groups:
-				cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year)
-				pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year)
+				cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year) * current_fx
+				pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year) * previous_fx
 				ftm = cm - pm
-				py = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
+				py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year) * prev_year_fx
 
 				if group_type in ("Other Income", "Other Expense"):
-					if any(val < 0 for val in (cm, pm, py)) and group_type == "Other Income" or any(val > 0 for val in (cm, pm, py)) and group_type == "Other Expense":
+					# if any(val < 0 for val in (cm, pm, py)) and group_type == "Other Income" or any(val > 0 for val in (cm, pm, py)) and group_type == "Other Expense":
+					if (py < 0) and group_type == "Other Income" or (py>0) and group_type == "Other Expense":
 						if any(val != 0 for val in (cm, pm, py)):
 							append_data(sec, cm, pm, ftm, py)
 				else:
@@ -2195,6 +2411,8 @@ class FinancialReport(Document):
 	def get_monthly_profit_and_loss_data(self, template_name, fetch_for_other_equity=False):
 		"""Optimized: Get monthly P&L data with current month, previous month, FTM, and previous year amounts"""
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+
 		amount_cache = {}
 		group_mapping_cache = {}
 		fr_particular_cache = {}
@@ -2213,17 +2431,24 @@ class FinancialReport(Document):
 
 		def get_standalone_group(name):
 			if name not in standalone_group_cache:
-				standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
+				standalone_group_cache[name] = frappe.get_value(
+					"Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True
+				)
 			return standalone_group_cache[name]
 
 		def get_secondary_groups(primary_group):
 			"""Cached retrieval of secondary groups"""
 			if primary_group not in group_mapping_cache:
-				group_mapping_cache[primary_group] = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+				group_mapping_cache[primary_group] = sorted(set(
+					g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
+				))
 			return group_mapping_cache[primary_group]
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False):
-			cache_key = (particular_name, month, year, is_current, is_yearly)
+		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
+			"""
+			Calculate amount for a particular in base currency, then apply FX conversion only for non-total nodes.
+			"""
+			cache_key = (particular_name, month, year, is_current, is_yearly, fx_rate)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
@@ -2232,14 +2457,18 @@ class FinancialReport(Document):
 
 			if fr_particular.is_total:
 				for idx, p in enumerate(fr_particular.particulars or []):
-					child_amount = calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly)
-					amount = (child_amount if idx == 0 and amount == 0 else amount - child_amount) if fr_particular.to_subtract else amount + child_amount
+					child_key = (p.particular, month, year, is_current, is_yearly, fx_rate)
+					child_amount = amount_cache.get(child_key, 0)
+					if fr_particular.to_subtract:
+						amount = (child_amount if idx == 0 and amount == 0 else amount - child_amount)
+					else:
+						amount += child_amount
 
 			elif fr_particular.fetch_from_schedule:
 				note_type = get_fr_section(fr_particular.schedule).note_type
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'net_increase_total' if is_current else ('prev_year_amt' if is_yearly else 'previous_month_amt')
-					amount = self.get_monthly_finished_goods_and_wip(note_type, total=True, field=field)
+					amount = self.get_monthly_finished_goods_and_wip(note_type, get_face=True, total=True, field=field)
 				elif note_type == "Cost of Materials Consumed":
 					field = 'cost_consumed_current' if is_current else ('prev_year_cost_consumed' if is_yearly else 'cost_consumed_previous')
 					amount = self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
@@ -2249,13 +2478,17 @@ class FinancialReport(Document):
 				if fr_section.fetch_data_from_trial_balance:
 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 					group_type = group_info.group_type
-					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
-						if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
+					primary_groups = (
+						set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
+						if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group}
+					)
 
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
-							if (group_type == "Other Income" and face_amount < 0) or (group_type == "Other Expense" and face_amount > 0) or (group_type not in ("Other Income", "Other Expense") and face_amount != 0):
+							if (group_type == "Other Income" and face_amount < 0) or \
+							(group_type == "Other Expense" and face_amount > 0) or \
+							(group_type not in ("Other Income", "Other Expense") and face_amount != 0):
 								amount += face_amount
 				else:
 					gl_accounts = []
@@ -2271,8 +2504,7 @@ class FinancialReport(Document):
 					if gl_accounts:
 						placeholders = ','.join(['%s'] * len(gl_accounts))
 						query = f"""
-							SELECT SUM(uploaded_amount) 
-							FROM `tabFR Trial Balance Entry`
+							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 						"""
 						params = [self.company, year, month] + gl_accounts
@@ -2291,8 +2523,7 @@ class FinancialReport(Document):
 				if gl_accounts:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
 					query = f"""
-						SELECT SUM(uploaded_amount) 
-						FROM `tabFR Trial Balance Entry`
+						SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 						WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 					"""
 					params = [self.company, year, month] + gl_accounts
@@ -2301,26 +2532,27 @@ class FinancialReport(Document):
 			if fr_particular.show_reversed_value:
 				amount = -amount
 
+			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule:
+				amount *= fx_rate
+
 			amount_cache[cache_key] = int(round(amount))
 			return amount_cache[cache_key]
 
-		if fetch_for_other_equity:
-			account = profit_and_loss_doc.profit_and_loss_template_details[-1].account
-			return (
-				calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current=True),
-				calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year),
-				calc_amount_for_particular_monthly(account, "March", self.previous_fiscal_year, is_yearly=True)
-			)
+		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
+		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
+		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate') if self.currency != default_currency else 1
 
 		grouped_data = []
 		for row in profit_and_loss_doc.profit_and_loss_template_details:
 			if not row.account:
 				continue
 
-			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True)
-			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
+			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx)
+			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx)
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
+
 			ftm_amount = current_month_amount - previous_month_amount
-			previous_year_amount = calc_amount_for_particular_monthly(row.account, "March", self.previous_fiscal_year, is_yearly=True)
 
 			fr_particular = get_fr_particular(row.account)
 			schedule = getattr(fr_particular, "schedule", "")
@@ -2338,17 +2570,22 @@ class FinancialReport(Document):
 				"group": row.group,
 				"schedule": schedule,
 			})
+	
+		if fetch_for_other_equity:
+			account = profit_and_loss_doc.profit_and_loss_template_details[-1].account
+			return (
+				calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx),
+				calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year, fx_rate=previous_fx),
+				calc_amount_for_particular_monthly(account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
+			)
 
 		return grouped_data
 
-	def get_monthly_balance_sheet_data(self, template_name):
+	def get_monthly_balance_sheet_data(self, template_name, for_other_equity=False, account=None):
 		"""Get monthly balance sheet data with current month, previous month, and FTM amounts"""
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
-		amount_cache = {}
-		group_mapping_cache = {}
-		standalone_group_cache = {}
-		fr_section_cache = {}
-		fr_particular_cache = {}
+		amount_cache, group_mapping_cache, standalone_group_cache, fr_section_cache, fr_particular_cache = {}, {}, {}, {}, {}
+		default_currency = frappe.get_value("Company", self.company, "default_currency")
 
 		def get_fr_particular(name):
 			if name not in fr_particular_cache:
@@ -2362,12 +2599,16 @@ class FinancialReport(Document):
 
 		def get_standalone_group(name):
 			if name not in standalone_group_cache:
-				standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
+				standalone_group_cache[name] = frappe.get_value(
+					"Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True
+				)
 			return standalone_group_cache[name]
 
 		def get_secondary_groups(primary_group):
 			if primary_group not in group_mapping_cache:
-				group_mapping_cache[primary_group] = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+				group_mapping_cache[primary_group] = sorted(set(
+					g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
+				))
 			return group_mapping_cache[primary_group]
 
 		def get_grouped_gl_amount(gl_accounts, year, month=None):
@@ -2384,17 +2625,25 @@ class FinancialReport(Document):
 				params.append(month)
 			return (frappe.db.sql(query, params)[0][0] or 0) / 100000
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False):
-			cache_key = (particular_name, month, year)
+		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
+			cache_key = (particular_name, month, year, fx_rate)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
 			fr_particular = get_fr_particular(particular_name)
+			amount = 0
 
-			if getattr(fr_particular, "is_total", 1):
-				amount = sum(calc_amount_for_particular_monthly(p.particular, month, year) for p in fr_particular.get("particulars", []))
+			if fr_particular.is_total:
+				for p in fr_particular.get("particulars", []):
+					amount += calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly, fx_rate, convert)
 
-			elif getattr(fr_particular, "fetch_from_schedule", 1):
+				# if fr_particular.name == "PRT0047" and month == "June":
+				# 	frappe.throw(f"{p.particular}, {amount}, {amount_cache}")
+
+			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
+				amount = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+
+			elif fr_particular.fetch_from_schedule:
 				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'ftm_total' if is_current else 'net_increase_total'
@@ -2402,62 +2651,76 @@ class FinancialReport(Document):
 				elif note_type == "Cost of Materials Consumed":
 					field = 'cost_consumed_previous' if is_current else 'cost_consumed_current'
 					amount = self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
-				elif note_type == "Other Equity":
+				elif note_type == "Other Equity" and not for_other_equity and not account:
 					field = 'grand_total_current' if is_current else 'grand_total_prev_year'
 					amount = self.get_monthly_other_equity_note_data(note_type, total=True, field=field)
-				else:
-					amount = 0
 
-			elif getattr(fr_particular, "schedule"):
+			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
-				amount = 0
 				if fr_section.fetch_data_from_trial_balance:
 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 					group_type = group_info.group_type
-					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name")) if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
+					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name"))if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
-							if ((group_type == "Other Income" and face_amount < 0) or (group_type == "Other Expense" and face_amount > 0) or (group_type not in ("Other Income", "Other Expense") and face_amount != 0)):
+							if ((group_type == "Current Tax Liabilities" and face_amount < 0) or(group_type == "Income Tax Assets" and face_amount > 0) or
+								(group_type not in ("Current Tax Liabilities", "Income Tax Assets") and face_amount != 0)):
 								amount += face_amount
 				else:
 					gl_accounts = []
 					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-						gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type,"primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+						gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type, "primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
 					amount = get_grouped_gl_amount(gl_accounts, year, month)
 
+			# Direct GL accounts
 			else:
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-					gl_accounts.extend(frappe.get_list(
-						"GL Group Mapping",
-						{"company": self.company, "report_type": self.report_type,
-						"primary_group": g.primary_group, "secondary_group": g.secondary_group},
-						pluck='gl_account'
-					))
-				amount = get_grouped_gl_amount(gl_accounts, year, month if not is_yearly else None)
+					gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type,"primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+				amount = get_grouped_gl_amount(gl_accounts, year, month)
 
-			if getattr(fr_particular, "show_reversed_value", 0):
+			# Reverse if required
+			if fr_particular.show_reversed_value and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
 				amount = -amount
+
+			# Apply FX only on leaf nodes (not totals, not schedule fetches)
+			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
+				amount *= fx_rate
 
 			amount_cache[cache_key] = int(round(amount))
 			return amount_cache[cache_key]
 
+		# --- Main loop ---
 		data = []
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+
+		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
+
 		for row in balance_sheet_doc.balance_sheet_template_details:
 			if not row.account:
 				continue
 
-			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current = True)
-			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year)
-			ftm_amount = current_month_amount - previous_month_amount
-			previous_year_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.previous_fiscal_year, is_yearly=True)
-
 			fr_particular = get_fr_particular(row.account)
+			particular_type = getattr(fr_particular, "particular_type", "")
+
+			# Special case: Equity Share Capital → fixed INR investment value
+			if default_currency != self.currency and particular_type == "Equity Share Capital":
+				investment_value = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+				current_month_amount = previous_month_amount = previous_year_amount = investment_value
+			else:
+				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx)
+				previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx)
+				previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
+
+			ftm_amount = current_month_amount - previous_month_amount
 			schedule = getattr(fr_particular, "schedule", "")
 			note_no = self.get_note_number_for_schedule(schedule) if schedule else ""
 
 			data.append({
+				"id": row.account,
 				"account": row.particular_name,
 				"note_no": note_no,
 				"current_month_amount": current_month_amount,
@@ -2470,7 +2733,168 @@ class FinancialReport(Document):
 				"group": row.group,
 				"schedule": schedule,
 			})
+
+		if for_other_equity and account:
+			return next((row for row in data if row["id"] == account), None)
+
 		return data
+
+
+	# def get_monthly_balance_sheet_data(self, template_name, for_other_equity=False, account = None):
+	# 	"""Get monthly balance sheet data with current month, previous month, and FTM amounts"""
+	# 	balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
+	# 	amount_cache = {}
+	# 	group_mapping_cache = {}
+	# 	standalone_group_cache = {}
+	# 	fr_section_cache = {}
+	# 	fr_particular_cache = {}
+
+	# 	def get_fr_particular(name):
+	# 		if name not in fr_particular_cache:
+	# 			fr_particular_cache[name] = frappe.get_doc("FR Particular", name)
+	# 		return fr_particular_cache[name]
+
+	# 	def get_fr_section(name):
+	# 		if name not in fr_section_cache:
+	# 			fr_section_cache[name] = frappe.get_doc("FR Section", name)
+	# 		return fr_section_cache[name]
+
+	# 	def get_standalone_group(name):
+	# 		if name not in standalone_group_cache:
+	# 			standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
+	# 		return standalone_group_cache[name]
+
+	# 	def get_secondary_groups(primary_group):
+	# 		if primary_group not in group_mapping_cache:
+	# 			group_mapping_cache[primary_group] = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+	# 		return group_mapping_cache[primary_group]
+
+	# 	def get_grouped_gl_amount(gl_accounts, year, month=None):
+	# 		if not gl_accounts:
+	# 			return 0
+	# 		placeholders = ','.join(['%s'] * len(gl_accounts))
+	# 		query = f"""
+	# 			SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+	# 			WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+	# 		"""
+	# 		params = [self.company, year] + gl_accounts
+	# 		if month:
+	# 			query += " AND month=%s"
+	# 			params.append(month)
+	# 		return (frappe.db.sql(query, params)[0][0] or 0) / 100000
+
+	# 	def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False):
+	# 		cache_key = (particular_name, month, year)
+	# 		if cache_key in amount_cache:
+	# 			return amount_cache[cache_key]
+
+	# 		fr_particular = get_fr_particular(particular_name)
+
+	# 		if getattr(fr_particular, "is_total", 1):
+	# 			amount = sum(calc_amount_for_particular_monthly(p.particular, month, year) for p in fr_particular.get("particulars", []))
+
+	# 		elif getattr(fr_particular, "fetch_from_schedule", 1):
+	# 			note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
+	# 			if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+	# 				field = 'ftm_total' if is_current else 'net_increase_total'
+	# 				amount = self.get_monthly_finished_goods_and_wip(note_type, total=True, field=field)
+	# 			elif note_type == "Cost of Materials Consumed":
+	# 				field = 'cost_consumed_previous' if is_current else 'cost_consumed_current'
+	# 				amount = self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
+	# 			elif note_type == "Other Equity" and not for_other_equity and not account:
+	# 				field = 'grand_total_current' if is_current else 'grand_total_prev_year'
+	# 				amount = self.get_monthly_other_equity_note_data(note_type, total=True, field=field)
+	# 			else:
+	# 				amount = 0
+
+	# 		elif getattr(fr_particular, "schedule"):
+	# 			fr_section = get_fr_section(fr_particular.schedule)
+	# 			amount = 0
+	# 			if fr_section.fetch_data_from_trial_balance:
+	# 				group_info = get_standalone_group(fr_section.primary_consolidation_group)
+	# 				group_type = group_info.group_type
+	# 				primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name")) if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
+	# 				for pg in primary_groups:
+	# 					for sec in get_secondary_groups(pg):
+	# 						face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
+	# 						if ((group_type == "Current Tax Liabilities" and face_amount < 0) or (group_type == "Income Tax Assets" and face_amount > 0) or (group_type not in ("Current Tax Liabilities", "Income Tax Assets") and face_amount != 0)):
+	# 							amount += face_amount
+	# 			else:
+	# 				gl_accounts = []
+	# 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
+	# 					gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type,"primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+	# 				amount = get_grouped_gl_amount(gl_accounts, year, month)
+
+	# 		else:
+	# 			gl_accounts = []
+	# 			for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
+	# 				gl_accounts.extend(frappe.get_list(
+	# 					"GL Group Mapping",
+	# 					{"company": self.company, "report_type": self.report_type,
+	# 					"primary_group": g.primary_group, "secondary_group": g.secondary_group},
+	# 					pluck='gl_account'
+	# 				))
+	# 			amount = get_grouped_gl_amount(gl_accounts, year, month)
+
+	# 		if getattr(fr_particular, "show_reversed_value", 0):
+	# 			amount = -amount
+
+	# 		amount_cache[cache_key] = int(round(amount))
+	# 		return amount_cache[cache_key]
+
+	# 	data = []
+	# 	default_currency = frappe.get_value("Company", self.company, "default_currency")
+	# 	cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+
+	# 	current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate")
+	# 	previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate")
+	# 	prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate")
+	# 	for row in balance_sheet_doc.balance_sheet_template_details:
+	# 		if not row.account:
+	# 			continue
+
+	# 		current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True) or 0
+	# 		previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year) or 0
+	# 		previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True) or 0
+	# 		ftm_amount = current_month_amount - previous_month_amount
+
+	# 		fr_particular = get_fr_particular(row.account)
+	# 		schedule = getattr(fr_particular, "schedule", "")
+	# 		note_no = self.get_note_number_for_schedule(schedule) if schedule else ""
+	# 		particular_type = getattr(fr_particular, "particular_type", "")
+	# 		if default_currency != self.currency:
+	# 			if particular_type == "Equity Share Capital":
+	# 				investment_value = frappe.get_value("FR Equity Entry", {'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency}, 'investment_value')
+	# 				current_month_amount = previous_month_amount = previous_year_amount = investment_value
+	# 			elif particular_type == "Other Equity" and not for_other_equity and not account:
+	# 				pass
+	# 			else:
+	# 				current_month_amount *= current_fx
+	# 				previous_month_amount *= previous_fx
+	# 				previous_year_amount *= prev_year_fx
+	# 				ftm_amount = current_month_amount - previous_month_amount
+
+
+	# 		data.append({
+	# 			"id": row.account,
+	# 			"account": row.particular_name,
+	# 			"note_no": note_no,
+	# 			"current_month_amount": current_month_amount,
+	# 			"previous_month_amount": previous_month_amount,
+	# 			"ftm_amount": ftm_amount,
+	# 			"previous_year": previous_year_amount,
+	# 			"indent": int(row.indent_level or 0),
+	# 			"is_bold": row.is_bold,
+	# 			"header": row.header,
+	# 			"group": row.group,
+	# 			"schedule": schedule,
+	# 		})
+		
+	# 	if for_other_equity and account:
+	# 		matching_row = next((row for row in data if row["id"] == account), None)
+	# 		return matching_row
+
+	# 	return data
 
 	def get_monthly_cash_flow_data(self, template_name):
 		"""Get monthly cash flow data with current month, previous month, and FTM amounts"""
@@ -2616,27 +3040,171 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 		return html
 
+	# def get_monthly_other_equity_note_data(self, note_type=None, total=False, field=None):
+	# 	"""Generate monthly Other Equity note table (Retained Earnings & Capital Contribution)"""
+	# 	cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+	# 	month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+	# 	p_and_l_template = self.get('financial_report_details', {'section_type': "Profit & Loss"})[0].section
+	# 	bs_template = self.get('financial_report_details', {'section_type': "Balance Sheet"})[0].section
+	# 	net_current_mnt, net_previous_mnt, net_previous_year = self.get_monthly_profit_and_loss_data(p_and_l_template, fetch_for_other_equity = True)
+		
+	# 	default_currency = frappe.get_value("Company", self.company, 'default_currency')
+	# 	if default_currency != self.currency:
+	# 		sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr')) or 0
+	# 		bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr')) or 0
+	# 		tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account = frappe.get_value("FR Particular", {'particular_type': 'Total Assets'}, 'name'))
+	# 		curr_mnt_tot_asset = tot_asset['current_month_amount']
+	# 		prev_mnt_tot_asset = tot_asset['previous_month_amount']
+	# 		prev_yr_mnt_tot_asset = tot_asset['previous_year']
+
+	# 		tot_cur_lib = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account = frappe.get_value("FR Particular", {'particular_type': 'Total Current Liabilities'}, 'name'))
+	# 		curr_mnt_tot_cur_lib = tot_cur_lib['current_month_amount']
+	# 		prev_mnt_tot_cur_lib = tot_cur_lib['previous_month_amount']
+	# 		prev_yr_mnt_tot_cur_lib = tot_cur_lib['previous_year']
+
+	# 		tot_n_cur_lib = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account = frappe.get_value("FR Particular", {'particular_type': 'Total Non Current Liabilities'}, 'name'))
+	# 		curr_mnt_tot_n_cur_lib = tot_n_cur_lib['current_month_amount']
+	# 		prev_mnt_tot_n_cur_lib = tot_n_cur_lib['previous_month_amount']
+	# 		prev_yr_mnt_tot_n_cur_lib = tot_n_cur_lib['previous_year']
+
+	# 		equity_share = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account = frappe.get_value("FR Particular", {'particular_type': 'Equity Share Capital'}, 'name'))
+	# 		curr_mnt_equity_share = equity_share['current_month_amount']
+	# 		prev_mnt_equity_share = equity_share['previous_month_amount']
+	# 		prev_yr_mnt_equity_share = equity_share['previous_year']
+
+	# 	else:
+	# 		add_sp_previous_year = 0
+	# 		sp_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year)) or 0
+	# 		bal_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year)) or 0
+	# 		add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0) - sp_previous_mnt
+	# 		add_sp_current_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0) - sp_current_mnt
+
+
+	# 	# bal_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year)) or 0
+	# 	oci_previous_year = round(self.sum_group_amt_monthly("OCI", "OCI", cls_month, self.previous_fiscal_year)) or 0
+	# 	retained_tot_prev_year = bal_previous_year + net_previous_year + oci_previous_year
+
+	# 	bal_current_mnt = retained_tot_prev_year
+	# 	bal_previous_mnt = retained_tot_prev_year
+
+	# 	oci_current_mnt = round(self.sum_group_amt_monthly("OCI", "OCI", self.current_month, self.fiscal_year)) or 0
+	# 	oci_previous_mnt = round(self.sum_group_amt_monthly("OCI", "OCI", self.previous_month, self.fiscal_year)) or 0
+
+	# 	retained_tot_current = bal_current_mnt + net_current_mnt + oci_current_mnt
+	# 	retained_tot_prev = bal_previous_mnt + net_previous_mnt + oci_previous_mnt
+
+	# 	cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year)) or 0
+	# 	cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year)) or 0) - cc_opening_previous_year
+	# 	cc_closing_previous_year = cc_opening_previous_year + cc_add_previous_year
+
+	# 	cc_opening_current = cc_closing_previous_year
+	# 	cc_opening_previous = cc_closing_previous_year
+
+	# 	cc_add_current = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", self.current_month, self.fiscal_year)) or 0) - cc_opening_current
+	# 	cc_add_previous = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", self.previous_month, self.fiscal_year)) or 0) - cc_opening_previous
+
+	# 	cc_closing_current = cc_opening_current + cc_add_current
+	# 	cc_closing_previous = cc_opening_previous + cc_add_previous
+
+	# 	grand_total_current = retained_tot_current + cc_closing_current + bal_sp_tot_current
+	# 	grand_total_previous = retained_tot_prev + cc_closing_previous + bal_sp_tot_prev
+	# 	grand_total_prev_year = retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year
+
+	# 	if default_currency != self.currency:
+	# 		add_sp_current_mnt = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current) or 0
+	# 		add_sp_previous_mnt = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev) or 0
+	# 		add_sp_previous_year = round(prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year) or 0
+
+	# 	bal_sp_tot_prev_year = sp_previous_year + add_sp_previous_year
+	# 	sp_current_mnt = bal_sp_tot_prev_year
+	# 	bal_sp_tot_current = sp_current_mnt + add_sp_current_mnt
+
+	# 	sp_previous_mnt = bal_sp_tot_prev_year
+	# 	bal_sp_tot_prev = sp_previous_mnt + add_sp_previous_mnt
+
+	# 	if total and field:
+	# 		if field == "grand_total_current":
+	# 			return grand_total_current
+	
+	# 		elif field == "grand_total_prev_year":
+	# 			return grand_total_prev_year
+	# 		else:
+	# 			return 0
+
+	# 	# --- Table Rows ---
+	# 	data = [
+	# 		("Securities premium account", "", "", "", True),
+	# 		("Balance as at the beginning of the year", sp_current_mnt, sp_previous_mnt, sp_previous_year, False),
+	# 		("Addition: During the year on issue of equity shares", add_sp_current_mnt, add_sp_previous_mnt, add_sp_previous_year, False),
+	# 		("Balance as at the end of the year", bal_sp_tot_current, bal_sp_tot_prev, bal_sp_tot_prev_year, True),
+
+	# 		("Retained earnings", "", "", "", True),
+	# 		("Balance as at the beginning of the year", bal_current_mnt, bal_previous_mnt, bal_previous_year, False),
+	# 		("Net Profit for the year", net_current_mnt, net_previous_mnt, net_previous_year, False),
+	# 		("Other comprehensive income", oci_current_mnt, oci_previous_mnt, oci_previous_year, False),
+	# 		("Balance as at the end of the year", retained_tot_current, retained_tot_prev, retained_tot_prev_year, True),
+
+	# 		("Capital Contribution", "", "", "", True),
+	# 		("Balance as at the beginning of the year", cc_opening_current, cc_opening_previous, cc_opening_previous_year, False),
+	# 		("Add: Equity contribution on financial guarantee taken", cc_add_current, cc_add_previous, cc_add_previous_year, False),
+	# 		("Balance as at the end of the year", cc_closing_current, cc_closing_previous, cc_closing_previous_year, True),
+	# 		("Total", grand_total_current, grand_total_previous, grand_total_prev_year, True),
+	# 	]
+
 	def get_monthly_other_equity_note_data(self, note_type=None, total=False, field=None):
 		"""Generate monthly Other Equity note table (Retained Earnings & Capital Contribution)"""
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 		p_and_l_template = self.get('financial_report_details', {'section_type': "Profit & Loss"})[0].section
-		net_current_mnt, net_previous_mnt, net_previous_year = self.get_monthly_profit_and_loss_data(p_and_l_template, fetch_for_other_equity = True)
-		
-		sp_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", "March", self.previous_fiscal_year)) or 0
-		add_sp_previous_year = 0
-		bal_sp_tot_prev_year = sp_previous_year + add_sp_previous_year
+		bs_template = self.get('financial_report_details', {'section_type': "Balance Sheet"})[0].section
+		net_current_mnt, net_previous_mnt, net_previous_year = self.get_monthly_profit_and_loss_data(p_and_l_template, fetch_for_other_equity=True)
 
-		sp_current_mnt = bal_sp_tot_prev_year
-		add_sp_current_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0) - sp_current_mnt
-		bal_sp_tot_current = sp_current_mnt + add_sp_current_mnt
+		default_currency = frappe.get_value("Company", self.company, 'default_currency')
 
-		sp_previous_mnt = bal_sp_tot_prev_year
-		add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0) - sp_previous_mnt
-		bal_sp_tot_prev = sp_previous_mnt + add_sp_previous_mnt
+		# --- Case 1: Different currency (use Balance Sheet reconciliation) ---
+		if default_currency != self.currency:
+			sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr')) or 0
+			bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr')) or 0
 
+			# Fetch totals from Balance Sheet
+			tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True,
+				account=frappe.get_value("FR Particular", {'particular_type': 'Total Assets'}, 'name')
+			)
+			curr_mnt_tot_asset = tot_asset['current_month_amount']
+			prev_mnt_tot_asset = tot_asset['previous_month_amount']
+			prev_yr_mnt_tot_asset = tot_asset['previous_year']
 
-		bal_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", "March", self.previous_fiscal_year)) or 0
-		oci_previous_year = round(self.sum_group_amt_monthly("OCI", "OCI", "March", self.previous_fiscal_year)) or 0
+			tot_cur_lib = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True,
+				account=frappe.get_value("FR Particular", {'particular_type': 'Total Current Liabilities'}, 'name')
+			)
+			curr_mnt_tot_cur_lib = tot_cur_lib['current_month_amount']
+			prev_mnt_tot_cur_lib = tot_cur_lib['previous_month_amount']
+			prev_yr_mnt_tot_cur_lib = tot_cur_lib['previous_year']
+
+			tot_n_cur_lib = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True,
+				account=frappe.get_value("FR Particular", {'particular_type': 'Total Non Current Liabilities'}, 'name')
+			)
+			curr_mnt_tot_n_cur_lib = tot_n_cur_lib['current_month_amount']
+			prev_mnt_tot_n_cur_lib = tot_n_cur_lib['previous_month_amount']
+			prev_yr_mnt_tot_n_cur_lib = tot_n_cur_lib['previous_year']
+
+			equity_share = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True,
+				account=frappe.get_value("FR Particular", {'particular_type': 'Equity Share Capital'}, 'name')
+			)
+			curr_mnt_equity_share = equity_share['current_month_amount']
+			prev_mnt_equity_share = equity_share['previous_month_amount']
+			prev_yr_mnt_equity_share = equity_share['previous_year']
+
+		else:
+			add_sp_previous_year = 0
+			sp_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year)) or 0
+			bal_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year)) or 0
+
+			add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.previous_month, self.fiscal_year)) or 0)
+			add_sp_current_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0)
+
+		# --- Retained Earnings ---
+		oci_previous_year = round(self.sum_group_amt_monthly("OCI", "OCI", cls_month, self.previous_fiscal_year)) or 0
 		retained_tot_prev_year = bal_previous_year + net_previous_year + oci_previous_year
 
 		bal_current_mnt = retained_tot_prev_year
@@ -2648,10 +3216,10 @@ class FinancialReport(Document):
 		retained_tot_current = bal_current_mnt + net_current_mnt + oci_current_mnt
 		retained_tot_prev = bal_previous_mnt + net_previous_mnt + oci_previous_mnt
 
-		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", "March", "23-24")) or 0
-		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", "March", self.previous_fiscal_year)) or 0) - cc_opening_previous_year
+		# --- Capital Contribution ---
+		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year)) or 0
+		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year)) or 0) - cc_opening_previous_year
 		cc_closing_previous_year = cc_opening_previous_year + cc_add_previous_year
-		# frappe.throw(f"{cc_opening_previous_year}, {round(self.sum_group_amt_monthly('Other Equity', 'Other equity - Capital Contribution', 'March', self.previous_fiscal_year)) or 0}, {cc_add_previous_year}")
 
 		cc_opening_current = cc_closing_previous_year
 		cc_opening_previous = cc_closing_previous_year
@@ -2662,14 +3230,29 @@ class FinancialReport(Document):
 		cc_closing_current = cc_opening_current + cc_add_current
 		cc_closing_previous = cc_opening_previous + cc_add_previous
 
+		# --- Adjust Securities Premium for FX case ---
+		if default_currency != self.currency:
+			add_sp_previous_year = round( prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year) or 0
+			add_sp_current_mnt = round( curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - (sp_previous_year + add_sp_previous_year)) or 0
+			add_sp_previous_mnt = round( prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - (sp_previous_year + add_sp_previous_year)) or 0
+
+		bal_sp_tot_prev_year = sp_previous_year + add_sp_previous_year
+		# --- Final Securities Premium balances ---
+		sp_current_mnt = bal_sp_tot_prev_year
+		sp_previous_mnt = bal_sp_tot_prev_year
+
+		bal_sp_tot_current = sp_current_mnt + add_sp_current_mnt
+		bal_sp_tot_prev = sp_previous_mnt + add_sp_previous_mnt
+
+		# --- Grand Totals ---
 		grand_total_current = retained_tot_current + cc_closing_current + bal_sp_tot_current
 		grand_total_previous = retained_tot_prev + cc_closing_previous + bal_sp_tot_prev
 		grand_total_prev_year = retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year
 
+		# --- Return if only total requested ---
 		if total and field:
 			if field == "grand_total_current":
 				return grand_total_current
-	
 			elif field == "grand_total_prev_year":
 				return grand_total_prev_year
 			else:
@@ -2746,32 +3329,35 @@ class FinancialReport(Document):
 		# Calculate amounts for current month, previous month, and FTM
 		credit_impaired_current = round(self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.current_month, self.fiscal_year)) or 0
 		credit_impaired_previous = round(self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.previous_month, self.fiscal_year)) or 0
-		credit_impaired_ftm = credit_impaired_current - credit_impaired_previous
+		credit_impaired_prev_year = round(self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", "March", self.previous_fiscal_year)) or 0
+		# credit_impaired_ftm = credit_impaired_current - credit_impaired_previous
 
 		trade_receivables_current = round(self.sum_group_amt_monthly("Trade receivables", "Trade receivables", self.current_month, self.fiscal_year)) or 0
 		trade_receivables_previous = round(self.sum_group_amt_monthly("Trade receivables", "Trade receivables", self.previous_month, self.fiscal_year)) or 0
-		trade_receivables_ftm = trade_receivables_current - trade_receivables_previous
+		trade_receivables_prev_year = round(self.sum_group_amt_monthly("Trade receivables", "Trade receivables", "March", self.previous_fiscal_year)) or 0
+		# trade_receivables_ftm = trade_receivables_current - trade_receivables_previous
 
 		unsecured_good_current = trade_receivables_current + credit_impaired_current
 		unsecured_good_previous = trade_receivables_previous + credit_impaired_previous
-		unsecured_good_ftm = trade_receivables_ftm + credit_impaired_ftm
+		unsecured_good_prev_year = trade_receivables_prev_year + credit_impaired_prev_year
 
 		other_receivables_current = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", self.current_month, self.fiscal_year)) or 0
 		other_receivables_previous = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", self.previous_month, self.fiscal_year)) or 0
-		other_receivables_ftm = other_receivables_current - other_receivables_previous
+		other_receivables_prev_year = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", "March", self.previous_fiscal_year)) or 0
+		# other_receivables_ftm = other_receivables_current - other_receivables_previous
 
 		total_current = unsecured_good_current + other_receivables_current
 		total_previous = unsecured_good_previous + other_receivables_previous
-		total_ftm = unsecured_good_ftm + other_receivables_ftm
+		total_prev_year = unsecured_good_prev_year + other_receivables_prev_year
 
 		main_table = [
-			("Unsecured, considered good", unsecured_good_current, unsecured_good_previous, unsecured_good_ftm, False),
-			("Credit impaired", -credit_impaired_current, credit_impaired_previous, credit_impaired_ftm, False),
-			("", trade_receivables_current, trade_receivables_previous, trade_receivables_ftm, False),
-			("Less: Provision for credit impaired trade receivables", -credit_impaired_current, credit_impaired_previous, credit_impaired_ftm, False),
+			("Unsecured, considered good", unsecured_good_current, unsecured_good_previous, unsecured_good_prev_year, False),
+			("Credit impaired", -credit_impaired_current, credit_impaired_previous, credit_impaired_prev_year, False),
+			("", trade_receivables_current, trade_receivables_previous, trade_receivables_prev_year, False),
+			("Less: Provision for credit impaired trade receivables", -credit_impaired_current, credit_impaired_previous, credit_impaired_prev_year, False),
 			("Other receivables", "", "", "", True),
-			("Unsecured, considered good", other_receivables_current, other_receivables_previous, other_receivables_ftm, False),
-			("Total", total_current, total_previous, total_ftm, True),
+			("Unsecured, considered good", other_receivables_current, other_receivables_previous, other_receivables_prev_year, False),
+			("Total", total_current, total_previous, total_prev_year, True),
 		]
 
 		# Main Table

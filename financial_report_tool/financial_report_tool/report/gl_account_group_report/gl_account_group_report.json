@@ -1,0 +1,54 @@
+{
+ "add_total_row": 1,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2025-08-22 15:57:41.603169",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "mandatory": 1,
+   "options": "Company",
+   "wildcard_filter": 0
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "mandatory": 1,
+   "options": "Fiscal Year",
+   "wildcard_filter": 0
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month",
+   "mandatory": 1,
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "wildcard_filter": 0
+  }
+ ],
+ "idx": 0,
+ "is_standard": "Yes",
+ "letterhead": null,
+ "modified": "2025-08-26 11:19:30.866569",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "GL Account Group Report",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "query": "SELECT \n    t.report_type AS \"Report Type:Data:200\",\n    t.gl_account AS \"GL Account:Data:200\",\n    gm.primary_group AS \"Primary Group:Data:180\",\n    gm.secondary_group AS \"Secondary Group:Data:220\",\n    SUM(t.uploaded_amount) AS \"Amount:Currency:150\",\n    t.month AS \"Month:Data:120\",\n    t.fiscal_year AS \"Fiscal Year:Data:120\",\n    t.company AS \"Company:Link/Company:220\"\nFROM `tabFR Trial Balance Entry` t\nINNER JOIN `tabGL Group Mapping` gm \n    ON t.gl_account = gm.gl_account \n    AND t.company = gm.company\nWHERE t.company = %(company)s\n  AND t.fiscal_year = %(fiscal_year)s\n  AND t.month = %(month)s\nGROUP BY t.gl_account, gm.primary_group, gm.secondary_group, t.month, t.fiscal_year, t.company\n",
+ "ref_doctype": "FR Trial Balance Entry",
+ "report_name": "GL Account Group Report",
+ "report_type": "Query Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "timeout": 0
+}

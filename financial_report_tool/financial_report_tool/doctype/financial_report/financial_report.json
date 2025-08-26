@@ -19,6 +19,7 @@
   "previous_year_ending_date",
   "previous_month",
   "section_break_nrwe",
+  "foreign_exchange_rate",
   "financial_report_details"
  ],
  "fields": [
@@ -107,12 +108,18 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency"
+  },
+  {
+   "fieldname": "foreign_exchange_rate",
+   "fieldtype": "Small Text",
+   "label": "Foreign Exchange Rate",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-12 10:08:35.445588",
+ "modified": "2025-08-21 09:30:10.748691",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",

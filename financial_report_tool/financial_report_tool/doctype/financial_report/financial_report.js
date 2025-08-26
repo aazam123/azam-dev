@@ -42,6 +42,7 @@ frappe.ui.form.on("Financial Report", {
             doc: frm.doc,
             callback: function(rsp){
                 frm.refresh_field('financial_report_details')
+                frm.refresh_field('foreign_exchange_rate')
                 setTimeout(async () => await updateNoteNumbers(frm), 200);
             }
         })

@@ -1,7 +1,8 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:AR-.######",
+ "autoname": "format:AR-{######}",
  "creation": "2025-07-07 12:15:47.468451",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -12,10 +13,10 @@
   "rpt",
   "line_item",
   "document_type",
-  "reference",
-  "reconac",
-  "ageing",
+  "special_gl_ind",
+  "gl_account",
   "column_break_wqhg",
+  "fiscal_year",
   "document_date",
   "posting_date",
   "baseline_date",
@@ -23,8 +24,6 @@
   "sales_office",
   "sales_office_desc",
   "assignment",
-  "gl_description",
-  "closing_ex_rate",
   "column_break_iwim",
   "company",
   "country",
@@ -32,17 +31,26 @@
   "region",
   "sales_group",
   "sales_group_desc",
-  "nature",
+  "reconac",
+  "report_type",
+  "section_break_pjcd",
   "tb_nature",
+  "nature",
+  "column_break_xtlz",
+  "ageing",
+  "closing_ex_rate",
+  "column_break_rzuf",
+  "restated_value",
+  "gainloss",
   "section_break_frkk",
   "billing_doc",
-  "exchange_rate",
   "currency",
+  "exchange_rate",
+  "reference",
   "column_break_evvr",
   "payment_terms",
   "payment_days",
   "due_date",
-  "due_days",
   "column_break_dspk",
   "amount_in_lc",
   "amount_in_dc",
@@ -56,10 +64,12 @@
  "fields": [
   {
    "fieldname": "customer",
-   "fieldtype": "Data",
-   "label": "Customer"
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
   },
   {
+   "fetch_from": "customer.customer_name",
    "fieldname": "customer_name",
    "fieldtype": "Data",
    "label": "Customer Name"
@@ -100,8 +110,10 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "country",
@@ -122,7 +134,8 @@
   {
    "fieldname": "document_number",
    "fieldtype": "Data",
-   "label": "Document Number"
+   "label": "Document Number",
+   "unique": 1
   },
   {
    "fieldname": "line_item",
@@ -131,8 +144,9 @@
   },
   {
    "fieldname": "document_type",
-   "fieldtype": "Data",
-   "label": "Document Type"
+   "fieldtype": "Select",
+   "label": "Document Type",
+   "options": "\nAB\nDZ\nRV\nSA"
   },
   {
    "fieldname": "document_date",
@@ -166,8 +180,10 @@
   {
    "fieldname": "currency",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_evvr",
@@ -187,11 +203,6 @@
    "fieldname": "due_date",
    "fieldtype": "Date",
    "label": "Due Date"
-  },
-  {
-   "fieldname": "due_days",
-   "fieldtype": "Data",
-   "label": "Due Days"
   },
   {
    "fieldname": "column_break_dspk",
@@ -233,14 +244,10 @@
    "label": "Assignment"
   },
   {
-   "fieldname": "gl_description",
-   "fieldtype": "Data",
-   "label": "Gl Description"
-  },
-  {
    "fieldname": "exchange_rate",
    "fieldtype": "Float",
-   "label": "Exchange Rate"
+   "label": "Exchange Rate",
+   "precision": "5"
   },
   {
    "fieldname": "section_break_aoxf",
@@ -257,8 +264,9 @@
   },
   {
    "fieldname": "ageing",
-   "fieldtype": "Data",
-   "label": "Ageing"
+   "fieldtype": "Select",
+   "label": "Ageing",
+   "options": "\nNot Due\n0-6 Months\n6-12 Months\n1-2 Years\n2-3 Years\nMore Than 3 Years"
   },
   {
    "fieldname": "closing_ex_rate",
@@ -267,24 +275,75 @@
   },
   {
    "fieldname": "nature",
-   "fieldtype": "Data",
-   "label": "Nature"
+   "fieldtype": "Select",
+   "label": "Nature",
+   "options": "\nAdvance\nReceivable"
   },
   {
    "fieldname": "tb_nature",
-   "fieldtype": "Data",
-   "label": "TB Nature"
+   "fieldtype": "Select",
+   "label": "TB Nature",
+   "options": "\nAdvance\nReceivable"
   },
   {
    "fieldname": "remark",
    "fieldtype": "Small Text",
    "label": "Remark"
+  },
+  {
+   "fieldname": "section_break_pjcd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_xtlz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_rzuf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "restated_value",
+   "fieldtype": "Float",
+   "label": "Restated Value"
+  },
+  {
+   "fieldname": "gainloss",
+   "fieldtype": "Float",
+   "label": "(Gain)/Loss"
+  },
+  {
+   "fieldname": "gl_account",
+   "fieldtype": "Link",
+   "label": "GL Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "label": "Report Type",
+   "options": "\nMonthly\nYearly",
+   "reqd": 1
+  },
+  {
+   "fieldname": "special_gl_ind",
+   "fieldtype": "Select",
+   "label": "Special G/L ind",
+   "options": "\nA\nB"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-07 12:15:47.468451",
+ "modified": "2025-08-22 10:35:54.461753",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",

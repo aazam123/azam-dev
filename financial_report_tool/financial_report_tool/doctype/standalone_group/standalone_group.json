@@ -23,8 +23,8 @@
   "note_no",
   "balance_must_be",
   "frozen",
-  "lft",
   "rgt",
+  "lft",
   "old_parent"
  ],
  "fields": [
@@ -58,7 +58,7 @@
    "label": "Standalone Group Name"
   },
   {
-   "fetch_from": "parent_consolidation_group.report_type",
+   "fetch_from": "parent_standalone_group.report_type",
    "fieldname": "report_type",
    "fieldtype": "Select",
    "in_standard_filter": 1,
@@ -66,7 +66,7 @@
    "options": "\nProfit & Loss\nBalance Sheet"
   },
   {
-   "fetch_from": "parent_consolidation_group.root_type",
+   "fetch_from": "parent_standalone_group.root_type",
    "fieldname": "root_type",
    "fieldtype": "Select",
    "in_standard_filter": 1,
@@ -88,7 +88,7 @@
    "fieldname": "group_type",
    "fieldtype": "Select",
    "label": "Group Type",
-   "options": "\nAccumulated Depreciation\nAsset Received But Not Billed\nBank\nCash\nChargeable\nCapital Work in Progress\nCost of Goods Sold\nCurrent Asset\nCurrent Liability\nDepreciation\nDirect Expense\nDirect Income\nEquity\nExpense Account\nExpenses Included In Asset Valuation\nExpenses Included In Valuation\nFixed Asset\nIncome Account\nIndirect Expense\nIndirect Income\nLiability\nPayable\nReceivable\nRound Off\nRound Off for Opening\nStock\nStock Adjustment\nStock Received But Not Billed\nService Received But Not Billed\nTax\nTemporary\nOther Income\nOther Expense"
+   "options": "\nAccumulated Depreciation\nAsset Received But Not Billed\nBank\nCash\nChargeable\nCapital Work in Progress\nCost of Goods Sold\nCurrent Asset\nCurrent Liability\nDepreciation\nDirect Expense\nDirect Income\nEquity\nExpense Account\nExpenses Included In Asset Valuation\nExpenses Included In Valuation\nFixed Asset\nIncome Account\nIndirect Expense\nIndirect Income\nLiability\nPayable\nReceivable\nRound Off\nRound Off for Opening\nStock\nStock Adjustment\nStock Received But Not Billed\nService Received But Not Billed\nTax\nTemporary\nCurrent Tax Liabilities\nIncome Tax Assets\nOther Income\nOther Expense"
   },
   {
    "fieldname": "note_no",
@@ -157,7 +157,7 @@
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2025-08-09 03:58:50.969777",
+ "modified": "2025-08-19 16:42:37.935729",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Standalone Group",
@@ -182,5 +182,6 @@
  "search_fields": "parent_standalone_group, standalone_group_name",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

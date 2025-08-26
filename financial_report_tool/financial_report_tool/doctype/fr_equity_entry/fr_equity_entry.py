@@ -6,4 +6,5 @@ from frappe.model.document import Document
 
 
 class FREquityEntry(Document):
-	pass
+	def before_save(self):
+		self.investment_value = round(self.exchanges_rate * self.investment_value_fc)

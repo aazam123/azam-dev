@@ -33,7 +33,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Particular Type",
-   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity Share Capital\nOther Equity\nIncome\nExpenses"
+   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity Share Capital\nOther Equity\nIncome\nExpenses\nTotal Assets\nTotal Equity\nTotal Current Liabilities\nTotal Non Current Liabilities"
   },
   {
    "fieldname": "column_break_mexs",
@@ -106,7 +106,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-14 14:44:27.040883",
+ "modified": "2025-08-25 22:53:02.504171",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",

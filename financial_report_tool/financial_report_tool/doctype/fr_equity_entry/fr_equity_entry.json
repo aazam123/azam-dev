@@ -13,11 +13,16 @@
   "column_break_rixy",
   "no_of_shares",
   "face_value",
-  "investment_value",
   "column_break_olot",
   "posting_date",
   "category",
-  "capital_type"
+  "capital_type",
+  "section_break_gppp",
+  "default_currency",
+  "investment_value_fc",
+  "column_break_rqyy",
+  "exchanges_rate",
+  "investment_value"
  ],
  "fields": [
   {
@@ -78,12 +83,39 @@
    "fieldname": "investment_value",
    "fieldtype": "Float",
    "label": "Investment Value"
+  },
+  {
+   "fieldname": "section_break_gppp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_rqyy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "company.default_currency",
+   "fieldname": "default_currency",
+   "fieldtype": "Link",
+   "label": "Default Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "investment_value_fc",
+   "fieldtype": "Currency",
+   "label": "Investment Value (FC)",
+   "options": "default_currency"
+  },
+  {
+   "fieldname": "exchanges_rate",
+   "fieldtype": "Float",
+   "label": "Exchanges Rate",
+   "precision": "5"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-30 15:21:34.021922",
+ "modified": "2025-08-22 15:18:52.277221",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Equity Entry",

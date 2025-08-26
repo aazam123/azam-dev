@@ -30,7 +30,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "fiscal_year",
@@ -38,13 +39,15 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "reqd": 1
   },
   {
    "fieldname": "amount",
@@ -57,7 +60,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "GL Account",
-   "options": "Account"
+   "options": "Account",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_cepk",
@@ -78,7 +82,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Month",
-   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
   },
   {
    "fieldname": "uploaded_amount",
@@ -90,7 +95,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-21 11:15:49.156189",
+ "modified": "2025-08-25 12:24:16.280267",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Trial Balance Entry",
