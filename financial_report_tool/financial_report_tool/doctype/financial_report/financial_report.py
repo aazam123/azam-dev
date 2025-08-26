@@ -1963,38 +1963,10 @@ class FinancialReport(Document):
 
 		# --- Final Rows ---
 		rows.extend([
-			{
-				"particulars": "Opening Stock",
-				"current_month_amt": opening_stock,
-				"previous_month_amt": opening_stock,
-				"ftm_amt": 0,
-				"previous_year_amt": closing_stock_pre_previous,
-				"is_subtotal": False
-			},
-			{
-				"particulars": "Add: purchases & other related costs",
-				"current_month_amt": purchases_current,
-				"previous_month_amt": purchases_previous,
-				"ftm_amt": ftm_purchases,
-				"previous_year_amt": prev_year_purchases,
-				"is_subtotal": False
-			},
-			{
-				"particulars": "Less: closing stock",
-				"current_month_amt": closing_stock_current,
-				"previous_month_amt": closing_stock_previous,
-				"ftm_amt": ftm_closing_stock,
-				"previous_year_amt": opening_stock,
-				"is_subtotal": False
-			},
-			{
-				"particulars": "Cost of Materials Consumed",
-				"current_month_amt": cost_consumed_current,
-				"previous_month_amt": cost_consumed_previous,
-				"ftm_amt": ftm_cost_consumed,
-				"previous_year_amt": prev_year_cost_consumed,
-				"is_subtotal": True
-			}
+			{"particulars": "Opening Stock","current_month_amt": opening_stock,"previous_month_amt": opening_stock,"ftm_amt": 0,"previous_year_amt": closing_stock_pre_previous,"is_subtotal": False},
+			{"particulars": "Add: purchases & other related costs","current_month_amt": purchases_current,"previous_month_amt": purchases_previous,"ftm_amt": ftm_purchases,"previous_year_amt": prev_year_purchases,"is_subtotal": False},
+			{"particulars": "Less: closing stock","current_month_amt": closing_stock_current,"previous_month_amt": closing_stock_previous,"ftm_amt": ftm_closing_stock,"previous_year_amt": opening_stock,"is_subtotal": False},
+			{"particulars": "Cost of Materials Consumed","current_month_amt": cost_consumed_current,"previous_month_amt": cost_consumed_previous,"ftm_amt": ftm_cost_consumed,"previous_year_amt": prev_year_cost_consumed,"is_subtotal": True}
 		])
 
 
@@ -2637,9 +2609,6 @@ class FinancialReport(Document):
 				for p in fr_particular.get("particulars", []):
 					amount += calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly, fx_rate, convert)
 
-				# if fr_particular.name == "PRT0047" and month == "June":
-				# 	frappe.throw(f"{p.particular}, {amount}, {amount_cache}")
-
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
 				amount = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
 
@@ -2660,12 +2629,14 @@ class FinancialReport(Document):
 				if fr_section.fetch_data_from_trial_balance:
 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 					group_type = group_info.group_type
-					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name"))if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
+					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name"))if group_type in ("Current Tax Liabilities", "Income Tax Assets") else {fr_section.primary_consolidation_group})
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
 							if ((group_type == "Current Tax Liabilities" and face_amount < 0) or(group_type == "Income Tax Assets" and face_amount > 0) or
 								(group_type not in ("Current Tax Liabilities", "Income Tax Assets") and face_amount != 0)):
+								if face_amount < 0:
+									face_amount = -face_amount
 								amount += face_amount
 				else:
 					gl_accounts = []
@@ -2673,7 +2644,6 @@ class FinancialReport(Document):
 						gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type, "primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
 					amount = get_grouped_gl_amount(gl_accounts, year, month)
 
-			# Direct GL accounts
 			else:
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
