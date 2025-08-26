@@ -3166,12 +3166,14 @@ class FinancialReport(Document):
 			prev_yr_mnt_equity_share = equity_share['previous_year']
 
 		else:
-			add_sp_previous_year = 0
 			sp_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year)) or 0
 			bal_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year)) or 0
 
-			add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.previous_month, self.fiscal_year)) or 0)
-			add_sp_current_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0)
+			# add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.previous_month, self.fiscal_year)) or 0)
+			# add_sp_current_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0)
+			add_sp_previous_year = 0
+			add_sp_current_mnt = 0
+			add_sp_previous_mnt = 0
 
 		# --- Retained Earnings ---
 		oci_previous_year = round(self.sum_group_amt_monthly("OCI", "OCI", cls_month, self.previous_fiscal_year)) or 0
