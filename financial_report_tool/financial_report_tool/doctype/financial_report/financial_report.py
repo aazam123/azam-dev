@@ -2571,9 +2571,7 @@ class FinancialReport(Document):
 
 		def get_standalone_group(name):
 			if name not in standalone_group_cache:
-				standalone_group_cache[name] = frappe.get_value(
-					"Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True
-				)
+				standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
 			return standalone_group_cache[name]
 
 		def get_secondary_groups(primary_group):
@@ -2940,6 +2938,7 @@ class FinancialReport(Document):
 		total_ftm_amt = 0
 		total_previous_year = 0
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group, "company": self.company}, pluck="secondary_group") if g))
 
 		for secondary_group in secondary_groups:
@@ -2949,7 +2948,7 @@ class FinancialReport(Document):
 			current_month_amt = self.sum_group_amt_monthly(primary_group, secondary_group, self.current_month, self.fiscal_year)
 			previous_month_amt = self.sum_group_amt_monthly(primary_group, secondary_group, self.previous_month, self.fiscal_year)
 			ftm_amt = current_month_amt - previous_month_amt
-			previous_year = 0
+			previous_year = self.sum_group_amt_monthly(primary_group, secondary_group, cls_month, self.previous_fiscal_year)
 
 			if current_month_amt < 0:
 				current_month_amt = -current_month_amt
@@ -3315,18 +3314,18 @@ class FinancialReport(Document):
 		credit_impaired_prev_year = round(self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", "March", self.previous_fiscal_year)) or 0
 		# credit_impaired_ftm = credit_impaired_current - credit_impaired_previous
 
-		trade_receivables_current = round(self.sum_group_amt_monthly("Trade receivables", "Trade receivables", self.current_month, self.fiscal_year)) or 0
-		trade_receivables_previous = round(self.sum_group_amt_monthly("Trade receivables", "Trade receivables", self.previous_month, self.fiscal_year)) or 0
-		trade_receivables_prev_year = round(self.sum_group_amt_monthly("Trade receivables", "Trade receivables", "March", self.previous_fiscal_year)) or 0
+		trade_receivables_current = round(self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.current_month, self.fiscal_year)) or 0
+		trade_receivables_previous = round(self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.previous_month, self.fiscal_year)) or 0
+		trade_receivables_prev_year = round(self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", "March", self.previous_fiscal_year)) or 0
 		# trade_receivables_ftm = trade_receivables_current - trade_receivables_previous
 
 		unsecured_good_current = trade_receivables_current + credit_impaired_current
 		unsecured_good_previous = trade_receivables_previous + credit_impaired_previous
 		unsecured_good_prev_year = trade_receivables_prev_year + credit_impaired_prev_year
 
-		other_receivables_current = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", self.current_month, self.fiscal_year)) or 0
-		other_receivables_previous = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", self.previous_month, self.fiscal_year)) or 0
-		other_receivables_prev_year = round(self.sum_group_amt_monthly("Other Receivables", "Other Receivables", "March", self.previous_fiscal_year)) or 0
+		other_receivables_current = round(self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.current_month, self.fiscal_year)) or 0
+		other_receivables_previous = round(self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.previous_month, self.fiscal_year)) or 0
+		other_receivables_prev_year = round(self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", "March", self.previous_fiscal_year)) or 0
 		# other_receivables_ftm = other_receivables_current - other_receivables_previous
 
 		total_current = unsecured_good_current + other_receivables_current
