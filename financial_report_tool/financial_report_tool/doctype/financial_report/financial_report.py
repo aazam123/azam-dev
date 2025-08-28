@@ -3307,25 +3307,30 @@ class FinancialReport(Document):
 	def get_monthly_trade_and_other_receivables_note_data(self):
 		"""Get monthly trade and other receivables note data with optimized structure"""
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
 		
 		# Calculate amounts for current month, previous month, and FTM
-		credit_impaired_current = round(self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.current_month, self.fiscal_year)) or 0
-		credit_impaired_previous = round(self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.previous_month, self.fiscal_year)) or 0
-		credit_impaired_prev_year = round(self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", "March", self.previous_fiscal_year)) or 0
+		credit_impaired_current = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.current_month, self.fiscal_year)) or 0) * current_fx)
+		credit_impaired_previous = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.previous_month, self.fiscal_year)) or 0) * previous_fx)
+		credit_impaired_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx)
 		# credit_impaired_ftm = credit_impaired_current - credit_impaired_previous
 
-		trade_receivables_current = round(self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.current_month, self.fiscal_year)) or 0
-		trade_receivables_previous = round(self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.previous_month, self.fiscal_year)) or 0
-		trade_receivables_prev_year = round(self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", "March", self.previous_fiscal_year)) or 0
+		trade_receivables_current = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.current_month, self.fiscal_year)) or 0) * current_fx)
+		trade_receivables_previous = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.previous_month, self.fiscal_year)) or 0) * previous_fx)
+		trade_receivables_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx)
 		# trade_receivables_ftm = trade_receivables_current - trade_receivables_previous
 
 		unsecured_good_current = trade_receivables_current + credit_impaired_current
 		unsecured_good_previous = trade_receivables_previous + credit_impaired_previous
 		unsecured_good_prev_year = trade_receivables_prev_year + credit_impaired_prev_year
 
-		other_receivables_current = round(self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.current_month, self.fiscal_year)) or 0
-		other_receivables_previous = round(self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.previous_month, self.fiscal_year)) or 0
-		other_receivables_prev_year = round(self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", "March", self.previous_fiscal_year)) or 0
+		other_receivables_current = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.current_month, self.fiscal_year)) or 0) * current_fx)
+		other_receivables_previous = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.previous_month, self.fiscal_year)) or 0) * previous_fx)
+		other_receivables_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx)
 		# other_receivables_ftm = other_receivables_current - other_receivables_previous
 
 		total_current = unsecured_good_current + other_receivables_current
