@@ -241,8 +241,7 @@ class FinancialReport(Document):
 				"""
 			params = [self.company, year] + gl_accounts + [month]
 			amount = round((frappe.db.sql(query, params)[0][0] or 0) / 100000)
-			show_reversed_value = frappe.get_value("Standalone Group", group, 'show_reversed_value')
-			return -amount if show_reversed_value else amount
+			return amount
 		else:
 			return 0
 
@@ -2062,8 +2061,7 @@ class FinancialReport(Document):
 				py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year) * prev_year_fx
 
 				if group_type in ("Other Income", "Other Expense"):
-					# if any(val < 0 for val in (cm, pm, py)) and group_type == "Other Income" or any(val > 0 for val in (cm, pm, py)) and group_type == "Other Expense":
-					if (py < 0) and group_type == "Other Income" or (py>0) and group_type == "Other Expense":
+					if (cm < 0) and group_type == "Other Income" or (cm > 0) and group_type == "Other Expense":
 						if any(val != 0 for val in (cm, pm, py)):
 							append_data(sec, cm, pm, ftm, py)
 				else:

@@ -51,6 +51,7 @@
   "payment_terms",
   "payment_days",
   "due_date",
+  "due_days",
   "column_break_dspk",
   "amount_in_lc",
   "amount_in_dc",
@@ -134,8 +135,7 @@
   {
    "fieldname": "document_number",
    "fieldtype": "Data",
-   "label": "Document Number",
-   "unique": 1
+   "label": "Document Number"
   },
   {
    "fieldname": "line_item",
@@ -338,12 +338,17 @@
    "fieldtype": "Select",
    "label": "Special G/L ind",
    "options": "\nA\nB"
+  },
+  {
+   "fieldname": "due_days",
+   "fieldtype": "Int",
+   "label": "Due Days"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-22 10:35:54.461753",
+ "modified": "2025-09-01 12:39:32.681025",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",
