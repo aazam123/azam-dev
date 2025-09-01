@@ -2636,8 +2636,6 @@ class FinancialReport(Document):
 							face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
 							if ((group_type == "Current Tax Liabilities" and face_amount < 0) or(group_type == "Income Tax Assets" and face_amount > 0) or
 								(group_type not in ("Current Tax Liabilities", "Income Tax Assets") and face_amount != 0)):
-								if face_amount < 0:
-									face_amount = -face_amount
 								amount += face_amount
 				else:
 					gl_accounts = []
