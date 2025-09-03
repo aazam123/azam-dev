@@ -8,7 +8,13 @@
   "closing_month_section",
   "closing_month",
   "set_previous_fiscal_year_section",
-  "previous_fiscal_year"
+  "previous_fiscal_year",
+  "account_payable_tab",
+  "vendor_series_section",
+  "vendor_series_for_nature",
+  "purchase_order_series_section",
+  "purchase_order_series_for_grouping",
+  "gl_account_for_grouping"
  ],
  "fields": [
   {
@@ -32,13 +38,46 @@
    "fieldtype": "Select",
    "label": "Closing Month",
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fieldname": "account_payable_tab",
+   "fieldtype": "Tab Break",
+   "label": "Account Payable"
+  },
+  {
+   "fieldname": "vendor_series_section",
+   "fieldtype": "Section Break",
+   "label": "Nature"
+  },
+  {
+   "fieldname": "vendor_series_for_nature",
+   "fieldtype": "Table",
+   "label": "Vendor Series For Nature",
+   "options": "Vendor Series For Nature"
+  },
+  {
+   "fieldname": "purchase_order_series_section",
+   "fieldtype": "Section Break",
+   "label": "Grouping"
+  },
+  {
+   "fieldname": "purchase_order_series_for_grouping",
+   "fieldtype": "Table",
+   "label": "Purchase Order Series For Grouping",
+   "options": "Purchase Order Series For Grouping"
+  },
+  {
+   "fieldname": "gl_account_for_grouping",
+   "fieldtype": "Table",
+   "label": "GL Account For Grouping",
+   "options": "GL Account For Grouping"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-07 13:02:50.435062",
+ "modified": "2025-09-02 11:45:26.947253",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",

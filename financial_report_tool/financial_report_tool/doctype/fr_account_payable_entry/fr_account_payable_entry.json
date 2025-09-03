@@ -1,37 +1,42 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:AP-.#######",
+ "autoname": "format:AP-{#######}",
  "creation": "2025-07-04 20:55:06.224415",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "finance_report",
   "document_number",
   "supplier",
   "supplier_name",
   "purchase_order",
-  "special_gl_ind",
+  "reconciliation_account",
   "assignment",
-  "nature",
-  "ageing",
   "column_break_tqmd",
   "document_date",
   "posting_date",
   "baseline_date",
   "debitcredit",
   "reference",
-  "reconciliation_account",
-  "grouping",
-  "closing_exchange_rate",
+  "msme_vendor",
   "column_break_qlzr",
   "company",
+  "fiscal_year",
   "country",
   "city",
   "state",
   "document_type",
-  "gl_description",
-  "msme_vendor",
+  "section_break_rklm",
+  "ap",
+  "nature",
+  "grouping",
+  "column_break_cxvr",
+  "special_gl_ind",
+  "ageing",
+  "closing_exchange_rate",
+  "column_break_idfv",
+  "report_type",
   "restated_value",
   "gainloss",
   "section_break_ydkm",
@@ -56,21 +61,20 @@
  ],
  "fields": [
   {
-   "fieldname": "finance_report",
-   "fieldtype": "Data",
-   "label": "Finance Report"
-  },
-  {
    "fieldname": "document_number",
    "fieldtype": "Data",
-   "label": "Document Number"
+   "label": "Document Number",
+   "reqd": 1
   },
   {
    "fieldname": "supplier",
-   "fieldtype": "Data",
-   "label": "Supplier"
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier",
+   "reqd": 1
   },
   {
+   "fetch_from": "supplier.supplier_name",
    "fieldname": "supplier_name",
    "fieldtype": "Data",
    "label": "Supplier Name"
@@ -82,8 +86,9 @@
   },
   {
    "fieldname": "special_gl_ind",
-   "fieldtype": "Data",
-   "label": "Special G/L ind"
+   "fieldtype": "Select",
+   "label": "Special G/L ind",
+   "options": "\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK"
   },
   {
    "fieldname": "assignment",
@@ -92,13 +97,15 @@
   },
   {
    "fieldname": "nature",
-   "fieldtype": "Data",
-   "label": "Nature"
+   "fieldtype": "Select",
+   "label": "Nature",
+   "options": "\nAdvance\nPayable\nPayment\nClearing Document\nInvoicing Document\nDeposit\nEmployee"
   },
   {
    "fieldname": "ageing",
-   "fieldtype": "Data",
-   "label": "Ageing"
+   "fieldtype": "Select",
+   "label": "Ageing",
+   "options": "\nNot Due\n0-6 Months\n6-12 Months\n1-2 Years\n2-3 Years\nMore Than 3 Years"
   },
   {
    "fieldname": "column_break_tqmd",
@@ -132,13 +139,16 @@
   },
   {
    "fieldname": "reconciliation_account",
-   "fieldtype": "Data",
-   "label": "Reconciliation Account"
+   "fieldtype": "Link",
+   "label": "Reconciliation Account",
+   "options": "Account",
+   "reqd": 1
   },
   {
    "fieldname": "grouping",
-   "fieldtype": "Data",
-   "label": "Grouping"
+   "fieldtype": "Select",
+   "label": "Grouping",
+   "options": "\nCapital Advance\nCapital Payable\nDeposit\nEmployee Advance\nEmployee Foreign Advance\nEmployee Imprest\nEmployee Loan\nEmployee Payable\nRM/PM Advance\nRM/PM Payable\nService Advance\nService Payable"
   },
   {
    "fieldname": "closing_exchange_rate",
@@ -153,13 +163,13 @@
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "country",
-   "fieldtype": "Link",
-   "label": "Country",
-   "options": "Country"
+   "fieldtype": "Data",
+   "label": "Country"
   },
   {
    "fieldname": "city",
@@ -173,13 +183,9 @@
   },
   {
    "fieldname": "document_type",
-   "fieldtype": "Data",
-   "label": "Document Type"
-  },
-  {
-   "fieldname": "gl_description",
-   "fieldtype": "Data",
-   "label": "Gl Description"
+   "fieldtype": "Select",
+   "label": "Document Type",
+   "options": "\nAB\nEE\nKZ\nFP\nKR\nRE\nSA\nKG\nMB"
   },
   {
    "fieldname": "msme_vendor",
@@ -210,11 +216,12 @@
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
-   "options": "Currency"
+   "options": "Currency",
+   "reqd": 1
   },
   {
    "fieldname": "invoice_year",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "label": "Invoice Year"
   },
   {
@@ -242,9 +249,12 @@
    "label": "Due Date"
   },
   {
+   "default": "0",
    "fieldname": "due_days",
-   "fieldtype": "Data",
-   "label": "Due Days"
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Due Days",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_atfz",
@@ -289,12 +299,43 @@
    "fieldname": "remark",
    "fieldtype": "Small Text",
    "label": "Remark"
+  },
+  {
+   "fieldname": "section_break_rklm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_cxvr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_idfv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "label": "Report Type",
+   "options": "\nYearly\nMonthly"
+  },
+  {
+   "fieldname": "ap",
+   "fieldtype": "Select",
+   "label": "A/P",
+   "options": "\nAdvance\nPayable"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-04 20:57:35.871072",
+ "modified": "2025-09-02 12:47:24.442753",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",
