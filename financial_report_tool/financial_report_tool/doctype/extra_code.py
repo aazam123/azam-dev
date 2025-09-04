@@ -266,3 +266,163 @@
 # 		return matching_row
 
 # 	return data
+
+
+
+# def get_monthly_finished_goods_and_wip(self, note_type, total, get_face=None, field=None):
+#     rows = []
+#     cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+#     default_currency = frappe.get_value("Company", self.company, 'default_currency')
+
+#     month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+
+#     current_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.current_month, self.fiscal_year)
+#     current_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.current_month, self.fiscal_year)
+#     current_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", self.current_month, self.fiscal_year)
+#     current_month_total = current_month_finished_goods + current_month_wip + current_month_sit
+
+#     cls_previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", self.previous_month, self.fiscal_year)
+#     cls_previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", self.previous_month, self.fiscal_year)
+#     cls_previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", self.previous_month, self.fiscal_year)
+#     cls_previous_month_total = cls_previous_month_finished_goods + cls_previous_month_wip + cls_previous_month_sit
+    
+#     previous_month_finished_goods = self.sum_group_amt_monthly("Inventories", "Finished Goods", cls_month, self.previous_fiscal_year)
+#     previous_month_wip = self.sum_group_amt_monthly("Inventories", "Work in Progress", cls_month, self.previous_fiscal_year)
+#     previous_month_sit = self.sum_group_amt_monthly("Inventories", "Stock In Trade", cls_month, self.previous_fiscal_year)
+#     previous_month_total = previous_month_finished_goods + previous_month_wip + previous_month_sit
+    
+#     ftm_finished_goods =current_month_finished_goods - cls_previous_month_finished_goods
+#     ftm_wip = current_month_wip - cls_previous_month_wip
+#     ftm_sit = current_month_sit - cls_previous_month_sit
+#     ftm_total = ftm_finished_goods + ftm_wip + ftm_sit
+    
+#     net_increase_finished_goods = current_month_finished_goods - previous_month_finished_goods
+#     net_increase_wip = previous_month_wip - current_month_wip
+#     net_increase_total = previous_month_total - current_month_total
+#     prev_net_total = previous_month_total - cls_previous_month_total
+    
+#     closing_wip_pre_previous = self.sum_group_amt("Inventories", "Work in Progress", pre_year)
+#     closing_fg_pre_previous = self.sum_group_amt("Inventories", "Finished Goods", pre_year)
+#     closing_sit_pre_previous = self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
+
+#     prev_year_closing_fg = self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+#     prev_year_closing_wip = self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+#     prev_year_closing_sit = self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+#     prev_year_amt = (closing_wip_pre_previous+closing_fg_pre_previous+closing_sit_pre_previous) - (prev_year_closing_wip+prev_year_closing_fg+prev_year_closing_sit)
+    
+#     if total and not get_face:
+#         if field == 'net_increase_total':
+#             return net_increase_total
+#         elif field == 'ftm_total':
+#             return ftm_total
+#         elif field == 'previous_month_amt':
+#             return prev_net_total
+#         elif field == 'prev_year_amt':
+#             return prev_year_amt
+#         else:
+#             return 0
+
+#     if default_currency != self.currency:
+#         current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate')
+#         previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate')
+#         prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'closing_rate')
+#         pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'closing_rate')
+
+#         current_month_finished_goods *= current_fx
+#         current_month_wip *= current_fx
+#         current_month_sit *= current_fx
+#         current_month_total *= current_fx
+
+#         cls_previous_month_finished_goods *= previous_fx
+#         cls_previous_month_wip *= previous_fx
+#         cls_previous_month_sit *= previous_fx
+#         cls_previous_month_total *= previous_fx
+
+#         previous_month_finished_goods *= prev_year_fx
+#         previous_month_wip *= prev_year_fx
+#         previous_month_sit *= prev_year_fx
+#         previous_month_total *= prev_year_fx
+
+#         ftm_finished_goods = current_month_finished_goods - cls_previous_month_finished_goods
+#         ftm_wip = current_month_wip - cls_previous_month_wip
+#         ftm_sit = current_month_sit - cls_previous_month_sit
+#         ftm_total = ftm_finished_goods + ftm_wip + ftm_sit
+
+#         net_increase_finished_goods = current_month_finished_goods - previous_month_finished_goods
+#         net_increase_wip = current_month_wip - previous_month_wip
+#         net_increase_total = previous_month_total - current_month_total
+#         prev_net_total = previous_month_total - cls_previous_month_total
+
+#         prev_year_closing_fg *= prev_year_fx
+#         prev_year_closing_wip *= prev_year_fx
+#         prev_year_closing_sit *= prev_year_fx
+
+#         closing_fg_pre_previous *= pre_prev_year_fx
+#         closing_wip_pre_previous *= pre_prev_year_fx
+#         closing_sit_pre_previous *= pre_prev_year_fx
+
+#         prev_year_amt = ((closing_wip_pre_previous + closing_fg_pre_previous + closing_sit_pre_previous) - (prev_year_closing_wip + prev_year_closing_fg + prev_year_closing_sit))
+
+#     if get_face and total:
+#         if field == 'net_increase_total':
+#             return net_increase_total
+#         elif field == 'ftm_total':
+#             return ftm_total
+#         elif field == 'previous_month_amt':
+#             return prev_net_total
+#         elif field == 'prev_year_amt':
+#             return prev_year_amt
+#         else:
+#             return 0
+
+#     rows.extend([
+#         {"particulars": "Inventories at the end of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0, "previous_year_amt": 0, "is_subtotal": True},
+#         {"particulars": "Finished goods","current_month_amt": current_month_finished_goods,"previous_month_amt": cls_previous_month_finished_goods ,"ftm_amt": ftm_finished_goods, "previous_year_amt": prev_year_closing_fg, "is_subtotal": False},
+#         {"particulars": "Work-in-progress","current_month_amt": current_month_wip,"previous_month_amt": cls_previous_month_wip,"ftm_amt": ftm_wip, "previous_year_amt": prev_year_closing_wip, "is_subtotal": False},
+#         {"particulars": "Stock-in-trade","current_month_amt": current_month_sit,"previous_month_amt": cls_previous_month_sit,"ftm_amt": ftm_sit, "previous_year_amt": prev_year_closing_sit, "is_subtotal": False},
+#         {"particulars": "","current_month_amt": current_month_total,"previous_month_amt": cls_previous_month_total ,"ftm_amt": ftm_total, "previous_year_amt": (prev_year_closing_wip+prev_year_closing_fg+prev_year_closing_sit), "is_subtotal": False},
+#         {"particulars": "Inventories at the beginning of the month","current_month_amt": 0,"previous_month_amt": 0,"ftm_amt": 0, "previous_year_amt": 0, "is_subtotal": True},
+#         {"particulars": "Finished goods","current_month_amt": previous_month_finished_goods,"previous_month_amt": previous_month_finished_goods,"ftm_amt": 0, "previous_year_amt": closing_fg_pre_previous, "is_subtotal": False},
+#         {"particulars": "Work-in-progress","current_month_amt": previous_month_wip,"previous_month_amt": previous_month_wip,"ftm_amt": 0, "previous_year_amt": closing_wip_pre_previous, "is_subtotal": False},
+#         {"particulars": "Stock-in-trade", "current_month_amt": previous_month_sit, "previous_month_amt": previous_month_sit, "ftm_amt": 0, "previous_year_amt": closing_sit_pre_previous, "is_subtotal": False},
+#         {"particulars": "","current_month_amt": previous_month_total,"previous_month_amt": previous_month_total,"ftm_amt": 0, "previous_year_amt": (closing_wip_pre_previous + closing_fg_pre_previous+closing_sit_pre_previous), "is_subtotal": False},
+#         {"particulars": "Net increase","current_month_amt": net_increase_total,"previous_month_amt": prev_net_total,"ftm_amt": prev_net_total - net_increase_total, "previous_year_amt": prev_year_amt,"is_subtotal": True}
+#     ])
+    
+#     html = f'''
+#     <table style="width:100%; border-collapse:collapse; font-size:13px;">
+#         <thead>
+#             <tr>
+#                 <th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
+#                 <th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{month_end_label}</b></th>
+#                 <th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>FTM</b></th>
+#                 <th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
+#                 <th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
+#             </tr>
+#         </thead>
+#         <tbody>
+#     '''
+    
+#     for row in rows:
+#         # Format amounts
+#         current_month_amt_str = f"{row['current_month_amt']:,.0f}" if row['current_month_amt'] else ""
+#         previous_month_amt_str = f"{row['previous_month_amt']:,.0f}" if row['previous_month_amt'] else ""
+#         ftm_amt_str = f"{row['ftm_amt']:,.0f}" if row['ftm_amt'] else ""
+#         previous_year_amt = f"{row['previous_year_amt']:,.0f}" if row['previous_year_amt'] else ""
+        
+#         # Style for totals
+#         bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
+#         border_style = "border:1px solid #222;" if row["is_subtotal"] else "border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;"
+        
+#         html += f'''
+#             <tr>
+#                 <td style="{border_style} text-align:left; padding:6px 8px; {bold_style}">{row['particulars']}</td>
+#                 <td style="{border_style} text-align:right; padding:6px 8px; {bold_style} background-color:#e8f5e8;">{current_month_amt_str}</td>
+#                 <td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{ftm_amt_str}</td>
+#                 <td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_month_amt_str}</td>
+#                 <td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_year_amt}</td>
+#             </tr>
+#         '''
+    
+#     html += "</tbody></table>"
+#     return html

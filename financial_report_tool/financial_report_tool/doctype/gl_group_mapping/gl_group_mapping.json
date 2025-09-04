@@ -12,7 +12,8 @@
   "report_type",
   "column_break_vrta",
   "primary_group",
-  "secondary_group"
+  "secondary_group",
+  "higher_secondary_group"
  ],
  "fields": [
   {
@@ -61,12 +62,18 @@
    "label": "Company",
    "options": "Company",
    "reqd": 1
+  },
+  {
+   "fieldname": "higher_secondary_group",
+   "fieldtype": "Link",
+   "label": "Higher Secondary Group",
+   "options": "Standalone Group"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-25 13:21:47.112551",
+ "modified": "2025-09-04 13:16:07.255039",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "GL Group Mapping",
