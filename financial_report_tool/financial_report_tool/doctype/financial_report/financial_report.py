@@ -2420,6 +2420,9 @@ class FinancialReport(Document):
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
+							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+							for hg_sec in has_hg_sec_group:
+								face_amount += self.sum_group_amt_monthly(pg, sec, month, year, hg_sec_group=hg_sec)
 							if (group_type == "Other Income" and face_amount < 0) or \
 							(group_type == "Other Expense" and face_amount > 0) or \
 							(group_type not in ("Other Income", "Other Expense") and face_amount != 0):
