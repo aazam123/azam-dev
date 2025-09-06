@@ -2016,12 +2016,21 @@ class FinancialReport(Document):
 				has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": primary_group, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
 
 				if group_type in ("Other Income", "Other Expense"):
-					if (cm < 0) and group_type == "Other Income" or (cm > 0) and group_type == "Other Expense":
-						if any(val != 0 for val in (cm, pm, py)):
-							append_data(sec, cm, pm, ftm, py)
+					if group_type == "Other Income":
+						cm = cm if cm < 0 else 0
+						pm = pm if pm < 0 else 0
+						py = py if py < 0 else 0
+					elif group_type == "Other Expense":
+						cm = cm if cm > 0 else 0
+						pm = pm if pm > 0 else 0
+						py = py if py > 0 else 0
+
+					# if (cm < 0) and group_type == "Other Income" or (cm > 0) and group_type == "Other Expense":
+					if any(val != 0 for val in (cm, pm, py)):
+						append_data(sec, cm, pm, cm-pm, py)
 				else:
 					if any(val != 0 for val in (cm, pm, py)) or has_hg_sec_group:
-						append_data(sec, cm, pm, ftm, py)
+						append_data(sec, cm, pm, cm-pm, py)
 				
 				for hg_sec in has_hg_sec_group:
 					cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year, hg_sec_group=hg_sec) * current_fx
@@ -2423,9 +2432,12 @@ class FinancialReport(Document):
 							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
 							for hg_sec in has_hg_sec_group:
 								face_amount += self.sum_group_amt_monthly(pg, sec, month, year, hg_sec_group=hg_sec)
-							if (group_type == "Other Income" and face_amount < 0) or \
-							(group_type == "Other Expense" and face_amount > 0) or \
-							(group_type not in ("Other Income", "Other Expense") and face_amount != 0):
+							
+							if group_type == "Other Income":
+								face_amount = face_amount if face_amount < 0 else 0 
+							if group_type == "Other Expense":
+								face_amount = face_amount if face_amount > 0 else 0 
+							if (group_type == "Other Income" and face_amount < 0) or (group_type == "Other Expense" and face_amount > 0) or (group_type not in ("Other Income", "Other Expense") and face_amount != 0):
 								amount += face_amount
 				else:
 					gl_accounts = []
