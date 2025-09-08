@@ -14,6 +14,7 @@
   "fiscal_year",
   "current_year_ending_date",
   "current_month",
+  "show_decimal_value",
   "column_break_ujyu",
   "previous_fiscal_year",
   "previous_year_ending_date",
@@ -86,6 +87,8 @@
    "depends_on": "eval: doc.report_type == \"Monthly\";",
    "fieldname": "current_month",
    "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Current Month",
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
   },
@@ -114,12 +117,18 @@
    "fieldtype": "Small Text",
    "label": "Foreign Exchange Rate",
    "read_only": 1
+  },
+  {
+   "default": "3",
+   "fieldname": "show_decimal_value",
+   "fieldtype": "Int",
+   "label": "Show Decimal Value"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-21 09:30:10.748691",
+ "modified": "2025-09-08 15:51:55.512149",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",

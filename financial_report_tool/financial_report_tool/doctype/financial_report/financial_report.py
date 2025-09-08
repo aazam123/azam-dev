@@ -222,7 +222,7 @@ class FinancialReport(Document):
 		if not gl_accounts: return 0
 		field = "amount" if is_ftm else "uploaded_amount"
 		query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
-		return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000)
+		return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 	@frappe.whitelist()
 	def generate_report(self):
@@ -676,11 +676,11 @@ class FinancialReport(Document):
 		pass
 
 	def get_trade_and_other_receivables_note_data(self):
-		credit_impaired = round(self.sum_group_amt("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.fiscal_year)) or 0
-		prev_credit_impaired = round(self.sum_group_amt("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.previous_fiscal_year)) or 0
+		credit_impaired = round(self.sum_group_amt("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.fiscal_year), self.show_decimal_value) or 0
+		prev_credit_impaired = round(self.sum_group_amt("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.previous_fiscal_year), self.show_decimal_value) or 0
 
-		trade_receivables = round(self.sum_group_amt("Trade receivables", "Trade receivables", self.fiscal_year)) or 0
-		prev_trade_receivables = round(self.sum_group_amt("Trade receivables", "Trade receivables", self.previous_fiscal_year)) or 0
+		trade_receivables = round(self.sum_group_amt("Trade receivables", "Trade receivables", self.fiscal_year), self.show_decimal_value) or 0
+		prev_trade_receivables = round(self.sum_group_amt("Trade receivables", "Trade receivables", self.previous_fiscal_year), self.show_decimal_value) or 0
 
 		unsecured_good = trade_receivables - credit_impaired
 		prev_unsecured_good = prev_trade_receivables - prev_credit_impaired
@@ -688,8 +688,8 @@ class FinancialReport(Document):
 		provision = credit_impaired
 		prev_provision = prev_credit_impaired
 
-		other_receivables = round(self.sum_group_amt("Other Receivables", "Other Receivables", self.fiscal_year)) or 0
-		prev_other_receivables = round(self.sum_group_amt("Other Receivables", "Other Receivables", self.previous_fiscal_year)) or 0
+		other_receivables = round(self.sum_group_amt("Other Receivables", "Other Receivables", self.fiscal_year), self.show_decimal_value) or 0
+		prev_other_receivables = round(self.sum_group_amt("Other Receivables", "Other Receivables", self.previous_fiscal_year), self.show_decimal_value) or 0
 
 		total = unsecured_good + other_receivables
 		prev_total = prev_unsecured_good + prev_other_receivables
@@ -1090,9 +1090,9 @@ class FinancialReport(Document):
 			note_table += f'''
 				<tr>
 					<td style='text-align:left; padding: 5px; border:1px solid #222; font-weight: bold;'>Total</td>
-					<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{'{:,.0f}'.format(total_current_month)}</td>
-					<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{'{:,.0f}'.format(total_previous_month)}</td>
-					<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{'{:,.0f}'.format(total_ftm)}</td>
+					<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{total_current_month}</td>
+					<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{total_previous_month}</td>
+					<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{total_ftm}</td>
 				</tr>
 			'''
 			note_table += "</tbody></table>"
@@ -1185,7 +1185,7 @@ class FinancialReport(Document):
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 			
-			amount_cache[cache_key] = int(round(amount / 100000))
+			amount_cache[cache_key] = flt(round(amount / 100000), self.show_decimal_value)
 			return amount_cache[cache_key]
 
 		grouped_data = []
@@ -1271,8 +1271,8 @@ class FinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["amount"]) if row.get("amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year_amount"]) if row.get("previous_year_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{row["amount"] if row.get("amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{row["previous_year_amount"] if row.get("previous_year_amount") else ""}</td>
 			</tr>
 		"""
 
@@ -1315,7 +1315,7 @@ class FinancialReport(Document):
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 			
-			amount_cache[cache_key] = int(round(amount / 100000))
+			amount_cache[cache_key] = flt(round(amount / 100000), self.show_decimal_value)
 			return amount_cache[cache_key]
 
 		data = []
@@ -1452,8 +1452,8 @@ class FinancialReport(Document):
 					<td style='text-align:center; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
 					<td style='text-align:left; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{account_text}</td>
 					<td style='text-align:center; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{row.get("note_no") or ""}</td>
-					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["amount_2024"]) if row.get("amount_2024") else ""}</td>
-					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["amount_2023"]) if row.get("amount_2023") else ""}</td>
+					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{row["amount_2024"] if row.get("amount_2024") else ""}</td>
+					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{row["amount_2023"] if row.get("amount_2023") else ""}</td>
 				</tr>
 			"""
 
@@ -1497,7 +1497,7 @@ class FinancialReport(Document):
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 			
-			amount_cache[cache_key] = int(round(amount / 100000))
+			amount_cache[cache_key] = flt(round((amount / 100000), self.show_decimal_value))
 			return amount_cache[cache_key]
 
 		data = []
@@ -1554,8 +1554,8 @@ class FinancialReport(Document):
 				<tr>
 					<td style='text-align:center; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{index}</td>
 					<td style='text-align:left; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; {bold}'>{indent}{row.get("account") or ""}</td>
-					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{'{:,.0f}'.format(row["amount"]) if row.get("amount") else ""}</td>
-					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{'{:,.0f}'.format(row["previous_year_amount"]) if row.get("previous_year_amount") else ""}</td>
+					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black; background-color: #e8f5e8;'>{row["amount"] if row.get("amount") else ""}</td>
+					<td style='text-align:right; padding: 2px; border-left: 1px solid black; border-right: 1px solid black;'>{row["previous_year_amount"] if row.get("previous_year_amount") else ""}</td>
 				</tr>
 			"""
 		html += "</tbody></table>"
@@ -1975,7 +1975,7 @@ class FinancialReport(Document):
 		data = []
 
 		def format_amount(val):
-			return int(-val if show_reversed_value and val < 0 else val or 0)
+			return flt(-val if show_reversed_value and val < 0 else val or 0)
 
 		def append_data(account, cm, pm, ftm, py, indent=0):
 			data.append({"account": account, "current_month_amount": format_amount(cm), "previous_month_amount": format_amount(pm),
@@ -2011,7 +2011,7 @@ class FinancialReport(Document):
 			for sec in secondary_consolidation_groups:
 				cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year) * current_fx
 				pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year) * previous_fx
-				ftm = cm - pm
+				ftm = round(cm - pm, self.show_decimal_value)
 				py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year) * prev_year_fx
 				has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": primary_group, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
 
@@ -2027,15 +2027,15 @@ class FinancialReport(Document):
 
 					# if (cm < 0) and group_type == "Other Income" or (cm > 0) and group_type == "Other Expense":
 					if any(val != 0 for val in (cm, pm, py)):
-						append_data(sec, cm, pm, cm-pm, py)
+						append_data(sec, cm, pm, round(cm-pm, self.show_decimal_value), py)
 				else:
 					if any(val != 0 for val in (cm, pm, py)) or has_hg_sec_group:
-						append_data(sec, cm, pm, cm-pm, py)
+						append_data(sec, cm, pm, round(cm-pm, self.show_decimal_value), py)
 				
 				for hg_sec in has_hg_sec_group:
 					cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year, hg_sec_group=hg_sec) * current_fx
 					pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year, hg_sec_group=hg_sec) * previous_fx
-					ftm = cm - pm
+					ftm = round(cm - pm, self.show_decimal_value)
 					py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year, hg_sec_group=hg_sec) * prev_year_fx
 
 					if any(val != 0 for val in (cm, pm, py)):
@@ -2083,7 +2083,7 @@ class FinancialReport(Document):
 			note_no = row.get("note_no")
 			schedule = row.get("schedule")
 			index = ""
-
+			
 			# Section Headers
 			if row.get("header"):
 				index = to_alpha(header_counter)
@@ -2124,8 +2124,8 @@ class FinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8; {bold}'>{'{:,.0f}'.format(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{'{:,.0f}'.format(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -2184,10 +2184,10 @@ class FinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8;'>{'{:,.0f}'.format(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{'{:,.0f}'.format(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{'{:,.0f}'.format(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{'{:,.0f}'.format(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8;'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{row.get("ftm_amount", 0) if row.get("ftm_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{row.get("previous_month_amount", 0) if row.get("previous_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -2331,20 +2331,20 @@ class FinancialReport(Document):
 			note_table += f'''
 			<tr>
 				<td style='text-align:left; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{row.get("account") or ""}</td>
-				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8;'>{'{:,.0f}'.format(current_month_amount) if current_month_amount else ''}</td>
-				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{'{:,.0f}'.format(ftm_amount) if ftm_amount else ''}</td>
-				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{'{:,.0f}'.format(previous_month_amount) if previous_month_amount else ''}</td>
-				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{'{:,.0f}'.format(previous_year) if previous_year else ''}</td>
+				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8;'>{current_month_amount if current_month_amount else ''}</td>
+				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{ftm_amount if ftm_amount else ''}</td>
+				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{previous_month_amount if previous_month_amount else ''}</td>
+				<td style='text-align:right; padding: 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;'>{previous_year if previous_year else ''}</td>
 			</tr>
 			'''
 		# Add total row as footer
 		note_table += f'''
 			<tr>
 				<td style='text-align:left; padding: 5px; border:1px solid #222; font-weight: bold;'>Total</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{'{:,.0f}'.format(total_current_month)}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{'{:,.0f}'.format(total_ftm)}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{'{:,.0f}'.format(total_previous_month)}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{'{:,.0f}'.format(total_previous_year)}</td>
+				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{round(total_current_month, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{round(total_ftm, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_month, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_year, self.show_decimal_value)}</td>
 			</tr>
 		'''
 		note_table += "</tbody></table>"
@@ -2432,7 +2432,6 @@ class FinancialReport(Document):
 							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
 							for hg_sec in has_hg_sec_group:
 								face_amount += self.sum_group_amt_monthly(pg, sec, month, year, hg_sec_group=hg_sec)
-							
 							if group_type == "Other Income":
 								face_amount = face_amount if face_amount < 0 else 0 
 							if group_type == "Other Expense":
@@ -2484,7 +2483,7 @@ class FinancialReport(Document):
 			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule:
 				amount *= fx_rate
 
-			amount_cache[cache_key] = int(round(amount))
+			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
 			return amount_cache[cache_key]
 
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
@@ -2501,7 +2500,7 @@ class FinancialReport(Document):
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx)
 			previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
 
-			ftm_amount = current_month_amount - previous_month_amount
+			ftm_amount = round(current_month_amount - previous_month_amount, self.show_decimal_value)
 
 			fr_particular = get_fr_particular(row.account)
 			schedule = getattr(fr_particular, "schedule", "")
@@ -2601,6 +2600,9 @@ class FinancialReport(Document):
 				elif note_type == "Borrowings (Non-current)":
 					field = 'total_current_month_amt' if is_current else 'total_previous_year'
 					amount = self.get_monthly_borrowing_non_current_note_data(note_type, total=True, field=field)
+				elif note_type == "Investments (Non-current)":
+					field = 'total_current' if is_current else 'total_previous_year'
+					amount = self.get_monthly_investment_non_current_note_data(total=True, field=field)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
@@ -2611,6 +2613,10 @@ class FinancialReport(Document):
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
+							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+							for hg_sec in has_hg_sec_group:
+								face_amount += self.sum_group_amt_monthly(pg, sec, month, year, hg_sec_group=hg_sec)
+
 							if ((group_type == "Current Tax Liabilities" and face_amount < 0) or(group_type == "Income Tax Assets" and face_amount > 0) or
 								(group_type not in ("Current Tax Liabilities", "Income Tax Assets") and face_amount != 0)):
 								amount += face_amount
@@ -2633,8 +2639,8 @@ class FinancialReport(Document):
 			# Apply FX only on leaf nodes (not totals, not schedule fetches)
 			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
 				amount *= fx_rate
-		
-			amount_cache[cache_key] = int(round(amount if amount else 0))
+			
+			amount_cache[cache_key] = flt(round(amount if amount else 0, self.show_decimal_value))
 			return amount_cache[cache_key]
 
 		# --- Main loop ---
@@ -2725,7 +2731,7 @@ class FinancialReport(Document):
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 			
-			amount_cache[cache_key] = int(round(amount / 100000))
+			amount_cache[cache_key] = flt(round((amount / 100000), self.show_decimal_value))
 			return amount_cache[cache_key]
 
 		data = []
@@ -2850,8 +2856,8 @@ class FinancialReport(Document):
 
 		# --- Case 1: Different currency (use Balance Sheet reconciliation) ---
 		if default_currency != self.currency:
-			sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0) or 0
-			bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr') or 0) or 0
+			sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
+			bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
 
 			# Fetch totals from Balance Sheet
 			tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True,
@@ -2883,8 +2889,8 @@ class FinancialReport(Document):
 			prev_yr_mnt_equity_share = equity_share['previous_year']
 
 		else:
-			sp_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year)) or 0
-			bal_previous_year = -round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year)) or 0
+			sp_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
+			bal_previous_year = -round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
 
 			# add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.previous_month, self.fiscal_year)) or 0)
 			# add_sp_current_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0)
@@ -2893,37 +2899,37 @@ class FinancialReport(Document):
 			add_sp_previous_mnt = 0
 
 		# --- Retained Earnings ---
-		oci_previous_year = round(self.sum_group_amt_monthly("OCI", "OCI", cls_month, self.previous_fiscal_year)) or 0
-		retained_tot_prev_year = bal_previous_year + net_previous_year + oci_previous_year
+		oci_previous_year = round(self.sum_group_amt_monthly("OCI", "OCI", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
+		retained_tot_prev_year = round(bal_previous_year + net_previous_year + oci_previous_year, self.show_decimal_value)
 
 		bal_current_mnt = retained_tot_prev_year
 		bal_previous_mnt = retained_tot_prev_year
 
-		oci_current_mnt = round(self.sum_group_amt_monthly("OCI", "OCI", self.current_month, self.fiscal_year)) or 0
-		oci_previous_mnt = round(self.sum_group_amt_monthly("OCI", "OCI", self.previous_month, self.fiscal_year)) or 0
+		oci_current_mnt = round(self.sum_group_amt_monthly("OCI", "OCI", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
+		oci_previous_mnt = round(self.sum_group_amt_monthly("OCI", "OCI", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
 
-		retained_tot_current = bal_current_mnt + net_current_mnt + oci_current_mnt
-		retained_tot_prev = bal_previous_mnt + net_previous_mnt + oci_previous_mnt
+		retained_tot_current = round(bal_current_mnt + net_current_mnt + oci_current_mnt, self.show_decimal_value)
+		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
 
 		# --- Capital Contribution ---
-		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year)) or 0
-		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year)) or 0) - cc_opening_previous_year
-		cc_closing_previous_year = cc_opening_previous_year + cc_add_previous_year
+		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
+		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
+		cc_closing_previous_year = round(cc_opening_previous_year + cc_add_previous_year, self.show_decimal_value)
 
 		cc_opening_current = cc_closing_previous_year
 		cc_opening_previous = cc_closing_previous_year
 
-		cc_add_current = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", self.current_month, self.fiscal_year)) or 0) - cc_opening_current
-		cc_add_previous = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", self.previous_month, self.fiscal_year)) or 0) - cc_opening_previous
+		cc_add_current = round((self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", self.current_month, self.fiscal_year) or 0) - cc_opening_current, self.show_decimal_value)
+		cc_add_previous = round((self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", self.previous_month, self.fiscal_year) or 0) - cc_opening_previous, self.show_decimal_value)
 
-		cc_closing_current = cc_opening_current + cc_add_current
-		cc_closing_previous = cc_opening_previous + cc_add_previous
+		cc_closing_current = round(cc_opening_current + cc_add_current, self.show_decimal_value)
+		cc_closing_previous = round(cc_opening_previous + cc_add_previous, self.show_decimal_value)
 
 		# --- Adjust Securities Premium for FX case ---
 		if default_currency != self.currency:
-			add_sp_previous_year = round( prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year) or 0
-			add_sp_current_mnt = round( curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - (sp_previous_year + add_sp_previous_year)) or 0
-			add_sp_previous_mnt = round( prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - (sp_previous_year + add_sp_previous_year)) or 0
+			add_sp_previous_year = round(prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year, self.show_decimal_value) or 0
+			add_sp_current_mnt = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
+			add_sp_previous_mnt = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
 
 		bal_sp_tot_prev_year = sp_previous_year + add_sp_previous_year
 		# --- Final Securities Premium balances ---
@@ -3021,23 +3027,23 @@ class FinancialReport(Document):
 		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
 		
 		# Calculate amounts for current month, previous month, and FTM
-		credit_impaired_current = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.current_month, self.fiscal_year)) or 0) * current_fx)
-		credit_impaired_previous = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.previous_month, self.fiscal_year)) or 0) * previous_fx)
-		credit_impaired_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx)
+		credit_impaired_current = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.current_month, self.fiscal_year)) or 0) * current_fx, self.show_decimal_value)
+		credit_impaired_previous = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", self.previous_month, self.fiscal_year)) or 0) * previous_fx, self.show_decimal_value)
+		credit_impaired_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx, self.show_decimal_value)
 		# credit_impaired_ftm = credit_impaired_current - credit_impaired_previous
 
-		trade_receivables_current = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.current_month, self.fiscal_year)) or 0) * current_fx)
-		trade_receivables_previous = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.previous_month, self.fiscal_year)) or 0) * previous_fx)
-		trade_receivables_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx)
+		trade_receivables_current = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.current_month, self.fiscal_year)) or 0) * current_fx, self.show_decimal_value)
+		trade_receivables_previous = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", self.previous_month, self.fiscal_year)) or 0) * previous_fx, self.show_decimal_value)
+		trade_receivables_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables", "Trade Receivables", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx, self.show_decimal_value)
 		# trade_receivables_ftm = trade_receivables_current - trade_receivables_previous
 
 		unsecured_good_current = trade_receivables_current + credit_impaired_current
 		unsecured_good_previous = trade_receivables_previous + credit_impaired_previous
 		unsecured_good_prev_year = trade_receivables_prev_year + credit_impaired_prev_year
 
-		other_receivables_current = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.current_month, self.fiscal_year)) or 0) * current_fx)
-		other_receivables_previous = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.previous_month, self.fiscal_year)) or 0) * previous_fx)
-		other_receivables_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx)
+		other_receivables_current = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.current_month, self.fiscal_year)) or 0) * current_fx, self.show_decimal_value)
+		other_receivables_previous = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", self.previous_month, self.fiscal_year)) or 0) * previous_fx, self.show_decimal_value)
+		other_receivables_prev_year = round(((self.sum_group_amt_monthly("Trade Receivables", "Other Trade receivables", cls_month, self.previous_fiscal_year)) or 0) * prev_year_fx, self.show_decimal_value)
 		# other_receivables_ftm = other_receivables_current - other_receivables_previous
 
 		total_current = unsecured_good_current + other_receivables_current
@@ -3091,7 +3097,7 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 		return html
 
-	def get_monthly_investment_non_current_note_data(self):
+	def get_monthly_investment_non_current_note_data(self, total=False, field=None):
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		data = [{
@@ -3155,6 +3161,12 @@ class FinancialReport(Document):
 				"amount_previous_year": amount_previous_year,
 				"bold": 0
 			})
+
+		if is_total:
+			if field == "total_current":
+				return total_current
+			if field == "total_previous_year":
+				return total_previous_year
 
 		data.append({
 			"particulars": "Total of Equity Instruments Measured at cost",
