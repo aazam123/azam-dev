@@ -1,0 +1,63 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-08 16:45:59.858826",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_pqqk",
+  "special_gl_indicator",
+  "column_break_zrpa",
+  "grouping"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_pqqk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_zrpa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "grouping",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Grouping",
+   "options": "\nCapital Advance\nCapital Payable\nDeposit\nEmployee Advance\nEmployee Foreign Advance\nEmployee Imprest\nEmployee Loan\nEmployee Payable\nRM/PM Advance\nRM/PM Payable\nService Advance\nService Payable",
+   "reqd": 1
+  },
+  {
+   "fieldname": "special_gl_indicator",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Special G/L Indicator",
+   "options": "\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nS",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-09-08 17:05:56.354925",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Special GL Indicator Grouping",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

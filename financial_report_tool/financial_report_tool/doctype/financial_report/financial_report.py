@@ -3114,24 +3114,23 @@ class FinancialReport(Document):
 		total_current = total_previous = total_previous_year = 0
 
 		for company in all_companies:
-			current_month_start = self.get_month_start_date(self.current_month)
-			current_month_end = self.get_month_end_date(self.current_month)
-			previous_month_start = self.get_month_start_date(self.previous_month)
-			previous_month_end = self.get_month_end_date(self.previous_month)
-			prev_year_same_month_start = self.get_same_month_last_year_start()
-			prev_year_same_month_end = self.get_same_month_last_year_end()
+			prev_fs_year_start_date = frappe.get_cache("Fiscal Year", self.previous_fiscal_year, 'year_start_date')
+			prev_fs_year_end_date = frappe.get_cache("Fiscal Year", self.previous_fiscal_year, 'year_end_date')
+
+			curr_fs_year_start_date = frappe.get_cache("Fiscal Year", self.fiscal_year, 'year_start_date')
+			curr_fs_year_end_date = frappe.get_cache("Fiscal Year", self.fiscal_year, 'year_end_date')
 
 			face_value = f"{(frappe.get_value('Company', company, 'share_capital_amount')) / 100} {frappe.get_value('Company', company, 'default_currency')}"
 			previous_equity_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [prev_year_same_month_start, prev_year_same_month_end]]},
+				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [prev_fs_year_start_date, prev_fs_year_end_date]]},
 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
 			current_month_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [current_month_start, current_month_end]]},
+				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_start_date]], 'month': self.current_month},
 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
 			previous_month_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [previous_month_start, previous_month_end]]},
+				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_start_date]], 'month': self.previous_month},
 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
 			e_previous = previous_equity_entries[0] if previous_equity_entries else None
@@ -3162,7 +3161,7 @@ class FinancialReport(Document):
 				"bold": 0
 			})
 
-		if is_total:
+		if total:
 			if field == "total_current":
 				return total_current
 			if field == "total_previous_year":
@@ -3222,6 +3221,133 @@ class FinancialReport(Document):
 
 		table += "</tbody></table>"
 		return table
+
+
+	# def get_monthly_investment_non_current_note_data(self, total=False, field=None):
+	# 	month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+
+	# 	data = [{
+	# 		"particulars": "Investment in equity Instruments of subsidiaries measured at Cost (Unquoted, Fully paid Up)",
+	# 		"face_value": "", "shares_current": "", "amount_current": "",
+	# 		"shares_previous": "", "amount_previous": "",
+	# 		"shares_previous_year": "", "amount_previous_year": "",
+	# 		"bold": 1
+	# 	}]
+
+	# 	fiscal_doc = frappe.get_doc("Fiscal Year", self.fiscal_year)
+	# 	all_companies = frappe.get_list("FR Equity Entry", {"holding_company": self.company}, pluck="company")
+
+	# 	total_current = total_previous = total_previous_year = 0
+
+	# 	for company in all_companies:
+	# 		current_month_start = self.get_month_start_date(self.current_month)
+	# 		current_month_end = self.get_month_end_date(self.current_month)
+	# 		previous_month_start = self.get_month_start_date(self.previous_month)
+	# 		previous_month_end = self.get_month_end_date(self.previous_month)
+	# 		prev_year_same_month_start = self.get_same_month_last_year_start()
+	# 		prev_year_same_month_end = self.get_same_month_last_year_end()
+
+	# 		face_value = f"{(frappe.get_value('Company', company, 'share_capital_amount')) / 100} {frappe.get_value('Company', company, 'default_currency')}"
+	# 		previous_equity_entries = frappe.get_all("FR Equity Entry", 
+	# 			filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [prev_year_same_month_start, prev_year_same_month_end]]},
+	# 			fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+
+	# 		current_month_entries = frappe.get_all("FR Equity Entry", 
+	# 			filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [current_month_start, current_month_end]]},
+	# 			fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+
+	# 		previous_month_entries = frappe.get_all("FR Equity Entry", 
+	# 			filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [previous_month_start, previous_month_end]]},
+	# 			fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+
+	# 		e_previous = previous_equity_entries[0] if previous_equity_entries else None
+	# 		e_current_month = current_month_entries[0] if current_month_entries else None
+	# 		e_previous_month = previous_month_entries[0] if previous_month_entries else None
+
+	# 		face_value = face_value
+	# 		shares_current = e_current_month.get("no_of_shares", 0) if e_current_month else 0
+	# 		amount_current = e_current_month.get("investment_value", 0) if e_current_month else 0
+	# 		shares_previous = e_previous_month.get("no_of_shares", 0) if e_previous_month else 0
+	# 		amount_previous = e_previous_month.get("investment_value", 0) if e_previous_month else 0
+	# 		shares_previous_year = e_previous.get("no_of_shares", 0) if e_previous else 0
+	# 		amount_previous_year = e_previous.get("investment_value", 0) if e_previous else 0
+
+	# 		total_current += amount_current
+	# 		total_previous += amount_previous
+	# 		total_previous_year += amount_previous_year
+
+	# 		data.append({
+	# 			"particulars": company,
+	# 			"face_value": face_value,
+	# 			"shares_current": shares_current,
+	# 			"amount_current": amount_current,
+	# 			"shares_previous": shares_previous,
+	# 			"amount_previous": amount_previous,
+	# 			"shares_previous_year": shares_previous_year,
+	# 			"amount_previous_year": amount_previous_year,
+	# 			"bold": 0
+	# 		})
+
+	# 	if is_total:
+	# 		if field == "total_current":
+	# 			return total_current
+	# 		if field == "total_previous_year":
+	# 			return total_previous_year
+
+	# 	data.append({
+	# 		"particulars": "Total of Equity Instruments Measured at cost",
+	# 		"face_value": "",
+	# 		"shares_current": "",
+	# 		"amount_current": f"{total_current:,.0f}",
+	# 		"shares_previous": "",
+	# 		"amount_previous": f"{total_previous:,.0f}",
+	# 		"shares_previous_year": "",
+	# 		"amount_previous_year": f"{total_previous_year:,.0f}",
+	# 		"bold": 1
+	# 	})
+
+	# 	# HTML table
+	# 	table = f'''
+	# 	<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt;">
+	# 		<thead>
+	# 			<tr>
+	# 				<th rowspan="2" style="border:1px solid #222; width:35%; text-align:left; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
+	# 				<th rowspan="2" style="border:1px solid #222; width:10%; text-align:center; background:#fafbfc;"><b>Face Value</b></th>
+	# 				<th colspan="2" style="border:1px solid #222; text-align:center; background:#e8f5e8;"><b>{month_end_label}</b></th>
+	# 				<th colspan="2" style="border:1px solid #222; text-align:center; background:#fafbfc;"><b>{current_fiscal_year_end_label}</b></th>
+	# 				<th colspan="2" style="border:1px solid #222; text-align:center; background:#fafbfc;"><b>{previous_fiscal_year_end_label}</b></th>
+	# 			</tr>
+	# 			<tr>
+	# 				<th style="border:1px solid #222; text-align:center; background:#e8f5e8;">No. of Shares</th>
+	# 				<th style="border:1px solid #222; text-align:center; background:#e8f5e8;">(₹ in lacs)</th>
+	# 				<th style="border:1px solid #222; text-align:center; width:8%;">No. of Shares</th>
+	# 				<th style="border:1px solid #222; text-align:center;">(₹ in lacs)</th>
+	# 				<th style="border:1px solid #222; text-align:center;">No. of Shares</th>
+	# 				<th style="border:1px solid #222; text-align:center;">(₹ in lacs)</th>
+	# 			</tr>
+	# 		</thead>
+	# 		<tbody>
+	# 	'''
+
+	# 	for row in data:
+	# 		bold = "font-weight: bold;" if row["bold"] else ""
+	# 		bg = "#e8f5e8" if not row["bold"] else "#f4f4f4"
+
+	# 		table += f'''
+	# 		<tr>
+	# 			<td style="border:1px solid #222; padding:6px 8px; text-align:left; {bold}">{row["particulars"]}</td>
+	# 			<td style="border:1px solid #222; text-align:center;">{row["face_value"]}</td>
+	# 			<td style="border:1px solid #222; text-align:right; background:{bg};">{row["shares_current"]}</td>
+	# 			<td style="border:1px solid #222; text-align:right; background:{bg};">{row["amount_current"]}</td>
+	# 			<td style="border:1px solid #222; text-align:right;">{row["shares_previous"]}</td>
+	# 			<td style="border:1px solid #222; text-align:right;">{row["amount_previous"]}</td>
+	# 			<td style="border:1px solid #222; text-align:right;">{row["shares_previous_year"]}</td>
+	# 			<td style="border:1px solid #222; text-align:right;">{row["amount_previous_year"]}</td>
+	# 		</tr>
+	# 		'''
+
+	# 	table += "</tbody></table>"
+	# 	return table
 
 
 	@frappe.whitelist()

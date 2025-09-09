@@ -14,7 +14,7 @@
   "vendor_series_for_nature",
   "purchase_order_series_section",
   "purchase_order_series_for_grouping",
-  "gl_account_for_grouping"
+  "special_gl_indicator_grouping"
  ],
  "fields": [
   {
@@ -67,17 +67,17 @@
    "options": "Purchase Order Series For Grouping"
   },
   {
-   "fieldname": "gl_account_for_grouping",
+   "fieldname": "special_gl_indicator_grouping",
    "fieldtype": "Table",
-   "label": "GL Account For Grouping",
-   "options": "GL Account For Grouping"
+   "label": "Special GL Indicator Grouping",
+   "options": "Special GL Indicator Grouping"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-02 11:45:26.947253",
+ "modified": "2025-09-08 17:01:16.566330",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",

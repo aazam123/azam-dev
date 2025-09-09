@@ -31,6 +31,7 @@
   "ap",
   "nature",
   "grouping",
+  "company_group",
   "column_break_cxvr",
   "special_gl_ind",
   "ageing",
@@ -87,8 +88,8 @@
   {
    "fieldname": "special_gl_ind",
    "fieldtype": "Select",
-   "label": "Special G/L ind",
-   "options": "\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK"
+   "label": "Special G/L Ind",
+   "options": "\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nS"
   },
   {
    "fieldname": "assignment",
@@ -330,12 +331,18 @@
    "label": "Fiscal Year",
    "options": "Fiscal Year",
    "reqd": 1
+  },
+  {
+   "fieldname": "company_group",
+   "fieldtype": "Select",
+   "label": "Company Group",
+   "options": "\nGroup\nNon Group"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-02 12:47:24.442753",
+ "modified": "2025-09-08 17:25:00.123269",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",

@@ -30,6 +30,13 @@ class FRAccountPayableEntry(Document):
 			self.nature = "Deposit"
 			self.grouping = "Deposit"
 
+		grouping = frappe.get_value("Special GL Indicator Grouping", ;{"company": self.company, "special_gl_indicator": self.special_gl_ind}, "grouping")
+		if not self.grouping:
+			self.grouping = grouping
+
+		if grouping == "C":
+			self.company_group = "Group"
+
 		voucher_series = frappe.get_all("Vendor Series For Nature", filters={"company": self.company}, fields=["series_start_from", "nature"])
 		for v_series in voucher_series:
 			if str(self.supplier).startswith(v_series.series_start_from):
@@ -67,8 +74,7 @@ class FRAccountPayableEntry(Document):
 
 		if not self.nature:
 			self.nature == self.ap
-			
-		gl_account = frappe.get_all("GL Account For Grouping", filters={"company": self.company, 'gl_account': self.reconciliation_account}, fields=["grouping"])
+		
 		if not self.grouping:
 			if gl_account and len(gl_account) > 0:
 				self.grouping = gl_account[0].grouping
