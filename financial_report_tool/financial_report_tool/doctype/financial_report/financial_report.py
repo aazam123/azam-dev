@@ -3114,11 +3114,8 @@ class FinancialReport(Document):
 		total_current = total_previous = total_previous_year = 0
 
 		for company in all_companies:
-			prev_fs_year_start_date = frappe.get_cache("Fiscal Year", self.previous_fiscal_year, 'year_start_date')
-			prev_fs_year_end_date = frappe.get_cache("Fiscal Year", self.previous_fiscal_year, 'year_end_date')
-
-			curr_fs_year_start_date = frappe.get_cache("Fiscal Year", self.fiscal_year, 'year_start_date')
-			curr_fs_year_end_date = frappe.get_cache("Fiscal Year", self.fiscal_year, 'year_end_date')
+			prev_fs_year_start_date, prev_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.previous_fiscal_year, ["year_start_date", "year_end_date"])
+			curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
 
 			face_value = f"{(frappe.get_value('Company', company, 'share_capital_amount')) / 100} {frappe.get_value('Company', company, 'default_currency')}"
 			previous_equity_entries = frappe.get_all("FR Equity Entry", 
