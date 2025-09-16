@@ -1734,7 +1734,7 @@ class FinancialReport(Document):
 		# totals
 		current_month_total += cur_fg + cur_wip + cur_sit
 		cls_previous_month_total += prev_fg + prev_wip + prev_sit
-		f_previous_year_amt += prev_year_fg + prev_wip + prev_year_sit
+		f_previous_year_amt += prev_year_fg + prev_year_wip + prev_year_sit
 		ftm_total += ftm_fg + ftm_wip + ftm_sit
 		add_row("", current_month_total, cls_previous_month_total, ftm_total, f_previous_year_amt)
 
@@ -1778,8 +1778,6 @@ class FinancialReport(Document):
 			if field == "previous_month_amt": return prev_net_total
 			if field == "prev_year_amt": return prev_year_amt
 			return 0
-
-		# FX conversion (kept as-is for logic, could also be refactored but unchanged here)
 
 		# face-only fetch
 		if get_face and total:

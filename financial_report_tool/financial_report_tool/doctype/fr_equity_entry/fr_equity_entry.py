@@ -1,9 +1,9 @@
 # Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
 # For license information, please see license.txt
 
-# import frappe
+import frappe
+from datetime import datetime
 from frappe.model.document import Document
-
 
 class FREquityEntry(Document):
 	def before_save(self):
