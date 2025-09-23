@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "SAP-TB-.####",
  "creation": "2025-09-22 10:02:22.853246",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -95,10 +96,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-23 11:55:48.186834",
+ "modified": "2025-09-23 11:59:21.943525",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
