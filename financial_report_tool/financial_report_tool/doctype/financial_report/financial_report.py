@@ -3459,7 +3459,7 @@ class FinancialReport(Document):
 			"file_name": file_name
 		}
 
-	@frappe.whitelist()
+		
 	def export_to_pdf(self):
 		from frappe.utils import get_site_path
 		from frappe.utils.pdf import get_pdf
