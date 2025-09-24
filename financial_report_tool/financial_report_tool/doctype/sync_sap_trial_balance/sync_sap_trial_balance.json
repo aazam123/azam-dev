@@ -16,6 +16,8 @@
   "section_break_utex",
   "company",
   "column_break_rjfv",
+  "currency",
+  "column_break_ahlo",
   "total_amount",
   "section_break_szef",
   "details"
@@ -91,12 +93,23 @@
    "label": "Month",
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
    "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ahlo",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-23 11:59:21.943525",
+ "modified": "2025-09-24 12:27:38.794796",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance",

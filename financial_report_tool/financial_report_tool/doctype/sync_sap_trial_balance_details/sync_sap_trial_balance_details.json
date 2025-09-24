@@ -9,10 +9,8 @@
   "gl_code",
   "gl_description",
   "column_break_ivle",
-  "account",
-  "currency",
-  "column_break_kqaa",
-  "amount"
+  "amount",
+  "account"
  ],
  "fields": [
   {
@@ -42,18 +40,6 @@
    "options": "Account"
   },
   {
-   "columns": 1,
-   "fieldname": "currency",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Currency",
-   "options": "Currency"
-  },
-  {
-   "fieldname": "column_break_kqaa",
-   "fieldtype": "Column Break"
-  },
-  {
    "columns": 2,
    "default": "0",
    "fieldname": "amount",
@@ -66,7 +52,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-23 11:33:03.441392",
+ "modified": "2025-09-24 12:26:49.323808",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance Details",

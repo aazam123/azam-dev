@@ -12,6 +12,9 @@ class SyncSAPTrialBalance(Document):
 			if not i.account and i.gl_code:
 				account = frappe.get_value("Account", {'account_number': i.gl_code, 'company': self.company, 'is_group': 0}, 'name')
 				i.account = account if account else ""
+			if not i.account and not i.gl_code and i.gl_description:
+				account = frappe.get_value("Account", {'account_name': i.gl_description, 'company': self.company, 'is_group': 0}, 'name')
+				i.account = account if account else ""
 			total += float(i.amount)
 		self.total_amount = total
 
@@ -33,7 +36,7 @@ class SyncSAPTrialBalance(Document):
 					"doctype": "FR Trial Balance Entry",
 					"fiscal_year": self.fiscal_year,
 					"gl_account": i.account,
-					"currency": i.currency,
+					"currency": self.currency,
 					"uploaded_amount": i.amount,
 					"month": self.month,
 					"company": self.company
