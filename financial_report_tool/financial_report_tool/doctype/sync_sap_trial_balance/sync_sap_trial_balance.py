@@ -42,5 +42,5 @@ class SyncSAPTrialBalance(Document):
 					"company": self.company
 				})
 				fr.save()
-
+		frappe.db.set_value('Sync SAP Trial Balance', self.name, 'tb_created', 1)
 		frappe.msgprint("Trial Balance Entries created successfully!")
