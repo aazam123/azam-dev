@@ -257,4 +257,8 @@ fixtures = [
         "dt": "Workspace",
         "filters": [["name", "in", ["Finance"]]]
     },
+    {
+        "dt": "Workspace",
+        "filters": [["name", "in", ["Finance Manager"]]]
+    }
 ]
