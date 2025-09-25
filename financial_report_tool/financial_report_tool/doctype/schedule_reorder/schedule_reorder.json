@@ -1,0 +1,54 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:primary_group",
+ "creation": "2025-09-25 10:13:57.976683",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "primary_group",
+  "order"
+ ],
+ "fields": [
+  {
+   "fieldname": "order",
+   "fieldtype": "Table",
+   "label": "Order",
+   "options": "Schedule Reorder Details"
+  },
+  {
+   "fieldname": "primary_group",
+   "fieldtype": "Link",
+   "label": "Primary Group",
+   "options": "Standalone Group",
+   "unique": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-09-25 10:21:47.962013",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Schedule Reorder",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

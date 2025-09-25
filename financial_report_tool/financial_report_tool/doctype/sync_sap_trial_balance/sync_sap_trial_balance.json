@@ -20,7 +20,8 @@
   "column_break_ahlo",
   "total_amount",
   "section_break_szef",
-  "details"
+  "details",
+  "tb_created"
  ],
  "fields": [
   {
@@ -104,12 +105,18 @@
   {
    "fieldname": "column_break_ahlo",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "tb_created",
+   "fieldtype": "Check",
+   "label": "TB Created"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-24 12:27:38.794796",
+ "modified": "2025-09-25 10:06:17.089724",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance",

@@ -1986,8 +1986,17 @@ class FinancialReport(Document):
 			primary_groups = [primary_group]
 		
 		for primary_group in primary_groups:
-			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group]}, pluck="secondary_group")
-			secondary_consolidation_groups = sorted(set(filter(None, secondary_groups)))
+			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group], "company": self.company, "report_type": self.report_type}, pluck="secondary_group")
+			secondary_groups = sorted(set(filter(None, secondary_groups)))
+			custom_order = frappe.db.get_value("Schedule Reorder",{"primary_group": primary_group},"name")
+			if custom_order:
+				ordered_rows = frappe.get_all("Schedule Reorder Details",filters={"parent": custom_order},fields=["standalone_group"],order_by="idx asc")
+				ordered_groups = [r.standalone_group for r in ordered_rows if r.standalone_group]
+				secondary_consolidation_groups = [g for g in ordered_groups if g in secondary_groups]
+				missing_groups = [g for g in secondary_groups if g not in ordered_groups]
+				secondary_consolidation_groups.extend(sorted(missing_groups))
+			else:
+				secondary_consolidation_groups = secondary_groups
 
 			report_type = frappe.get_value("Standalone Group", primary_group, 'report_type')
 			default_currency = frappe.get_value("Company", self.company, 'default_currency')
@@ -2023,7 +2032,6 @@ class FinancialReport(Document):
 						pm = pm if pm > 0 else 0
 						py = py if py > 0 else 0
 
-					# if (cm < 0) and group_type == "Other Income" or (cm > 0) and group_type == "Other Expense":
 					if any(val != 0 for val in (cm, pm, py)):
 						append_data(sec, cm, pm, round(cm-pm, self.show_decimal_value), py)
 				else:
