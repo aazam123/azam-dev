@@ -31,8 +31,7 @@ class FRAccountPayableEntry(Document):
 			self.grouping = "Deposit"
 
 		grouping = frappe.get_value("Special GL Indicator Grouping",{"company": self.company, "special_gl_indicator": self.special_gl_ind},"grouping")	
-		if not self.grouping:
-			self.grouping = grouping
+		self.grouping = grouping
 
 		if grouping == "C":
 			self.company_group = "Group"
@@ -43,11 +42,12 @@ class FRAccountPayableEntry(Document):
 				self.nature = v_series.nature
 				break
 
-		po_series = frappe.get_all("Purchase Order Series For Grouping", filters={"company": self.company}, fields=["po_series_start_from", "grouping", "ap"])
-		for po_s in po_series:
-			if str(self.purchase_order).startswith(po_s.po_series_start_from) and self.ap == po_s.ap:
-				self.grouping = po_s.grouping
-				break
+		if not self.grouping:
+			po_series = frappe.get_all("Purchase Order Series For Grouping", filters={"company": self.company}, fields=["po_series_start_from", "grouping", "ap"])
+			for po_s in po_series:
+				if str(self.purchase_order).startswith(po_s.po_series_start_from) and self.ap == po_s.ap:
+					self.grouping = po_s.grouping
+					break
 
 		if self.due_days == 0:
 			self.ageing = "Not Due"
@@ -75,11 +75,14 @@ class FRAccountPayableEntry(Document):
 		if not self.nature:
 			self.nature == self.ap
 		
+		gl_account_grouping = frappe.get_value("GL Account For Grouping",{"company": self.company, "gl_account": self.reconciliation_account},"grouping")	
 		if not self.grouping:
 			if gl_account and len(gl_account) > 0:
-				self.grouping = gl_account[0].grouping
-			elif self.ap == "Advance":
+				self.grouping = gl_account_grouping	
+			if self.ap == "Advance":
 				self.grouping = "Service Advance"
 			elif self.ap == "Payable":
 				self.grouping = "Service Payable"
+
+		
 

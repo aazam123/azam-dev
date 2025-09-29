@@ -17,7 +17,8 @@
   "vendor_series_for_nature",
   "purchase_order_series_section",
   "purchase_order_series_for_grouping",
-  "special_gl_indicator_grouping"
+  "special_gl_indicator_grouping",
+  "gl_account_for_grouping"
  ],
  "fields": [
   {
@@ -87,13 +88,19 @@
   {
    "fieldname": "column_break_ibet",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gl_account_for_grouping",
+   "fieldtype": "Table",
+   "label": "GL Account For Grouping",
+   "options": "GL Account For Grouping"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-23 11:30:44.808478",
+ "modified": "2025-09-26 11:07:32.953453",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",
