@@ -9,19 +9,32 @@ frappe.ui.form.on("Sync SAP Trial Balance", {
                         callback: function (r) {
                             if (!r.exc) {
                                 frappe.msgprint("Trial Balance created successfully!");
-                                frm.reload_doc(); // Optional: reload document to reflect changes from server
+                                frm.reload_doc();
                             }
                         }
                     });
                 });
             }
         });
+
+        frm.add_custom_button(__('Sync SAP Data'), function () {
+            frappe.call({
+                method: "sync_sap_data",
+                doc: frm.doc,
+                freeze: true,
+                freeze_message: "<h1>Syncing.....</h1>",
+                callback: function (r) {
+                    if (!r.exc) {
+                        frappe.msgprint("Data Sync successfully!");
+                        frm.refresh_fields("details")
+                        frm.reload_doc();
+                    }
+                }
+            });
+        });
     },
-
-
     setup(frm) {
-        // Set query for child table field "account"
-        frm.fields_dict["details"].grid.get_field("account").get_query = function(doc, cdt, cdn) {
+        frm.fields_dict["details"].grid.get_field("account").get_query = function (doc, cdt, cdn) {
             return {
                 filters: {
                     company: frm.doc.company,

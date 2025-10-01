@@ -6,18 +6,30 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "sap_details_section",
   "company_code",
+  "chartofacc",
   "column_break_keow",
-  "fiscal_year",
-  "column_break_xbbg",
-  "month",
+  "sversion",
+  "layout",
   "column_break_xslo",
-  "period",
+  "repyear",
+  "compyear",
+  "column_break_xbbg",
+  "srepmonth",
+  "trepmonth",
+  "column_break_stpt",
+  "scompmonth",
+  "tcompmonth",
   "section_break_utex",
   "company",
+  "column_break_tgls",
+  "fiscal_year",
+  "column_break_ahlo",
+  "month",
   "column_break_rjfv",
   "currency",
-  "column_break_ahlo",
+  "column_break_zhfi",
   "total_amount",
   "section_break_szef",
   "responce",
@@ -28,7 +40,7 @@
   {
    "fieldname": "company_code",
    "fieldtype": "Data",
-   "label": "Company Code"
+   "label": "COMPANY"
   },
   {
    "fieldname": "column_break_keow",
@@ -37,11 +49,6 @@
   {
    "fieldname": "column_break_xslo",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "period",
-   "fieldtype": "Data",
-   "label": "Period"
   },
   {
    "fieldname": "section_break_szef",
@@ -63,7 +70,8 @@
   },
   {
    "fieldname": "section_break_utex",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "ERP Details"
   },
   {
    "fieldname": "column_break_rjfv",
@@ -117,12 +125,74 @@
    "fieldname": "responce",
    "fieldtype": "Text",
    "label": "Responce"
+  },
+  {
+   "fieldname": "sap_details_section",
+   "fieldtype": "Section Break",
+   "label": "SAP Details"
+  },
+  {
+   "fieldname": "column_break_tgls",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_zhfi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "chartofacc",
+   "fieldtype": "Data",
+   "label": "CHARTOFACC"
+  },
+  {
+   "fieldname": "sversion",
+   "fieldtype": "Data",
+   "label": "SVERSION"
+  },
+  {
+   "fieldname": "layout",
+   "fieldtype": "Data",
+   "label": "LAYOUT"
+  },
+  {
+   "fieldname": "repyear",
+   "fieldtype": "Data",
+   "label": "REPYEAR"
+  },
+  {
+   "fieldname": "compyear",
+   "fieldtype": "Data",
+   "label": "COMPYEAR"
+  },
+  {
+   "fieldname": "srepmonth",
+   "fieldtype": "Data",
+   "label": "SREPMONTH"
+  },
+  {
+   "fieldname": "trepmonth",
+   "fieldtype": "Data",
+   "label": "TREPMONTH"
+  },
+  {
+   "fieldname": "column_break_stpt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scompmonth",
+   "fieldtype": "Data",
+   "label": "SCOMPMONTH"
+  },
+  {
+   "fieldname": "tcompmonth",
+   "fieldtype": "Data",
+   "label": "TCOMPMONTH"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-30 16:26:30.475965",
+ "modified": "2025-10-01 13:49:04.599365",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance",

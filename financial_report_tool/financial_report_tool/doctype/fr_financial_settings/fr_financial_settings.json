@@ -20,9 +20,11 @@
   "special_gl_indicator_grouping",
   "gl_account_for_grouping",
   "sap_tab",
+  "sap_client",
+  "api_end_point",
+  "column_break_phxe",
   "user_name",
-  "password",
-  "api_end_point"
+  "password"
  ],
  "fields": [
   {
@@ -119,13 +121,22 @@
    "fieldtype": "Small Text",
    "label": "API End Point",
    "max_height": "30px"
+  },
+  {
+   "fieldname": "column_break_phxe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sap_client",
+   "fieldtype": "Data",
+   "label": "SAP Client"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-01 11:09:16.773962",
+ "modified": "2025-10-01 13:43:32.098164",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",
