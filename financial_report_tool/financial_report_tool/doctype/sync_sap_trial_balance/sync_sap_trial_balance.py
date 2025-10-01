@@ -43,7 +43,7 @@ class SyncSAPTrialBalance(Document):
 		}
 		response = requests.get(api_url, params=params, auth=HTTPBasicAuth(username, password), verify=False, timeout=60)
 		response.raise_for_status()
-		self.responce = response.json()
+		self.responce = json.dumps(response.json(), ensure_ascii=False)
 
 	@frappe.whitelist()
 	def create_trail_balance(self):
