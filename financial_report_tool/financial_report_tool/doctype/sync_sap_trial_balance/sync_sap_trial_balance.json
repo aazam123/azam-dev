@@ -20,6 +20,7 @@
   "column_break_ahlo",
   "total_amount",
   "section_break_szef",
+  "responce",
   "details",
   "tb_created"
  ],
@@ -111,12 +112,17 @@
    "fieldname": "tb_created",
    "fieldtype": "Check",
    "label": "TB Created"
+  },
+  {
+   "fieldname": "responce",
+   "fieldtype": "Text",
+   "label": "Responce"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-25 10:06:17.089724",
+ "modified": "2025-09-30 16:26:30.475965",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance",

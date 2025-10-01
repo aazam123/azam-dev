@@ -2,6 +2,8 @@
 # For license information, please see license.txt
 
 import frappe
+import requests
+from requests.auth import HTTPBasicAuth
 from frappe.model.document import Document
 
 
@@ -17,6 +19,28 @@ class SyncSAPTrialBalance(Document):
 				i.account = account if account else ""
 			total += float(i.amount)
 		self.total_amount = total
+
+		url = "http://10.10.103.133:8000/sap/bc/ztrial_bal/FDOT01"
+		params = {
+			"sap-client": "700",
+			"CHARTOFACC": "7000",
+			"COMPANY": "7000",
+			"SVERSION": "7000",
+			"REPYEAR": "2025",
+			"SREPMONTH": "01",
+			"TREPMONTH": "16",
+			"COMPYEAR": "2024",
+			"SCOMPMONTH": "01",
+			"TCOMPMONTH": "16",
+			"LAYOUT": "TEST_API"
+		}
+
+		# Basic auth credentials (same as curl)
+		username = "WF-BATCH"
+		password = "M@wb#$%202"
+		response = requests.get(url, params=params, auth=HTTPBasicAuth(username, password), verify=False, timeout=60)
+		response.raise_for_status()
+		self.responce = response.json()
 
 	@frappe.whitelist()
 	def create_trail_balance(self):
