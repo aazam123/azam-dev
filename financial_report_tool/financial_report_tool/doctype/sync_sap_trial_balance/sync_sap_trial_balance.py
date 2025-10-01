@@ -38,10 +38,10 @@ class SyncSAPTrialBalance(Document):
 		fs = frappe.db.get_value(
 			"FR Financial Settings",
 			None,
-			["user_name", "password", "api_end_point", "sap_client"],
+			["user_name", "password", "api_end_point", "sap_client", "timeout"],
 			as_dict=True,
 		)
-		if not fs or not fs.user_name or not fs.password or not fs.api_end_point:
+		if not fs or not fs.user_name or not fs.password or not fs.api_end_point or not fs.timeout:
 			frappe.throw("Please configure User Name, Password, API URL and Client in <b>FR Financial Settings</b>")
 		return fs
 
@@ -76,7 +76,7 @@ class SyncSAPTrialBalance(Document):
 			"LAYOUT": self.layout,
 		}
 
-		response = requests.get(fs.api_end_point, params=params, auth=HTTPBasicAuth(fs.user_name, fs.password), verify=False, timeout=60,)
+		response = requests.get(fs.api_end_point, params=params, auth=HTTPBasicAuth(fs.user_name, fs.password), verify=False, timeout=fs.timeout)
 		response.raise_for_status()
 		if not resp_json.get("items"):
 			frappe.throw("No trial balance data returned from SAP")
@@ -86,7 +86,7 @@ class SyncSAPTrialBalance(Document):
 			self.append("details", {
 				"gl_code": d.get("RACCT"),
 				"gl_description": d.get("TEXT"),
-				"amount": d.get("COMPVAL") or 0
+				"amount": d.get("REPVAL") or 0
 			})
 		self.save
 
