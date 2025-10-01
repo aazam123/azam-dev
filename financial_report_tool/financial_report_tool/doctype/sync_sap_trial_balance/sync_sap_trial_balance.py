@@ -1,6 +1,7 @@
 # Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
 # For license information, please see license.txt
 
+import json
 import frappe
 import requests
 from requests.auth import HTTPBasicAuth
