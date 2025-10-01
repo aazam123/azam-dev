@@ -18,7 +18,11 @@
   "purchase_order_series_section",
   "purchase_order_series_for_grouping",
   "special_gl_indicator_grouping",
-  "gl_account_for_grouping"
+  "gl_account_for_grouping",
+  "sap_tab",
+  "user_name",
+  "password",
+  "api_end_point"
  ],
  "fields": [
   {
@@ -94,13 +98,34 @@
    "fieldtype": "Table",
    "label": "GL Account For Grouping",
    "options": "GL Account For Grouping"
+  },
+  {
+   "fieldname": "user_name",
+   "fieldtype": "Data",
+   "label": "User Name"
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Data",
+   "label": "Password"
+  },
+  {
+   "fieldname": "sap_tab",
+   "fieldtype": "Tab Break",
+   "label": "SAP "
+  },
+  {
+   "fieldname": "api_end_point",
+   "fieldtype": "Small Text",
+   "label": "API End Point",
+   "max_height": "30px"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-09-26 11:07:32.953453",
+ "modified": "2025-10-01 11:09:16.773962",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",

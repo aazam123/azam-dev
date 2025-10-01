@@ -20,7 +20,14 @@ class SyncSAPTrialBalance(Document):
 			total += float(i.amount)
 		self.total_amount = total
 
-		url = "http://10.10.103.133:8000/sap/bc/ztrial_bal/FDOT01"
+		fs = frappe.db.get_value("FR Financial Settings", None, ["user_name", "password", "api_end_point"], as_dict=True)
+		if not fs:
+			frappe.throw("Please configure User Name, Password and API URL in FR Financial Settings")
+
+		username = fs.user_name
+		password = fs.password
+		api_url  = fs.api_end_point
+
 		params = {
 			"sap-client": "700",
 			"CHARTOFACC": "7000",
@@ -34,11 +41,7 @@ class SyncSAPTrialBalance(Document):
 			"TCOMPMONTH": "16",
 			"LAYOUT": "TEST_API"
 		}
-
-		# Basic auth credentials (same as curl)
-		username = "WF-BATCH"
-		password = "M@wb#$%202"
-		response = requests.get(url, params=params, auth=HTTPBasicAuth(username, password), verify=False, timeout=60)
+		response = requests.get(api_url, params=params, auth=HTTPBasicAuth(username, password), verify=False, timeout=60)
 		response.raise_for_status()
 		self.responce = response.json()
 
