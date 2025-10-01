@@ -78,6 +78,7 @@ class SyncSAPTrialBalance(Document):
 
 		response = requests.get(fs.api_end_point, params=params, auth=HTTPBasicAuth(fs.user_name, fs.password), verify=False, timeout=int(fs.timeout))
 		response.raise_for_status()
+		resp_json = response.json()
 		if not resp_json.get("items"):
 			frappe.throw("No trial balance data returned from SAP")
 
@@ -88,7 +89,7 @@ class SyncSAPTrialBalance(Document):
 				"gl_description": d.get("TEXT"),
 				"amount": d.get("REPVAL") or 0
 			})
-		self.save
+		self.save()
 
 	@frappe.whitelist()
 	def create_trail_balance(self):
