@@ -6,10 +6,13 @@
  "engine": "InnoDB",
  "field_order": [
   "financial_report",
+  "section_type",
   "column_break_edau",
   "comment_added_by",
+  "row_label",
   "column_break_eell",
   "standalone_group",
+  "row_index",
   "column_break_houb",
   "note_no",
   "section_break_yjne",
@@ -59,12 +62,27 @@
    "fieldname": "note_no",
    "fieldtype": "Data",
    "label": "Note No"
+  },
+  {
+   "fieldname": "section_type",
+   "fieldtype": "Select",
+   "label": "Section Type"
+  },
+  {
+   "fieldname": "row_label",
+   "fieldtype": "Data",
+   "label": "Row Label"
+  },
+  {
+   "fieldname": "row_index",
+   "fieldtype": "Int",
+   "label": "Row Index"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-25 17:18:23.784094",
+ "modified": "2025-10-03 17:52:33.208950",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Comments",
