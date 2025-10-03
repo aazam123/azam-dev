@@ -38,7 +38,7 @@ class SyncSAPTrialBalance(Document):
 		fs = frappe.db.get_value(
 			"FR Financial Settings",
 			None,
-			["user_name", "password", "api_end_point", "sap_client", "timeout"],
+			["user_name", "password", "api_end_point", "timeout"],
 			as_dict=True,
 		)
 		if not fs or not fs.user_name or not fs.password or not fs.api_end_point or not fs.timeout:
@@ -48,7 +48,7 @@ class SyncSAPTrialBalance(Document):
 	def validate_required_fields(self):
 		"""Check all mandatory fields before making API request"""
 		required = ["chartofacc", "company_code", "sversion", "repyear",
-					"srepmonth", "trepmonth", "compyear", "scompmonth", "tcompmonth", "layout"]
+					"srepmonth", "trepmonth", "compyear", "scompmonth", "tcompmonth", "layout", "sap_client"]
 		missing = [field for field in required if not self.get(field)]
 		if missing:
 			frappe.throw(f"Missing required fields: {', '.join(missing)}")
@@ -63,7 +63,7 @@ class SyncSAPTrialBalance(Document):
 		self.validate_required_fields()
 
 		params = {
-			"sap-client": fs.sap_client,
+			"sap-client": self.sap_client,
 			"CHARTOFACC": self.chartofacc,
 			"COMPANY": self.company_code,
 			"SVERSION": self.sversion,

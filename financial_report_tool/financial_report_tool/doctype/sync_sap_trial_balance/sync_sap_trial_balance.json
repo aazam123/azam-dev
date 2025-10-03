@@ -21,6 +21,8 @@
   "column_break_stpt",
   "scompmonth",
   "tcompmonth",
+  "column_break_tfgj",
+  "sap_client",
   "section_break_utex",
   "company",
   "column_break_tgls",
@@ -187,12 +189,21 @@
    "fieldname": "tcompmonth",
    "fieldtype": "Data",
    "label": "TCOMPMONTH"
+  },
+  {
+   "fieldname": "column_break_tfgj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sap_client",
+   "fieldtype": "Data",
+   "label": "SAP Client"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-01 13:49:04.599365",
+ "modified": "2025-10-03 09:39:03.750713",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance",

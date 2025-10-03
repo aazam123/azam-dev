@@ -20,7 +20,6 @@
   "special_gl_indicator_grouping",
   "gl_account_for_grouping",
   "sap_tab",
-  "sap_client",
   "api_end_point",
   "timeout",
   "column_break_phxe",
@@ -128,11 +127,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "sap_client",
-   "fieldtype": "Data",
-   "label": "SAP Client"
-  },
-  {
    "fieldname": "timeout",
    "fieldtype": "Int",
    "label": "Timeout"
@@ -142,7 +136,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-01 16:08:24.089563",
+ "modified": "2025-10-03 09:37:58.294652",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",
