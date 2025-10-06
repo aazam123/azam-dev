@@ -84,11 +84,14 @@ class SyncSAPTrialBalance(Document):
 
 		self.responce = json.dumps(resp_json, ensure_ascii=False)
 		for d in resp_json.get("items"):
-			self.append("details", {
-				"gl_code": d.get("RACCT"),
-				"gl_description": d.get("TEXT"),
-				"amount": d.get("REPVAL") or 0
-			})
+			if d.get("RACCT") and d.get("REPVAL") != 0:
+				racct = d.get("RACCT")
+				racct = racct.lstrip('0') if racct else ''
+				self.append("details", {
+					"gl_code": racct,
+					"gl_description": d.get("TEXT"),
+					"amount": d.get("REPVAL") or 0
+				})
 		self.save()
 
 	@frappe.whitelist()
