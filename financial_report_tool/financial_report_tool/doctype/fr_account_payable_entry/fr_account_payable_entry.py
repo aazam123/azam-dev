@@ -31,7 +31,8 @@ class FRAccountPayableEntry(Document):
 			self.grouping = "Deposit"
 
 		grouping = frappe.get_value("Special GL Indicator Grouping",{"company": self.company, "special_gl_indicator": self.special_gl_ind},"grouping")	
-		self.grouping = grouping
+		if not self.grouping:
+			self.grouping = grouping
 
 		if grouping == "C":
 			self.company_group = "Group"

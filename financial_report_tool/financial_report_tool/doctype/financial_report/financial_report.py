@@ -252,6 +252,9 @@ class FinancialReport(Document):
 						data = []
 						if primary_group:
 							data = self.get_monthly_consolidation_note_data(primary_group)
+							show_descending_order = frappe.get_value("Standalone Group", primary_group,"show_descending_order")
+							if show_descending_order:
+								data = sorted(data,key=lambda x: x["current_month_amount"],reverse=bool(show_descending_order))
 						note_table = self.monthly_table_for_note_template_1(data)
 						
 					if note_type == "Investments (Non-current)":

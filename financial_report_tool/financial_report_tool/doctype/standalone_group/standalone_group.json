@@ -12,6 +12,7 @@
   "is_primary_group",
   "disable",
   "show_reversed_value",
+  "show_descending_order",
   "standalone_group_name",
   "report_type",
   "root_type",
@@ -151,13 +152,19 @@
    "fieldname": "show_reversed_value",
    "fieldtype": "Check",
    "label": "Show Reversed Value"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_descending_order",
+   "fieldtype": "Check",
+   "label": "Show Descending Order"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2025-08-19 16:42:37.935729",
+ "modified": "2025-10-14 13:04:43.768503",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Standalone Group",
