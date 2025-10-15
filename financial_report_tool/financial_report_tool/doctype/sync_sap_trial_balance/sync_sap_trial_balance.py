@@ -12,26 +12,27 @@ class SyncSAPTrialBalance(Document):
 	def before_save(self):
 		"""Auto-map accounts + calculate total amount"""
 		total = 0
+
 		for i in self.details:
-			if not i.account and i.gl_code:
+			gl_code = (i.gl_code or "").strip()
+			gl_desc = (i.gl_description or "").strip()
+
+			if not i.account and gl_code and gl_desc:
 				account = frappe.get_value(
-					"Account",
-					{"account_number": i.gl_code, "company": self.company, "is_group": 0},
-					"name"
+					"Account", {"account_number": gl_code, "company": self.company, "is_group": 0}, "name"
 				)
 				i.account = account or ""
 
-			if not i.account and not i.gl_code and i.gl_description:
+			elif not i.account and not gl_code and gl_desc:
+				frappe.msgprint(gl_desc)
 				account = frappe.get_value(
-					"Account",
-					{"account_name": i.gl_description, "company": self.company, "is_group": 0},
-					"name"
+					"Account", {"account_name": gl_desc, "company": self.company, "is_group": 0}, "name"
 				)
 				i.account = account or ""
-
 			total += float(i.amount or 0)
 
 		self.total_amount = total
+
 
 	def validate_sap_settings(self):
 		"""Ensure SAP API settings exist and are complete"""
