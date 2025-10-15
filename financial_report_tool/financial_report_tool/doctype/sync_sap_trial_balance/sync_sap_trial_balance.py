@@ -24,7 +24,6 @@ class SyncSAPTrialBalance(Document):
 				i.account = account or ""
 
 			elif not i.account and not gl_code and gl_desc:
-				frappe.msgprint(gl_desc)
 				account = frappe.get_value(
 					"Account", {"account_name": gl_desc, "company": self.company, "is_group": 0}, "name"
 				)
