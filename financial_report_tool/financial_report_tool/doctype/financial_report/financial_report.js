@@ -210,10 +210,10 @@ async function generateFinancialReport(frm) {
         ]
     });
 
-    progress_dialog.show();
+    // progress_dialog.show();
 
     try {
-        updateProgress(progress_dialog, 25, "Preparing data...");
+        // updateProgress(progress_dialog, 25, "Preparing data...");
         
         // Use proper async/await pattern
         const result = await frappe.call({
@@ -222,19 +222,19 @@ async function generateFinancialReport(frm) {
         });
         
         if (result.exc) {
-            progress_dialog.hide();
+            // progress_dialog.hide();
             frappe.msgprint("Error generating report: " + result.exc, "Error");
         } else {
             updateProgress(progress_dialog, 100, "Complete!");
             setTimeout(() => {
-                progress_dialog.hide();
+                // progress_dialog.hide();
                 frm.reload_doc();
                 frm.refresh_field('financial_report_details');
             }, 1000);
         }
 
     } catch (error) {
-        progress_dialog.hide();
+        // progress_dialog.hide();
         frappe.msgprint("Error generating report: " + error.message, "Error");
         console.error("Generate Report Error:", error);
     }
