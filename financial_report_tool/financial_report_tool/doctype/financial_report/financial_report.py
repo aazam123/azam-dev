@@ -387,128 +387,6 @@ class FinancialReport(Document):
 		self.save(ignore_permissions=True)
 		frappe.db.commit()
 
-	# @frappe.whitelist()
-	# def generate_report(self):
-	# 	if self.report_type == "Monthly":
-	# 		for i in self.financial_report_details:
-	# 			if i.section_type == "Balance Sheet":
-	# 				i.table_data = self.render_monthly_balance_sheet(i.section)
-	# 				i.section_description = i.table_data
-	# 			if i.section_type == "Profit & Loss":
-	# 				i.table_data = self.render_monthly_profit_and_loss(i.section)
-	# 				i.section_description = i.table_data
-	# 			if i.section_type == "Cash Flow":
-	# 				i.table_data = self.render_monthly_cash_flow(i.section)
-	# 				i.section_description = i.table_data
-	# 			if i.section_type == "Equity":
-	# 				i.table_data = self.render_monthly_equity_share_table()
-	# 				i.section_description = i.table_data
-	# 			if i.section_type == "Consolidation Note":
-	# 				section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
-	# 				section_description = section_data.section_type_description if section_data else ""
-	# 				fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
-	# 				primary_group = section_data.primary_consolidation_group if section_data else ""
-	# 				note_type = section_data.note_type if section_data else ""
-	# 				note_table = None
-
-	# 				if fetch_data_from_trial_balance == 1:
-	# 					data = []
-	# 					if primary_group:
-	# 						data = self.get_monthly_consolidation_note_data(primary_group)
-	# 						show_descending_order = frappe.get_value("Standalone Group", primary_group,"show_descending_order")
-	# 						if show_descending_order:
-	# 							data = sorted(data,key=lambda x: x["current_month_amount"],reverse=bool(show_descending_order))
-	# 					note_table = self.monthly_table_for_note_template_1(data)
-						
-	# 				if note_type == "Investments (Non-current)":
-	# 					note_table = self.get_monthly_investment_non_current_note_data()
-	# 				if note_type == "Trade & Other receivables":
-	# 					note_table = self.get_monthly_trade_and_other_receivables_note_data()
-	# 				if note_type == "Equity Share Capital":
-	# 					note_table = self.get_monthly_equity_share_capital_note_data()
-	# 				if note_type == "Other Equity":
-	# 					note_table = self.get_monthly_other_equity_note_data()
-	# 				if note_type == "Borrowings (Non-current)":
-	# 					note_table = self.get_monthly_borrowing_non_current_note_data(note_type)
-	# 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-	# 					note_table = self.get_monthly_finished_goods_and_wip(note_type, total = False, field=None)
-	# 				if note_type == "Cost of Materials Consumed":
-	# 					note_table = self.get_monthly_cost_of_material_consumed(note_type, total = False, field=None)
-						
-	# 				if note_table:
-	# 					context = {"note_table": note_table}
-	# 					i.table_data = frappe.render_template(section_description or "", context)	
-	# 					i.section_description = frappe.render_template(section_description or "", context)	
-
-	# 				context = {"company": self.company}
-	# 				i.section_description = frappe.render_template(i.section_description or "", context)
-	# 				i.subsection_description = frappe.render_template(i.subsection_description or "", context)
-					
-	# 				# Wrap consolidation note with anchor ID for PDF navigation
-	# 				if i.note_no and i.section_name:
-	# 					note_id = self.generate_note_id(i.note_no, i.section_name)
-	# 					if note_id:
-	# 						i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
-	# 	else:
-	# 		for i in self.financial_report_details:
-	# 			if i.section_type == "Balance Sheet":
-	# 				i.table_data = self.render_balance_sheet(i.section)
-	# 			if i.section_type == "Profit & Loss":
-	# 				i.table_data = self.render_profit_and_loss(i.section)
-	# 			if i.section_type == "Cash Flow":
-	# 				i.table_data = self.render_cash_flow(i.section)
-	# 			if i.section_type == "Equity":
-	# 				i.table_data = self.render_equity_share_table()
-	# 			if i.section_type == "Consolidation Note":
-	# 				section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
-	# 				section_description = section_data.section_type_description if section_data else ""
-	# 				fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
-	# 				primary_group = section_data.primary_consolidation_group if section_data else ""
-	# 				note_type = section_data.note_type if section_data else ""
-	# 				note_table = None
-
-	# 				if fetch_data_from_trial_balance == 1:
-	# 					data = self.get_consolidation_note_data(primary_group)
-	# 					note_table = self.table_for_note_template_1(data)
-						
-	# 				if note_type == "Investments (Non-current)":
-	# 					note_table = self.get_investment_non_current_note_data()
-	# 				if note_type == "Trade & Other receivables":
-	# 					note_table = self.get_trade_and_other_receivables_note_data()
-	# 				if note_type == "Equity Share Capital":
-	# 					note_table = self.get_equity_share_capital_note_data()
-	# 				if note_type == "Other Equity":
-	# 					note_table = self.get_other_equity_note_data()
-	# 				if note_type == "Borrowings (Non-current)":
-	# 					note_table = self.get_borrowing_non_current_note_data("Borrowings (Non-current)")
-	# 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-	# 					note_table = self.get_finished_goods_and_wip(note_type, total = False, field=None)
-	# 				if note_type == "Cost of Materials Consumed":
-	# 					note_table = self.get_cost_of_material_consumed(note_type, total = False, field=None)
-						
-	# 				if note_table:
-	# 					context = {"note_table": note_table}
-	# 					i.section_description = frappe.render_template(section_description or "", context)	
-
-	# 				context = {"company": self.company}
-	# 				i.section_description = section_desc = frappe.render_template(i.section_description or "", context)
-	# 				i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
-	# 				i.subsection_description = frappe.render_template(i.subsection_description or "", context)
-	# 				i.subsection_description = f'<div style="text-align: justify;">{i.subsection_description}</div>'
-					
-	# 				# Wrap consolidation note with anchor ID for PDF navigation
-	# 				if i.note_no and i.section_name:
-	# 					note_id = self.generate_note_id(i.note_no, i.section_name)
-	# 					if note_id:
-	# 						i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
-
-	# 	self.save()		
-	# 	return {
-	# 		"success": True,
-	# 		"message": "Financial Report generated successfully!",
-	# 		"doc": self.as_dict()
-	# 	}
-
 	def get_cost_of_material_consumed(self, note_type, total, field):
 		rows = []
 		current_year_date, previous_year_date = self.get_current_and_prevous_year_date()
@@ -3011,6 +2889,8 @@ class FinancialReport(Document):
 				previous_month_amt = -previous_month_amt
 			if ftm_amt < 0:
 				ftm_amt = -ftm_amt
+			if previous_year < 0:
+				previous_year = -previous_year
 
 			rows.append({
 				"particulars": html_particulars,
@@ -3145,6 +3025,7 @@ class FinancialReport(Document):
 
 		# --- Capital Contribution ---
 		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
+		cc_opening_previous_year = -cc_opening_previous_year if cc_opening_previous_year < 0 else cc_opening_previous_year
 		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
 		cc_closing_previous_year = round(cc_opening_previous_year + cc_add_previous_year, self.show_decimal_value)
 
