@@ -3025,11 +3025,9 @@ class FinancialReport(Document):
 
 		# --- Capital Contribution ---
 		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
-		cc_opening_previous_year = -cc_opening_previous_year if cc_opening_previous_year < 0 else cc_opening_previous_year
 		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
-		cc_add_previous_year = -cc_add_previous_year if cc_add_previous_year < 0 else cc_add_previous_year
 		cc_closing_previous_year = round(cc_opening_previous_year + cc_add_previous_year, self.show_decimal_value)
-
+		cc_closing_previous_year = -cc_closing_previous_year if cc_closing_previous_year < 0 else cc_closing_previous_year
 		cc_opening_current = cc_closing_previous_year
 		cc_opening_previous = cc_closing_previous_year
 
