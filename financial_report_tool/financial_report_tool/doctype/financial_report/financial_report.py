@@ -233,9 +233,7 @@ class FinancialReport(Document):
 		return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 	@frappe.whitelist()
-	def generate_report(docname):
-		doc = frappe.get_doc("Financial Report", docname)
-
+	def generate_report(doc):
 		frappe.enqueue(
 			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
 			docname=doc.name,
