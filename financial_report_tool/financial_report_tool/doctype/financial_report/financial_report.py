@@ -16,6 +16,14 @@ from frappe.model.document import Document
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
+def do_generate_report(docname):
+	doc = frappe.get_doc("Financial Report", docname)
+	frappe.publish_progress(5, title="Initializing report generation...")
+	doc._generate_report_internal()
+	frappe.publish_progress(100, title="Report generated successfully!")
+
+	frappe.msgprint(f"✅ Financial Report {docname} generated successfully.")
+	frappe.db.commit()
 
 class FinancialReport(Document):
 	def before_save(self):
@@ -225,7 +233,24 @@ class FinancialReport(Document):
 		return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 	@frappe.whitelist()
-	def generate_report(self):
+	def generate_report(docname):
+		doc = frappe.get_doc("Financial Report", docname)
+
+		frappe.enqueue(
+			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+			docname=doc.name,
+			queue='long',                 
+			job_name=f"Generate Financial Report - {doc.name}",
+			timeout=600                   
+		)
+
+		return {
+			"success": True,
+			"message": f"Report generation started in background for {doc.name}. "
+					f"You will be notified once it is complete."
+		}
+
+	def _generate_report_internal(self):
 		if self.report_type == "Monthly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
@@ -241,7 +266,13 @@ class FinancialReport(Document):
 					i.table_data = self.render_monthly_equity_share_table()
 					i.section_description = i.table_data
 				if i.section_type == "Consolidation Note":
-					section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
+					section_data = frappe.db.get_value(
+						"FR Section",
+						i.section,
+						["section_type_description", "fetch_data_from_trial_balance",
+						"primary_consolidation_group", "note_type"],
+						as_dict=True
+					)
 					section_description = section_data.section_type_description if section_data else ""
 					fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
 					primary_group = section_data.primary_consolidation_group if section_data else ""
@@ -252,11 +283,15 @@ class FinancialReport(Document):
 						data = []
 						if primary_group:
 							data = self.get_monthly_consolidation_note_data(primary_group)
-							show_descending_order = frappe.get_value("Standalone Group", primary_group,"show_descending_order")
+							show_descending_order = frappe.get_value(
+								"Standalone Group", primary_group, "show_descending_order"
+							)
 							if show_descending_order:
-								data = sorted(data,key=lambda x: x["current_month_amount"],reverse=bool(show_descending_order))
+								data = sorted(
+									data, key=lambda x: x["current_month_amount"], reverse=bool(show_descending_order)
+								)
 						note_table = self.monthly_table_for_note_template_1(data)
-						
+
 					if note_type == "Investments (Non-current)":
 						note_table = self.get_monthly_investment_non_current_note_data()
 					if note_type == "Trade & Other receivables":
@@ -268,24 +303,28 @@ class FinancialReport(Document):
 					if note_type == "Borrowings (Non-current)":
 						note_table = self.get_monthly_borrowing_non_current_note_data(note_type)
 					if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-						note_table = self.get_monthly_finished_goods_and_wip(note_type, total = False, field=None)
+						note_table = self.get_monthly_finished_goods_and_wip(note_type, total=False, field=None)
 					if note_type == "Cost of Materials Consumed":
-						note_table = self.get_monthly_cost_of_material_consumed(note_type, total = False, field=None)
-						
+						note_table = self.get_monthly_cost_of_material_consumed(note_type, total=False, field=None)
+
 					if note_table:
 						context = {"note_table": note_table}
-						i.table_data = frappe.render_template(section_description or "", context)	
-						i.section_description = frappe.render_template(section_description or "", context)	
+						i.table_data = frappe.render_template(section_description or "", context)
+						i.section_description = frappe.render_template(section_description or "", context)
 
 					context = {"company": self.company}
 					i.section_description = frappe.render_template(i.section_description or "", context)
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
-					
-					# Wrap consolidation note with anchor ID for PDF navigation
+
+					# Anchor ID for PDF navigation
 					if i.note_no and i.section_name:
 						note_id = self.generate_note_id(i.note_no, i.section_name)
 						if note_id:
-							i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
+							i.table_data = (
+								f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
+								if i.table_data
+								else f'<div id="{note_id}" class="note-anchor"></div>'
+							)
 		else:
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
@@ -297,7 +336,13 @@ class FinancialReport(Document):
 				if i.section_type == "Equity":
 					i.table_data = self.render_equity_share_table()
 				if i.section_type == "Consolidation Note":
-					section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
+					section_data = frappe.db.get_value(
+						"FR Section",
+						i.section,
+						["section_type_description", "fetch_data_from_trial_balance",
+						"primary_consolidation_group", "note_type"],
+						as_dict=True
+					)
 					section_description = section_data.section_type_description if section_data else ""
 					fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
 					primary_group = section_data.primary_consolidation_group if section_data else ""
@@ -307,7 +352,7 @@ class FinancialReport(Document):
 					if fetch_data_from_trial_balance == 1:
 						data = self.get_consolidation_note_data(primary_group)
 						note_table = self.table_for_note_template_1(data)
-						
+
 					if note_type == "Investments (Non-current)":
 						note_table = self.get_investment_non_current_note_data()
 					if note_type == "Trade & Other receivables":
@@ -319,32 +364,152 @@ class FinancialReport(Document):
 					if note_type == "Borrowings (Non-current)":
 						note_table = self.get_borrowing_non_current_note_data("Borrowings (Non-current)")
 					if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-						note_table = self.get_finished_goods_and_wip(note_type, total = False, field=None)
+						note_table = self.get_finished_goods_and_wip(note_type, total=False, field=None)
 					if note_type == "Cost of Materials Consumed":
-						note_table = self.get_cost_of_material_consumed(note_type, total = False, field=None)
-						
+						note_table = self.get_cost_of_material_consumed(note_type, total=False, field=None)
+
 					if note_table:
 						context = {"note_table": note_table}
-						i.section_description = frappe.render_template(section_description or "", context)	
+						i.section_description = frappe.render_template(section_description or "", context)
 
 					context = {"company": self.company}
-					i.section_description = section_desc = frappe.render_template(i.section_description or "", context)
-					i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
+					i.section_description = frappe.render_template(i.section_description or "", context)
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
-					i.subsection_description = f'<div style="text-align: justify;">{i.subsection_description}</div>'
-					
-					# Wrap consolidation note with anchor ID for PDF navigation
+
+					# Anchor ID for PDF navigation
 					if i.note_no and i.section_name:
 						note_id = self.generate_note_id(i.note_no, i.section_name)
 						if note_id:
-							i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
+							i.table_data = (
+								f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
+								if i.table_data
+								else f'<div id="{note_id}" class="note-anchor"></div>'
+							)
 
-		self.save()		
-		return {
-			"success": True,
-			"message": "Financial Report generated successfully!",
-			"doc": self.as_dict()
-		}
+		self.save(ignore_permissions=True)
+		frappe.db.commit()
+
+	# @frappe.whitelist()
+	# def generate_report(self):
+	# 	if self.report_type == "Monthly":
+	# 		for i in self.financial_report_details:
+	# 			if i.section_type == "Balance Sheet":
+	# 				i.table_data = self.render_monthly_balance_sheet(i.section)
+	# 				i.section_description = i.table_data
+	# 			if i.section_type == "Profit & Loss":
+	# 				i.table_data = self.render_monthly_profit_and_loss(i.section)
+	# 				i.section_description = i.table_data
+	# 			if i.section_type == "Cash Flow":
+	# 				i.table_data = self.render_monthly_cash_flow(i.section)
+	# 				i.section_description = i.table_data
+	# 			if i.section_type == "Equity":
+	# 				i.table_data = self.render_monthly_equity_share_table()
+	# 				i.section_description = i.table_data
+	# 			if i.section_type == "Consolidation Note":
+	# 				section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
+	# 				section_description = section_data.section_type_description if section_data else ""
+	# 				fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
+	# 				primary_group = section_data.primary_consolidation_group if section_data else ""
+	# 				note_type = section_data.note_type if section_data else ""
+	# 				note_table = None
+
+	# 				if fetch_data_from_trial_balance == 1:
+	# 					data = []
+	# 					if primary_group:
+	# 						data = self.get_monthly_consolidation_note_data(primary_group)
+	# 						show_descending_order = frappe.get_value("Standalone Group", primary_group,"show_descending_order")
+	# 						if show_descending_order:
+	# 							data = sorted(data,key=lambda x: x["current_month_amount"],reverse=bool(show_descending_order))
+	# 					note_table = self.monthly_table_for_note_template_1(data)
+						
+	# 				if note_type == "Investments (Non-current)":
+	# 					note_table = self.get_monthly_investment_non_current_note_data()
+	# 				if note_type == "Trade & Other receivables":
+	# 					note_table = self.get_monthly_trade_and_other_receivables_note_data()
+	# 				if note_type == "Equity Share Capital":
+	# 					note_table = self.get_monthly_equity_share_capital_note_data()
+	# 				if note_type == "Other Equity":
+	# 					note_table = self.get_monthly_other_equity_note_data()
+	# 				if note_type == "Borrowings (Non-current)":
+	# 					note_table = self.get_monthly_borrowing_non_current_note_data(note_type)
+	# 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+	# 					note_table = self.get_monthly_finished_goods_and_wip(note_type, total = False, field=None)
+	# 				if note_type == "Cost of Materials Consumed":
+	# 					note_table = self.get_monthly_cost_of_material_consumed(note_type, total = False, field=None)
+						
+	# 				if note_table:
+	# 					context = {"note_table": note_table}
+	# 					i.table_data = frappe.render_template(section_description or "", context)	
+	# 					i.section_description = frappe.render_template(section_description or "", context)	
+
+	# 				context = {"company": self.company}
+	# 				i.section_description = frappe.render_template(i.section_description or "", context)
+	# 				i.subsection_description = frappe.render_template(i.subsection_description or "", context)
+					
+	# 				# Wrap consolidation note with anchor ID for PDF navigation
+	# 				if i.note_no and i.section_name:
+	# 					note_id = self.generate_note_id(i.note_no, i.section_name)
+	# 					if note_id:
+	# 						i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
+	# 	else:
+	# 		for i in self.financial_report_details:
+	# 			if i.section_type == "Balance Sheet":
+	# 				i.table_data = self.render_balance_sheet(i.section)
+	# 			if i.section_type == "Profit & Loss":
+	# 				i.table_data = self.render_profit_and_loss(i.section)
+	# 			if i.section_type == "Cash Flow":
+	# 				i.table_data = self.render_cash_flow(i.section)
+	# 			if i.section_type == "Equity":
+	# 				i.table_data = self.render_equity_share_table()
+	# 			if i.section_type == "Consolidation Note":
+	# 				section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
+	# 				section_description = section_data.section_type_description if section_data else ""
+	# 				fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
+	# 				primary_group = section_data.primary_consolidation_group if section_data else ""
+	# 				note_type = section_data.note_type if section_data else ""
+	# 				note_table = None
+
+	# 				if fetch_data_from_trial_balance == 1:
+	# 					data = self.get_consolidation_note_data(primary_group)
+	# 					note_table = self.table_for_note_template_1(data)
+						
+	# 				if note_type == "Investments (Non-current)":
+	# 					note_table = self.get_investment_non_current_note_data()
+	# 				if note_type == "Trade & Other receivables":
+	# 					note_table = self.get_trade_and_other_receivables_note_data()
+	# 				if note_type == "Equity Share Capital":
+	# 					note_table = self.get_equity_share_capital_note_data()
+	# 				if note_type == "Other Equity":
+	# 					note_table = self.get_other_equity_note_data()
+	# 				if note_type == "Borrowings (Non-current)":
+	# 					note_table = self.get_borrowing_non_current_note_data("Borrowings (Non-current)")
+	# 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+	# 					note_table = self.get_finished_goods_and_wip(note_type, total = False, field=None)
+	# 				if note_type == "Cost of Materials Consumed":
+	# 					note_table = self.get_cost_of_material_consumed(note_type, total = False, field=None)
+						
+	# 				if note_table:
+	# 					context = {"note_table": note_table}
+	# 					i.section_description = frappe.render_template(section_description or "", context)	
+
+	# 				context = {"company": self.company}
+	# 				i.section_description = section_desc = frappe.render_template(i.section_description or "", context)
+	# 				i.section_description = f'<div style="text-align: justify;">{i.section_description}</div>'
+	# 				i.subsection_description = frappe.render_template(i.subsection_description or "", context)
+	# 				i.subsection_description = f'<div style="text-align: justify;">{i.subsection_description}</div>'
+					
+	# 				# Wrap consolidation note with anchor ID for PDF navigation
+	# 				if i.note_no and i.section_name:
+	# 					note_id = self.generate_note_id(i.note_no, i.section_name)
+	# 					if note_id:
+	# 						i.table_data = f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>' if i.table_data else f'<div id="{note_id}" class="note-anchor"></div>'
+
+	# 	self.save()		
+	# 	return {
+	# 		"success": True,
+	# 		"message": "Financial Report generated successfully!",
+	# 		"doc": self.as_dict()
+	# 	}
 
 	def get_cost_of_material_consumed(self, note_type, total, field):
 		rows = []
@@ -1647,46 +1812,105 @@ class FinancialReport(Document):
 		    ################################################################################################        """
 
 	def get_monthly_dates(self, only_dates=False):
-		"""Get formatted dates for monthly reports with proper column labels"""
+		"""Return end dates and labels for current and previous months (and previous fiscal year)."""
+
 		if not self.current_month or not self.previous_month:
-			return "", "", ""
-		
-		current_year = int(self.current_year_ending_date.split("-")[0] if self.current_year_ending_date else datetime.now().year) -1
+			return ("", "", "") if not only_dates else (None, None)
+
+		# Month name → number map
 		month_num = {
 			'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
 			'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
 		}
-		
+
+		# ✅ Safely get year from self.current_year_ending_date (supports both str and date)
+		if isinstance(self.current_year_ending_date, str):
+			current_year = int(self.current_year_ending_date.split("-")[0])
+		elif isinstance(self.current_year_ending_date, datetime):
+			current_year = self.current_year_ending_date.year
+		elif hasattr(self.current_year_ending_date, "year"):  # datetime.date
+			current_year = self.current_year_ending_date.year
+		else:
+			current_year = datetime.now().year
+
 		current_month_num = month_num.get(self.current_month, 1)
 		previous_month_num = month_num.get(self.previous_month, 1)
-		
+
+		# Compute month-end dates
 		if current_month_num == 12:
-			month_end_date = datetime(int(current_year) + 1, 1, 1) - timedelta(days=1)
+			month_end_date = datetime(current_year, 12, 31)
 		else:
-			month_end_date = datetime(int(current_year), current_month_num + 1, 1) - timedelta(days=1)
-		
+			month_end_date = datetime(current_year, current_month_num + 1, 1) - timedelta(days=1)
+
 		if previous_month_num == 12:
-			previous_month_end_date = datetime(int(current_year), 12, 31)
-		elif previous_month_num == 1:
-			previous_month_end_date = datetime(int(current_year) - 1, 12, 31)
+			previous_month_end_date = datetime(current_year - 1, 12, 31)
 		else:
-			previous_month_end_date = datetime(int(current_year), previous_month_num + 1, 1) - timedelta(days=1)
+			previous_month_end_date = datetime(current_year, previous_month_num + 1, 1) - timedelta(days=1)
 
 		if only_dates:
 			return month_end_date, previous_month_end_date
 
-		month_end_label = f"Year Ended {month_end_date.strftime('%d/%m/%Y')}"
-		current_fiscal_year_end_label = f"Year Ended {previous_month_end_date.strftime('%d/%m/%Y')}"
+		# Build readable labels
+		current_month_label = f"Month Ended {month_end_date.strftime('%d/%m/%Y')}"
+		previous_month_label = f"Month Ended {previous_month_end_date.strftime('%d/%m/%Y')}"
+
 		if self.previous_year_ending_date:
 			if isinstance(self.previous_year_ending_date, str):
 				previous_year_date_obj = datetime.strptime(self.previous_year_ending_date, "%Y-%m-%d")
+			elif hasattr(self.previous_year_ending_date, "year"):
+				previous_year_date_obj = datetime.combine(self.previous_year_ending_date, datetime.min.time())
 			else:
-				previous_year_date_obj = self.previous_year_ending_date
-			previous_fiscal_year_end_label = f"Year Ended {previous_year_date_obj.strftime('%d/%m/%Y')}"
+				previous_year_date_obj = None
+
+			previous_year_label = (
+				f"Year Ended {previous_year_date_obj.strftime('%d/%m/%Y')}" if previous_year_date_obj else ""
+			)
 		else:
-			previous_fiscal_year_end_label = ""
+			previous_year_label = ""
+
+		return current_month_label, previous_month_label, previous_year_label
+
+	# def get_monthly_dates(self, only_dates=False):
+	# 	"""Get formatted dates for monthly reports with proper column labels"""
+	# 	if not self.current_month or not self.previous_month:
+	# 		return "", "", ""
 		
-		return month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label
+	# 	current_year = int(self.current_year_ending_date.split("-")[0] if self.current_year_ending_date else datetime.now().year) -1
+	# 	month_num = {
+	# 		'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+	# 		'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+	# 	}
+		
+	# 	current_month_num = month_num.get(self.current_month, 1)
+	# 	previous_month_num = month_num.get(self.previous_month, 1)
+		
+	# 	if current_month_num == 12:
+	# 		month_end_date = datetime(int(current_year) + 1, 1, 1) - timedelta(days=1)
+	# 	else:
+	# 		month_end_date = datetime(int(current_year), current_month_num + 1, 1) - timedelta(days=1)
+		
+	# 	if previous_month_num == 12:
+	# 		previous_month_end_date = datetime(int(current_year), 12, 31)
+	# 	elif previous_month_num == 1:
+	# 		previous_month_end_date = datetime(int(current_year) - 1, 12, 31)
+	# 	else:
+	# 		previous_month_end_date = datetime(int(current_year), previous_month_num + 1, 1) - timedelta(days=1)
+
+	# 	if only_dates:
+	# 		return month_end_date, previous_month_end_date
+
+	# 	month_end_label = f"Year Ended {month_end_date.strftime('%d/%m/%Y')}"
+	# 	current_fiscal_year_end_label = f"Year Ended {previous_month_end_date.strftime('%d/%m/%Y')}"
+	# 	if self.previous_year_ending_date:
+	# 		if isinstance(self.previous_year_ending_date, str):
+	# 			previous_year_date_obj = datetime.strptime(self.previous_year_ending_date, "%Y-%m-%d")
+	# 		else:
+	# 			previous_year_date_obj = self.previous_year_ending_date
+	# 		previous_fiscal_year_end_label = f"Year Ended {previous_year_date_obj.strftime('%d/%m/%Y')}"
+	# 	else:
+	# 		previous_fiscal_year_end_label = ""
+		
+	# 	return month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label
 
 
 	def get_monthly_finished_goods_and_wip(self, note_type, total, get_face=None, field=None):
@@ -2899,6 +3123,7 @@ class FinancialReport(Document):
 
 		else:
 			sp_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
+			sp_previous_year = -sp_previous_year if sp_previous_year < 0 else sp_previous_year
 			bal_previous_year = -round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
 
 			# add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.previous_month, self.fiscal_year)) or 0)
