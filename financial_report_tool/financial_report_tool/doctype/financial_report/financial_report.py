@@ -1688,24 +1688,17 @@ class FinancialReport(Document):
 		    ################################################################################################        """
 
 	def get_monthly_dates(self, only_dates=False):
-		"""Return end dates and labels for current and previous months (and previous fiscal year)."""
-
 		if not self.current_month or not self.previous_month:
 			return ("", "", "") if not only_dates else (None, None)
 
-		# Month name → number map
-		month_num = {
-			'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-			'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-		}
+		month_num = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
 
-		# ✅ Safely get year from self.current_year_ending_date (supports both str and date)
 		if isinstance(self.current_year_ending_date, str):
-			current_year = int(self.current_year_ending_date.split("-")[0])
+			current_year = int(self.current_year_ending_date.split("-")[0]) - 1
 		elif isinstance(self.current_year_ending_date, datetime):
-			current_year = self.current_year_ending_date.year
+			current_year = self.current_year_ending_date.year - 1
 		elif hasattr(self.current_year_ending_date, "year"):  # datetime.date
-			current_year = self.current_year_ending_date.year
+			current_year = self.current_year_ending_date.year - 1
 		else:
 			current_year = datetime.now().year
 
@@ -1910,7 +1903,7 @@ class FinancialReport(Document):
 		'''
 
 		for r in rows:
-			cm, pm, ftm, py = [f"{r[v]:,.0f}" if r[v] else "" for v in ["current_month_amt", "previous_month_amt", "ftm_amt", "previous_year_amt"]]
+			cm, pm, ftm, py = [round(r[v], self.show_decimal_value) if r[v] else "" for v in ["current_month_amt", "previous_month_amt", "ftm_amt", "previous_year_amt"]]
 			bold = "font-weight: bold;" if r["is_subtotal"] else ""
 			border = "border:1px solid #222;" if r["is_subtotal"] else "border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;"
 			html += f'<tr><td style="{border} text-align:left; padding:6px 8px; {bold}">{r["particulars"]}</td>'
@@ -2047,10 +2040,10 @@ class FinancialReport(Document):
 		
 		for row in rows:
 			# Format amounts
-			current_month_amt_str = f"{row['current_month_amt']:,.0f}" if row['current_month_amt'] else "-"
-			ftm_amt_str = f"{row['ftm_amt']:,.0f}" if row['ftm_amt'] else "-"
-			previous_month_amt_str = f"{row['previous_month_amt']:,.0f}" if row['previous_month_amt'] else "-"
-			previous_year_amt = f"{row['previous_year_amt']:,.0f}" if row['previous_year_amt'] else "-"
+			current_month_amt_str = round(row['current_month_amt'], self.show_decimal_value) if row['current_month_amt'] else "-"
+			ftm_amt_str = round(row['ftm_amt'], self.show_decimal_value) if row['ftm_amt']else "-"
+			previous_month_amt_str = round(row['previous_month_amt'], self.show_decimal_value) if row['previous_month_amt'] else "-"
+			previous_year_amt = round(row['previous_year_amt'], self.show_decimal_value) if row['previous_year_amt'] else "-"
 			
 			# Style for totals
 			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
@@ -3024,10 +3017,9 @@ class FinancialReport(Document):
 		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
 
 		# --- Capital Contribution ---
-		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
+		cc_opening_previous_year = -round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
 		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
 		cc_closing_previous_year = round(cc_opening_previous_year + cc_add_previous_year, self.show_decimal_value)
-		cc_closing_previous_year = -cc_closing_previous_year if cc_closing_previous_year < 0 else cc_closing_previous_year
 		cc_opening_current = cc_closing_previous_year
 		cc_opening_previous = cc_closing_previous_year
 
