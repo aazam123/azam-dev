@@ -1739,49 +1739,6 @@ class FinancialReport(Document):
 
 		return current_month_label, previous_month_label, previous_year_label
 
-	# def get_monthly_dates(self, only_dates=False):
-	# 	"""Get formatted dates for monthly reports with proper column labels"""
-	# 	if not self.current_month or not self.previous_month:
-	# 		return "", "", ""
-		
-	# 	current_year = int(self.current_year_ending_date.split("-")[0] if self.current_year_ending_date else datetime.now().year) -1
-	# 	month_num = {
-	# 		'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-	# 		'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
-	# 	}
-		
-	# 	current_month_num = month_num.get(self.current_month, 1)
-	# 	previous_month_num = month_num.get(self.previous_month, 1)
-		
-	# 	if current_month_num == 12:
-	# 		month_end_date = datetime(int(current_year) + 1, 1, 1) - timedelta(days=1)
-	# 	else:
-	# 		month_end_date = datetime(int(current_year), current_month_num + 1, 1) - timedelta(days=1)
-		
-	# 	if previous_month_num == 12:
-	# 		previous_month_end_date = datetime(int(current_year), 12, 31)
-	# 	elif previous_month_num == 1:
-	# 		previous_month_end_date = datetime(int(current_year) - 1, 12, 31)
-	# 	else:
-	# 		previous_month_end_date = datetime(int(current_year), previous_month_num + 1, 1) - timedelta(days=1)
-
-	# 	if only_dates:
-	# 		return month_end_date, previous_month_end_date
-
-	# 	month_end_label = f"Year Ended {month_end_date.strftime('%d/%m/%Y')}"
-	# 	current_fiscal_year_end_label = f"Year Ended {previous_month_end_date.strftime('%d/%m/%Y')}"
-	# 	if self.previous_year_ending_date:
-	# 		if isinstance(self.previous_year_ending_date, str):
-	# 			previous_year_date_obj = datetime.strptime(self.previous_year_ending_date, "%Y-%m-%d")
-	# 		else:
-	# 			previous_year_date_obj = self.previous_year_ending_date
-	# 		previous_fiscal_year_end_label = f"Year Ended {previous_year_date_obj.strftime('%d/%m/%Y')}"
-	# 	else:
-	# 		previous_fiscal_year_end_label = ""
-		
-	# 	return month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label
-
-
 	def get_monthly_finished_goods_and_wip(self, note_type, total, get_face=None, field=None):
 		rows = []
 		add_row = lambda p, cm=0, pm=0, ftm=0, py=0, st=False: rows.append({
@@ -2944,7 +2901,6 @@ class FinancialReport(Document):
 				<td style="border:1px solid #222; text-align:right; font-weight:bold; padding:6px 8px;">{total_previous_year:,.0f}</td>
 			</tr>
 		'''
-
 		html += "</tbody></table>"
 		return html
 
@@ -2958,12 +2914,10 @@ class FinancialReport(Document):
 
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
 
-		# --- Case 1: Different currency (use Balance Sheet reconciliation) ---
 		if default_currency != self.currency:
 			sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
 			bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
 
-			# Fetch totals from Balance Sheet
 			tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True,
 				account=frappe.get_value("FR Particular", {'particular_type': 'Total Assets'}, 'name')
 			)
@@ -2997,8 +2951,6 @@ class FinancialReport(Document):
 			sp_previous_year = -sp_previous_year if sp_previous_year < 0 else sp_previous_year
 			bal_previous_year = -round(self.sum_group_amt_monthly("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
 
-			# add_sp_previous_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.previous_month, self.fiscal_year)) or 0)
-			# add_sp_current_mnt = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Share Premium", self.current_month, self.fiscal_year)) or 0)
 			add_sp_previous_year = 0
 			add_sp_current_mnt = 0
 			add_sp_previous_mnt = 0
@@ -3017,7 +2969,7 @@ class FinancialReport(Document):
 		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
 
 		# --- Capital Contribution ---
-		cc_opening_previous_year = -round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
+		cc_opening_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
 		cc_add_previous_year = (round(self.sum_group_amt_monthly("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
 		cc_closing_previous_year = round(cc_opening_previous_year + cc_add_previous_year, self.show_decimal_value)
 		cc_opening_current = cc_closing_previous_year
@@ -3323,134 +3275,6 @@ class FinancialReport(Document):
 		table += "</tbody></table>"
 		return table
 
-
-	# def get_monthly_investment_non_current_note_data(self, total=False, field=None):
-	# 	month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-
-	# 	data = [{
-	# 		"particulars": "Investment in equity Instruments of subsidiaries measured at Cost (Unquoted, Fully paid Up)",
-	# 		"face_value": "", "shares_current": "", "amount_current": "",
-	# 		"shares_previous": "", "amount_previous": "",
-	# 		"shares_previous_year": "", "amount_previous_year": "",
-	# 		"bold": 1
-	# 	}]
-
-	# 	fiscal_doc = frappe.get_doc("Fiscal Year", self.fiscal_year)
-	# 	all_companies = frappe.get_list("FR Equity Entry", {"holding_company": self.company}, pluck="company")
-
-	# 	total_current = total_previous = total_previous_year = 0
-
-	# 	for company in all_companies:
-	# 		current_month_start = self.get_month_start_date(self.current_month)
-	# 		current_month_end = self.get_month_end_date(self.current_month)
-	# 		previous_month_start = self.get_month_start_date(self.previous_month)
-	# 		previous_month_end = self.get_month_end_date(self.previous_month)
-	# 		prev_year_same_month_start = self.get_same_month_last_year_start()
-	# 		prev_year_same_month_end = self.get_same_month_last_year_end()
-
-	# 		face_value = f"{(frappe.get_value('Company', company, 'share_capital_amount')) / 100} {frappe.get_value('Company', company, 'default_currency')}"
-	# 		previous_equity_entries = frappe.get_all("FR Equity Entry", 
-	# 			filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [prev_year_same_month_start, prev_year_same_month_end]]},
-	# 			fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
-
-	# 		current_month_entries = frappe.get_all("FR Equity Entry", 
-	# 			filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [current_month_start, current_month_end]]},
-	# 			fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
-
-	# 		previous_month_entries = frappe.get_all("FR Equity Entry", 
-	# 			filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [previous_month_start, previous_month_end]]},
-	# 			fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
-
-	# 		e_previous = previous_equity_entries[0] if previous_equity_entries else None
-	# 		e_current_month = current_month_entries[0] if current_month_entries else None
-	# 		e_previous_month = previous_month_entries[0] if previous_month_entries else None
-
-	# 		face_value = face_value
-	# 		shares_current = e_current_month.get("no_of_shares", 0) if e_current_month else 0
-	# 		amount_current = e_current_month.get("investment_value", 0) if e_current_month else 0
-	# 		shares_previous = e_previous_month.get("no_of_shares", 0) if e_previous_month else 0
-	# 		amount_previous = e_previous_month.get("investment_value", 0) if e_previous_month else 0
-	# 		shares_previous_year = e_previous.get("no_of_shares", 0) if e_previous else 0
-	# 		amount_previous_year = e_previous.get("investment_value", 0) if e_previous else 0
-
-	# 		total_current += amount_current
-	# 		total_previous += amount_previous
-	# 		total_previous_year += amount_previous_year
-
-	# 		data.append({
-	# 			"particulars": company,
-	# 			"face_value": face_value,
-	# 			"shares_current": shares_current,
-	# 			"amount_current": amount_current,
-	# 			"shares_previous": shares_previous,
-	# 			"amount_previous": amount_previous,
-	# 			"shares_previous_year": shares_previous_year,
-	# 			"amount_previous_year": amount_previous_year,
-	# 			"bold": 0
-	# 		})
-
-	# 	if is_total:
-	# 		if field == "total_current":
-	# 			return total_current
-	# 		if field == "total_previous_year":
-	# 			return total_previous_year
-
-	# 	data.append({
-	# 		"particulars": "Total of Equity Instruments Measured at cost",
-	# 		"face_value": "",
-	# 		"shares_current": "",
-	# 		"amount_current": f"{total_current:,.0f}",
-	# 		"shares_previous": "",
-	# 		"amount_previous": f"{total_previous:,.0f}",
-	# 		"shares_previous_year": "",
-	# 		"amount_previous_year": f"{total_previous_year:,.0f}",
-	# 		"bold": 1
-	# 	})
-
-	# 	# HTML table
-	# 	table = f'''
-	# 	<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt;">
-	# 		<thead>
-	# 			<tr>
-	# 				<th rowspan="2" style="border:1px solid #222; width:35%; text-align:left; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
-	# 				<th rowspan="2" style="border:1px solid #222; width:10%; text-align:center; background:#fafbfc;"><b>Face Value</b></th>
-	# 				<th colspan="2" style="border:1px solid #222; text-align:center; background:#e8f5e8;"><b>{month_end_label}</b></th>
-	# 				<th colspan="2" style="border:1px solid #222; text-align:center; background:#fafbfc;"><b>{current_fiscal_year_end_label}</b></th>
-	# 				<th colspan="2" style="border:1px solid #222; text-align:center; background:#fafbfc;"><b>{previous_fiscal_year_end_label}</b></th>
-	# 			</tr>
-	# 			<tr>
-	# 				<th style="border:1px solid #222; text-align:center; background:#e8f5e8;">No. of Shares</th>
-	# 				<th style="border:1px solid #222; text-align:center; background:#e8f5e8;">(₹ in lacs)</th>
-	# 				<th style="border:1px solid #222; text-align:center; width:8%;">No. of Shares</th>
-	# 				<th style="border:1px solid #222; text-align:center;">(₹ in lacs)</th>
-	# 				<th style="border:1px solid #222; text-align:center;">No. of Shares</th>
-	# 				<th style="border:1px solid #222; text-align:center;">(₹ in lacs)</th>
-	# 			</tr>
-	# 		</thead>
-	# 		<tbody>
-	# 	'''
-
-	# 	for row in data:
-	# 		bold = "font-weight: bold;" if row["bold"] else ""
-	# 		bg = "#e8f5e8" if not row["bold"] else "#f4f4f4"
-
-	# 		table += f'''
-	# 		<tr>
-	# 			<td style="border:1px solid #222; padding:6px 8px; text-align:left; {bold}">{row["particulars"]}</td>
-	# 			<td style="border:1px solid #222; text-align:center;">{row["face_value"]}</td>
-	# 			<td style="border:1px solid #222; text-align:right; background:{bg};">{row["shares_current"]}</td>
-	# 			<td style="border:1px solid #222; text-align:right; background:{bg};">{row["amount_current"]}</td>
-	# 			<td style="border:1px solid #222; text-align:right;">{row["shares_previous"]}</td>
-	# 			<td style="border:1px solid #222; text-align:right;">{row["amount_previous"]}</td>
-	# 			<td style="border:1px solid #222; text-align:right;">{row["shares_previous_year"]}</td>
-	# 			<td style="border:1px solid #222; text-align:right;">{row["amount_previous_year"]}</td>
-	# 		</tr>
-	# 		'''
-
-	# 	table += "</tbody></table>"
-	# 	return table
-
-
 	@frappe.whitelist()
 	def export_to_excel(self):
 		"""Export financial report to Excel with multiple tabs"""
@@ -3635,3 +3459,45 @@ class FinancialReport(Document):
 			"file_name": file_doc.file_name
 		}
 
+
+# def get_monthly_dates(self, only_dates=False):
+# 	"""Get formatted dates for monthly reports with proper column labels"""
+# 	if not self.current_month or not self.previous_month:
+# 		return "", "", ""
+	
+# 	current_year = int(self.current_year_ending_date.split("-")[0] if self.current_year_ending_date else datetime.now().year) -1
+# 	month_num = {
+# 		'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+# 		'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+# 	}
+	
+# 	current_month_num = month_num.get(self.current_month, 1)
+# 	previous_month_num = month_num.get(self.previous_month, 1)
+	
+# 	if current_month_num == 12:
+# 		month_end_date = datetime(int(current_year) + 1, 1, 1) - timedelta(days=1)
+# 	else:
+# 		month_end_date = datetime(int(current_year), current_month_num + 1, 1) - timedelta(days=1)
+	
+# 	if previous_month_num == 12:
+# 		previous_month_end_date = datetime(int(current_year), 12, 31)
+# 	elif previous_month_num == 1:
+# 		previous_month_end_date = datetime(int(current_year) - 1, 12, 31)
+# 	else:
+# 		previous_month_end_date = datetime(int(current_year), previous_month_num + 1, 1) - timedelta(days=1)
+
+# 	if only_dates:
+# 		return month_end_date, previous_month_end_date
+
+# 	month_end_label = f"Year Ended {month_end_date.strftime('%d/%m/%Y')}"
+# 	current_fiscal_year_end_label = f"Year Ended {previous_month_end_date.strftime('%d/%m/%Y')}"
+# 	if self.previous_year_ending_date:
+# 		if isinstance(self.previous_year_ending_date, str):
+# 			previous_year_date_obj = datetime.strptime(self.previous_year_ending_date, "%Y-%m-%d")
+# 		else:
+# 			previous_year_date_obj = self.previous_year_ending_date
+# 		previous_fiscal_year_end_label = f"Year Ended {previous_year_date_obj.strftime('%d/%m/%Y')}"
+# 	else:
+# 		previous_fiscal_year_end_label = ""
+	
+# 	return month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label
