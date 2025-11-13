@@ -1,0 +1,78 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-11-12 15:45:01.209388",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "financial_report",
+  "column_break_ffjj",
+  "approved_on",
+  "column_break_jndn",
+  "approved_by",
+  "section_break_juru",
+  "details"
+ ],
+ "fields": [
+  {
+   "fieldname": "financial_report",
+   "fieldtype": "Link",
+   "label": "Financial Report",
+   "options": "Financial Report"
+  },
+  {
+   "fieldname": "column_break_ffjj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On"
+  },
+  {
+   "fieldname": "column_break_jndn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Data",
+   "label": "Approved By"
+  },
+  {
+   "fieldname": "section_break_juru",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Table",
+   "label": "Details",
+   "options": "Financial Report Version Control Details"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-11-12 15:51:07.560640",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Financial Report Version Control",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

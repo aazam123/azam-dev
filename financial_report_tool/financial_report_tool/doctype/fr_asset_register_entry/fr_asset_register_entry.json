@@ -1,60 +1,102 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:asset_id",
+ "autoname": "ARE-.#####",
  "creation": "2025-07-07 12:15:47.063370",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "asset_details_section",
   "asset_id",
-  "asset_class",
   "asset_name",
+  "asset_class",
+  "asset_value",
   "asset_description",
-  "column_break_guzh",
+  "column_break_hjvs",
+  "ordinary_depreciation_start_date",
+  "assets_end_date",
+  "life_years",
+  "life_days",
+  "days_in_current_year",
+  "column_break_xvns",
+  "posting_date",
+  "company",
+  "fiscal_year",
+  "sales_date",
+  "shift",
+  "section_break_uxnm",
+  "column_break_zmlr",
+  "balance_sheet_account_apc",
+  "cost_center",
+  "column_break_nnzj",
   "subnumber",
   "vendor",
-  "life",
-  "balance_sheet_account_apc",
-  "ordinary_depreciation_start_date",
-  "column_break_zmlr",
-  "posting_date",
-  "depreciation_key",
-  "plant",
-  "cost_center",
+  "column_break_guzh",
   "quantity",
+  "depreciation_key",
+  "column_break_njtx",
+  "plant",
+  "sap_details_section",
+  "sap_cav",
+  "sap_acc_dep",
+  "sap_transaction_acq_value",
+  "column_break_ulpi",
+  "sap_plan_dep",
+  "sap_tran_accu_dep",
+  "sap_tran_acq_value",
+  "column_break_wwyx",
+  "sap_sbv",
+  "sap_ebv",
+  "erp_details_section",
+  "deprecation",
+  "additional",
+  "total_depreciation",
+  "column_break_jfkw",
+  "open_accumulated_depreciation",
+  "open_gross_block",
+  "transaction_acquisition_value",
+  "column_break_hftj",
+  "close_accumulated_depreciation",
+  "close_gross_block",
+  "planned_depreciation",
+  "column_break_lzny",
+  "starting_book_value",
+  "ending_book_value",
   "section_break_kmhu",
   "cumulative_acquisition_value",
   "accumulated_depreciation",
-  "transaction_acquisition_value",
   "column_break_tfgz",
-  "planned_depreciation",
   "transferred_accumulated_depreciation",
   "transferred_acquisition_value",
-  "column_break_fkpm",
-  "starting_book_value",
-  "ending_book_value"
+  "column_break_fkpm"
  ],
  "fields": [
   {
    "fieldname": "asset_id",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Asset ID",
-   "unique": 1
+   "options": "FR Assets Master"
   },
   {
+   "fetch_from": "asset_id.asset_class",
    "fieldname": "asset_class",
    "fieldtype": "Data",
-   "label": "Asset Class"
+   "label": "Asset Class",
+   "read_only": 1
   },
   {
+   "fetch_from": "asset_id.asset_name",
    "fieldname": "asset_name",
    "fieldtype": "Data",
-   "label": "Asset Name"
+   "label": "Asset Name",
+   "read_only": 1
   },
   {
+   "fetch_from": "asset_id.description",
    "fieldname": "asset_description",
    "fieldtype": "Small Text",
-   "label": "Asset description"
+   "label": "Asset description",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_guzh",
@@ -71,16 +113,12 @@
    "label": "Vendor"
   },
   {
-   "fieldname": "life",
-   "fieldtype": "Data",
-   "label": "Life"
-  },
-  {
    "fieldname": "balance_sheet_account_apc",
    "fieldtype": "Data",
    "label": "Balance Sheet Account - APC"
   },
   {
+   "fetch_from": "asset_id.capitalisation_date",
    "fieldname": "ordinary_depreciation_start_date",
    "fieldtype": "Date",
    "label": "Ordinary Depreciation Start Date"
@@ -139,7 +177,7 @@
    "fieldname": "planned_depreciation",
    "fieldtype": "Float",
    "label": "Planned Depreciation",
-   "precision": "2"
+   "precision": "3"
   },
   {
    "fieldname": "transferred_accumulated_depreciation",
@@ -170,19 +208,218 @@
    "precision": "2"
   },
   {
+   "default": "Today",
    "fieldname": "posting_date",
    "fieldtype": "Date",
    "label": "Posting Date"
+  },
+  {
+   "fieldname": "sap_details_section",
+   "fieldtype": "Section Break",
+   "label": "SAP Details"
+  },
+  {
+   "fieldname": "sap_cav",
+   "fieldtype": "Float",
+   "label": "SAP Cumulative Acquisition Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "sap_acc_dep",
+   "fieldtype": "Data",
+   "label": "SAP Accumulated Depreciation"
+  },
+  {
+   "fieldname": "sap_transaction_acq_value",
+   "fieldtype": "Float",
+   "label": "SAP Transaction Acquisition Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_ulpi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sap_plan_dep",
+   "fieldtype": "Float",
+   "label": "SAP Planned Depreciation",
+   "precision": "2"
+  },
+  {
+   "fieldname": "sap_tran_accu_dep",
+   "fieldtype": "Float",
+   "label": "SAP Transferred Accumulated Depreciation",
+   "precision": "2"
+  },
+  {
+   "fieldname": "sap_tran_acq_value",
+   "fieldtype": "Float",
+   "label": "SAP Transferred Acquisition Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_wwyx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sap_sbv",
+   "fieldtype": "Float",
+   "label": "SAP Starting Book Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "sap_ebv",
+   "fieldtype": "Float",
+   "label": "SAP Ending Book Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "asset_details_section",
+   "fieldtype": "Section Break",
+   "label": "Asset Details"
+  },
+  {
+   "fieldname": "column_break_hjvs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_uxnm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fetch_from": "asset_id.shift",
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "options": "1\n2\n3"
+  },
+  {
+   "fieldname": "column_break_xvns",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_nnzj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "asset_id.life_years",
+   "fieldname": "life_years",
+   "fieldtype": "Int",
+   "label": "Life (Years)",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "asset_id.assets_value",
+   "fieldname": "asset_value",
+   "fieldtype": "Float",
+   "label": "Asset Value",
+   "read_only": 1
+  },
+  {
+   "fieldname": "days_in_current_year",
+   "fieldtype": "Int",
+   "label": "Days in Current Year",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_njtx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "asset_id.end_date",
+   "fieldname": "assets_end_date",
+   "fieldtype": "Date",
+   "label": "Assets End Date"
+  },
+  {
+   "fieldname": "sales_date",
+   "fieldtype": "Date",
+   "label": "Sales Date"
+  },
+  {
+   "fetch_from": "asset_id.life_days",
+   "fieldname": "life_days",
+   "fieldtype": "Int",
+   "label": "Life (Days)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "erp_details_section",
+   "fieldtype": "Section Break",
+   "label": "ERP Details"
+  },
+  {
+   "fieldname": "deprecation",
+   "fieldtype": "Float",
+   "label": "Deprecation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "additional",
+   "fieldtype": "Float",
+   "label": "Additional",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_jfkw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "open_gross_block",
+   "fieldtype": "Float",
+   "label": "Open Gross Block"
+  },
+  {
+   "fieldname": "open_accumulated_depreciation",
+   "fieldtype": "Float",
+   "label": "Open Accumulated Depreciation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_hftj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "close_gross_block",
+   "fieldtype": "Float",
+   "label": "Close Gross Block"
+  },
+  {
+   "fieldname": "close_accumulated_depreciation",
+   "fieldtype": "Float",
+   "label": "Close Accumulated Depreciation"
+  },
+  {
+   "fieldname": "total_depreciation",
+   "fieldtype": "Float",
+   "label": "Total Depreciation",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_lzny",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-07 13:33:07.280677",
+ "modified": "2025-11-10 15:53:48.578929",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",
- "naming_rule": "By fieldname",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

@@ -10,11 +10,13 @@
   "financial_report_template",
   "report_type",
   "currency",
+  "approved_on",
   "column_break_nyhx",
   "fiscal_year",
   "current_year_ending_date",
   "current_month",
   "show_decimal_value",
+  "approved_by",
   "column_break_ujyu",
   "previous_fiscal_year",
   "previous_year_ending_date",
@@ -123,12 +125,24 @@
    "fieldname": "show_decimal_value",
    "fieldtype": "Int",
    "label": "Show Decimal Value"
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Data",
+   "label": "Approved By",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-08 15:51:55.512149",
+ "modified": "2025-11-12 15:26:18.243095",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",

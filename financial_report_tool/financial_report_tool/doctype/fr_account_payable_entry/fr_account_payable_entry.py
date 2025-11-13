@@ -6,6 +6,16 @@ from frappe.model.document import Document
 
 
 class FRAccountPayableEntry(Document):
+	def set_employee_grouping(self):
+		if self.currency != "INR" and self.ap == "Advance":
+			self.grouping = "Employee Foreign Advance"
+		elif self.currency == "INR" and self.ap == "Advance":
+			self.grouping = "Employee Advance"
+		elif self.currency == "INR" and self.ap == "Payable":
+			self.grouping = "Employee Payable"
+		elif self.currency != "INR" and self.ap == "Payable":
+			self.grouping = "Employee Foreign Payable"
+	
 	def before_save(self):
 		self.ap = "Payable" if self.amount_in_lc < 0 else "Advance"
 		
@@ -13,12 +23,7 @@ class FRAccountPayableEntry(Document):
 			self.nature = "Clearing Document"
 		elif self.document_type == "EE":
 			self.nature = "Employee"
-			if self.currency != "INR" and self.amount_in_lc < 0:
-				self.grouping = "Employee Foreign Advance"
-			elif self.currency == "INR" and self.ap == "Advance":
-				self.grouping = "Employee Advance"
-			elif self.ap == "Payable":
-				self.grouping = "Employee Payable"
+			self.set_employee_grouping()
 		elif self.document_type in ("KR", "RE"):
 			self.nature = "Invoicing Document"
 		elif self.document_type in ("KZ", "FP", "KG"):
@@ -30,21 +35,32 @@ class FRAccountPayableEntry(Document):
 			self.nature = "Deposit"
 			self.grouping = "Deposit"
 
-		grouping = frappe.get_value("Special GL Indicator Grouping",{"company": self.company, "special_gl_indicator": self.special_gl_ind},"grouping")	
-		if not self.grouping:
-			self.grouping = grouping
+		sp_gl_grouping = frappe.get_all("Special GL Indicator Grouping", {"parent": self.company, "special_gl_indicator": self.special_gl_ind}, ["nature", "e_ne", "currency", "grouping"])
+		for sp_grouping in sp_gl_grouping:
+			if sp_grouping:
+				nature, e_ne, currency, grouping = sp_grouping.get("nature"), sp_grouping.get("e_ne"), sp_grouping.get("currency"), sp_grouping.get("grouping")
+				if not nature:
+					self.grouping = grouping
+				else:
+					if currency:
+						if e_ne == 'Not Equals' and self.currency != currency and self.ap == nature:
+							self.grouping = grouping
+						elif e_ne == 'Equals' and self.currency == currency and self.ap == nature:
+							self.grouping = grouping
+					else:
+						if self.ap == nature:
+							self.grouping = grouping
 
-		if grouping == "C":
-			self.company_group = "Group"
-
-		voucher_series = frappe.get_all("Vendor Series For Nature", filters={"company": self.company}, fields=["series_start_from", "nature"])
+		voucher_series = frappe.get_all("Vendor Series For Nature", filters={"parent": self.company}, fields=["series_start_from", "nature"])
 		for v_series in voucher_series:
 			if str(self.supplier).startswith(v_series.series_start_from):
 				self.nature = v_series.nature
+				if self.nature == "Employee":
+					self.set_employee_grouping()
 				break
 
 		if not self.grouping:
-			po_series = frappe.get_all("Purchase Order Series For Grouping", filters={"company": self.company}, fields=["po_series_start_from", "grouping", "ap"])
+			po_series = frappe.get_all("Purchase Order Series For Grouping", filters={"parent": self.company}, fields=["po_series_start_from", "grouping", "ap"])
 			for po_s in po_series:
 				if str(self.purchase_order).startswith(po_s.po_series_start_from) and self.ap == po_s.ap:
 					self.grouping = po_s.grouping
@@ -76,14 +92,13 @@ class FRAccountPayableEntry(Document):
 		if not self.nature:
 			self.nature == self.ap
 		
-		gl_account_grouping = frappe.get_value("GL Account For Grouping",{"company": self.company, "gl_account": self.reconciliation_account},"grouping")	
+		gl_account_grouping = frappe.get_value("GL Account For Grouping",{"parent": self.company, "gl_account": self.reconciliation_account},"grouping")	
+		if gl_account_grouping:
+			self.grouping = gl_account_grouping	
+
 		if not self.grouping:
-			if gl_account and len(gl_account) > 0:
-				self.grouping = gl_account_grouping	
 			if self.ap == "Advance":
 				self.grouping = "Service Advance"
 			elif self.ap == "Payable":
 				self.grouping = "Service Payable"
-
-		
-
+			self.remark = "No Grouping Match"

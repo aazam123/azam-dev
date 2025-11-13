@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2025-11-03 10:16:50.310046",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "vendor_series_for_nature",
+  "special_gl_indicator_grouping",
+  "purchase_order_series_for_grouping",
+  "gl_account_for_grouping"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "vendor_series_for_nature",
+   "fieldtype": "Table",
+   "label": "Vendor Series For Nature",
+   "options": "Vendor Series For Nature"
+  },
+  {
+   "fieldname": "special_gl_indicator_grouping",
+   "fieldtype": "Table",
+   "label": "Special GL Indicator Grouping",
+   "options": "Special GL Indicator Grouping"
+  },
+  {
+   "fieldname": "purchase_order_series_for_grouping",
+   "fieldtype": "Table",
+   "label": "Purchase Order Series For Grouping",
+   "options": "Purchase Order Series For Grouping"
+  },
+  {
+   "fieldname": "gl_account_for_grouping",
+   "fieldtype": "Table",
+   "label": "GL Account For Grouping",
+   "options": "GL Account For Grouping"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-11-03 10:35:58.664044",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Account Payable Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

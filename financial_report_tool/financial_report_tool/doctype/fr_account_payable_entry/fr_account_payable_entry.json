@@ -149,7 +149,7 @@
    "fieldname": "grouping",
    "fieldtype": "Select",
    "label": "Grouping",
-   "options": "\nCapital Advance\nCapital Payable\nDeposit\nEmployee Advance\nEmployee Foreign Advance\nEmployee Imprest\nEmployee Loan\nEmployee Payable\nRM/PM Advance\nRM/PM Payable\nService Advance\nService Payable"
+   "options": "\nCapital Advance\nCapital Payable\nDeposit\nEmployee Advance\nEmployee Foreign Advance\nEmployee Payable\nEmployee Foreign Payable\nEmployee Imprest\nEmployee Loan\nRM/PM Advance\nRM/PM Payable\nService Advance\nService Payable"
   },
   {
    "fieldname": "closing_exchange_rate",
@@ -342,7 +342,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-08 17:25:00.123269",
+ "modified": "2025-11-05 13:55:44.065857",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",

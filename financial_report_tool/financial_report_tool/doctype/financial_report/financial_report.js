@@ -3,7 +3,6 @@
 
 frappe.ui.form.on("Financial Report", {
     setup(frm){
-        // Override grid functions for note number updates
         if (frm.grid) {
             const originalAddRow = frm.grid.add_row;
             const originalDeleteRow = frm.grid.delete_row;
@@ -54,8 +53,7 @@ frappe.ui.form.on("Financial Report", {
                 const print_url = `/printview?doctype=Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;
                 window.open(print_url, '_blank');
             });
-            
-            // Add direct export buttons
+
             frm.add_custom_button("Export Excel", function() {
                 exportToExcel(frm);
             }, "Export");
@@ -190,7 +188,12 @@ async function generateFinancialReport(frm) {
         return;
     }
 
-    // Show progress dialog
+    if (frm.doc.approved_on) {
+        frappe.msgprint("This report has already been approved. You cannot regenerate it.", "Error");
+        return;
+    }
+
+
     const progress_dialog = new frappe.ui.Dialog({
         title: "Generating Financial Report",
         size: 'large',
@@ -210,31 +213,23 @@ async function generateFinancialReport(frm) {
         ]
     });
 
-    // progress_dialog.show();
-
     try {
-        // updateProgress(progress_dialog, 25, "Preparing data...");
-        
-        // Use proper async/await pattern
         const result = await frappe.call({
             method: 'generate_report',
             doc: frm.doc
         });
         
         if (result.exc) {
-            // progress_dialog.hide();
             frappe.msgprint("Error generating report: " + result.exc, "Error");
         } else {
             updateProgress(progress_dialog, 100, "Complete!");
             setTimeout(() => {
-                // progress_dialog.hide();
                 frm.reload_doc();
                 frm.refresh_field('financial_report_details');
             }, 1000);
         }
 
     } catch (error) {
-        // progress_dialog.hide();
         frappe.msgprint("Error generating report: " + error.message, "Error");
         console.error("Generate Report Error:", error);
     }

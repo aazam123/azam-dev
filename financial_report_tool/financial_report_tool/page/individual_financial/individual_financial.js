@@ -172,7 +172,7 @@ function render_financial_report(doc, page){
 
 // --- Add comment buttons to rows and highlight rows with existing comments ---
 function enhanceTablesForRowComments() {
-    const canAddComment = frappe.user_roles.includes('Finance Manager');
+    const canAddComment = frappe.user_roles.includes('Financial Report Manager');
 
     document.querySelectorAll('.note-block').forEach(noteBlock => {
         const noteId = noteBlock.dataset.note;

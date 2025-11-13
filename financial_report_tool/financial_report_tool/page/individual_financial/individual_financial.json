@@ -4,7 +4,7 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2025-09-25 14:19:43.957712",
+ "modified": "2025-11-13 12:51:23.551069",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "individual-financial",
@@ -14,6 +14,6 @@
  "script": null,
  "standard": "Yes",
  "style": null,
- "system_page": 1,
+ "system_page": 0,
  "title": "Financial Report"
 }

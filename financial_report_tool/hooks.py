@@ -259,6 +259,14 @@ fixtures = [
     },
     {
         "dt": "Workspace",
-        "filters": [["name", "in", ["Finance Manager"]]]
-    }
+        "filters": [["name", "in", ["Financial Report User", "Financial Report Manager"]]]
+    },
+    {
+        "dt": "Workflow",
+        "filters": [["name", "in", ["Financial Report Workflow"]]]
+    },
+    {
+        "dt": "Custom DocPerm",
+        "filters": [["role", "in", ["Financial Report User", "Financial Report Manager"]]]
+    },
 ]

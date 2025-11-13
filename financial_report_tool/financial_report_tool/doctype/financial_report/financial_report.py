@@ -10,7 +10,7 @@ import calendar
 from frappe.utils import flt
 from bs4 import BeautifulSoup
 from collections import defaultdict
-from frappe.utils import get_site_path
+from frappe.utils import get_site_path, now_datetime
 from datetime import datetime, timedelta, date
 from frappe.model.document import Document
 from openpyxl.utils import get_column_letter
@@ -26,7 +26,43 @@ def do_generate_report(docname):
 	frappe.db.commit()
 
 class FinancialReport(Document):
+	def on_update(self):
+		if self.workflow_state == "Approved" and not self.approved_on:
+			self.approved_on = now_datetime()
+			self.approved_by = frappe.session.user
+			cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+			vc = frappe.new_doc("Financial Report Version Control")
+			vc.financial_report = self.name
+			vc.approved_on = now_datetime()
+			vc.approved_by = frappe.session.user
+
+			gl_accounts = frappe.get_all("FR Trial Balance Entry", {'company': self.company}, pluck='gl_account', distinct=True)
+			for account in gl_accounts:
+				pg, sg, hg = frappe.db.get_value("GL Group Mapping", {'company': self.company, 'gl_account': account}, ['primary_group', 'secondary_group', 'higher_secondary_group']) or ("", "", "")
+				ca = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.current_month}, 'uploaded_amount') or 0
+				pa = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.previous_month}, 'uploaded_amount') or 0
+				py = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, 'uploaded_amount') or 0
+				ppy = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': pre_year, 'month': cls_month}, 'uploaded_amount') or 0
+				if any([ca, pa, py, ppy]): 
+					vc.append("details", {
+						"gl_account": account, 
+						"currency": self.currency, 
+						"primary_group": pg, 
+						"secondary_group": sg, 
+						"higher_secondary_group": hg, 
+						"current_amount": ca, 
+						"previous_amount": pa, 
+						"previous_year": py, 
+						"pre_previous_year": ppy
+					})
+
+			vc.insert(ignore_permissions=True)
+			frappe.msgprint(f"Version Control record created for Financial Report: {self.name}")
+
 	def before_save(self):
+		if self.approved_on:
+			frappe.throw("This report has already been approved. You cannot regenerate it.")
+
 		self.update_consolidation_note_numbers()
 
 		# Update section names
@@ -403,7 +439,7 @@ class FinancialReport(Document):
 		closing_stock_current = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.fiscal_year) * current_fx
 
 		current_material_consumed = self.sum_group_amt("Material consumed", "Cost of goods sold", self.fiscal_year) * current_fx
-		purchases_current = material_consumed - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - closing_stock_previous)
+		purchases_current = current_material_consumed - self.get_finished_goods_and_wip(note_type, total = True, field='net_increase_total') + (closing_stock_current - closing_stock_previous)
 		cost_consumed_current = closing_stock_previous + purchases_current - closing_stock_current
 
 		fiscal_year = self.get_fiscal_year_by_date(self.previous_year_ending_date)

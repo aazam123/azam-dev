@@ -6,20 +6,12 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "company",
   "column_break_ferg",
   "gl_account",
   "column_break_yuxl",
   "grouping"
  ],
  "fields": [
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Company",
-   "options": "Company"
-  },
   {
    "fieldname": "column_break_ferg",
    "fieldtype": "Column Break"
@@ -40,14 +32,14 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Grouping",
-   "options": "\nCapital Advance\nCapital Payable\nDeposit\nEmployee Advance\nEmployee Foreign Advance\nEmployee Imprest\nEmployee Loan\nEmployee Payable\nRM/PM Advance\nRM/PM Payable\nService Advance\nService Payable"
+   "options": "\nCapital Advance\nCapital Payable\nDeposit\nEmployee Advance\nEmployee Foreign Advance\nEmployee Payable\nEmployee Foreign Payable\nEmployee Imprest\nEmployee Loan\nRM/PM Advance\nRM/PM Payable\nService Advance\nService Payable"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-09-02 11:49:05.847728",
+ "modified": "2025-11-05 13:53:56.893810",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "GL Account For Grouping",
