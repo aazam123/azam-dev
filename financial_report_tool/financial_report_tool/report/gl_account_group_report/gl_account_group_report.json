@@ -32,10 +32,10 @@
    "wildcard_filter": 0
   }
  ],
- "idx": 0,
+ "idx": 1,
  "is_standard": "Yes",
  "letterhead": null,
- "modified": "2025-09-24 12:18:42.945569",
+ "modified": "2025-11-13 14:04:33.251171",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "GL Account Group Report",
@@ -47,7 +47,10 @@
  "report_type": "Query Report",
  "roles": [
   {
-   "role": "System Manager"
+   "role": "Financial Report Manager"
+  },
+  {
+   "role": "Financial Report User"
   }
  ],
  "timeout": 0

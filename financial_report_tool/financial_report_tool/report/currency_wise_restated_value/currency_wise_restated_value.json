@@ -10,7 +10,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letterhead": null,
- "modified": "2025-09-02 12:53:44.206355",
+ "modified": "2025-11-13 14:05:02.687613",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Currency Wise Restated Value",
@@ -21,7 +21,10 @@
  "report_type": "Script Report",
  "roles": [
   {
-   "role": "System Manager"
+   "role": "Financial Report Manager"
+  },
+  {
+   "role": "Financial Report User"
   }
  ],
  "timeout": 0

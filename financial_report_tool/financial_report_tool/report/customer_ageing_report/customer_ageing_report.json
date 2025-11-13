@@ -10,7 +10,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letterhead": null,
- "modified": "2025-08-22 10:55:34.090589",
+ "modified": "2025-11-13 14:06:03.908005",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Customer Ageing Report",
@@ -21,7 +21,10 @@
  "report_type": "Script Report",
  "roles": [
   {
-   "role": "System Manager"
+   "role": "Financial Report Manager"
+  },
+  {
+   "role": "Financial Report User"
   }
  ],
  "timeout": 0

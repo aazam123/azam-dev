@@ -10,7 +10,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letterhead": null,
- "modified": "2025-09-02 14:34:22.368044",
+ "modified": "2025-11-13 14:04:48.667942",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Vendor Ageing Report",
@@ -21,7 +21,10 @@
  "report_type": "Script Report",
  "roles": [
   {
-   "role": "System Manager"
+   "role": "Financial Report Manager"
+  },
+  {
+   "role": "Financial Report User"
   }
  ],
  "timeout": 0
