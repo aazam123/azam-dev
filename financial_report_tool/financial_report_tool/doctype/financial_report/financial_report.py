@@ -60,9 +60,6 @@ class FinancialReport(Document):
 			frappe.msgprint(f"Version Control record created for Financial Report: {self.name}")
 
 	def before_save(self):
-		if self.approved_on:
-			frappe.throw("This report has already been approved. You cannot regenerate it.")
-
 		self.update_consolidation_note_numbers()
 
 		# Update section names

@@ -188,11 +188,10 @@ async function generateFinancialReport(frm) {
         return;
     }
 
-    if (frm.doc.approved_on) {
-        frappe.msgprint("This report has already been approved. You cannot regenerate it.", "Error");
+    if (frm.doc.workflow_state && frm.doc.workflow_state == "Approved") {
+        frappe.msgprint("This report has already been approved. You cannot regenerate it.", "Warning");
         return;
     }
-
 
     const progress_dialog = new frappe.ui.Dialog({
         title: "Generating Financial Report",
