@@ -81,7 +81,7 @@ class FinancialReport(Document):
 		foreign_exchange_rate = f"""
 			<table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:-35px 0;">
 				<thead>
-					<tr style="background-color:#f9f9f9;">
+					<tr style = "border-bottom:2px solid #222;">
 						<th style="border:1px solid #ddd; padding:4px;">Month</th>
 						<th style="border:1px solid #ddd; padding:4px;">Year</th>
 						<th style="border:1px solid #ddd; padding:4px;">Closing Rate</th>
@@ -471,7 +471,7 @@ class FinancialReport(Document):
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:50%; padding:6px 8px;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{current_year_date}</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{previous_year_date}</b></th>
@@ -554,7 +554,7 @@ class FinancialReport(Document):
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:50%; padding:6px 8px;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{current_year_date}</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{previous_year_date}</b></th>
@@ -635,7 +635,7 @@ class FinancialReport(Document):
 			html = f'''
 			<table style="width:100%; border-collapse:collapse; font-size:13px;">
 				<thead>
-					<tr>
+					<tr style = "border-bottom:2px solid #222;">
 						<th style="border:1px solid #222; text-align:left; width:50%; padding:6px 8px;"><b>Particulars</b></th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{current_month_date}</b></th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{previous_month_date}</b></th>
@@ -670,7 +670,7 @@ class FinancialReport(Document):
 			html = '''
 			<table style="width:100%; border-collapse:collapse; font-size:13px;">
 				<thead>
-					<tr>
+					<tr style = "border-bottom:2px solid #222;">
 						<th style="border:1px solid #222; text-align:left; width:70%; padding:6px 8px;"><b>Particulars</b></th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>As at 31-03-2025</b></th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>As at 31-03-2024</b></th>
@@ -717,7 +717,7 @@ class FinancialReport(Document):
 		html = '''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:70%; padding:6px 8px; background:#f2f2f0;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#f2f2f0;"><b>As at 31-03-2025</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#f2f2f0;"><b>As at 31-03-2024</b></th>
@@ -817,7 +817,7 @@ class FinancialReport(Document):
 		html = '''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:50%; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#e8f5e8;"><b>As at 31-03-2025</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;"><b>As at 31-03-2024</b></th>
@@ -853,7 +853,7 @@ class FinancialReport(Document):
 			<b>Trade receivables include the following amounts receivable from related parties:</b>
 			<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top:4px;">
 				<thead>
-					<tr>
+					<tr style = "border-bottom:2px solid #222;">
 						<th style="border:1px solid #222; text-align:left; width:70%; padding:6px 8px; background:#fafbfc;">Party</th>
 						<th style="border:1px solid #222; text-align:right; padding:6px 8px; background:#fafbfc;">As at 31-03-2025</th>
 						<th style="border:1px solid #222; text-align:right; padding:6px 8px; background:#fafbfc;">As at 31-03-2024</th>
@@ -887,7 +887,7 @@ class FinancialReport(Document):
 			<b>Ageing for trade & other receivables outstanding as at 31st March, 2025</b>
 			<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top:4px;">
 				<thead>
-					<tr>
+					<tr style = "border-bottom:2px solid #222;">
 						<th style="border:1px solid #222; text-align:left; width:30%; padding:6px 8px; background:#fafbfc;" rowspan="2">Particulars</th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" rowspan="2">Not Due</th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" colspan="5">Outstanding for following periods from due date of payment as on 31-03-2025</th>
@@ -939,7 +939,7 @@ class FinancialReport(Document):
 			<b>Ageing for trade & other receivables outstanding as at 31st March, 2024</b>
 			<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top:4px;">
 				<thead>
-					<tr>
+					<tr style = "border-bottom:2px solid #222;">
 						<th style="border:1px solid #222; text-align:left; width:30%; padding:6px 8px; background:#fafbfc;" rowspan="2">Particulars</th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" rowspan="2">Not Due</th>
 						<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;" colspan="5">Outstanding for following periods from due date of payment as on 31-03-2024</th>
@@ -1048,7 +1048,7 @@ class FinancialReport(Document):
 		table = '''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:50%; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;"><b>Face Value</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#e8f5e8;" colspan="2"><b>As at 31-03-2025</b></th>
@@ -1133,7 +1133,7 @@ class FinancialReport(Document):
 			note_table = f'''
 			<table style="width:100%; border-collapse:collapse; font-size:13px;">
 				<thead>
-					<tr style="background-color: #f1f1f1;">
+					<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 						<th style='border:1px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
 						<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%; background-color: #e8f5e8;'>{current_month_date}</th>
 						<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%;'>{previous_month_date}</th>
@@ -1181,7 +1181,7 @@ class FinancialReport(Document):
 			note_table = f'''
 			<table style="width:100%; border-collapse:collapse; font-size:13px;">
 				<thead>
-					<tr style="background-color: #f1f1f1;">
+					<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 						<th style='border:1px solid #222; text-align:left; padding: 5px; width: 60%;'>Particulars</th>
 						<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%; background-color: #e8f5e8;'>Year Ended <br> {current_year_date}</th>
 						<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%;'>Year Ended <br> {previous_year_date}</th>
@@ -1303,7 +1303,7 @@ class FinancialReport(Document):
 		html = f"""
 		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
 			<thead>
-				<tr style="background-color: #f1f1f1;">
+				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 					<th style='text-align:left; padding: 5px; width: 5%; border: 1px solid black;'></th>
 					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
 					<th style='text-align:center; padding: 5px; width: 10%; border: 1px solid black;'>Note No.</th>
@@ -1433,7 +1433,7 @@ class FinancialReport(Document):
 		html = f"""
 		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
 			<thead>
-				<tr style="background-color: #f1f1f1;">
+				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 					<th style='text-align:center; padding: 5px; width: 5%; border: 1px solid black;'></th>
 					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
 					<th style='text-align:center; padding: 5px; width: 10%; border: 1px solid black;'>Note No.</th>
@@ -1601,7 +1601,7 @@ class FinancialReport(Document):
 		html = f"""
 		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
 			<thead>
-				<tr style="background-color: #f1f1f1;">
+				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 					<th style='text-align:center; padding: 5px; width: 5%; border: 1px solid black;'></th>
 					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
 					<th style='text-align:center; padding: 5px; width: 20%; border: 1px solid black; background-color: #e8f5e8;'>As at <br> {current_year_date}</th>
@@ -1651,7 +1651,7 @@ class FinancialReport(Document):
 		<h5 style="text-align: left; font-weight: bold; padding: 8px; margin-bottom: -50px">A. Equity share capital (Amount in ₹ Lacs)</h5>
 		<table style="width: 60%; border-collapse: collapse; border: 1px solid #000; font-family: Arial, sans-serif; font-size: 13px;">
 		<thead>
-			<tr>
+			<tr style = "border-bottom:2px solid #222;">
 				<th style="padding: 8px; border: 1px solid black; width: 50%;">Particulars</th>
 				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 25%;">Number of Shares</th>
 				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 25%; background-color: #e8f5e8;">Equity share capital</th>
@@ -1881,7 +1881,7 @@ class FinancialReport(Document):
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{month_end_label}</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>FTM</b></th>
@@ -2017,7 +2017,7 @@ class FinancialReport(Document):
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>FTM</b></th>
@@ -2143,7 +2143,7 @@ class FinancialReport(Document):
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border-bottom:1px solid #222;">
 			<thead>
-				<tr style="background-color: #f1f1f1;">
+				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 5%;'></th>
 					<th style='border:1px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
 					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>Note No.</th>
@@ -2233,7 +2233,7 @@ class FinancialReport(Document):
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border-bottom:1px solid #222;">
 			<thead>
-				<tr style="background-color: #f1f1f1;">
+				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 5%;'></th>
 					<th style='border:1px solid #222; text-align:left; padding: 5px; font-size: 12px; width: 40%;'>Particulars</th>
 					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%;'>Note No.</th>
@@ -2294,7 +2294,7 @@ class FinancialReport(Document):
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border-bottom:1px solid #222;">
 			<thead>
-				<tr style="background-color: #f1f1f1;">
+				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 5%;'></th>
 					<th style='border:1px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
 					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 15%; background-color: #e8f5e8;'>{month_end_label}</th>
@@ -2350,7 +2350,7 @@ class FinancialReport(Document):
 		<h5 style="text-align: left; font-weight: bold; padding: 8px; margin-bottom: -50px">A. Equity share capital (Amount in ₹ Lacs)</h5>
 		<table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-family: Arial, sans-serif; font-size: 13px; margin-top: -25pt;">
 		<thead>
-			<tr>
+			<tr style = "border-bottom:2px solid #222;">
 				<th style="padding: 8px; border: 1px solid black; width: 40%;">Particulars</th>
 				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 20%;">Number of Shares</th>
 				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 13%; background-color: #e8f5e8;">{month_end_label}</th>
@@ -2394,7 +2394,7 @@ class FinancialReport(Document):
 		note_table = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt;">
 			<thead>
-				<tr style="background-color: #f1f1f1;">
+				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
 					<th style='border:1px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
 					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%; background-color: #e8f5e8;'>{month_end_label}</th>
 					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%;'>FTM</th>
@@ -2901,7 +2901,7 @@ class FinancialReport(Document):
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:50%; padding:6px 8px;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>FTM</b></th>
@@ -3066,7 +3066,7 @@ class FinancialReport(Document):
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top:-25pt;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px; background:#f2f2f0;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#e8f5e8;"><b>{month_end_label}</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#f2f2f0;"><b>{current_fiscal_year_end_label}</b></th>
@@ -3153,7 +3153,7 @@ class FinancialReport(Document):
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#e8f5e8;"><b>{month_end_label}</b></th>
 					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;"><b>{current_fiscal_year_end_label}</b></th>
@@ -3269,7 +3269,7 @@ class FinancialReport(Document):
 		table = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt;">
 			<thead>
-				<tr>
+				<tr style = "border-bottom:2px solid #222;">
 					<th rowspan="2" style="border:1px solid #222; width:35%; text-align:left; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
 					<th rowspan="2" style="border:1px solid #222; width:10%; text-align:center; background:#fafbfc;"><b>Face Value</b></th>
 					<th colspan="2" style="border:1px solid #222; text-align:center; background:#e8f5e8;"><b>{month_end_label}</b></th>
