@@ -3028,15 +3028,15 @@ class FinancialReport(Document):
 		bal_sp_tot_prev = sp_previous_mnt + add_sp_previous_mnt
 
 		# --- Surplus in Foreign Exchange Reserves ---
-		for_exc_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", cls_month, pre_year), self.show_decimal_value) or 0
+		for_exc_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Opening - Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
 		add_for_exc_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
 		prev_year_for_exc_res_tot = round(for_exc_previous_year + add_for_exc_previous_year, self.show_decimal_value)
 
 		curr_add_for_exc_res = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
 		prev_add_for_exc_res = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
 
-		curr_for_exc_res_tot = prev_year_for_exc_res_tot + curr_add_for_exc_res
-		prev_for_exc_res_tot = prev_year_for_exc_res_tot + prev_add_for_exc_res
+		curr_for_exc_res_tot = round(prev_year_for_exc_res_tot + curr_add_for_exc_res, self.show_decimal_value)
+		prev_for_exc_res_tot = round(prev_year_for_exc_res_tot + prev_add_for_exc_res, self.show_decimal_value)
 
 		# --- Grand Totals ---
 		grand_total_current = retained_tot_current + cc_closing_current + bal_sp_tot_current + curr_for_exc_res_tot
