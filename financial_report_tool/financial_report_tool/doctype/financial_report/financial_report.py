@@ -2946,7 +2946,6 @@ class FinancialReport(Document):
 		net_current_mnt, net_previous_mnt, net_previous_year = self.get_monthly_profit_and_loss_data(p_and_l_template, fetch_for_other_equity=True)
 
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
-
 		if default_currency != self.currency:
 			sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
 			bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
@@ -3028,10 +3027,21 @@ class FinancialReport(Document):
 		bal_sp_tot_current = sp_current_mnt + add_sp_current_mnt
 		bal_sp_tot_prev = sp_previous_mnt + add_sp_previous_mnt
 
+		# --- Surplus in Foreign Exchange Reserves ---
+		for_exc_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", cls_month, pre_year), self.show_decimal_value) or 0
+		add_for_exc_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
+		prev_year_for_exc_res_tot = for_exc_previous_year + add_for_exc_previous_year
+
+		curr_add_for_exc_res = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
+		prev_add_for_exc_res = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
+
+		curr_for_exc_res_tot = prev_year_for_exc_res_tot + curr_add_for_exc_res
+		prev_for_exc_res_tot = prev_year_for_exc_res_tot + prev_add_for_exc_res
+
 		# --- Grand Totals ---
-		grand_total_current = retained_tot_current + cc_closing_current + bal_sp_tot_current
-		grand_total_previous = retained_tot_prev + cc_closing_previous + bal_sp_tot_prev
-		grand_total_prev_year = retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year
+		grand_total_current = retained_tot_current + cc_closing_current + bal_sp_tot_current + curr_for_exc_res_tot
+		grand_total_previous = retained_tot_prev + cc_closing_previous + bal_sp_tot_prev + prev_for_exc_res_tot
+		grand_total_prev_year = retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year + prev_year_for_exc_res_tot
 
 		# --- Return if only total requested ---
 		if total and field:
@@ -3042,12 +3052,16 @@ class FinancialReport(Document):
 			else:
 				return 0
 
-		# --- Table Rows ---
 		data = [
 			("Securities premium account", "", "", "", True),
 			("Balance as at the beginning of the year", sp_current_mnt, sp_previous_mnt, sp_previous_year, False),
 			("Addition: During the year on issue of equity shares", add_sp_current_mnt, add_sp_previous_mnt, add_sp_previous_year, False),
 			("Balance as at the end of the year", bal_sp_tot_current, bal_sp_tot_prev, bal_sp_tot_prev_year, True),
+
+			("Surplus in Foreign Exchange Reserves", "", "", "", True),
+			("Balance as at the beginning of the year", prev_year_for_exc_res_tot, prev_year_for_exc_res_tot, for_exc_previous_year, False),
+			("Addition during the year", curr_add_for_exc_res, prev_add_for_exc_res, add_for_exc_previous_year, False),
+			("Balance as at the end of the year", curr_for_exc_res_tot, prev_for_exc_res_tot, prev_year_for_exc_res_tot, True),
 
 			("Retained earnings", "", "", "", True),
 			("Balance as at the beginning of the year", bal_current_mnt, bal_previous_mnt, bal_previous_year, False),
