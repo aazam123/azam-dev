@@ -1741,11 +1741,15 @@ class FinancialReport(Document):
 		# Compute month-end dates
 		if current_month_num == 12:
 			month_end_date = datetime(current_year, 12, 31)
+		elif current_month_num <= 3:
+			month_end_date = datetime(current_year+1, current_month_num + 1, 1) - timedelta(days=1)
 		else:
 			month_end_date = datetime(current_year, current_month_num + 1, 1) - timedelta(days=1)
 
 		if previous_month_num == 12:
-			previous_month_end_date = datetime(current_year - 1, 12, 31)
+			previous_month_end_date = datetime(current_year, 12, 31)
+		elif previous_month_num <= 3:
+			previous_month_end_date = datetime(current_year+1, previous_month_num + 1, 1) - timedelta(days=1)
 		else:
 			previous_month_end_date = datetime(current_year, previous_month_num + 1, 1) - timedelta(days=1)
 
