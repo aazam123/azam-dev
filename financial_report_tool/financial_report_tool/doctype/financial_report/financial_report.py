@@ -3039,9 +3039,9 @@ class FinancialReport(Document):
 		prev_for_exc_res_tot = round(prev_year_for_exc_res_tot + prev_add_for_exc_res, self.show_decimal_value)
 
 		# --- Grand Totals ---
-		grand_total_current = retained_tot_current + cc_closing_current + bal_sp_tot_current + curr_for_exc_res_tot
-		grand_total_previous = retained_tot_prev + cc_closing_previous + bal_sp_tot_prev + prev_for_exc_res_tot
-		grand_total_prev_year = retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year + prev_year_for_exc_res_tot
+		grand_total_current = round(retained_tot_current + cc_closing_current + bal_sp_tot_current + curr_for_exc_res_tot, self.show_decimal_value)
+		grand_total_previous = round(retained_tot_prev + cc_closing_previous + bal_sp_tot_prev + prev_for_exc_res_tot, self.show_decimal_value)
+		grand_total_prev_year = round(retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year + prev_year_for_exc_res_tot, self.show_decimal_value)
 
 		# --- Return if only total requested ---
 		if total and field:
