@@ -3030,7 +3030,7 @@ class FinancialReport(Document):
 		# --- Surplus in Foreign Exchange Reserves ---
 		for_exc_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", cls_month, pre_year), self.show_decimal_value) or 0
 		add_for_exc_previous_year = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
-		prev_year_for_exc_res_tot = for_exc_previous_year + add_for_exc_previous_year
+		prev_year_for_exc_res_tot = round(for_exc_previous_year + add_for_exc_previous_year, self.show_decimal_value)
 
 		curr_add_for_exc_res = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
 		prev_add_for_exc_res = round(self.sum_group_amt_monthly("Other Equity", "Currency Fluctuation", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
