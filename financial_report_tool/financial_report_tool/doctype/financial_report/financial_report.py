@@ -3230,11 +3230,11 @@ class FinancialReport(Document):
 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
 			current_month_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_start_date]], 'month': self.current_month},
+				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_end_date]], 'month': self.current_month},
 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
 			previous_month_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_start_date]], 'month': self.previous_month},
+				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_end_date]], 'month': self.previous_month},
 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
 			e_previous = previous_equity_entries[0] if previous_equity_entries else None
