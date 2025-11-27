@@ -1748,7 +1748,7 @@ class FinancialReport(Document):
 
 		if previous_month_num == 12:
 			previous_month_end_date = datetime(current_year, 12, 31)
-		elif previous_month_num <= 3:
+		elif previous_month_num < 3:
 			previous_month_end_date = datetime(current_year+1, previous_month_num + 1, 1) - timedelta(days=1)
 		else:
 			previous_month_end_date = datetime(current_year, previous_month_num + 1, 1) - timedelta(days=1)

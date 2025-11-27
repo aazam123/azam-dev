@@ -13,4 +13,4 @@ class FREquityEntry(Document):
 			else:
 				date_obj = self.posting_date
 			self.month = date_obj.strftime("%B")
-		self.investment_value = round(self.exchanges_rate * self.investment_value_fc)
+		self.investment_value = round(self.exchanges_rate * self.investment_value_fc, 3)
