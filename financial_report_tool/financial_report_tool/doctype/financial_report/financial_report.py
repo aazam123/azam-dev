@@ -3216,7 +3216,7 @@ class FinancialReport(Document):
 		}]
 
 		fiscal_doc = frappe.get_doc("Fiscal Year", self.fiscal_year)
-		all_companies = frappe.get_list("FR Equity Entry", {"holding_company": self.company}, pluck="company")
+		all_companies = set(frappe.get_list("FR Equity Entry", {"holding_company": self.company}, pluck="company"))
 
 		total_current = total_previous = total_previous_year = 0
 
