@@ -18,6 +18,7 @@
   "has_note_no",
   "show_reversed_value",
   "fetch_from_schedule",
+  "is_purchase_of_stock_in_trade",
   "section_break_hygu",
   "primary_and_secondary_group_mapping"
  ],
@@ -101,12 +102,18 @@
    "fieldname": "to_subtract",
    "fieldtype": "Check",
    "label": "To Subtract"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_purchase_of_stock_in_trade",
+   "fieldtype": "Check",
+   "label": "Is Purchase of Stock In Trade"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-25 22:53:02.504171",
+ "modified": "2025-12-15 13:54:14.356605",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",

@@ -267,6 +267,7 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
+		# do_generate_report(doc.name)
 		frappe.enqueue(
 			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
 			docname=doc.name,
@@ -1097,89 +1098,35 @@ class FinancialReport(Document):
 		return table
 
 	def get_consolidation_note_data(self, primary_group):
-		default_currency = frappe.get_value("Company", self.company, 'default_currency')
-		if primary_group == "Purchases of Stock in Trade" and default_currency != "INR":
-			cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-
-			# --- Current & Previous Month Stocks ---
-			opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
-			closing_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
-			closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
-
-
-			purchases_current = (
-				self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
-				- self.get_monthly_finished_goods_and_wip(note_type, total=True, field='net_increase_total')
-				+ (closing_stock_current - opening_stock)
-			)
-
-			purchases_previous = (
-				self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year)
-				- self.get_monthly_finished_goods_and_wip(note_type, total=True, field='previous_month_amt')
-				+ (closing_stock_previous - opening_stock)
-			)
-
-			closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
-			prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
-
-			closing_wip_pre_previous = (
-				self.sum_group_amt("Inventories", "Work in Progress", pre_year)
-				+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
-				+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
-			)
-			prev_year_closing_wip = (
-				self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
-				+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
-				+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
-			)
-
-			prev_year_purchases = (
-				self.sum_group_amt("Material consumed", "Cost of Goods Sold", self.previous_fiscal_year)
-				+ (prev_year_closing_wip - closing_wip_pre_previous)
-				+ (prev_year_closing_stock - closing_stock_pre_previous)
-			)
-
-			data.append({
-				"account": "Purchases of Stock in Trade",
-				"current_month_amount": round(purchases_current, self.show_decimal_value),
-				"previous_month_amount": round(purchases_previous, self.show_decimal_value),
-				"ftm_amount": round(purchases_current - purchases_previous, self.show_decimal_value),
-				"previous_year_amount": round(previous_year_amount, self.show_decimal_value),
-				"indent": 0,
-				"is_bold": 0
-			})
-
+		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+		data = []
+		
+		if self.report_type == "Monthly":
+			for sec in secondary_groups:
+				current_month_amount = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year)
+				previous_month_amount = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year)
+				ftm_amount = current_month_amount - previous_month_amount
+				previous_year_amount = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
+				
+				data.append({
+					"account": sec,
+					"current_month_amount": current_month_amount,
+					"previous_month_amount": previous_month_amount,
+					"ftm_amount": ftm_amount,
+					"indent": 0,
+					"is_bold": 0
+				})
 		else:
-			secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
-			data = []
-			
-			if self.report_type == "Monthly":
-				for sec in secondary_groups:
-					current_month_amount = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year)
-					previous_month_amount = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year)
-					ftm_amount = current_month_amount - previous_month_amount
-					previous_year_amount = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
-					
-					data.append({
-						"account": sec,
-						"current_month_amount": current_month_amount,
-						"previous_month_amount": previous_month_amount,
-						"ftm_amount": ftm_amount,
-						"previous_year_amount": previous_year_amount,
-						"indent": 0,
-						"is_bold": 0
-					})
-			else:
-				for sec in secondary_groups:
-					amount = self.sum_group_amt(primary_group, sec, self.fiscal_year)
-					previous_year_amount = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
-					data.append({
-						"account": sec,
-						"amount": amount,
-						"previous_year_amount": previous_year_amount,
-						"indent": 0,
-						"is_bold": 0
-					})
+			for sec in secondary_groups:
+				amount = self.sum_group_amt(primary_group, sec, self.fiscal_year)
+				previous_year_amount = self.sum_group_amt(primary_group, sec, self.previous_fiscal_year)
+				data.append({
+					"account": sec,
+					"amount": amount,
+					"previous_year_amount": previous_year_amount,
+					"indent": 0,
+					"is_bold": 0
+				})
 		return data
 	
 	def table_for_note_template_1(self, data):
@@ -1982,14 +1929,14 @@ class FinancialReport(Document):
 
 		purchases_current = (
 			self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.current_month, self.fiscal_year)
-			- self.get_monthly_finished_goods_and_wip(note_type, total=True, field='net_increase_total')
+			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip(note_type, total=True, field='net_increase_total'))
 			+ (closing_stock_current - opening_stock)
 			- curr_month_purchase_sit
 		)
 
 		purchases_previous = (
 			self.sum_group_amt_monthly("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year)
-			- self.get_monthly_finished_goods_and_wip(note_type, total=True, field='previous_month_amt')
+			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip(note_type, total=True, field='previous_month_amt'))
 			+ (closing_stock_previous - opening_stock)
 			- prev_month_purchase_sit
 		)
@@ -2021,7 +1968,7 @@ class FinancialReport(Document):
 		pre_purchase_sit = 0 if default_currency != "INR" else self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
 		prev_year_purchases = (
 			self.sum_group_amt("Material consumed", "Cost of Goods Sold", self.previous_fiscal_year)
-			+ (prev_year_closing_wip - closing_wip_pre_previous)
+			+ (0 if default_currency != "INR" else (prev_year_closing_wip - closing_wip_pre_previous))
 			+ (prev_year_closing_stock - closing_stock_pre_previous)
 			- pre_purchase_sit
 		)
@@ -2112,10 +2059,8 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def get_monthly_consolidation_note_data(self, primary_group):
-		"""Get monthly consolidation note data with current month, previous month, and FTM amounts"""
-		show_reversed_value, group_type = frappe.get_value("Standalone Group", primary_group, ["show_reversed_value", "group_type"])
 		data = []
-
+		show_reversed_value, group_type = frappe.get_value("Standalone Group", primary_group, ["show_reversed_value", "group_type"])
 		def format_amount(val):
 			return flt(-val if show_reversed_value and val < 0 else val or 0)
 
@@ -2124,72 +2069,112 @@ class FinancialReport(Document):
 				"ftm_amount": format_amount(ftm), "previous_year": format_amount(py), "indent": indent, "is_bold": 0
 			})
 
-		if group_type in ("Other Income", "Other Expense"):
-			primary_groups = frappe.get_list("Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
-		else:
-			primary_groups = [primary_group]
-		
-		for primary_group in primary_groups:
-			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group], "company": self.company, "report_type": self.report_type}, pluck="secondary_group")
-			secondary_groups = sorted(set(filter(None, secondary_groups)))
-			custom_order = frappe.db.get_value("Schedule Reorder",{"primary_group": primary_group},"name")
-			if custom_order:
-				ordered_rows = frappe.get_all("Schedule Reorder Details",filters={"parent": custom_order},fields=["standalone_group"],order_by="idx asc")
-				ordered_groups = [r.standalone_group for r in ordered_rows if r.standalone_group]
-				secondary_consolidation_groups = [g for g in ordered_groups if g in secondary_groups]
-				missing_groups = [g for g in secondary_groups if g not in ordered_groups]
-				secondary_consolidation_groups.extend(sorted(missing_groups))
-			else:
-				secondary_consolidation_groups = secondary_groups
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+		if primary_group == "Purchases of Stock in Trade" and default_currency != "INR":
+			cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+			opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
+			closing_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
+			closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
 
-			report_type = frappe.get_value("Standalone Group", primary_group, 'report_type')
-			default_currency = frappe.get_value("Company", self.company, 'default_currency')
-			cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
-			if default_currency != self.currency:
-				if report_type == "Balance Sheet":
-					field_name = 'closing_rate'
-				elif report_type == "Profit & Loss":
-					field_name = 'average_rate'
+			purchases_current = (
+				self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
+				- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='net_increase_total')
+				+ (closing_stock_current - opening_stock)
+			)
+			purchases_previous = (
+				self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
+				- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='previous_month_amt')
+				+ (closing_stock_previous - opening_stock)
+			)
+
+			closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
+			prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
+
+			closing_wip_pre_previous = (
+				self.sum_group_amt("Inventories", "Work in Progress", pre_year)
+				+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
+				+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
+			)
+			prev_year_closing_wip = (
+				self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+				+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+				+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+			)
+
+			prev_year_purchases = (
+				self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
+				+ (prev_year_closing_wip - closing_wip_pre_previous)
+				+ (prev_year_closing_stock - closing_stock_pre_previous)
+			)
+			append_data(primary_group, purchases_current, purchases_previous, (purchases_current - purchases_previous), round(prev_year_purchases, self.show_decimal_value))
+		else:
+			if group_type in ("Other Income", "Other Expense"):
+				primary_groups = frappe.get_list("Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
+			else:
+				primary_groups = [primary_group]
+			
+			for primary_group in primary_groups:
+				secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group], "company": self.company, "report_type": self.report_type}, pluck="secondary_group")
+				secondary_groups = sorted(set(filter(None, secondary_groups)))
+				custom_order = frappe.db.get_value("Schedule Reorder",{"primary_group": primary_group},"name")
+				if custom_order:
+					ordered_rows = frappe.get_all("Schedule Reorder Details",filters={"parent": custom_order},fields=["standalone_group"],order_by="idx asc")
+					ordered_groups = [r.standalone_group for r in ordered_rows if r.standalone_group]
+					secondary_consolidation_groups = [g for g in ordered_groups if g in secondary_groups]
+					missing_groups = [g for g in secondary_groups if g not in ordered_groups]
+					secondary_consolidation_groups.extend(sorted(missing_groups))
+				else:
+					secondary_consolidation_groups = secondary_groups
+
+				report_type = frappe.get_value("Standalone Group", primary_group, 'report_type')
+				default_currency = frappe.get_value("Company", self.company, 'default_currency')
+				cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+				if default_currency != self.currency:
+					if report_type == "Balance Sheet":
+						field_name = 'closing_rate'
+					elif report_type == "Profit & Loss":
+						field_name = 'average_rate'
+					else:
+						field_name = None
 				else:
 					field_name = None
-			else:
-				field_name = None
 
-			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, field_name) if field_name else 1
-			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, field_name) if field_name else 1
-			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, field_name) if field_name else 1 
-			
-			for sec in secondary_consolidation_groups:
-				cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year) * current_fx
-				pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year) * previous_fx
-				ftm = round(cm - pm, self.show_decimal_value)
-				py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year) * prev_year_fx
-				has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": primary_group, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
-
-				if group_type in ("Other Income", "Other Expense"):
-					if group_type == "Other Income":
-						cm = cm if cm < 0 else 0
-						pm = pm if pm < 0 else 0
-						py = py if py < 0 else 0
-					elif group_type == "Other Expense":
-						cm = cm if cm > 0 else 0
-						pm = pm if pm > 0 else 0
-						py = py if py > 0 else 0
-
-					if any(val != 0 for val in (cm, pm, py)):
-						append_data(sec, cm, pm, round(cm-pm, self.show_decimal_value), py)
-				else:
-					if any(val != 0 for val in (cm, pm, py)) or has_hg_sec_group:
-						append_data(sec, cm, pm, round(cm-pm, self.show_decimal_value), py)
+				current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, field_name) if field_name else 1
+				previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, field_name) if field_name else 1
+				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, field_name) if field_name else 1 
 				
-				for hg_sec in has_hg_sec_group:
-					cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year, hg_sec_group=hg_sec) * current_fx
-					pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year, hg_sec_group=hg_sec) * previous_fx
+				for sec in secondary_consolidation_groups:
+					cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year) * current_fx
+					pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year) * previous_fx
 					ftm = round(cm - pm, self.show_decimal_value)
-					py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year, hg_sec_group=hg_sec) * prev_year_fx
+					py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year) * prev_year_fx
+					has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": primary_group, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
 
-					if any(val != 0 for val in (cm, pm, py)):
-						append_data(hg_sec, cm, pm, ftm, py, indent = 1)
+					if group_type in ("Other Income", "Other Expense"):
+						if group_type == "Other Income":
+							cm = cm if cm < 0 else 0
+							pm = pm if pm < 0 else 0
+							py = py if py < 0 else 0
+						elif group_type == "Other Expense":
+							cm = cm if cm > 0 else 0
+							pm = pm if pm > 0 else 0
+							py = py if py > 0 else 0
+
+						if any(val != 0 for val in (cm, pm, py)):
+							append_data(sec, cm, pm, round(cm-pm, self.show_decimal_value), py)
+					else:
+						if any(val != 0 for val in (cm, pm, py)) or has_hg_sec_group:
+							append_data(sec, cm, pm, round(cm-pm, self.show_decimal_value), py)
+					
+					for hg_sec in has_hg_sec_group:
+						cm = self.sum_group_amt_monthly(primary_group, sec, self.current_month, self.fiscal_year, hg_sec_group=hg_sec) * current_fx
+						pm = self.sum_group_amt_monthly(primary_group, sec, self.previous_month, self.fiscal_year, hg_sec_group=hg_sec) * previous_fx
+						ftm = round(cm - pm, self.show_decimal_value)
+						py = self.sum_group_amt_monthly(primary_group, sec, cls_month, self.previous_fiscal_year, hg_sec_group=hg_sec) * prev_year_fx
+
+						if any(val != 0 for val in (cm, pm, py)):
+							append_data(hg_sec, cm, pm, ftm, py, indent = 1)
 
 		return data
 
@@ -2565,6 +2550,47 @@ class FinancialReport(Document):
 				elif note_type == "Cost of Materials Consumed":
 					field = 'cost_consumed_current' if is_current else ('prev_year_cost_consumed' if is_yearly else 'cost_consumed_previous')
 					amount = self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
+
+			elif fr_particular.schedule and fr_particular.is_purchase_of_stock_in_trade:
+				cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+				opening_stock = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
+				closing_stock_current = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
+				closing_stock_previous = self.sum_group_amt_monthly("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
+
+				if is_current:
+					amount = (
+						self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
+						- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='net_increase_total')
+						+ (closing_stock_current - opening_stock)
+					)
+
+				elif is_yearly:
+					closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
+					prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
+
+					closing_wip_pre_previous = (
+						self.sum_group_amt("Inventories", "Work in Progress", pre_year)
+						+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
+						+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
+					)
+
+					prev_year_closing_wip = (
+						self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+						+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+						+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+					)
+
+					amount = (
+						self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
+						+ (prev_year_closing_wip - closing_wip_pre_previous)
+						+ (prev_year_closing_stock - closing_stock_pre_previous)
+					)
+				else:
+					amount = (
+						self.sum_group_amt_monthly("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
+						- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='previous_month_amt')
+						+ (closing_stock_previous - opening_stock)
+					)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
