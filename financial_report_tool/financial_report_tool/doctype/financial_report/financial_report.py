@@ -308,20 +308,20 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		doc._generate_report_internal()
-		# frappe.enqueue(
-		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-		# 	docname=doc.name,
-		# 	queue='long',                 
-		# 	job_name=f"Generate Financial Report - {doc.name}",
-		# 	timeout=600                   
-		# )
+		# doc._generate_report_internal()
+		frappe.enqueue(
+			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+			docname=doc.name,
+			queue='long',                 
+			job_name=f"Generate Financial Report - {doc.name}",
+			timeout=600                   
+		)
 
-		# return {
-		# 	"success": True,
-		# 	"message": f"Report generation started in background for {doc.name}. "
-		# 			f"You will be notified once it is complete."
-		# }
+		return {
+			"success": True,
+			"message": f"Report generation started in background for {doc.name}. "
+					f"You will be notified once it is complete."
+		}
 
 	def _generate_report_internal(self):
 		if self.report_type == "Monthly":
