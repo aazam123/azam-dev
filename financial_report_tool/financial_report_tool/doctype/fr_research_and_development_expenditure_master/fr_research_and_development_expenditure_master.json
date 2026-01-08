@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:RDEM-{####}",
+ "creation": "2026-01-08 13:01:08.277408",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_tvbb",
+  "fiscal_year",
+  "column_break_nvqa",
+  "month",
+  "section_break_etsv",
+  "revenue_expenditure_column",
+  "employee_benefits_expense",
+  "other_expenses",
+  "capital_expenditure_column",
+  "property_plant_and_equipment",
+  "intangible_assets"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_tvbb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_nvqa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_etsv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "revenue_expenditure_column",
+   "fieldtype": "Column Break",
+   "label": "Revenue Expenditure"
+  },
+  {
+   "fieldname": "employee_benefits_expense",
+   "fieldtype": "Float",
+   "label": "Employee benefits expense"
+  },
+  {
+   "fieldname": "other_expenses",
+   "fieldtype": "Float",
+   "label": "Other Expenses"
+  },
+  {
+   "fieldname": "capital_expenditure_column",
+   "fieldtype": "Column Break",
+   "label": "Capital Expenditure"
+  },
+  {
+   "fieldname": "property_plant_and_equipment",
+   "fieldtype": "Float",
+   "label": "Property, Plant and Equipment"
+  },
+  {
+   "fieldname": "intangible_assets",
+   "fieldtype": "Float",
+   "label": "Intangible Assets"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-08 14:10:39.640188",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Research and Development Expenditure Master",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

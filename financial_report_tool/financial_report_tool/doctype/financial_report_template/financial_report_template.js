@@ -15,7 +15,8 @@ frappe.ui.form.on("Financial Report Template Details", {
 		} else if(row.section_type == "Cash Flow"){
 			frappe.model.set_value(cdt, cdn, "doctype_name", "Cash Flow Template");
 		} else if(row.section_type == "Equity"){
-			frappe.model.set_value(cdt, cdn, "doctype_name", "Equity Template");
+            frappe.model.set_value(cdt, cdn, "section", "Equity");
+			frappe.model.set_value(cdt, cdn, "doctype_name", "");
 		}
 
 		frm.refresh_field('financial_report_template_details');

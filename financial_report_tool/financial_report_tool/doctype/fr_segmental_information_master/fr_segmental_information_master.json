@@ -1,0 +1,135 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SIM-{#####}",
+ "creation": "2026-01-08 12:14:24.437491",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_pmqh",
+  "fiscal_year",
+  "column_break_ddin",
+  "month",
+  "section_break_miux",
+  "segment_revenue_net_column",
+  "sr_ind",
+  "sr_row",
+  "carrying_cost_of_segment_asset_column",
+  "ccsa_ind",
+  "ccsa_row",
+  "capital_expenditure_column",
+  "ce_ind",
+  "ce_row"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_pmqh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ddin",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_miux",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "segment_revenue_net_column",
+   "fieldtype": "Column Break",
+   "label": "Segment Revenue (Net)"
+  },
+  {
+   "fieldname": "sr_ind",
+   "fieldtype": "Float",
+   "label": "India"
+  },
+  {
+   "fieldname": "sr_row",
+   "fieldtype": "Float",
+   "label": "Rest of the world"
+  },
+  {
+   "fieldname": "carrying_cost_of_segment_asset_column",
+   "fieldtype": "Column Break",
+   "label": "Carrying Cost of Segment Asset"
+  },
+  {
+   "fieldname": "ccsa_ind",
+   "fieldtype": "Float",
+   "label": "India"
+  },
+  {
+   "fieldname": "ccsa_row",
+   "fieldtype": "Float",
+   "label": "Rest of the world"
+  },
+  {
+   "fieldname": "capital_expenditure_column",
+   "fieldtype": "Column Break",
+   "label": "Capital Expenditure"
+  },
+  {
+   "fieldname": "ce_ind",
+   "fieldtype": "Float",
+   "label": "India"
+  },
+  {
+   "fieldname": "ce_row",
+   "fieldtype": "Float",
+   "label": "Rest of the world "
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-08 12:18:56.342240",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Segmental Information Master",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

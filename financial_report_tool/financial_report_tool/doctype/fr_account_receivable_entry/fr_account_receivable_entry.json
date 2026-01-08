@@ -47,16 +47,19 @@
   "currency",
   "exchange_rate",
   "reference",
+  "ageing_days",
   "column_break_evvr",
   "payment_terms",
   "payment_days",
   "due_date",
   "due_days",
+  "provision_percentage",
   "column_break_dspk",
   "amount_in_lc",
   "amount_in_dc",
   "due_amt",
   "non_due_amt",
+  "provision_amount",
   "section_break_aoxf",
   "text",
   "column_break_ptpk",
@@ -343,12 +346,27 @@
    "fieldname": "due_days",
    "fieldtype": "Int",
    "label": "Due Days"
+  },
+  {
+   "fieldname": "ageing_days",
+   "fieldtype": "Data",
+   "label": "Ageing Days"
+  },
+  {
+   "fieldname": "provision_percentage",
+   "fieldtype": "Float",
+   "label": "Provision Percentage"
+  },
+  {
+   "fieldname": "provision_amount",
+   "fieldtype": "Data",
+   "label": "Provision Amount"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-09-01 12:39:32.681025",
+ "modified": "2026-01-05 15:03:05.986332",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",
@@ -369,6 +387,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

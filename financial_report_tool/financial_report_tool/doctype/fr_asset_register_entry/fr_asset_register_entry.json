@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "ARE-.#####",
  "creation": "2025-07-07 12:15:47.063370",
@@ -48,7 +49,7 @@
   "sap_sbv",
   "sap_ebv",
   "erp_details_section",
-  "deprecation",
+  "depreciation",
   "additional",
   "total_depreciation",
   "column_break_jfkw",
@@ -361,12 +362,6 @@
    "label": "ERP Details"
   },
   {
-   "fieldname": "deprecation",
-   "fieldtype": "Float",
-   "label": "Deprecation",
-   "read_only": 1
-  },
-  {
    "fieldname": "additional",
    "fieldtype": "Float",
    "label": "Additional",
@@ -410,12 +405,18 @@
   {
    "fieldname": "column_break_lzny",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "depreciation",
+   "fieldtype": "Float",
+   "label": "Depreciation",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-10 15:53:48.578929",
+ "modified": "2025-12-31 09:46:19.058351",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",
@@ -436,6 +437,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

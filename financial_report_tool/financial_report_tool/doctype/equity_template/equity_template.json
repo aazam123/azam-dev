@@ -7,7 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "equity_template",
-  "other_equity"
+  "equity_template_data"
  ],
  "fields": [
   {
@@ -17,16 +17,15 @@
    "unique": 1
   },
   {
-   "fieldname": "other_equity",
-   "fieldtype": "Table",
-   "label": "Other Equity",
-   "options": "FR Equity Other Equity"
+   "fieldname": "equity_template_data",
+   "fieldtype": "Long Text",
+   "label": "Equity Template Data"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-15 09:52:33.229040",
+ "modified": "2026-01-05 16:57:04.620145",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Equity Template",

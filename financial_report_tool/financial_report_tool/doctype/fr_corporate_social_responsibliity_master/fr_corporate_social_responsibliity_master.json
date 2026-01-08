@@ -1,0 +1,134 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CSRM-{#####}",
+ "creation": "2026-01-08 12:32:32.163459",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_yera",
+  "fiscal_year",
+  "column_break_wvyf",
+  "month",
+  "section_break_kuhd",
+  "shortfall_at_the_beginning_of_the_year",
+  "amount_required_to_be_spent_by_the_company_during_the_year",
+  "amount_of_expenditure_incurred",
+  "shortfall_at_the_end_of_the_year",
+  "column_break_axwn",
+  "nature_of_csr_activities",
+  "details_of_related_party_transactions",
+  "column_break_wwmv",
+  "small_text_vucn"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_yera",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_wvyf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_kuhd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "shortfall_at_the_beginning_of_the_year",
+   "fieldtype": "Float",
+   "label": "Shortfall at the beginning of the year"
+  },
+  {
+   "fieldname": "amount_required_to_be_spent_by_the_company_during_the_year",
+   "fieldtype": "Float",
+   "label": "Amount required to be spent by the company during the year"
+  },
+  {
+   "fieldname": "nature_of_csr_activities",
+   "fieldtype": "Small Text",
+   "label": "Nature of CSR activities"
+  },
+  {
+   "fieldname": "column_break_axwn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "(including shortfall at the beginning of the year)",
+   "fieldname": "amount_of_expenditure_incurred",
+   "fieldtype": "Float",
+   "label": "Amount of expenditure incurred"
+  },
+  {
+   "fieldname": "shortfall_at_the_end_of_the_year",
+   "fieldtype": "Float",
+   "label": "Shortfall at the end of the year"
+  },
+  {
+   "fieldname": "details_of_related_party_transactions",
+   "fieldtype": "Small Text",
+   "label": "Details of related party transactions"
+  },
+  {
+   "fieldname": "column_break_wwmv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Where a provision is made with respect to a liability incurred by entering into a contractual obligation, the movements in the provision during the year shall be shown separately",
+   "fieldname": "small_text_vucn",
+   "fieldtype": "Small Text"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-08 12:49:58.685635",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Corporate Social Responsibliity Master",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

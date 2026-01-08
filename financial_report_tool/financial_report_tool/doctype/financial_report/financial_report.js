@@ -91,12 +91,13 @@ frappe.ui.form.on("Financial Report Details", {
 		} else if(row.section_type == "Cash Flow"){
 			frappe.model.set_value(cdt, cdn, "doctype_name", "Cash Flow Template");
 		} else if(row.section_type == "Equity"){
-			frappe.model.set_value(cdt, cdn, "doctype_name", "Equity Template");
+            frappe.model.set_value(cdt, cdn, "section", "Equity");
+			frappe.model.set_value(cdt, cdn, "doctype_name", "");
 		}
 
 		frm.refresh_field('financial_report_details');
 		// Update note numbers after section type change
-		setTimeout(async () => await updateNoteNumbers(frm), 100);
+		setTimeout(async () => await updateNoteNumbers(frm), 100);  
 	},
     section: async function(frm, cdt, cdn) {
         await section(frm, cdt, cdn);
