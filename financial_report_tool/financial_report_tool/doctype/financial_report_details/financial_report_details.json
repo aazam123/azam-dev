@@ -77,8 +77,7 @@
   },
   {
    "fieldname": "table_data",
-   "fieldtype": "Text Editor",
-   "hidden": 1,
+   "fieldtype": "Code",
    "label": "Table Data",
    "read_only": 1
   },
@@ -111,7 +110,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-29 10:41:14.364297",
+ "modified": "2026-01-15 11:02:08.640602",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Details",

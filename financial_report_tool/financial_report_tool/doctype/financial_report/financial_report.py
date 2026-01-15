@@ -4,6 +4,7 @@
 import re
 import os
 import math
+import json
 import frappe
 import openpyxl
 import calendar
@@ -308,14 +309,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -327,17 +328,13 @@ class FinancialReport(Document):
 		if self.report_type == "Monthly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
-					i.table_data = self.render_monthly_balance_sheet(i.section)
-					i.section_description = i.table_data
+					i.section_description = self.render_monthly_balance_sheet(i.section)
 				if i.section_type == "Profit & Loss":
-					i.table_data = self.render_monthly_profit_and_loss(i.section)
-					i.section_description = i.table_data
+					i.section_description = self.render_monthly_profit_and_loss(i.section)
 				if i.section_type == "Cash Flow":
-					i.table_data = self.render_monthly_cash_flow(i.section)
-					i.section_description = i.table_data
+					i.section_description = self.render_monthly_cash_flow(i.section)
 				if i.section_type == "Equity":
-					i.table_data = self.render_monthly_equity_share_table()
-					i.section_description = i.table_data
+					i.section_description = self.render_monthly_equity_share_table()
 				if i.section_type == "Consolidation Note":
 					section_data = frappe.db.get_value(
 						"FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"],
@@ -379,7 +376,6 @@ class FinancialReport(Document):
 
 					if note_table:
 						context = {"note_table": note_table}
-						i.table_data = frappe.render_template(section_description or "", context)
 						i.section_description = frappe.render_template(section_description or "", context)
 
 					context = {"company": self.company}
@@ -387,28 +383,24 @@ class FinancialReport(Document):
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 
 					# Anchor ID for PDF navigation
-					if i.note_no and i.section_name:
-						note_id = self.generate_note_id(i.note_no, i.section_name)
-						if note_id:
-							i.table_data = (
-								f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
-								if i.table_data
-								else f'<div id="{note_id}" class="note-anchor"></div>'
-							)
+					# if i.note_no and i.section_name:
+					# 	note_id = self.generate_note_id(i.note_no, i.section_name)
+					# 	if note_id:
+					# 		(
+					# 			f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
+					# 			if i.table_data
+					# 			else f'<div id="{note_id}" class="note-anchor"></div>'
+					# 		)
 		elif self.report_type == "Yearly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
-					i.table_data = self.render_yearly_balance_sheet(i.section)
-					i.section_description = i.table_data
+					i.table_data, i.section_description = self.render_yearly_balance_sheet(i.section)
 				if i.section_type == "Profit & Loss":
-					i.table_data = self.render_yearly_profit_and_loss(i.section)
-					i.section_description = i.table_data
+					i.table_data, i.section_description = self.render_yearly_profit_and_loss(i.section)
 				if i.section_type == "Cash Flow":
-					i.table_data = self.render_yearly_cash_flow(i.section)
-					i.section_description = i.table_data
+					i.section_description = self.render_yearly_cash_flow(i.section)
 				if i.section_type == "Equity":
 					i.section_description = self.render_yearly_equity_share_table()
-					i.table_data = i.section_description
 				if i.section_type == "Consolidation Note":
 					section_data = frappe.db.get_value(
 						"FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True
@@ -421,62 +413,62 @@ class FinancialReport(Document):
 
 					if fetch_data_from_trial_balance == 1:
 						data = self.get_yearly_consolidation_note_data(primary_group)
-						i.table_data = i.section_description = self.yearly_table_for_note_template(data, section_description)
+						i.section_description = self.yearly_table_for_note_template(data, section_description)
 
 					if note_type == "Property, plant and equipment":
-						i.table_data = i.section_description = self.get_yearly_property_plant_and_equipment_data(section_description)
+						i.section_description = self.get_yearly_property_plant_and_equipment_data(section_description)
 					elif note_type == "Other intangible assets":
-						i.table_data = i.section_description = self.get_yearly_other_intangible_assets(section_description)
+						i.section_description = self.get_yearly_other_intangible_assets(section_description)
 					elif note_type == "Right-of-use assets":
-						i.table_data = i.section_description = self.get_yearly_right_of_use_assets(section_description)
+						i.section_description = self.get_yearly_right_of_use_assets(section_description)
 					elif note_type == "Capital work-in-progress":
-						i.table_data = i.section_description = self.get_yearly_capital_work_in_progress(section_description)
+						i.section_description = self.get_yearly_capital_work_in_progress(section_description)
 					elif note_type == "Intangible assets under development":
-						i.table_data = i.section_description = self.get_yearly_intangible_assets_under_development(section_description)
+						i.section_description = self.get_yearly_intangible_assets_under_development(section_description)
 					if note_type == "Investments (Non-current)":
-						i.table_data = i.section_description = self.get_yearly_investment_non_current_note_data(total=False, field=None, section_description=section_description)
+						i.section_description = self.get_yearly_investment_non_current_note_data(total=False, field=None, section_description=section_description)
 					elif note_type == "Trade & Other receivables":
-						i.table_data = i.section_description = self.get_yearly_trade_and_other_receivables_note_data(section_description)
+						i.section_description = self.get_yearly_trade_and_other_receivables_note_data(section_description)
 					elif note_type == "Equity Share Capital":
-						i.table_data = i.section_description = self.get_yearly_equity_share_capital_note_data(section_description)
+						i.section_description = self.get_yearly_equity_share_capital_note_data(section_description)
 					elif note_type == "Other Equity":
-						i.table_data = i.section_description = self.get_yearly_other_equity_note_data(section_description)
+						i.section_description = self.get_yearly_other_equity_note_data(self.fiscal_year, self.previous_fiscal_year, section_description)
 					elif note_type == "Borrowings (Non-current)":
-						i.table_data = i.section_description = self.get_yearly_borrowing_non_current_note_data(primary_group, section_description=section_description)
+						i.section_description = self.get_yearly_borrowing_non_current_note_data(primary_group, section_description=section_description)
 					elif note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-						i.table_data = i.section_description = self.get_yearly_finished_goods_and_wip(total=False, field=None, section_description=section_description)
+						i.section_description = self.get_yearly_finished_goods_and_wip(total=False, field=None, section_description=section_description)
 					elif note_type == "Cost of Materials Consumed":
-						i.table_data = i.section_description = self.get_yearly_cost_of_material_consumed(section_description, total=False, field=None)
+						i.section_description = self.get_yearly_cost_of_material_consumed(section_description, total=False, field=None)
 					elif note_type == "Current Tax":
-						i.table_data = i.section_description = self.get_yearly_current_tax_note_data(section_description)
+						i.section_description = self.get_yearly_current_tax_note_data(section_description)
 					elif note_type == "Capital Management":
-						i.table_data = i.section_description = self.get_yearly_capital_management_note_data(section_description)
+						i.section_description = self.get_yearly_capital_management_note_data(section_description)
 					elif note_type == "Fair Value Measurements":
-						i.table_data = i.section_description = self.get_yearly_fair_value_measurements_note_data(section_description)
+						i.section_description = self.get_yearly_fair_value_measurements_note_data(section_description)
 					elif note_type == "Financial Risk Management":
-						i.table_data = i.section_description = self.get_yearly_financial_risk_management_note_data(section_description)
+						i.section_description = self.get_yearly_financial_risk_management_note_data(section_description)
 					elif note_type == "Contingent Liabilities":
-						i.table_data = i.section_description = self.get_yearly_contingent_liabilities_note_data(section_description)
+						i.section_description = self.get_yearly_contingent_liabilities_note_data(section_description)
 					elif note_type == "Capital & Other Commitments":
-						i.table_data = i.section_description = self.get_yearly_capital_and_other_commitments_note_data(section_description)
+						i.section_description = self.get_yearly_capital_and_other_commitments_note_data(section_description)
 					elif note_type == "Related Party Disclosure":
-						i.table_data = i.section_description = self.get_yearly_related_party_disclosure_note_data(section_description)
+						i.section_description = self.get_yearly_related_party_disclosure_note_data(section_description)
 					elif note_type == "Earning Per Equity Share":
-						i.table_data = i.section_description = self.get_yearly_earning_per_equity_share_note_data(section_description)
+						i.section_description = self.get_yearly_earning_per_equity_share_note_data(section_description)
 					elif note_type == "Leases":
-						i.table_data = i.section_description = self.get_yearly_leases_note_data(section_description)
+						i.section_description = self.get_yearly_leases_note_data(section_description)
 					elif note_type == "Disclosure u/s. 22 of the Micro, Small and Medium Enterprises Development Act, 2006":
-						i.table_data = i.section_description = self.get_yearly_interest_in_subsidiaries_and_nci_note_data(section_description)
+						i.section_description = self.get_yearly_interest_in_subsidiaries_and_nci_note_data(section_description)
 					elif note_type == "Employee Benefit Obligation":
-						i.table_data = i.section_description = self.get_yearly_employee_benefit_obligation_note_data(section_description)
+						i.section_description = self.get_yearly_employee_benefit_obligation_note_data(section_description)
 					elif note_type == "Ratio":
-						i.table_data = i.section_description = self.get_yearly_ratio_note_data(section_description)
+						i.section_description = self.get_yearly_ratio_note_data(section_description)
 					elif note_type == "Details of Research & Development Expenditure":
-						i.table_data = i.section_description = self.get_yearly_research_and_development_expenditure_note_data(section_description)
+						i.section_description = self.get_yearly_research_and_development_expenditure_note_data(section_description)
 					elif note_type == "Corporate Social Responsibliity":
-						i.table_data = i.section_description = self.get_yearly_corporate_social_responsibility_note_data(section_description)
+						i.section_description = self.get_yearly_corporate_social_responsibility_note_data(section_description)
 					elif note_type == "Segmental Information":
-						i.table_data = i.section_description = self.get_yearly_segmental_information_note_data(section_description)
+						i.section_description = self.get_yearly_segmental_information_note_data(section_description)
 
 					context = {"company": self.company}
 					try:
@@ -484,15 +476,16 @@ class FinancialReport(Document):
 						i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 					except Exception as e:
 						frappe.throw(str(i.section_description))
+
 					# Anchor ID for PDF navigation
-					if i.note_no and i.section_name:
-						note_id = self.generate_note_id(i.note_no, i.section_name)
-						if note_id:
-							i.table_data = (
-								f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
-								if i.table_data
-								else f'<div id="{note_id}" class="note-anchor"></div>'
-							)
+					# if i.note_no and i.section_name:
+					# 	note_id = self.generate_note_id(i.note_no, i.section_name)
+					# 	if note_id:
+					# 		(
+					# 			f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
+					# 			if i.table_data
+					# 			else f'<div id="{note_id}" class="note-anchor"></div>'
+					# 		)
 
 		self.save(ignore_permissions=True)
 		frappe.db.commit()
@@ -962,7 +955,7 @@ class FinancialReport(Document):
 		'''
 		return section_description.replace("{{note_table}}", html)
 
-	def get_yearly_other_intangible_assets(self, section_description):
+	def get_yearly_other_intangible_assets(self, section_description="", field=""):
 		# Convert to date objects if they are strings
 		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
 		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
@@ -1187,6 +1180,14 @@ class FinancialReport(Document):
 		cy_net = {asset: (cy_closing.get(asset, 0) or 0) - (cy_acc_closing.get(asset, 0) or 0) for asset in asset_classes}
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
+		if field == "curr_intangel_asset":
+			return fmt(cy_net.get("Trade Mark & Product Registration"))
+		elif field == "prev_intangel_asset":
+			return fmt(py_net.get("Trade Mark & Product Registration"))
+		elif field == "curr_addition":
+			return fmt(cy_additions_total)
+		elif field == "prev_addition":
+			return fmt(py_additions_total)
 		html = f'''
 		<table style="margin-top: -10px; margin-bottom: -30px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
 			<thead>
@@ -1356,71 +1357,177 @@ class FinancialReport(Document):
 		'''
 		return section_description.replace("{{note_table}}", html)
 
-	def get_yearly_capital_work_in_progress(self, section_description=""):
-		# Convert to date objects if they are strings
-		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
-		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
+	def get_yearly_capital_work_in_progress(self, section_description="", field=""):
+		previous_year_ending_date_display = frappe.utils.getdate(self.previous_year_ending_date).strftime("%d %B %Y")
+		current_year_ending_date_display = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		
+		def fmt(val):
+			return "{:,.2f}".format(val) if val else "0.00"
 
-		previous_year_ending_date = prev_year_end_date.strftime("%d %B %Y")
-		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
+		def get_cwip_values_for_date(current_fy):
+			"""Calculate CWIP values for Projects in progress based on ending date"""
+			if not current_fy:
+				return 0, 0, 0, 0
+
+			# Build list of fiscal years (current, -1, -2, -3 and older)
+			fy_list = []
+			fy = current_fy
+			for i in range(4):  # Get 4 fiscal years
+				if fy:
+					fy_list.append(fy)
+					fy = self.get_fiscal_year_before(fy)
+				else:
+					fy_list.append(None)
+
+			# Get all older fiscal years for "more than 3 years"
+			older_fys = []
+			if fy:  # fy is now the 5th fiscal year (if exists)
+				older_fys.append(fy)
+				next_older = self.get_fiscal_year_before(fy)
+				while next_older:
+					older_fys.append(next_older)
+					next_older = self.get_fiscal_year_before(next_older)
+
+			def get_cwip_total(fiscal_year):
+				"""Get CWIP totals for a fiscal year"""
+				if not fiscal_year:
+					return 0, 0
+				result = frappe.db.sql("""
+					SELECT
+						SUM(sap_transaction_acq_value) AS total_acq_value,
+						SUM(sap_ebv) AS total_ebv
+					FROM `tabFR Asset Register Entry`
+					WHERE sap_ebv > 0
+					AND sap_transaction_acq_value >= 0
+					AND asset_class = 'CWIP'
+					AND fiscal_year = %s
+				""", (fiscal_year,), as_dict=True)
+				total_acq = result[0].total_acq_value or 0 if result else 0
+				total_ebv = result[0].total_ebv or 0 if result else 0
+				return total_acq, total_ebv
+
+			# Less than 1 year: total_acq_value (current FY)
+			acq_0, ebv_0 = get_cwip_total(fy_list[0])
+			less_1_year = acq_0
+
+			# 1-2 years: ebv_0 - acq_0 (current FY)
+			acq_1, ebv_1 = get_cwip_total(fy_list[1])
+			one_to_2_years = ebv_0 - acq_0
+
+			# 2-3 years: ebv_1 - acq_1 (FY-1)
+			acq_2, ebv_2 = get_cwip_total(fy_list[2])
+			two_to_3_years = ebv_1 - acq_1
+
+			# More than 3 years: ebv_2 - acq_2 (FY-2)
+			acq_3, ebv_3 = get_cwip_total(fy_list[3])
+			more_3_years = ebv_2 - acq_2
+
+			return less_1_year, one_to_2_years, two_to_3_years, more_3_years
+
+		# Calculate Projects in progress values for current year
+		cy_pip_less_1, cy_pip_1_to_2, cy_pip_2_to_3, cy_pip_more_3 = get_cwip_values_for_date(self.fiscal_year)
+
+		# Calculate Projects in progress values for previous year
+		py_pip_less_1, py_pip_1_to_2, py_pip_2_to_3, py_pip_more_3 = get_cwip_values_for_date(self.previous_fiscal_year)
+
+		# Fetch data from FR CWIP Master for "Projects temporarily suspended"
+		cwip_data = frappe.db.get_value(
+			"FR CWIP Master",
+			{"financial_report": self.name},
+			[
+				"less_than_1_year_current", "1_to_2_years_current", "2_to_3_years_current", "more_than_3_years_current",
+				"less_than_1_year_previous", "1_to_2_years_previous", "2_to_3_years_previous", "more_than_3_years_previous"
+			],
+			as_dict=True
+		) or {}
+
+		# Current year - Projects temporarily suspended
+		cy_pts_less_1 = cwip_data.get("less_than_1_year_current") or 0
+		cy_pts_1_to_2 = cwip_data.get("1_to_2_years_current") or 0
+		cy_pts_2_to_3 = cwip_data.get("2_to_3_years_current") or 0
+		cy_pts_more_3 = cwip_data.get("more_than_3_years_current") or 0
+
+		# Previous year - Projects temporarily suspended
+		py_pts_less_1 = cwip_data.get("less_than_1_year_previous") or 0
+		py_pts_1_to_2 = cwip_data.get("1_to_2_years_previous") or 0
+		py_pts_2_to_3 = cwip_data.get("2_to_3_years_previous") or 0
+		py_pts_more_3 = cwip_data.get("more_than_3_years_previous") or 0
+
+		# Calculate totals for Projects in progress
+		cy_pip_total = cy_pip_less_1 + cy_pip_1_to_2 + cy_pip_2_to_3 + cy_pip_more_3
+		py_pip_total = py_pip_less_1 + py_pip_1_to_2 + py_pip_2_to_3 + py_pip_more_3
+
+		# Calculate totals for Projects temporarily suspended
+		cy_pts_total = cy_pts_less_1 + cy_pts_1_to_2 + cy_pts_2_to_3 + cy_pts_more_3
+		py_pts_total = py_pts_less_1 + py_pts_1_to_2 + py_pts_2_to_3 + py_pts_more_3
+
+		pre_py_pip_less_1, pre_py_pip_1_to_2, pre_py_pip_2_to_3, pre_py_pip_more_3 = get_cwip_values_for_date(pre_year)
+		pre_py_pip_total = pre_py_pip_less_1 + pre_py_pip_1_to_2 + pre_py_pip_2_to_3 + pre_py_pip_more_3
+
+		if field == "curr_pre_total":
+			return cy_pip_total - py_pip_total
+		elif field == "prev_pre_total":
+			return py_pip_total - pre_py_pip_total
+
 		html = f'''
-			<table style="margin-top: -20px; margin-bottom: -20px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto;">
+			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto;">
 				<thead>
-					<tr style="color: #4472C4;">
-						<th style="width: 40%; border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
-						<th style="border: 1px solid black; border-bottom:1px solid black;background-color: #E8F5E8; " colspan="2">As at {current_year_ending_date}</th>
-						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {previous_year_ending_date}</th>
+					<tr>
+						<th style="border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
+						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {current_year_ending_date_display}</th>
+						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {previous_year_ending_date_display}</th>
 					</tr>
 				</thead>
 				<tbody>
-					<tr style="color: #4472C4;">
-						<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Amount in CWIP for a period of</b></td>
-						<td style="background-color: #E8F5E8; border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects in progress</b></td>
-						<td style="background-color: #E8F5E8; border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects temporarily suspended</b></td>
+					<tr>
+						<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Amount in CWIP for a period of<b></td>
+						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects in progress</b></td>
+						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects temporarily suspended</b></td>
 						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects in progress</b></td>
 						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects temporarily suspended</b></td>
 					</tr>
 					<tr>
 						<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Less than 1 year</td>
-						<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">55</td>
-						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"></td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pip_less_1)}</td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pts_less_1)}</td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pip_less_1)}</td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pts_less_1)}</td>
 					</tr>
 					<tr>
 						<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">1-2 years</td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">55</td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pts_1_to_2)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pts_1_to_2)}</td>
 					</tr>
 					<tr>
 						<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:none;">2-3 years</td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">55</td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pts_2_to_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pts_2_to_3)}</td>
 					</tr>
 					<tr>
 						<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">More than 3 years</td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;"></td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">55</td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;"></td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;"></td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_pip_more_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_pts_more_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_pip_more_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_pts_more_3)}</td>
 					</tr>
-					
+
 					<tr>
 						<td style="border:1px solid black;"><b>Total<b></td>
-						<td style="background-color: #E8F5E8; border:1px solid black;"><b></b></td>
-						<td style="background-color: #E8F5E8; border:1px solid black;"><b></b></td>
-						<td style="border:1px solid black;"><b></b></td>
-						<td style="border:1px solid black;"><b></b></td>
+						<td style="border:1px solid black;"><b>{fmt(cy_pip_total)}</b></td>
+						<td style="border:1px solid black;"><b>{fmt(cy_pts_total)}</b></td>
+						<td style="border:1px solid black;"><b>{fmt(py_pip_total)}</b></td>
+						<td style="border:1px solid black;"><b>{fmt(py_pts_total)}</b></td>
 					</tr>
 				</tbody>
 			</table>
 		'''
 		return section_description.replace("{{note_table}}", html)
-	
+		
 
 	def get_yearly_right_of_use_assets(self, section_description=""):
 		# Convert to date objects if they are strings
@@ -1778,71 +1885,169 @@ class FinancialReport(Document):
 
 		'''
 		return section_description.replace("{{note_table}}", html)
-	
-	def get_yearly_intangible_assets_under_development(self, section_description=""):
-		# Convert to date objects if they are strings
-		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
-		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
 
-		previous_year_ending_date = prev_year_end_date.strftime("%d %B %Y")
-		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
+	def get_yearly_intangible_assets_under_development(self, section_description="", field=""):
+		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
+		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
+		previous_year_ending_date_display = prev_year_end_date.strftime("%d %B %Y")
+		current_year_ending_date_display = curr_year_end_date.strftime("%d %B %Y")
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+
+		def fmt(val):
+			return "{:,.2f}".format(val) if val else "0.00"
+
+		def get_iaud_values_for_date(current_fy):
+			"""Calculate Intangible Assets Under Development values for Projects in progress based on ending date"""
+			if not current_fy:
+				return 0, 0, 0, 0
+
+			# Build list of fiscal years (current, -1, -2, -3 and older)
+			fy_list = []
+			fy = current_fy
+			for i in range(4):  # Get 4 fiscal years
+				if fy:
+					fy_list.append(fy)
+					fy = self.get_fiscal_year_before(fy)
+				else:
+					fy_list.append(None)
+
+			def get_iaud_total(fiscal_year):
+				"""Get Intangible Assets Under Development totals for a fiscal year"""
+				if not fiscal_year:
+					return 0, 0
+				result = frappe.db.sql("""
+					SELECT
+						SUM(sap_transaction_acq_value) AS total_acq_value,
+						SUM(sap_ebv) AS total_ebv
+					FROM `tabFR Asset Register Entry`
+					WHERE sap_ebv > 0
+					AND sap_transaction_acq_value >= 0
+					AND asset_class = 'CWIP Intangible Asse'
+					AND fiscal_year = %s
+				""", (fiscal_year,), as_dict=True)
+				total_acq = result[0].total_acq_value or 0 if result else 0
+				total_ebv = result[0].total_ebv or 0 if result else 0
+				return total_acq, total_ebv
+
+			# Less than 1 year: total_acq_value (current FY)
+			acq_0, ebv_0 = get_iaud_total(fy_list[0])
+			less_1_year = acq_0
+
+			# 1-2 years: ebv_0 - acq_0 (current FY)
+			acq_1, ebv_1 = get_iaud_total(fy_list[1])
+			one_to_2_years = ebv_0 - acq_0
+
+			# 2-3 years: ebv_1 - acq_1 (FY-1)
+			acq_2, ebv_2 = get_iaud_total(fy_list[2])
+			two_to_3_years = ebv_1 - acq_1
+
+			# More than 3 years: ebv_2 - acq_2 (FY-2)
+			acq_3, ebv_3 = get_iaud_total(fy_list[3])
+			more_3_years = ebv_2 - acq_2
+
+			return less_1_year, one_to_2_years, two_to_3_years, more_3_years
+
+		# Calculate Projects in progress values for current year
+		cy_pip_less_1, cy_pip_1_to_2, cy_pip_2_to_3, cy_pip_more_3 = get_iaud_values_for_date(self.fiscal_year)
+
+		# Calculate Projects in progress values for previous year
+		py_pip_less_1, py_pip_1_to_2, py_pip_2_to_3, py_pip_more_3 = get_iaud_values_for_date(self.previous_fiscal_year)
+
+		# Fetch data from FR CWIP Master for "Projects temporarily suspended" (change doctype as needed)
+		iaud_data = frappe.db.get_value(
+			"FR CWIP Intangible Asse Master",
+			{"financial_report": self.name},
+			[
+				"less_than_1_year_current", "1_to_2_years_current", "2_to_3_years_current", "more_than_3_years_current",
+				"less_than_1_year_previous", "1_to_2_years_previous", "2_to_3_years_previous", "more_than_3_years_previous"
+			],
+			as_dict=True
+		) or {}
+
+		# Current year - Projects temporarily suspended
+		cy_pts_less_1 = iaud_data.get("less_than_1_year_current") or 0
+		cy_pts_1_to_2 = iaud_data.get("1_to_2_years_current") or 0
+		cy_pts_2_to_3 = iaud_data.get("2_to_3_years_current") or 0
+		cy_pts_more_3 = iaud_data.get("more_than_3_years_current") or 0
+
+		# Previous year - Projects temporarily suspended
+		py_pts_less_1 = iaud_data.get("less_than_1_year_previous") or 0
+		py_pts_1_to_2 = iaud_data.get("1_to_2_years_previous") or 0
+		py_pts_2_to_3 = iaud_data.get("2_to_3_years_previous") or 0
+		py_pts_more_3 = iaud_data.get("more_than_3_years_previous") or 0
+
+		# Calculate totals for Projects in progress
+		cy_pip_total = cy_pip_less_1 + cy_pip_1_to_2 + cy_pip_2_to_3 + cy_pip_more_3
+		py_pip_total = py_pip_less_1 + py_pip_1_to_2 + py_pip_2_to_3 + py_pip_more_3
+
+		# Calculate totals for Projects temporarily suspended
+		cy_pts_total = cy_pts_less_1 + cy_pts_1_to_2 + cy_pts_2_to_3 + cy_pts_more_3
+		py_pts_total = py_pts_less_1 + py_pts_1_to_2 + py_pts_2_to_3 + py_pts_more_3
+
+		pre_py_pip_less_1, pre_py_pip_1_to_2, pre_py_pip_2_to_3, pre_py_pip_more_3 = get_iaud_values_for_date(pre_year)
+		pre_py_pip_total = pre_py_pip_less_1 + pre_py_pip_1_to_2 + pre_py_pip_2_to_3 + pre_py_pip_more_3
+		if field == "curr_total":
+			return cy_pip_total - py_pip_total
+		elif field == "prev_total":
+			return py_pip_total - pre_py_pip_total
+
 		html = f'''
-			<table style="margin-top: -20px; margin-bottom: -20px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto;">
+			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto;">
 				<thead>
-					<tr style="color: #4472C4;">
-						<th style="width: 40%; border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
-						<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {current_year_ending_date}</th>
-						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {previous_year_ending_date}</th>
+					<tr>
+						<th style="border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
+						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {current_year_ending_date_display}</th>
+						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {previous_year_ending_date_display}</th>
 					</tr>
 				</thead>
 				<tbody>
-					<tr style="color: #4472C4;">
-						<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Amount in CWIP for a period of</b></td>
-						<td style="background-color: #E8F5E8; border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects in progress</b></td>
-						<td style="background-color: #E8F5E8; border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects temporarily suspended</b></td>
+					<tr>
+						<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Amount in CWIP for a period of<b></td>
+						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects in progress</b></td>
+						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects temporarily suspended</b></td>
 						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects in progress</b></td>
 						<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: 1px solid black;"><b>Projects temporarily suspended</b></td>
 					</tr>
 					<tr>
 						<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Less than 1 year</td>
-						<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">55</td>
-						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"></td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pip_less_1)}</td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pts_less_1)}</td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pip_less_1)}</td>
+						<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pts_less_1)}</td>
 					</tr>
 					<tr>
 						<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">1-2 years</td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">55</td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pts_1_to_2)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pts_1_to_2)}</td>
 					</tr>
 					<tr>
 						<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:none;">2-3 years</td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">55</td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:none;"></td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(cy_pts_2_to_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_pts_2_to_3)}</td>
 					</tr>
 					<tr>
 						<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">More than 3 years</td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;"></td>
-						<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">55</td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;"></td>
-						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;"></td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_pip_more_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_pts_more_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_pip_more_3)}</td>
+						<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_pts_more_3)}</td>
 					</tr>
-					
+
 					<tr>
 						<td style="border:1px solid black;"><b>Total<b></td>
-						<td style="background-color: #E8F5E8; border:1px solid black;"><b></b></td>
-						<td style="background-color: #E8F5E8; border:1px solid black;"><b></b></td>
-						<td style="border:1px solid black;"><b></b></td>
-						<td style="border:1px solid black;"><b></b></td>
+						<td style="border:1px solid black;"><b>{fmt(cy_pip_total)}</b></td>
+						<td style="border:1px solid black;"><b>{fmt(cy_pts_total)}</b></td>
+						<td style="border:1px solid black;"><b>{fmt(py_pip_total)}</b></td>
+						<td style="border:1px solid black;"><b>{fmt(py_pts_total)}</b></td>
 					</tr>
 				</tbody>
 			</table>
 		'''
-		return section_description.replace("{{note_table}}", html)
+		return html
 
 	def render_yearly_equity_share_table(self, section_description=""):
 		def fmt(val):
@@ -2799,7 +3004,13 @@ class FinancialReport(Document):
 	
 
 	def get_yearly_related_party_disclosure_note_data(self, section_description=""):
-		pass
+		section_description = re.sub(
+			r'(<th[^>]*>\s*Sr\s*No\.?\s*</th>)',
+			r'<th style="width:5%;">Sr No</th>',
+			section_description,
+			flags=re.IGNORECASE
+		)
+		return section_description
 
 	def get_yearly_contingent_liabilities_note_data(self, section_description=""):
 		# Get dynamic date labels
@@ -3105,6 +3316,7 @@ class FinancialReport(Document):
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 
 		def fmt_amt(val):
 			if val in (None, "-", ""):
@@ -3117,6 +3329,47 @@ class FinancialReport(Document):
 
 		def fmt_pct(val):
 			return val if isinstance(val, str) else f"{val:.2f}%"
+		curr_ebo = prev_ebo = None
+		curr_name = frappe.db.exists("FR Employee Benefit Obligation",{"company": self.company,"fiscal_year": self.fiscal_year,"month": cls_month})
+		if curr_name:
+			curr_ebo = frappe.get_doc("FR Employee Benefit Obligation", curr_name)
+
+		prev_name = frappe.db.exists("FR Employee Benefit Obligation",{"company": self.company,"fiscal_year": self.previous_fiscal_year,"month": cls_month})
+		if prev_name:
+			prev_ebo = frappe.get_doc("FR Employee Benefit Obligation", prev_name)
+		
+		note_table_1_map = {}
+		if curr_ebo:
+			for i in curr_ebo.amount_recognised_in_the_balance_sheet:
+				note_table_1_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.amount_recognised_in_the_balance_sheet:
+				if i.label in note_table_1_map:
+					note_table_1_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_1_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_html = ""
+		for row in note_table_1_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else ""
+			rows_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
+
 
 		note_table_1 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3125,19 +3378,42 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;">Present Value of Defined Benefit Obligation – Unfunded</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(1276)}</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt_amt(992)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;"><strong>Net Liability recognised in Balance Sheet</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt_amt(1276)}</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt_amt(992)}</strong></td>
-		</tr>
+		{rows_html}
 		</table>
 		"""
 
+		note_table_2_map = {}
+		if curr_ebo:
+			for i in curr_ebo.amount_recognised_in_statement_of_profit:
+				note_table_2_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.amount_recognised_in_statement_of_profit:
+				if i.label in note_table_2_map:
+					note_table_2_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_2_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_2_html = ""
+		for row in note_table_2_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_2_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
+			
 		note_table_2 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 		<tr>
@@ -3145,38 +3421,41 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px;">Current Service cost</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(112)}</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(84)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Interest Cost</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(71)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(56)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Transfer in / out</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(1)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(5)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;"><strong>Net amount recognised in P&amp;L</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt_amt(184)}</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt_amt(145)}</strong></td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;">Actuarial Losses recognised in OCI</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(190)}</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt_amt(96)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;"><strong>Total OCI &amp; P&amp;L</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt_amt(374)}</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt_amt(241)}</strong></td>
-		</tr>
+		{rows_2_html}
 		</table>
 		"""
+
+		note_table_3_map = {}
+		if curr_ebo:
+			for i in curr_ebo.reconciliation_of_defined_benefit_obligation:
+				note_table_3_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.reconciliation_of_defined_benefit_obligation:
+				if i.label in note_table_3_map:
+					note_table_3_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_3_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_3_html = ""
+		for row in note_table_3_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_3_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
 
 		note_table_3 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3185,43 +3464,41 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px;">Opening balance</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(992)}</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(767)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Current Service Cost</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(112)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(84)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Interest Cost</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(71)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(56)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Transfer In / (Out)</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(-43)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(5)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Benefits paid</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(-46)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(-16)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Actuarial Losses</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(190)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(96)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;"><strong>Present value of Defined Benefit Obligation at the end of the year</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt_amt(1276)}</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt_amt(992)}</strong></td>
-		</tr>
+		{rows_3_html}
 		</table>
 		"""
+
+		note_table_4_map = {}
+		if curr_ebo:
+			for i in curr_ebo.actuarial_assumptions:
+				note_table_4_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.actuarial_assumptions:
+				if i.label in note_table_4_map:
+					note_table_4_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_4_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_4_html = ""
+		for row in note_table_4_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_4_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
 
 		note_table_4 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3230,41 +3507,84 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px;">Discount Rate</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; background-color:#E8F5E8;">{fmt_pct(6.65)}</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px;">{fmt_pct(7.19)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Expected Salary Increase</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;">{fmt_pct(8)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{fmt_pct(8)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Attrition Rate</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;">{fmt_pct(11)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{fmt_pct(14)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Mortality Table</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; text-align: center; background-color:#E8F5E8;">Indian Assured Lives Mortality (2012–14 Urban)</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; text-align: center;">Indian Assured Lives Mortality (2012–14 Urban)</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;">Estimated expense next year</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(228)}</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt_amt(183)}</td>
-		</tr>
+		{rows_4_html}
 		</table>
 		"""
 
+		note_table_8_map = {}
+		if curr_ebo:
+			for i in curr_ebo.experience_adjustments:
+				note_table_8_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.experience_adjustments:
+				if i.label in note_table_8_map:
+					note_table_8_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_8_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_8_html = ""
+		for row in note_table_8_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_8_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
+
 		note_table_8 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
-		<tr><th style="width: 60%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">(VIII) Experience Adjustments</th><th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th><th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th></tr>
-		<tr><td style="border:1px solid #000; padding:6px;">PV of Defined Benefit Obligation</td><td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(1276)}</td><td style="border:1px solid #000; padding:6px; text-align:right;">{fmt_amt(992)}</td></tr>
-		<tr><td style="border:1px solid #000; padding:6px;">Actuarial losses</td><td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(139)}</td><td style="border:1px solid #000; padding:6px; text-align:right;">{fmt_amt(88)}</td></tr>
+		<tr>	
+			<th style="width: 60%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">(viii) Experience Adjustments</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
+		</tr>
+		{rows_8_html}
 		</table>
 		"""
+
+		note_table_9_map = {}
+		if curr_ebo:
+			for i in curr_ebo.sensitivity_analysis:
+				note_table_9_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.sensitivity_analysis:
+				if i.label in note_table_9_map:
+					note_table_9_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_9_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_9_html = ""
+		for row in note_table_9_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_9_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
 
 		note_table_9 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3273,44 +3593,41 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>	
-			<td style="border:1px solid #000; border-bottom: none; padding:6px;">Present value of defined benefit obligation</td>
-			<td style="border:1px solid #000; border-bottom: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(-73)}</td>
-			<td style="border:1px solid #000; border-bottom: none; padding:6px; text-align:right;">{fmt_amt(-45)}</td>
-		</tr>
-		<tr>	
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px;">Delta Effect of +1% Change in Rate of Discounting</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(82)}</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right;">{fmt_amt(50)}</td>
-		</tr>
-		<tr>	
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px;">Delta Effect of -1% Change in Rate of Discounting</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(70)}</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right;">{fmt_amt(44)}</td>
-		</tr>
-		<tr>	
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px;">Delta Effect of +1% Change in Rate of Salary Increase</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(70)}</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right;">{fmt_amt(44)}</td>
-		</tr>
-		<tr>	
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px;">Delta Effect of -1% Change in Rate of Salary Increase</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(70)}</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right;">{fmt_amt(44)}</td>
-		</tr>
-		<tr>	
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px;">Delta Effect of +1% Change in Rate of Employee Turnover</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(70)}</td>
-			<td style="border:1px solid #000; border-top: none; border-bottom: none; padding:6px; text-align:right;">{fmt_amt(44)}</td>
-		</tr>
-		<tr>	
-			<td style="border:1px solid #000; border-top: none; padding:6px;">Delta Effect of -
-		1% Change in Rate of Employee Turnover</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(70)}</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right;">{fmt_amt(44)}</td>
-		</tr>
+		{rows_9_html}
 		</table>
 		"""
+
+		note_table_11_map = {}
+		if curr_ebo:
+			for i in curr_ebo.maturity_analysis:
+				note_table_11_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.maturity_analysis:
+				if i.label in note_table_11_map:
+					note_table_11_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_11_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_11_html = ""
+		for row in note_table_11_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_11_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
 
 		note_table_11 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3319,43 +3636,41 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom: none; padding:6px;">1st Following Year</td>
-			<td style="border:1px solid #000; border-bottom: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(183)}</td>
-			<td style="border:1px solid #000; border-bottom: none; padding:6px; text-align:right;">{fmt_amt(165)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">2nd Following Year</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(546)}</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;">{fmt_amt(424)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">3rd Following Year</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(546)}</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;">{fmt_amt(424)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">4th Following Year</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(546)}</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;">{fmt_amt(424)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">5th Following Year</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(546)}</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;">{fmt_amt(424)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">Sum of Years 6 To 10</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(546)}</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;">{fmt_amt(424)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top: none; padding:6px;">Sum of Years 11 and above</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(898)}</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right;">{fmt_amt(480)}</td>
-		</tr>
+		{rows_11_html}
 		</table>
 		"""
+
+		note_table_12_map = {}
+		if curr_ebo:
+			for i in curr_ebo.actuarial_assumption_for_compensated_absences:
+				note_table_12_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.actuarial_assumption_for_compensated_absences:
+				if i.label in note_table_12_map:
+					note_table_12_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_12_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_12_html = ""
+		for row in note_table_12_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_12_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
 
 		note_table_12 = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3364,28 +3679,41 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px;">Discount Rate</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(460)}</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(382)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Expected Rate of Return on Plan Assets</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(42)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(44)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Expected Rate of Salary Increase</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(37)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(30)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; padding:6px;"><strong>Attrition Rate</strong></td>
-			<td style="border:1px solid #000; border-top:none; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt_amt(539)}</strong></td>
-			<td style="border:1px solid #000; border-top:none; padding:6px; text-align:right;"><strong>{fmt_amt(456)}</strong></td>
-		</tr>
+		{rows_12_html}
 		</table>
 		"""
+
+		note_table_12_2_map = {}
+		if curr_ebo:
+			for i in curr_ebo.actuarial_assumption_for_compensated_absences:
+				note_table_12_2_map[i.label] = {
+					"label": i.label,
+					"curr_amt": i.value,
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.actuarial_assumption_for_compensated_absences:
+				if i.label in note_table_12_2_map:
+					note_table_12_2_map[i.label]["prev_amt"] = i.value
+				else:
+					note_table_12_2_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": i.value,
+						"is_bold": i.is_bold
+					}
+
+		rows_12_2_html = ""
+		for row in note_table_12_2_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_12_2_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
 
 		note_table_12 += f"""
 		<p><strong>Defined Contribution Plans:</strong></p>
@@ -3395,26 +3723,7 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px;">(i) Provident fund paid to the authorities</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(460)}</td>
-			<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(382)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(ii) ESIC contribution paid to the authorities</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(42)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(44)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(iii) Others</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt_amt(37)}</td>
-			<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt_amt(30)}</td>
-		</tr>
-		<tr>
-			<td style="border:1px solid #000; padding:6px;"><strong>Total</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt_amt(539)}</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt_amt(456)}</strong></td>
-		</tr>
+		{rows_12_2_html}
 		</table>
 		"""
 
@@ -3433,6 +3742,8 @@ class FinancialReport(Document):
 		return section_description
 
 	def get_yearly_ratio_note_data(self, section_description=""):
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		bs_template = next(d.section for d in self.get("financial_report_details", []) if d.section_type == "Balance Sheet")	
 		def fmt(val, is_ratio=False, is_pct=False):
 			if val in (None, "", "-"):
 				return "-"
@@ -3442,17 +3753,50 @@ class FinancialReport(Document):
 				return f"{val:.2f}"
 			return f"{val:,}"
 
+		cur_current_asset = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Assets"}, 'name'), 'current_month_amount')
+		cur_current_liab = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'current_month_amount')
+		curr_ratio = 0 if cur_current_liab == 0 else round(cur_current_asset/cur_current_liab, 2)
+
+		pre_current_asset = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Assets"}, 'name'), 'previous_year')
+		pre_current_liab = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'previous_year')
+		pre_ratio = 0 if pre_current_liab == 0 else round(pre_current_asset/pre_current_liab, 2)
+
+		cur_tot_ded = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount')
+		cur_tot_equ = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount')
+		cur_ded_ratio = 0 if cur_tot_equ == 0 else (cur_tot_ded/cur_tot_equ)
+
+		pre_tot_ded = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year')
+		pre_tot_equ = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year')
+		pre_ded_ratio = 0 if pre_tot_equ == 0 else (pre_tot_ded/pre_tot_equ)
+
+		curr_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount') +self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
+		curr_deb_ser = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
+		curr_deb_ser_ratio = 0 if curr_deb_ser == 0 else curr_net_op/curr_deb_ser
+
+		pre_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year') +self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
+		pre_deb_ser = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
+		pre_deb_ser_ratio = 0 if pre_deb_ser == 0 else pre_net_op/pre_deb_ser
+
+		curr_pro_af_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount')
+		curr_avg_share_equ = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year'))/2
+		curr_equ_ratio = 0 if curr_avg_share_equ == 0 else curr_pro_af_tax/curr_avg_share_equ
+
+		pre_total_equity = flt(self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, pre_year)) + flt(self.get_yearly_other_equity_note_data(self.previous_fiscal_year, pre_year, total=True, field='grand_total_prev_year')) or 0
+		pre_pro_af_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year')
+		pre_avg_share_equ = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year') + pre_total_equity)/2
+		pre_equ_ratio = 0 if pre_avg_share_equ == 0 else pre_pro_af_tax/pre_avg_share_equ
+
 		note_table_1 = f"""
 		<table style="margin-top: -20px; margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<thead>
 				<tr>
 					<th style="width:19%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
 					<th style="width:24%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; font-size:8px;">Formula</th>
-					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Current Year<br></th>
-					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Ratio</th>
-					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Previous Year<br></th>
-					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Ratio</th>
-					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Change in %</th>
+					<th style="width:17%; border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Current Year<br></th>
+					<th style="width:7%; border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Ratio</th>
+					<th style="width:17%; border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Previous Year<br></th>
+					<th style="width:7%; border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Ratio</th>
+					<th style="width:9%; border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Change in %</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -3460,61 +3804,61 @@ class FinancialReport(Document):
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Current Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">Current Assets</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(142425)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(2.06, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(92670)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(1.56, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(32, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_current_asset)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_ratio, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_current_asset)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_ratio, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ratio == 0 else (curr_ratio/pre_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Current Liabilities</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(69157)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(59436)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_current_liab)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_current_liab)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Debt-Equity Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">Total Debt</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(67430)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(0.60, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(53784)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0.77, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(-22, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_tot_ded)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(cur_ded_ratio, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_tot_ded)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_ded_ratio, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ded_ratio == 0 else (cur_ded_ratio/pre_ded_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Total Equity</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(112383)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(69838)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_tot_equ)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_tot_equ)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Debt Service Coverage Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">Net Operating Income</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(51291)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(4.75, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(25036)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(3.87, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(23, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_net_op)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_deb_ser_ratio, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(curr_deb_ser)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_deb_ser_ratio, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_deb_ser_ratio == 0 else (curr_deb_ser_ratio/pre_deb_ser_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Total Debt Service</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(10798)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(6469)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(pre_net_op)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_deb_ser)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Return on Equity Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">PAT</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(42545)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(0.47, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(18111)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0.30, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(57, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_pro_af_tax)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_equ_ratio, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(curr_avg_share_equ)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_equ_ratio, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_equ_ratio == 0 else (curr_equ_ratio/pre_equ_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Average Shareholder's Equity</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(91111)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(60370)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(pre_pro_af_tax)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_avg_share_equ)}</td>
 			</tr>
 
 			<tr>
@@ -3863,21 +4207,42 @@ class FinancialReport(Document):
 				return "-"
 			return f"{val:,.0f}"
 
-		current_sr_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "sr_ind") or 0
-		previous_sr_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "sr_ind") or 0
-		current_sr_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "sr_row") or 0
-		previous_sr_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "sr_row") or 0
+		# current_sr_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "sr_ind") or 0
+		# previous_sr_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "sr_ind") or 0
+		# current_sr_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "sr_row") or 0
+		# previous_sr_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "sr_row") or 0
 
-		current_ccsa_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ccsa_ind") or 0
-		previous_ccsa_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ccsa_ind") or 0
-		current_ccsa_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ccsa_row") or 0
-		previous_ccsa_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ccsa_row") or 0
+		# current_ccsa_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ccsa_ind") or 0
+		# previous_ccsa_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ccsa_ind") or 0
+		# current_ccsa_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ccsa_row") or 0
+		# previous_ccsa_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ccsa_row") or 0
 
-		current_ce_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ce_ind") or 0
-		previous_ce_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ce_ind") or 0
-		current_ce_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ce_row") or 0
-		previous_ce_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ce_row") or 0
+		# current_ce_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ce_ind") or 0
+		# previous_ce_ind = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ce_ind") or 0
+		# current_ce_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ce_row") or 0
+		# previous_ce_row = frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ce_row") or 0
+		bs_template = next(
+			d.section for d in self.get("financial_report_details", [])
+			if d.section_type == "Balance Sheet"
+		)	
+		current_sr_ind = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Domestic Sales", cls_month, self.fiscal_year) or 0
+		previous_sr_ind = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Domestic Sales", cls_month, self.previous_fiscal_year) or 0
+		current_sr_row = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Export Sales", cls_month, self.fiscal_year) or 0
+		previous_sr_row = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Export Sales", cls_month, self.previous_fiscal_year) or 0
 
+		current_ccsa_row = flt(frappe.get_value("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': self.fiscal_year, 'currency': ["!=", "INR"]}, "amount_in_lc")) + \
+			flt(self.get_yearly_other_intangible_assets(field="curr_intangel_asset")) + flt(frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ccsa_row"))
+		curr_total = flt(self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'current_month_amount'))
+		current_ccsa_ind = curr_total - current_ccsa_row
+
+		previous_ccsa_row = flt(frappe.get_value("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'currency': ["!=", "INR"]}, "amount_in_lc")) + \
+			flt(self.get_yearly_other_intangible_assets(field="intangel_asset")) + flt(frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ccsa_row"))
+		prev_total = flt(self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'previous_year'))
+		previous_ccsa_ind = prev_total - previous_ccsa_row
+
+		current_ce_ind = flt(self.get_yearly_other_intangible_assets(field="curr_addition")) + flt(self.get_yearly_intangible_assets_under_development(field="curr_total")) + flt(self.get_yearly_capital_work_in_progress(field="curr_pre_total"))
+		previous_ce_ind = flt(self.get_yearly_other_intangible_assets(field="prev_addition")) + flt(self.get_yearly_intangible_assets_under_development(field="prev_total")) + flt(self.get_yearly_capital_work_in_progress(field="prev_pre_total"))
+		current_ce_row = previous_ce_row = 0
 		data = {
 			"Segment Revenue (Net)": {
 				"India": (current_sr_ind, previous_sr_ind),
@@ -4230,7 +4595,7 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 
-	def get_yearly_other_equity_note_data(self, section_description="", total=False, field=None):
+	def get_yearly_other_equity_note_data(self, current_year, previous_year, section_description="", total=False, field=None):
 		"""Generate yearly Other Equity note table"""
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		month_end_label, prev_fy_label = self.get_yearly_dates()
@@ -4299,6 +4664,7 @@ class FinancialReport(Document):
 				return grand_cur
 			elif field == "grand_total_prev_year":
 				return grand_prev_year
+			
 		rows = [
 			("Securities premium account", "", "", True),
 			("Balance as at the beginning of the year", sp_open, sp_prev_year, False),
@@ -4647,154 +5013,26 @@ class FinancialReport(Document):
 			previous_year = row.get('previous_year') or 0
 			total_current_month += current_month_amount
 			total_previous_year += previous_year
+			top_border = "border-top:1px solid #222;" if i==0 else "border-top: none;"
+
 			note_table += f'''
 			<tr style="line-height: 1; border:none;">
-				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{indent}{row.get("account") or ""}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; background-color: #e8f5e8; {bold}'>{current_month_amount if current_month_amount else 0}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none; {bold}'>{previous_year if previous_year else 0}</td>
+				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{indent}{row.get("account") or ""}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; background-color: #e8f5e8; {top_border} {bold}'>{current_month_amount if current_month_amount else 0}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{previous_year if previous_year else 0}</td>
 			</tr>
 			'''
 		# Add total row as footer
 		note_table += f'''
 			<tr style="line-height: 1;">
-				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:1px solid #222; font-weight: bold;'>Total</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{round(total_current_month, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:1px solid #222; font-weight: bold;'>{round(total_previous_year, self.show_decimal_value)}</td>
+				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold;'>Total</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{round(total_current_month, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold;'>{round(total_previous_year, self.show_decimal_value)}</td>
 			</tr>
 		'''
 		note_table += "</tbody></table>"
 		return section_description.replace("{{note_table}}", note_table)
 	
-	def render_profit_and_loss(self, template_name):
-		data = self.get_profit_and_loss_data(template_name)
-		current_year_date, previous_year_date = self.get_current_and_prevous_year_date()
-
-		html = f"""
-		<table style="width:100%; border-collapse: collapse; font-size: 13px; border: 1px solid black;">
-			<thead>
-				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
-					<th style='text-align:left; padding: 5px; width: 5%; border: 1px solid black;'></th>
-					<th style='text-align:left; padding: 5px; width: 45%; border: 1px solid black;'>Particulars</th>
-					<th style='text-align:center; padding: 5px; width: 10%; border: 1px solid black;'>Note No.</th>
-					<th style='text-align:center; padding: 5px; width: 20%; border: 1px solid black; background-color: #e8f5e8;'>Year Ended <br> {current_year_date}</th>
-					<th style='text-align:center; padding: 5px; width: 20%; border: 1px solid black;'>Year Ended <br> {previous_year_date}</th>
-				</tr>
-			</thead>
-			<tbody>
-		"""
-		
-		def to_roman(idx):
-			romans = [
-				'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
-				'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'
-			]
-			return romans[idx] if idx < len(romans) else str(idx+1)
-
-
-		group_counter = 0
-		for row in data:
-			indent = "&nbsp;" * (int(row.get("indent", 0)) * 4)
-			bold = "font-weight: bold;" if row.get("is_bold") else ""
-			# Only group accounts get an index
-			if row.get("group"):
-				index = to_roman(group_counter)
-				group_counter += 1
-			else:
-				index = ""
-			
-		schedule_attr = f' data-schedule="{row.get("note_no", "")}"' if row.get("note_no") else ""
-		clickable_style = "cursor: pointer; background-color: #f8f9fa;" if row.get("note_no") else ""
-		hover_style = "background-color: #e9ecef;" if row.get("note_no") else ""
-			
-		account_text = row.get("particular_name") or row.get("account") or ""
-		if row.get("schedule") and row.get("note_no"):
-			note_id = self.generate_note_id(row.get("note_no"), account_text)
-			if note_id:
-				account_text = f'<a href="#{note_id}" style="color: #000000;">{account_text}</a>'
-		
-		html += f"""
-			<tr{schedule_attr} class="clickable-row" style="{clickable_style}">
-				<td style='text-align:center; padding: 2px; border: 1px solid black;'>{index}</td>
-				<td style='text-align:left; padding: 2px; border: 1px solid black; {bold}'>{indent}{account_text}</td>
-				<td style='text-align:center; padding: 2px; border: 1px solid black;'>{row.get("note_no") or ""}</td>
-				<td style='text-align:right; padding: 2px; border: 1px solid black; background-color: #e8f5e8;'>{row["amount"] if row.get("amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border: 1px solid black;'>{row["previous_year_amount"] if row.get("previous_year_amount") else ""}</td>
-			</tr>
-		"""
-
-		html += "</tbody></table>"
-		return html
-
-	def get_balance_sheet_data(self, template_name):
-		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
-		amount_cache = {}
-
-		def calc_amount_for_particular(particular_name, year):
-			cache_key = (particular_name, year)
-			if cache_key in amount_cache:
-				return amount_cache[cache_key]
-
-			fr_particular = frappe.get_doc("FR Particular", particular_name)
-			if getattr(fr_particular, "is_total", 1):
-				amount = 0
-				for p in getattr(fr_particular, "particulars", []):
-					child_name = p.particular
-					amount += calc_amount_for_particular(child_name, year)
-				amount = amount * 100000
-			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping'):
-					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					gl_accounts.extend(gl_account)
-				if len(gl_accounts) == 0:
-					amount = 0
-				else:
-					placeholders = ','.join(['%s'] * len(gl_accounts))
-					query = f"""
-						SELECT SUM(amount) FROM `tabFR Trial Balance Entry`
-						WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-					"""
-					params = [self.company, year] + gl_accounts
-					amount = (frappe.db.sql(query, params)[0][0] or 0)
-			
-			# Apply value reversal if show_reversed_value is checked
-			if getattr(fr_particular, "show_reversed_value", 0):
-				amount = -amount
-			
-			amount_cache[cache_key] = flt(round(amount / 100000), self.show_decimal_value)
-			return amount_cache[cache_key]
-
-		data = []
-		for row in balance_sheet_doc.balance_sheet_template_details:
-			if not row.account:
-				continue
-			amount_2024 = calc_amount_for_particular(row.account, self.fiscal_year)
-			amount_2023 = calc_amount_for_particular(row.account, self.previous_fiscal_year)
-			
-			# Get the schedule from FR Particular
-			fr_particular = frappe.get_doc("FR Particular", row.account)
-			schedule = getattr(fr_particular, "schedule", "")
-			
-			# Get note number for schedule if it exists
-			note_no = row.note
-			if schedule:
-				schedule_note_no = self.get_note_number_for_schedule(schedule)
-				if schedule_note_no:
-					note_no = schedule_note_no
-			
-			data.append({
-				"account": row.particular_name,
-				"note_no": note_no,
-				"amount_2024": amount_2024,
-				"amount_2023": amount_2023,
-				"indent": int(row.indent_level or 0),
-				"is_bold": row.is_bold,
-				"header": row.header,
-				"group": row.group,
-				"schedule": schedule,
-			})
-		return data
-
 	def render_yearly_balance_sheet(self, template_name):
 		"""Render yearly balance sheet with note-style UI"""
 		data = self.get_yearly_balance_sheet_data(template_name)
@@ -4880,9 +5118,9 @@ class FinancialReport(Document):
 			"""
 
 		html += "</tbody></table>"
-		return html
+		return json.dumps(data), html
 
-	def get_yearly_balance_sheet_data(self, template_name, for_other_equity=False, account=None):
+	def get_yearly_balance_sheet_data(self, template_name, for_other_equity=False, account=None, field=""):
 		"""Get yearly balance sheet data with current year, previous year, and FTY amounts"""
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
 		amount_cache, group_mapping_cache, standalone_group_cache, fr_section_cache, fr_particular_cache = {}, {}, {}, {}, {}
@@ -4949,7 +5187,7 @@ class FinancialReport(Document):
 					amount = self.get_yearly_cost_of_material_consumed(note_type, total=True, field=field)
 				elif note_type == "Other Equity" and not for_other_equity and not account:
 					field = 'grand_total_current' if is_current else 'grand_total_prev_year'
-					amount = self.get_yearly_other_equity_note_data(total=True, field=field)
+					amount = self.get_yearly_other_equity_note_data(self.fiscal_year, self.previous_fiscal_year, total=True, field=field)
 				elif note_type == "Borrowings (Non-current)":
 					field = 'total_current_month_amt' if is_current else 'total_previous_year'
 					amount = self.get_yearly_borrowing_non_current_note_data(note_type, total=True, field=field)
@@ -5226,6 +5464,7 @@ class FinancialReport(Document):
 			note_no = self.get_note_number_for_schedule(schedule) if schedule else ""
 
 			grouped_data.append({
+				"id": row.account,
 				"account": row.particular_name,
 				"note_no": note_no or "",
 				"current_month_amount": current_month_amount,
@@ -5302,7 +5541,7 @@ class FinancialReport(Document):
 			"""
 
 		html += "</tbody></table>"
-		return html
+		return json.dumps(data), html
 	
 	def get_yearly_cash_flow_data(self, template_name):
 		"""Get monthly cash flow data with current month, previous month, and FTM amounts"""
@@ -5409,7 +5648,184 @@ class FinancialReport(Document):
 		return html
 
 	def get_yearly_equity_share_capital_note_data(self, section_description=""):
-		pass
+		month_end_label, previous_fiscal_year_end_label = self.get_yearly_dates()
+
+		# Get dynamic dates for current, previous, and pre-previous fiscal years
+		current_date = month_end_label.replace("Year Ended ", "").replace("/", "-")
+		previous_date = previous_fiscal_year_end_label.replace("Year Ended ", "").replace("/", "-")
+
+		# Get pre-previous fiscal year date
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		if pre_year:
+			pre_year_doc = frappe.get_doc("Fiscal Year", pre_year)
+			pre_previous_date = pre_year_doc.year_end_date.strftime("%d-%m-%Y") if pre_year_doc.year_end_date else ""
+		else:
+			pre_previous_date = ""
+
+		def render_note_table(headers, sub_headers, rows):
+			html = """
+			<table style="width:100%; border-collapse:collapse; font-size:13px;">
+				<thead>
+			"""
+
+			# Main header
+			html += "<tr>"
+			for idx, h in enumerate(headers):
+				width_style = "width:30%;" if idx == 0 else ""
+				html += f"<th style='border:1px solid #000; padding:4px; text-align:center; {width_style}'>{h}</th>"
+			html += "</tr>"
+
+			# Sub header
+			if sub_headers:
+				html += "<tr>"
+				for idx, sh in enumerate(sub_headers):
+					width_style = "width:30%;" if idx == 0 else ""
+					html += f"<th style='border:1px solid #000; padding:4px; text-align:center; {width_style}'>{sh}</th>"
+				html += "</tr>"
+
+			html += "</thead><tbody>"
+
+			for row in rows:
+				html += "<tr>"
+				for idx, col in enumerate(row):
+					width_style = "width:30%;" if idx == 0 else ""
+					html += f"<td style='border:1px solid #000; padding:4px; {width_style}'>{col or ''}</td>"
+				html += "</tr>"
+
+			html += "</tbody></table>"
+			return html
+
+		headers = [
+			"Particulars",
+			f"As at {current_date}", f"As at {current_date}",
+			f"As at {previous_date}", f"As at {previous_date}",
+			f"As at {pre_previous_date}", f"As at {pre_previous_date}",
+		]
+
+		sub_headers = [
+			"", "No. of shares", "(₹ in lacs)",
+			"No. of shares", "(₹ in lacs)",
+			"No. of shares", "(₹ in lacs)"
+		]
+
+		rows = [
+			["Authorised", "", "", "", "", "", ""],
+			["Equity Shares of ₹10/- each", "6,00,00,000", "6,000", "6,00,00,000", "6,000", "6,00,00,000", "6,000"],
+			["Redeemable Preference Shares of ₹10/- each", "4,00,00,000", "4,000", "4,00,00,000", "4,000", "4,00,00,000", "4,000"],
+			["Total", "10,00,00,000", "10,000", "10,00,00,000", "10,000", "10,00,00,000", "10,000"],
+			["Issued, Subscribed and Fully Paid", "", "", "", "", "", ""],
+			["Equity Shares of ₹10/- each", "5,93,60,000", "5,936", "5,93,60,000", "5,936", "5,93,60,000", "5,936"],
+			["Total", "5,93,60,000", "5,936", "5,93,60,000", "5,936", "5,93,60,000", "5,936"],
+		]
+
+		section_description = section_description.replace("{{note_table}}", render_note_table(headers, sub_headers, rows))
+
+		headers_1 = [
+			"Particulars",
+			f"As at {current_date}", f"As at {current_date}",
+			f"As at {previous_date}", f"As at {previous_date}",
+			f"As at {pre_previous_date}", f"As at {pre_previous_date}",
+		]
+
+		sub_headers_1 = [
+			"", "No. of shares", "(₹ in lacs)",
+			"No. of shares", "(₹ in lacs)",
+			"No. of shares", "(₹ in lacs)"
+		]
+
+		rows_1 = [
+			["Equity Shares", "", "", "", "", "", ""],
+			["Outstanding at the beginning of the year", "5,93,60,000", "5,936", "5,93,60,000", "5,936", "5,93,60,000", "5,936"],
+			["Outstanding at the end of the year", "5,93,60,000", "5,936", "5,93,60,000", "5,936", "5,93,60,000", "5,936"],
+		]
+		section_description = section_description.replace("{{note_table_1}}", render_note_table(headers_1, sub_headers_1, rows_1))
+
+		headers_3 = [
+			"Particulars",
+			f"As at {current_date}", f"As at {current_date}",
+			f"As at {previous_date}", f"As at {previous_date}",
+			f"As at {pre_previous_date}", f"As at {pre_previous_date}",
+		]
+
+		sub_headers_3 = [
+			"", "No. of shares", "(₹ in lacs)",
+			"No. of shares", "(₹ in lacs)",
+			"No. of shares", "(₹ in lacs)"
+		]
+
+		rows_3 = [
+			["Equity Shares", "", "", "", "", "", ""],
+			[
+				"Micro Life Sciences Private Limited, the Holding company together with its nominee",
+				"5,93,60,000", "5,936",
+				"5,93,60,000", "5,936",
+				"5,93,60,000", "5,936"
+			]
+		]
+		section_description = section_description.replace("{{note_table_3}}", render_note_table(headers_3, sub_headers_3, rows_3))
+
+		headers_4 = [
+			"Name of Shareholder",
+			f"As at {current_date}", f"As at {current_date}",
+			f"As at {previous_date}", f"As at {previous_date}",
+			f"As at {pre_previous_date}", f"As at {pre_previous_date}",
+		]
+
+		sub_headers_4 = [
+			"", "No. of Shares held", "% of Holding",
+			"No. of Shares held", "% of Holding",
+			"No. of Shares held", "% of Holding"
+		]
+
+		rows_4 = [
+			["Equity Shares", "", "", "", "", "", ""],
+			[
+				"Micro Life Sciences Private Limited, the Holding company together with its nominee",
+				"5,93,60,000", "100%",
+				"5,93,60,000", "100%",
+				"5,93,60,000", "100%",
+			]
+		]
+		section_description = section_description.replace("{{note_table_4}}", render_note_table(headers_4, sub_headers_4, rows_4))
+
+		headers_5 = [
+			"Name of Promoter",
+			f"As at {current_date}", f"As at {current_date}", f"As at {current_date}"
+		]
+
+		sub_headers_5 = [
+			"", "No. of Shares", "% of total shares", "% Change during the year"
+		]
+
+		rows_5 = [
+			["Equity Shares", "", "", ""],
+			[
+				"Micro Life Sciences Private Limited, the Holding company together with its nominee",
+				"5,93,60,000", "100%", "-"
+			],
+			["Total", "5,93,60,000", "100%", ""]
+		]
+		section_description = section_description.replace("{{note_table_5}}", render_note_table(headers_5, sub_headers_5, rows_5))
+
+		headers_6 = [
+			"Name of Promoter",
+			f"As at {previous_date}", f"As at {previous_date}", f"As at {previous_date}"
+		]
+
+		sub_headers_6 = [
+			"", "No. of Shares", "% of total shares", "% Change during the year"
+		]
+
+		rows_6 = [
+			["Equity Shares", "", "", ""],
+			[
+				"Micro Life Sciences Private Limited, the Holding company together with its nominee",
+				"5,93,60,000", "100%", "-"
+			],
+			["Total", "5,93,60,000", "100%", ""]
+		]
+		section_description = section_description.replace("{{note_table_6}}", render_note_table(headers_6, sub_headers_6, rows_6))
+		return section_description
 
 	def get_yearly_render_equity_share_table(self, section_description=""):
 		rows = [
@@ -5455,6 +5871,40 @@ class FinancialReport(Document):
 
 		html += "</tbody>\n</table>"
 		return section_description.replace("{{note_table}}", html)
+
+	def get_yearly_bs_particular_data(self, id, field):
+		import json
+		data = self.get('financial_report_details', {'section_type': "Balance Sheet"})
+		if not data:
+			return 0
+
+		table_data_str = data[0].table_data or "[]"
+		try:
+			table_data = json.loads(table_data_str)
+		except (json.JSONDecodeError, TypeError):
+			table_data = []
+
+		for row in table_data:
+			if row.get("id") == id:
+				return row.get(field)
+		return 0
+
+	def get_yearly_pl_particular_data(self, id, field):
+		import json
+		data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
+		if not data:
+			return 0
+
+		table_data_str = data[0].table_data or "[]"
+		try:
+			table_data = json.loads(table_data_str)
+		except (json.JSONDecodeError, TypeError):
+			table_data = []
+
+		for row in table_data:
+			if row.get("id") == id:
+				return row.get(field)
+		return 0
 
 	@frappe.whitelist()
 	def get_financial_report_template(self):
@@ -5656,14 +6106,14 @@ class FinancialReport(Document):
 
 		# HTML rendering
 		html = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:13px;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<thead>
-				<tr style = "border-bottom:2px solid #222;">
-					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{month_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>FTM</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
+				<tr style="border-bottom:2px solid #222;">
+					<th style="border:1px solid #222; color: #4472C4; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{month_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>FTM</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -5671,13 +6121,17 @@ class FinancialReport(Document):
 
 		for r in rows:
 			cm, pm, ftm, py = [round(r[v], self.show_decimal_value) if r[v] else "" for v in ["current_month_amt", "previous_month_amt", "ftm_amt", "previous_year_amt"]]
-			bold = "font-weight: bold;" if r["is_subtotal"] else ""
-			border = "border:1px solid #222;"
-			html += f'<tr><td style="{border} text-align:left; padding:6px 8px; {bold}">{r["particulars"]}</td>'
-			html += f'<td style="{border} text-align:right; padding:6px 8px; {bold} background-color:#e8f5e8;">{cm}</td>'
-			html += f'<td style="{border} text-align:right; padding:6px 8px; {bold}">{ftm}</td>'
-			html += f'<td style="{border} text-align:right; padding:6px 8px; {bold}">{pm}</td>'
-			html += f'<td style="{border} text-align:right; padding:6px 8px; {bold}">{py}</td></tr>'
+			bold = "font-weight:bold;" if r["is_subtotal"] else ""
+			br = "border:1px solid #222; border-top:none; border-bottom:none;" if not r["is_subtotal"] else "border:1px solid #222;"
+			html += f'''
+			<tr>
+				<td style="{br} text-align:left; padding:6px 8px; {bold}">{r["particulars"]}</td>
+				<td style="{br} text-align:right; padding:6px 8px; {bold} background:#e8f5e8;">{cm}</td>
+				<td style="{br} text-align:right; padding:6px 8px; {bold}">{ftm}</td>
+				<td style="{br} text-align:right; padding:6px 8px; {bold}">{pm}</td>
+				<td style="{br} text-align:right; padding:6px 8px; {bold}">{py}</td>
+			</tr>
+			'''
 
 		html += "</tbody></table>"
 		return html
@@ -5791,30 +6245,30 @@ class FinancialReport(Document):
 
 		# Generate HTML table
 		html = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:13px;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<thead>
-				<tr style = "border-bottom:2px solid #222;">
-					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>FTM</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{current_fiscal_year_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{previous_fiscal_year_end_label}</b></th>
+				<tr style="border-bottom:2px solid #222;">
+					<th style="border:1px solid #222; color: #4472C4; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>FTM</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
 				</tr>
 			</thead>
 			<tbody>
 		'''
-		
+
 		for row in rows:
 			# Format amounts
 			current_month_amt_str = round(row['current_month_amt'], self.show_decimal_value) if row['current_month_amt'] else "-"
-			ftm_amt_str = round(row['ftm_amt'], self.show_decimal_value) if row['ftm_amt']else "-"
+			ftm_amt_str = round(row['ftm_amt'], self.show_decimal_value) if row['ftm_amt'] else "-"
 			previous_month_amt_str = round(row['previous_month_amt'], self.show_decimal_value) if row['previous_month_amt'] else "-"
 			previous_year_amt = round(row['previous_year_amt'], self.show_decimal_value) if row['previous_year_amt'] else "-"
-			
+
 			# Style for totals
 			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
-			border_style = "border:1px solid #222;"
-			
+			border_style = "border:1px solid #222;" if row["is_subtotal"] else "border:1px solid #222; border-top:none; border-bottom:none;"
+
 			html += f'''
 				<tr>
 					<td style="{border_style} text-align:left; padding:6px 8px; {bold_style}">{row['particulars']}</td>
@@ -5955,16 +6409,13 @@ class FinancialReport(Document):
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		html = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border-bottom:1px solid #222;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
-				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 5%;'></th>
-					<th style='border:1px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>Note No.</th>
-					<th style='border:1px solid #222; border-down:1px solid #222; text-align:center; padding: 5px; width: 15%; background-color: #e8f5e8;'>{month_end_label}</th>
-					<!-- <th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>FTM</th> -->
-					<!-- <th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>{current_fiscal_year_end_label}</th> -->
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>{previous_fiscal_year_end_label}</th>
+				<tr style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;">
+					<th colspan="2" style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding: 5px; width: 45%; background-color:#fff;'>Particulars</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>Note No.</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 15%; background-color:#fff;'>{month_end_label}</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -6016,22 +6467,23 @@ class FinancialReport(Document):
 
 			# Add data-schedule attribute and clickable styling for account rows
 			schedule_attr = f' data-schedule="{note_no}"' if note_no else ""
-			clickable_style = "cursor: pointer; background-color: #f8f9fa;" if note_no else ""
-			
+			clickable_style = "cursor: pointer;" if note_no else ""
+
 			# Add anchor link if schedule exists
 			account_text = account_label
 			if schedule and note_no:
 				note_id = self.generate_note_id(note_no, account_label)
 				account_text = f'<a href="#{note_id}" style="color: #000000;">{account_label}</a>'
 
-			# Final row
+			# Final row - only vertical borders for regular rows, add horizontal border for sub-total (bold) rows
+			horizontal_border = "border-top:1px solid #222; border-bottom:1px solid #222;" if row.get("is_bold") and not row.get("header") and not row.get("group") else ""
 			html += f"""
 			<tr{schedule_attr} class="clickable-row" style="{clickable_style} line-height: 1;">
-				<td style='text-align:center; padding: 2px; border:1px solid #222; {bold}'>{index}</td>
-				<td style='text-align:left; padding: 2px; border:1px solid #222; {bold}'>{indent}{account_text}</td>
-				<td style='text-align:center; padding: 2px; border:1px solid #222;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222; background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222; {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
+				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
+				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
+				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222 '>{note_no or ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -6045,16 +6497,15 @@ class FinancialReport(Document):
 		data = self.get_monthly_profit_and_loss_data(template_name)
 
 		html = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border-bottom:1px solid #222;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
-				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
-					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 5%;'></th>
-					<th style='border:1px solid #222; text-align:left; padding: 5px; font-size: 12px; width: 40%;'>Particulars</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%;'>Note No.</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 15%; background-color: #e8f5e8;'>{current_month_end}</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%;'>FTM</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%;'>{previous_month_end}</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%;'>{previous_fiscal_year_end_label}</th>
+				<tr style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;">
+					<th colspan="2" style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding: 5px; font-size: 12px; width: 35%; background-color:#fff;'>Particulars</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>Note No.</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 15%; background-color:#fff;'>{current_month_end}</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>FTM</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>{previous_month_end}</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -6085,15 +6536,17 @@ class FinancialReport(Document):
 				if note_id:
 					account_text = f'<a href="#' + note_id + '" style="color: #000000;">' + account_text + '</a>'
 
+			# Only vertical borders for regular rows, add horizontal border for total (bold) rows
+			horizontal_border = "border-top:1px solid #222; border-bottom:1px solid #222;" if row.get("is_bold") and not row.get("group") else ""
 			html += f"""
 			<tr{schedule_attr} class="clickable-row" style="{clickable_style}">
-				<td style='text-align:center; padding: 2px; border:1px solid #222; {bold}'>{index}</td>
-				<td style='text-align:left; padding: 2px; border:1px solid #222; {bold}'>{indent}{account_text}</td>
-				<td style='text-align:center; padding: 2px; border:1px solid #222;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222; background-color: #e8f5e8;'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222;'>{row.get("ftm_amount", 0) if row.get("ftm_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222;'>{row.get("previous_month_amount", 0) if row.get("previous_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222;'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
+				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
+				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
+				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222;'>{note_no or ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("ftm_amount", 0) if row.get("ftm_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_month_amount", 0) if row.get("previous_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -6106,15 +6559,14 @@ class FinancialReport(Document):
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		html = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border-bottom:1px solid #222;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
-				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 5%;'></th>
-					<th style='border:1px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 15%; background-color: #e8f5e8;'>{month_end_label}</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>FTM</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>{current_fiscal_year_end_label}</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 10%;'>{previous_fiscal_year_end_label}</th>
+				<tr style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;">
+					<th colspan="2" style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding: 5px; width: 35%; background-color:#fff;'>Particulars</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 15%; background-color:#fff;'>{month_end_label}</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>FTM</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>{current_fiscal_year_end_label}</th>
+					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -6133,14 +6585,16 @@ class FinancialReport(Document):
 
 			account_text = row.get("account") or ""
 
+			# Only vertical borders for regular rows, add horizontal border for total (bold) rows
+			horizontal_border = "border-top:1px solid #222; border-bottom:1px solid #222;" if row.get("is_bold") and not row.get("group") else ""
 			html += f"""
 			<tr>
-				<td style='text-align:center; padding: 2px; border:1px solid #222; {bold}'>{index}</td>
-				<td style='text-align:left; padding: 2px; border:1px solid #222; {bold}'>{indent}{account_text}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222; background-color: #e8f5e8;'>{'{:,.2f}'.format(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222;'>{'{:,.2f}'.format(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222;'>{'{:,.2f}'.format(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border:1px solid #222;'>{'{:,.2f}'.format(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
+				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{'{:,.2f}'.format(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{'{:,.2f}'.format(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{'{:,.2f}'.format(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{'{:,.2f}'.format(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -6149,9 +6603,6 @@ class FinancialReport(Document):
 
 	def render_monthly_equity_share_table(self):
 		"""Render monthly equity share table with optimized structure"""
-		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-		
-		# For equity, we'll use the same data as it's typically static
 		rows = [
 			{"particular": "As at 1st April, 2023", "shares": "5,93,60,000", "amount": "5,936", "bold": 1},
 			{"particular": "Changes in equity share capital during the year", "shares": "-", "amount": "-", "bold": 0},
@@ -6160,16 +6611,14 @@ class FinancialReport(Document):
 			{"particular": "Balance as at 31st March, 2025", "shares": "5,93,60,000", "amount": "5,936", "bold": 1},
 		]
 
-		html = f'''
+		html = '''
 		<h5 style="text-align: left; font-weight: bold; padding: 8px; margin-bottom: -50px">A. Equity share capital (Amount in ₹ Lacs)</h5>
-		<table style="width: 100%; border-collapse: collapse; border: 1px solid #000; font-family: Arial, sans-serif; font-size: 13px; margin-top: -25pt;">
+		<table style="width: 60%; border-collapse: collapse; border: 1px solid #000; font-family: Arial, sans-serif; font-size: 13px;">
 		<thead>
 			<tr style = "border-bottom:2px solid #222;">
-				<th style="padding: 8px; border: 1px solid black; width: 40%;">Particulars</th>
-				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 20%;">Number of Shares</th>
-				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 13%; background-color: #e8f5e8;">{month_end_label}</th>
-				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 13%;">{current_fiscal_year_end_label}</th>
-				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 14%;">{previous_fiscal_year_end_label}</th>
+				<th style="padding: 8px; border: 1px solid black; width: 50%;">Particulars</th>
+				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 25%;">Number of Shares</th>
+				<th style="padding: 8px; text-align: right; border: 1px solid black; width: 25%; background-color: #e8f5e8;">Equity share capital</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -6177,24 +6626,21 @@ class FinancialReport(Document):
 
 		for idx, row in enumerate(rows):
 			bold_class = 'font-weight: bold;' if row["bold"] == 1 else ''
+			# For the last row, treat as footer with full border
 			if idx == len(rows) - 1:
 				html += f'''
 				<tr>
-					<td style="padding: 8px; border: 1px solid black; {bold_class} width: 40%;">{row['particular']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 20%;">{row['shares']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 13%; background-color: #e8f5e8;">{row['amount']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 13%;">{row['amount']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 14%;">{row['amount']}</td>
+					<td style="padding: 8px; border: 1px solid black; {bold_class} width: 50%;">{row['particular']}</td>
+					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 25%;">{row['shares']}</td>
+					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 25%; background-color: #e8f5e8;">{row['amount']}</td>
 				</tr>
 			'''
 			else:
 				html += f'''
 				<tr>
-					<td style="padding: 8px; border: 1px solid black; {bold_class} width: 40%;">{row['particular']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 20%;">{row['shares']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 13%; background-color: #e8f5e8;">{row['amount']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 13%;">{row['amount']}</td>
-					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 14%;">{row['amount']}</td>
+					<td style="padding: 8px; border: 1px solid black; {bold_class} width: 50%;">{row['particular']}</td>
+					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 25%;">{row['shares']}</td>
+					<td style="padding: 8px; text-align: right; border: 1px solid black; width: 25%; background-color: #e8f5e8;">{row['amount']}</td>
 				</tr>
 			'''
 
@@ -6204,16 +6650,16 @@ class FinancialReport(Document):
 	def monthly_table_for_note_template_1(self, data):
 		"""Optimized monthly table for note template 1"""
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-		
+
 		note_table = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt;">
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
-				<tr style="background-color: #f1f1f1; border-bottom:2px solid #222;">
-					<th style='border:1px solid #222; text-align:left; padding: 5px; width: 40%;'>Particulars</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%; background-color: #e8f5e8;'>{month_end_label}</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%;'>FTM</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%;'>{current_fiscal_year_end_label}</th>
-					<th style='border:1px solid #222; text-align:center; padding: 5px; width: 20%;'>{previous_fiscal_year_end_label}</th>
+				<tr style="color: #4472C4; background-color:#fff;">
+					<th style='border:1px solid #222; text-align:left; padding: 2px 5px; width: 40%; background-color:#fff;'>Particulars</th>
+					<th style='border:1px solid #222; text-align:center; padding: 2px 5px; width: 15%; background-color:#fff;'>{month_end_label}</th>
+					<th style='border:1px solid #222; text-align:center; padding: 2px 5px; width: 15%; background-color:#fff;'>FTM</th>
+					<th style='border:1px solid #222; text-align:center; padding: 2px 5px; width: 15%; background-color:#fff;'>{current_fiscal_year_end_label}</th>
+					<th style='border:1px solid #222; text-align:center; padding: 2px 5px; width: 15%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -6234,23 +6680,25 @@ class FinancialReport(Document):
 			total_previous_month += previous_month_amount
 			total_ftm += ftm_amount
 			total_previous_year += previous_year
+			# First row after header should have bottom border
+			top_border = "border-top:1px solid #222;" if i == 0 else "border-top:none;"
 			note_table += f'''
-			<tr>
-				<td style='text-align:left; padding: 5px; border:1px solid #222; {bold}'>{indent}{row.get("account") or ""}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; background-color: #e8f5e8;'>{current_month_amount if current_month_amount else ''}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222;'>{ftm_amount if ftm_amount else ''}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222;'>{previous_month_amount if previous_month_amount else ''}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222;'>{previous_year if previous_year else ''}</td>
+			<tr style="line-height: 1; border:none;">
+				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{indent}{row.get("account") or ""}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} background-color: #e8f5e8; {bold}'>{current_month_amount if current_month_amount else 0}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{ftm_amount if ftm_amount else 0}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{previous_month_amount if previous_month_amount else 0}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{previous_year if previous_year else 0}</td>
 			</tr>
 			'''
 		# Add total row as footer
 		note_table += f'''
-			<tr>
-				<td style='text-align:left; padding: 5px; border:1px solid #222; font-weight: bold;'>Total</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{round(total_current_month, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{round(total_ftm, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_month, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_year, self.show_decimal_value)}</td>
+			<tr style="line-height: 1;">
+				<td style='text-align:left; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>Total</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{round(total_current_month, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{round(total_ftm, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_month, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_year, self.show_decimal_value)}</td>
 			</tr>
 		'''
 		note_table += "</tbody></table>"
@@ -6754,14 +7202,14 @@ class FinancialReport(Document):
 
 		# HTML rendering with optimized structure
 		html = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000;">
 			<thead>
 				<tr style = "border-bottom:2px solid #222;">
-					<th style="border:1px solid #222; text-align:left; width:50%; padding:6px 8px;"><b>Particulars</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>FTM</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>FTM</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -6771,11 +7219,11 @@ class FinancialReport(Document):
 			bold = "font-weight: bold;" if row.get("group") else ""
 			html += f'''
 				<tr>
-					<td style="border:1px solid #222; text-align:left; padding:6px 8px; {bold}">{row['particulars']}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; background-color:#e8f5e8;">{row['current_month_amt']}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px;">{row['ftm_amt']}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px;">{row['previous_month_amt']}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px;">{row['previous_year']}</td>
+					<td style="border:1px solid #222; border-top:none; border-bottom:none; text-align:left; padding:6px 8px; {bold}">{row['particulars']}</td>
+					<td style="border:1px solid #222; border-top:none; border-bottom:none; text-align:right; padding:6px 8px; background-color:#e8f5e8;">{row['current_month_amt']}</td>
+					<td style="border:1px solid #222; border-top:none; border-bottom:none; text-align:right; padding:6px 8px;">{row['ftm_amt']}</td>
+					<td style="border:1px solid #222; border-top:none; border-bottom:none; text-align:right; padding:6px 8px;">{row['previous_month_amt']}</td>
+					<td style="border:1px solid #222; border-top:none; border-bottom:none; text-align:right; padding:6px 8px;">{row['previous_year']}</td>
 				</tr>
 			'''
 
@@ -6933,13 +7381,13 @@ class FinancialReport(Document):
 
 		# --- HTML Output ---
 		html = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top:-25pt;">
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
-				<tr style = "border-bottom:2px solid #222;">
-					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px; background:#f2f2f0;"><b>Particulars</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#e8f5e8;"><b>{month_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#f2f2f0;"><b>{current_fiscal_year_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#f2f2f0;"><b>{previous_fiscal_year_end_label}</b></th>
+				<tr style="border-bottom:2px solid #222; background-color:#fff;">
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:40%; padding:6px 8px; background-color:#fff; text-align:left;"><b>Particulars</b></th>
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{month_end_label}</b></th>
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{previous_fiscal_year_end_label}</b></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -6947,26 +7395,18 @@ class FinancialReport(Document):
 
 		for i, (particulars, amt_month, amt_current_fy, amt_previous_fy, is_bold) in enumerate(data):
 			bold = "font-weight: bold;" if is_bold else ""
-			is_last = i == len(data) - 1
-
-			if is_last:
-				html += f'''
-				<tr>
-					<td style="border:1px solid #222; text-align:left; padding:6px 8px; {bold}">{particulars}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; background:#e8f5e8; {bold}">{amt_month}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {bold}">{amt_current_fy}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {bold}">{amt_previous_fy}</td>
-				</tr>
-				'''
+			# Only vertical borders for regular rows, full borders for bold/total rows
+			if is_bold:
+				border = "border-top:1px solid #222; border-bottom:1px solid #222;"
 			else:
-				html += f'''
-				<tr>
-					<td style="border:1px solid #222; text-align:left; padding:6px 8px; {bold}">{particulars}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; background:#e8f5e8; {bold}">{amt_month}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {bold}">{amt_current_fy}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {bold}">{amt_previous_fy}</td>
-				</tr>
-				'''
+				border = "border-top:none; border-bottom:none;"
+
+			html += f'''<tr style='background-color:#fff;'>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:left; background-color:#fff; {bold}'>{particulars}</td>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#E8F5E8; {bold}'>{amt_month}</td>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {bold}'>{amt_current_fy}</td>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {bold}'>{amt_previous_fy}</td>
+			</tr>'''
 
 		html += "</tbody></table>"
 		return html
@@ -7020,13 +7460,13 @@ class FinancialReport(Document):
 
 		# Main Table
 		html = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt;">
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000;">
 			<thead>
-				<tr style = "border-bottom:2px solid #222; color: #44247C;">
-					<th style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#e8f5e8;"><b>{month_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;"><b>{current_fiscal_year_end_label}</b></th>
-					<th style="border:1px solid #222; text-align:center; padding:6px 8px; background:#fafbfc;"><b>{previous_fiscal_year_end_label}</b></th>
+				<tr style="color: #4472C4; background-color: #E8F5E8;">
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:40%; padding:2px 5px; text-align:left;">Particulars</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center; background-color: #E8F5E8;">{month_end_label}</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center;">{current_fiscal_year_end_label}</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center;">{previous_fiscal_year_end_label}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -7034,23 +7474,19 @@ class FinancialReport(Document):
 		for i, row in enumerate(main_table):
 			is_last = i == len(main_table) - 1
 			style = "font-weight:bold;" if row[4] else ""
+			# Only vertical borders for regular rows, full borders for last (Total) row
 			if is_last:
-				html += f'''
-				<tr>
-					<td style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px; {style}">{row[0]}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {style} background-color:#e8f5e8;">{row[1]}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {style}">{row[2]}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {style}">{row[3]}</td>
-				</tr>
-			'''
+				border = "border:1px solid #222;"
 			else:
-				html += f'''
-				<tr>
-					<td style="border:1px solid #222; text-align:left; width:40%; padding:6px 8px; {style}">{row[0]}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {style} background-color:#e8f5e8;">{row[1]}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {style}">{row[2]}</td>
-					<td style="border:1px solid #222; text-align:right; padding:6px 8px; {style}">{row[3]}</td>
-				</tr>
+				border = "border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;"
+
+			html += f'''
+			<tr style="line-height: 1; border:none;">
+				<td style="{border} padding:2px 5px; text-align:left; {style}">{row[0]}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{row[1]}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{row[2]}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{row[3]}</td>
+			</tr>
 			'''
 		html += "</tbody></table>"
 		return html
@@ -7136,22 +7572,22 @@ class FinancialReport(Document):
 
 		# HTML table
 		table = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt;">
+		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
-				<tr style = "border-bottom:2px solid #222;">
-					<th rowspan="2" style="border:1px solid #222; width:35%; text-align:left; padding:6px 8px; background:#fafbfc;"><b>Particulars</b></th>
-					<th rowspan="2" style="border:1px solid #222; width:10%; text-align:center; background:#fafbfc;"><b>Face Value</b></th>
-					<th colspan="2" style="border:1px solid #222; text-align:center; background:#e8f5e8;"><b>{month_end_label}</b></th>
-					<th colspan="2" style="border:1px solid #222; text-align:center; background:#fafbfc;"><b>{current_fiscal_year_end_label}</b></th>
-					<th colspan="2" style="border:1px solid #222; text-align:center; background:#fafbfc;"><b>{previous_fiscal_year_end_label}</b></th>
+				<tr style="border-bottom:2px solid #222; background-color:#fff;">
+					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:25%; text-align:left; padding:6px 8px; background-color:#fff;"><b>Particulars</b></th>
+					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:10%; text-align:center; background-color:#fff;"><b>Face Value</b></th>
+					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{month_end_label}</b></th>
+					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{current_fiscal_year_end_label}</b></th>
+					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{previous_fiscal_year_end_label}</b></th>
 				</tr>
-				<tr>
-					<th style="border:1px solid #222; text-align:center; background:#e8f5e8;">No. of Shares</th>
-					<th style="border:1px solid #222; text-align:center; background:#e8f5e8;">(₹ in lacs)</th>
-					<th style="border:1px solid #222; text-align:center; width:8%;">No. of Shares</th>
-					<th style="border:1px solid #222; text-align:center;">(₹ in lacs)</th>
-					<th style="border:1px solid #222; text-align:center;">No. of Shares</th>
-					<th style="border:1px solid #222; text-align:center;">(₹ in lacs)</th>
+				<tr style="background-color:#fff;">
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -7159,18 +7595,17 @@ class FinancialReport(Document):
 
 		for row in data:
 			bold = "font-weight: bold;" if row["bold"] else ""
-			bg = "#e8f5e8" if not row["bold"] else "#f4f4f4"
 
 			table += f'''
-			<tr>
-				<td style="border:1px solid #222; padding:6px 8px; text-align:left; {bold}">{row["particulars"]}</td>
-				<td style="border:1px solid #222; text-align:center;">{row["face_value"]}</td>
-				<td style="border:1px solid #222; text-align:right; background:{bg};">{row["shares_current"]}</td>
-				<td style="border:1px solid #222; text-align:right; background:{bg};">{row["amount_current"]}</td>
-				<td style="border:1px solid #222; text-align:right;">{row["shares_previous"]}</td>
-				<td style="border:1px solid #222; text-align:right;">{row["amount_previous"]}</td>
-				<td style="border:1px solid #222; text-align:right;">{row["shares_previous_year"]}</td>
-				<td style="border:1px solid #222; text-align:right;">{row["amount_previous_year"]}</td>
+			<tr style="background-color:#fff;">
+				<td style="border:1px solid #222; padding:6px 8px; text-align:left; background-color:#fff; {bold}">{row["particulars"]}</td>
+				<td style="border:1px solid #222; text-align:center; background-color:#fff;">{row["face_value"]}</td>
+				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["shares_current"]}</td>
+				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["amount_current"]}</td>
+				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["shares_previous"]}</td>
+				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["amount_previous"]}</td>
+				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["shares_previous_year"]}</td>
+				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["amount_previous_year"]}</td>
 			</tr>
 			'''
 
@@ -7189,7 +7624,7 @@ class FinancialReport(Document):
 		frappe.logger().info(f"Total sections: {len(doc.financial_report_details)}")
 		
 		for section_detail in doc.financial_report_details:
-			if not section_detail.table_data:
+			if not section_detail.section_description:
 				continue
 			if section_detail.section_type == "Consolidation Note":
 				sheet_name = f"SCH-{sch_counter}"
@@ -7212,9 +7647,9 @@ class FinancialReport(Document):
 			ws.merge_cells('A1:E1')
 			
 			row_offset = 2
-			table_data = section_detail.table_data
+			section_description = section_detail.section_description
 			
-			soup = BeautifulSoup(table_data, 'html.parser')
+			soup = BeautifulSoup(section_description, 'html.parser')
 			table = soup.find('table')
 			
 			if table:

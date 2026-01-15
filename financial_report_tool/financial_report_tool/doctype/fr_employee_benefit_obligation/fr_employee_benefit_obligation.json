@@ -1,0 +1,191 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{EBO}-{#####}",
+ "creation": "2026-01-09 11:45:16.285958",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "template",
+  "column_break_hjhy",
+  "company",
+  "column_break_yzio",
+  "fiscal_year",
+  "column_break_wmmq",
+  "month",
+  "section_break_qsyc",
+  "amount_recognised_in_the_balance_sheet",
+  "section_break_wnsq",
+  "amount_recognised_in_statement_of_profit",
+  "section_break_lnwg",
+  "reconciliation_of_defined_benefit_obligation",
+  "section_break_vdwv",
+  "actuarial_assumptions",
+  "section_break_bwpo",
+  "experience_adjustments",
+  "section_break_yvir",
+  "sensitivity_analysis",
+  "section_break_rlwh",
+  "maturity_analysis",
+  "section_break_qcef",
+  "actuarial_assumption_for_compensated_absences",
+  "section_break_cyhd",
+  "amount_recognised_in_the_statement_of_profit_and_loss"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_yzio",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "column_break_wmmq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fieldname": "section_break_qsyc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amount_recognised_in_the_balance_sheet",
+   "fieldtype": "Table",
+   "label": "Amount Recognised in the Balance Sheet",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_wnsq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amount_recognised_in_statement_of_profit",
+   "fieldtype": "Table",
+   "label": "Amount recognised in Statement of Profit & Loss",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_lnwg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "reconciliation_of_defined_benefit_obligation",
+   "fieldtype": "Table",
+   "label": "Reconciliation of Defined Benefit Obligation",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_vdwv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "actuarial_assumptions",
+   "fieldtype": "Table",
+   "label": "Actuarial Assumptions",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_bwpo",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "experience_adjustments",
+   "fieldtype": "Table",
+   "label": "Experience Adjustments",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_yvir",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sensitivity_analysis",
+   "fieldtype": "Table",
+   "label": "Sensitivity Analysis",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_rlwh",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "maturity_analysis",
+   "fieldtype": "Table",
+   "label": "Maturity Analysis",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_qcef",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "actuarial_assumption_for_compensated_absences",
+   "fieldtype": "Table",
+   "label": "Actuarial assumption for compensated absences",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "section_break_cyhd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amount_recognised_in_the_statement_of_profit_and_loss",
+   "fieldtype": "Table",
+   "label": "AMOUNT RECOGNISED IN THE STATEMENT OF PROFIT AND LOSS",
+   "options": "FR Employee Benefit Obligation Details"
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "link_filters": "[[\"FR Employee Benefit Obligation Templates\",\"disable\",\"=\",0]]",
+   "options": "FR Employee Benefit Obligation Templates"
+  },
+  {
+   "fieldname": "column_break_hjhy",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-13 12:21:32.213252",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Employee Benefit Obligation",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

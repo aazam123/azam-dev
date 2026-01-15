@@ -13,6 +13,7 @@
   "schedule",
   "particulars",
   "column_break_mexs",
+  "type",
   "is_total",
   "to_subtract",
   "has_note_no",
@@ -34,7 +35,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Particular Type",
-   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity Share Capital\nOther Equity\nIncome\nExpenses\nTotal Assets\nTotal Equity\nTotal Current Liabilities\nTotal Non Current Liabilities"
+   "options": "\nCurrent Assets\nNon Current Assets\nCurrent Liabilities\nNon Current Liabilities\nEquity Share Capital\nOther Equity\nIncome\nExpenses\nTotal Assets\nTotal Current Assets\nTotal Non Current Assets\nTotal Equity\nTotal Current Liabilities\nTotal Non Current Liabilities\nTotal Liabilities"
   },
   {
    "fieldname": "column_break_mexs",
@@ -108,12 +109,18 @@
    "fieldname": "is_purchase_of_stock_in_trade",
    "fieldtype": "Check",
    "label": "Is Purchase of Stock In Trade"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "\nNon Current Borrowing\nCurrent Borrowing\nNon Current Lease\nCurrent Lease\nFinance Cost\nDepreciation & Amortisation Expenses\nProfit for the year from continuing operations"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-15 13:54:14.356605",
+ "modified": "2026-01-15 11:49:54.333097",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",
