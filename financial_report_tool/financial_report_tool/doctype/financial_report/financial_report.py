@@ -37,25 +37,53 @@ class FinancialReport(Document):
 			vc.approved_on = now_datetime()
 			vc.approved_by = frappe.session.user
 
-			gl_accounts = frappe.get_all("FR Trial Balance Entry", {'company': self.company}, pluck='gl_account', distinct=True)
-			for account in gl_accounts:
-				pg, sg, hg = frappe.db.get_value("GL Group Mapping", {'company': self.company, 'gl_account': account}, ['primary_group', 'secondary_group', 'higher_secondary_group']) or ("", "", "")
-				ca = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.current_month}, 'uploaded_amount') or 0
-				pa = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.previous_month}, 'uploaded_amount') or 0
-				py = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, 'uploaded_amount') or 0
-				ppy = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': pre_year, 'month': cls_month}, 'uploaded_amount') or 0
-				if any([ca, pa, py, ppy]): 
-					vc.append("details", {
-						"gl_account": account, 
-						"currency": self.currency, 
-						"primary_group": pg, 
-						"secondary_group": sg, 
-						"higher_secondary_group": hg, 
-						"current_amount": ca, 
-						"previous_amount": pa, 
-						"previous_year": py, 
-						"pre_previous_year": ppy
-					})
+			erp_type = self.get_erp_type()
+			if erp_type == "ERPNext":
+				gl_accounts = frappe.get_all("GL Entry", {'company': self.company}, pluck='account', distinct=True)
+				for account in gl_accounts:
+					pg, sg, hg = frappe.db.get_value("GL Group Mapping", {'company': self.company, 'gl_account': account}, ['primary_group', 'secondary_group', 'higher_secondary_group']) or ("", "", "")
+					# Get amounts from GL Entry
+					ca_start, ca_end = self.get_month_date_range(self.current_month, self.fiscal_year)
+					pa_start, pa_end = self.get_month_date_range(self.previous_month, self.fiscal_year)
+					py_start, py_end = self.get_month_date_range(cls_month, self.previous_fiscal_year)
+					ppy_start, ppy_end = self.get_month_date_range(cls_month, pre_year)
+
+					ca = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, ca_start, ca_end])[0][0] or 0 if ca_start else 0
+					pa = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, pa_start, pa_end])[0][0] or 0 if pa_start else 0
+					py = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, py_start, py_end])[0][0] or 0 if py_start else 0
+					ppy = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, ppy_start, ppy_end])[0][0] or 0 if ppy_start else 0
+					if any([ca, pa, py, ppy]):
+						vc.append("details", {
+							"gl_account": account,
+							"currency": self.currency,
+							"primary_group": pg,
+							"secondary_group": sg,
+							"higher_secondary_group": hg,
+							"current_amount": ca,
+							"previous_amount": pa,
+							"previous_year": py,
+							"pre_previous_year": ppy
+						})
+			else:
+				gl_accounts = frappe.get_all("FR Trial Balance Entry", {'company': self.company}, pluck='gl_account', distinct=True)
+				for account in gl_accounts:
+					pg, sg, hg = frappe.db.get_value("GL Group Mapping", {'company': self.company, 'gl_account': account}, ['primary_group', 'secondary_group', 'higher_secondary_group']) or ("", "", "")
+					ca = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.current_month}, 'uploaded_amount') or 0
+					pa = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.previous_month}, 'uploaded_amount') or 0
+					py = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, 'uploaded_amount') or 0
+					ppy = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': pre_year, 'month': cls_month}, 'uploaded_amount') or 0
+					if any([ca, pa, py, ppy]):
+						vc.append("details", {
+							"gl_account": account,
+							"currency": self.currency,
+							"primary_group": pg,
+							"secondary_group": sg,
+							"higher_secondary_group": hg,
+							"current_amount": ca,
+							"previous_amount": pa,
+							"previous_year": py,
+							"pre_previous_year": ppy
+						})
 
 			vc.insert(ignore_permissions=True)
 			frappe.msgprint(f"Version Control record created for Financial Report: {self.name}")
@@ -251,28 +279,83 @@ class FinancialReport(Document):
 			return 1
 		return frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
 
+	def get_erp_type(self):
+		"""Get ERP type from settings - returns 'SAP' or 'ERPNext'"""
+		return frappe.get_single_value("FR Financial Settings", "erp_type") or "SAP"
+
+	def get_fiscal_year_dates(self, fiscal_year):
+		"""Get start and end dates for a fiscal year"""
+		fy = frappe.get_value("Fiscal Year", fiscal_year, ["year_start_date", "year_end_date"], as_dict=True)
+		if fy:
+			return fy.year_start_date, fy.year_end_date
+		return None, None
+
+	def get_month_date_range(self, month, fiscal_year):
+		"""Get date range for a specific month in a fiscal year"""
+		month_num = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+					 'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
+		fy_start, fy_end = self.get_fiscal_year_dates(fiscal_year)
+		if not fy_start:
+			return None, None
+
+		m = month_num.get(month, 1)
+		# Determine year based on fiscal year structure
+		if m >= fy_start.month:
+			year = fy_start.year
+		else:
+			year = fy_end.year
+
+		last_day = calendar.monthrange(year, m)[1]
+		start_date = date(year, m, 1)
+		end_date = date(year, m, last_day)
+		return start_date, end_date
+
 	def sum_group_amt(self, primary_group, group, year, hg_sec_group=""):
 		filters = {"company": self.company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts: return 0
-		query = f"SELECT SUM(amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
-		return (frappe.db.sql(query, [self.company, year]+gl_accounts)[0][0] or 0) / 100000
+
+		erp_type = self.get_erp_type()
+		if erp_type == "ERPNext":
+			fy_start, fy_end = self.get_fiscal_year_dates(year)
+			if not fy_start: return 0
+			query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
+			return (frappe.db.sql(query, [self.company, fy_start, fy_end]+gl_accounts)[0][0] or 0) / 100000
+		else:
+			query = f"SELECT SUM(amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
+			return (frappe.db.sql(query, [self.company, year]+gl_accounts)[0][0] or 0) / 100000
 
 	def get_sum_grouping_amount(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
 		filters = {"company": self.company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts: return 0
-		field = "amount" if is_ftm else "uploaded_amount"
-		query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
-		return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+
+		erp_type = self.get_erp_type()
+		if erp_type == "ERPNext":
+			start_date, end_date = self.get_month_date_range(month, year)
+			if not start_date: return 0
+			query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
+			return round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+		else:
+			field = "amount" if is_ftm else "uploaded_amount"
+			query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+			return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 	def get_sum_grouping_amount_yearly(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
 		filters = {"company": self.company, "report_type": "Yearly","primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts: return 0
-		field = "amount" if is_ftm else "uploaded_amount"
-		query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
-		return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+
+		erp_type = self.get_erp_type()
+		if erp_type == "ERPNext":
+			start_date, end_date = self.get_month_date_range(month, year)
+			if not start_date: return 0
+			query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
+			return round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+		else:
+			field = "amount" if is_ftm else "uploaded_amount"
+			query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+			return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 	def get_yearly_dates(self, only_dates=False):
 		month_num = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
@@ -309,14 +392,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -3786,6 +3869,36 @@ class FinancialReport(Document):
 		pre_avg_share_equ = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year') + pre_total_equity)/2
 		pre_equ_ratio = 0 if pre_avg_share_equ == 0 else pre_pro_af_tax/pre_avg_share_equ
 
+		curr_cogs = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Cost of Goods Sold"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'is_purchase_of_stock_in_trade': 1}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Change In Inventory"}, 'name'), 'current_month_amount')
+		curr_avg_inv = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year')) / 2
+		curr_inv_ratio = 0 if curr_avg_inv == 0 else curr_cogs/curr_avg_inv
+
+		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": "Inventories", "company": self.company}, pluck="secondary_group") if g))
+		pre_cogs = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Cost of Goods Sold"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'is_purchase_of_stock_in_trade': 1}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Change In Inventory"}, 'name'), 'previous_year')
+		pre_avg_inv = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year') + sum(flt(self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year)) for sec in secondary_groups)) / 2
+		pre_inv_ratio = 0 if pre_avg_inv == 0 else pre_cogs/pre_avg_inv
+
+		curr_rev = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'current_month_amount') 
+		curr_avg_trade = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year'))/2
+		curr_trade_ratio = 0 if curr_avg_trade == 0 else curr_rev/curr_avg_trade
+
+		credit_impaired_prev = round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, pre_year) or 0), self.show_decimal_value)
+		trade_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Trade Receivables", cls_month, pre_year) or 0), self.show_decimal_value)
+		other_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Other Trade receivables", cls_month, pre_year) or 0), self.show_decimal_value)
+
+		pre_rev = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'current_month_amount') 
+		pre_avg_trade = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year') + (credit_impaired_prev + trade_recv_prev + other_recv_prev))/2
+		pre_trade_ratio = 0 if pre_avg_trade == 0 else pre_rev/pre_avg_trade
+
+		trade_payables_turnover_ratio_grouping = frappe.get_doc("FR Financial Settings").trade_payables_turnover_ratio_grouping or []
+		curr_pur = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Other Expense"}, 'name'), 'current_month_amount') + sum(self.get_sum_grouping_amount(i.primary_group, i.secoundary_group, cls_month, self.fiscal_year) for i in trade_payables_turnover_ratio_grouping)
+		curr_avg_trade_pay = self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.fiscal_year) + self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year)
+		curr_trade_payable = 0 if curr_avg_trade_pay == 0 else curr_pur/curr_avg_trade_pay
+
+		pre_pur = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Other Expense"}, 'name'), 'current_month_amount') + sum(self.get_sum_grouping_amount(i.primary_group, i.secoundary_group, cls_month, self.previous_fiscal_year) for i in trade_payables_turnover_ratio_grouping)
+		pre_avg_trade_pay = self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year) + self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, pre_year)
+		pre_trade_payable = 0 if pre_avg_trade_pay == 0 else pre_pur/pre_avg_trade_pay
+
 		note_table_1 = f"""
 		<table style="margin-top: -20px; margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<thead>
@@ -3836,13 +3949,13 @@ class FinancialReport(Document):
 				<td style="border:1px solid #000; padding:6px;">Net Operating Income</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_net_op)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_deb_ser_ratio, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(curr_deb_ser)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_net_op)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_deb_ser_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_deb_ser_ratio == 0 else (curr_deb_ser_ratio/pre_deb_ser_ratio), is_pct=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_deb_ser_ratio == 0 else fmt(curr_deb_ser_ratio/pre_deb_ser_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Total Debt Service</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(pre_net_op)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_deb_ser)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_deb_ser)}</td>
 			</tr>
 
@@ -3851,59 +3964,59 @@ class FinancialReport(Document):
 				<td style="border:1px solid #000; padding:6px;">PAT</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_pro_af_tax)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_equ_ratio, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(curr_avg_share_equ)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_pro_af_tax)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_equ_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_equ_ratio == 0 else (curr_equ_ratio/pre_equ_ratio), is_pct=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_equ_ratio == 0 else fmt(curr_equ_ratio/pre_equ_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Average Shareholder's Equity</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(pre_pro_af_tax)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_avg_share_equ)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_avg_share_equ)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Inventory Turnover Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">COGS</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(30002)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(0.98, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(23454)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0.98, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_cogs)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_inv_ratio, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_cogs)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_inv_ratio, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_inv_ratio == 0 else fmt(curr_inv_ratio/pre_inv_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Average Inventory</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(30614)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(23933)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_avg_inv)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_avg_inv)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Trade Receivables Turnover Ratio</td>
-				<td style="border:1px solid #000; padding:6px;">Revenue</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(170652)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(2.20, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(120164)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(2.78, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(-21, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px;">Revenue from operations</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_rev)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_trade_ratio, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_rev)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_trade_ratio, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_trade_ratio == 0 else curr_trade_ratio/pre_trade_ratio, is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Avg Trade Receivable</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(77569)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(43224)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_avg_trade)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_avg_trade)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Trade Payables Turnover Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">Purchases</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(92273)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(5.19, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(82013)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(5.79, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(-10, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_pur)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_trade_payable, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_pur)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_trade_payable, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_trade_payable == 0 else (curr_trade_payable/pre_trade_payable) , is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Avg Trade Payable</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(17769)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(14165)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_avg_trade_pay)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_avg_trade_pay)}</td>
 			</tr>
 
 			<tr>
@@ -4597,7 +4710,7 @@ class FinancialReport(Document):
 
 	def get_yearly_other_equity_note_data(self, current_year, previous_year, section_description="", total=False, field=None):
 		"""Generate yearly Other Equity note table"""
-		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		cls_month, pre_year = self.get_previous_year_cls_month(previous_year)
 		month_end_label, prev_fy_label = self.get_yearly_dates()
 
 		pnl_template = self.get("financial_report_details", {"section_type": "Profit & Loss"})[0].section
@@ -4622,22 +4735,22 @@ class FinancialReport(Document):
 			cur_eq_share, prev_eq_share = equity_share["current_month_amount"], equity_share["previous_year"]
 
 		else:
-			sp_prev_year = abs(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year), self.show_decimal_value))
-			bal_prev_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year), self.show_decimal_value)
+			sp_prev_year = abs(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Share Premium", cls_month, previous_year), self.show_decimal_value))
+			bal_prev_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, previous_year), self.show_decimal_value)
 			add_sp_prev_year = add_sp_cur = add_sp_prev = 0
 
-		oci_prev_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, self.previous_fiscal_year), self.show_decimal_value)
+		oci_prev_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, previous_year), self.show_decimal_value)
 		retained_prev_year = round(bal_prev_year + net_prev_year + oci_prev_year, self.show_decimal_value)
 
-		oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", self.current_month, self.fiscal_year), self.show_decimal_value)
+		oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", self.current_month, current_year), self.show_decimal_value)
 		retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
 		retained_prev = round(retained_prev_year + net_prev, self.show_decimal_value)
 
 		cc_open_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
-		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) - cc_open_prev
+		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) - cc_open_prev
 		cc_close_prev = round(cc_open_prev + cc_add_prev, self.show_decimal_value)
 
-		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, self.fiscal_year), self.show_decimal_value) - cc_close_prev
+		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) - cc_close_prev
 		cc_close_cur = round(cc_close_prev + cc_add_cur, self.show_decimal_value)
 
 		if default_currency != self.currency:
@@ -4648,11 +4761,11 @@ class FinancialReport(Document):
 		sp_open = sp_prev_year + add_sp_prev_year
 		sp_cur, sp_prev = sp_open + add_sp_cur, sp_open + add_sp_prev
 
-		for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value)
-		for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value)
+		for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
+		for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
 		for_exc_prev_year = round(for_exc_open + for_exc_add_prev, self.show_decimal_value)
 
-		for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, self.fiscal_year), self.show_decimal_value)
+		for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
 		for_exc_cur = round(for_exc_prev_year + for_exc_add_cur, self.show_decimal_value)
 
 		grand_cur = round(retained_cur + cc_close_cur + sp_cur + for_exc_cur, self.show_decimal_value)
@@ -4830,10 +4943,10 @@ class FinancialReport(Document):
 
 		# One-line calculations
 		credit_impaired_cur = round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.fiscal_year) or 0) * current_fx, self.show_decimal_value)
-		credit_impaired_prev = round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.previous_fiscal_year) or 0) * prev_fx, self.show_decimal_value)
 		trade_recv_cur = round((self.get_sum_grouping_amount("Trade Receivables", "Trade Receivables", cls_month, self.fiscal_year) or 0) * current_fx, self.show_decimal_value)
-		trade_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Trade Receivables", cls_month, self.previous_fiscal_year) or 0) * prev_fx, self.show_decimal_value)
 		other_recv_cur = round((self.get_sum_grouping_amount("Trade Receivables", "Other Trade receivables", cls_month, self.fiscal_year) or 0) * current_fx, self.show_decimal_value)
+		credit_impaired_prev = round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.previous_fiscal_year) or 0) * prev_fx, self.show_decimal_value)
+		trade_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Trade Receivables", cls_month, self.previous_fiscal_year) or 0) * prev_fx, self.show_decimal_value)
 		other_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Other Trade receivables", cls_month, self.previous_fiscal_year) or 0) * prev_fx, self.show_decimal_value)
 		unsecured_good_cur = trade_recv_cur + credit_impaired_cur
 		unsecured_good_prev = trade_recv_prev + credit_impaired_prev
@@ -5152,14 +5265,28 @@ class FinancialReport(Document):
 			if not gl_accounts:
 				return 0
 			placeholders = ','.join(['%s'] * len(gl_accounts))
-			query = f"""
-				SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
-				WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-			"""
-			params = [self.company, year] + gl_accounts
-			if month:
-				query += " AND month=%s"
-				params.append(month)
+			erp_type = self.get_erp_type()
+
+			if erp_type == "ERPNext":
+				if month:
+					start_date, end_date = self.get_month_date_range(month, year)
+					if not start_date: return 0
+					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+					params = [self.company, start_date, end_date] + gl_accounts
+				else:
+					fy_start, fy_end = self.get_fiscal_year_dates(year)
+					if not fy_start: return 0
+					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+					params = [self.company, fy_start, fy_end] + gl_accounts
+			else:
+				query = f"""
+					SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+					WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+				"""
+				params = [self.company, year] + gl_accounts
+				if month:
+					query += " AND month=%s"
+					params.append(month)
 			return (frappe.db.sql(query, params)[0][0] or 0) / 100000
 
 		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
@@ -5412,12 +5539,20 @@ class FinancialReport(Document):
 						)
 					if gl_accounts:
 						placeholders = ','.join(['%s'] * len(gl_accounts))
-						query = f"""
-							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
-							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
-						"""
-						params = [self.company, year, month] + gl_accounts
-						amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+						erp_type = self.get_erp_type()
+						if erp_type == "ERPNext":
+							start_date, end_date = self.get_month_date_range(month, year)
+							if start_date:
+								query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+								params = [self.company, start_date, end_date] + gl_accounts
+								amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+						else:
+							query = f"""
+								SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+								WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
+							"""
+							params = [self.company, year, month] + gl_accounts
+							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
 			else:
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
@@ -5431,12 +5566,20 @@ class FinancialReport(Document):
 					)
 				if gl_accounts:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
-					query = f"""
-						SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
-						WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
-					"""
-					params = [self.company, year, month] + gl_accounts
-					amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+					erp_type = self.get_erp_type()
+					if erp_type == "ERPNext":
+						start_date, end_date = self.get_month_date_range(month, year)
+						if start_date:
+							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+							params = [self.company, start_date, end_date] + gl_accounts
+							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+					else:
+						query = f"""
+							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
+						"""
+						params = [self.company, year, month] + gl_accounts
+						amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
 
 			if fr_particular.show_reversed_value:
 				amount = -amount
@@ -5565,24 +5708,34 @@ class FinancialReport(Document):
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
 					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
 					gl_accounts.extend(gl_account)
-					
+
 				if len(gl_accounts) == 0:
 					amount = 0
 				else:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
-					query = f"""
-						SELECT SUM(amount) FROM `tabFR Trial Balance Entry`
-						WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
-						AND month >= %s
-					"""
-					params = [self.company, year] + gl_accounts + [month]
-					
-					amount = (frappe.db.sql(query, params)[0][0] or 0)
-			
+					erp_type = self.get_erp_type()
+					if erp_type == "ERPNext":
+						start_date, _ = self.get_month_date_range(month, year)
+						fy_start, fy_end = self.get_fiscal_year_dates(year)
+						if start_date and fy_end:
+							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+							params = [self.company, start_date, fy_end] + gl_accounts
+							amount = (frappe.db.sql(query, params)[0][0] or 0)
+						else:
+							amount = 0
+					else:
+						query = f"""
+							SELECT SUM(amount) FROM `tabFR Trial Balance Entry`
+							WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
+							AND month >= %s
+						"""
+						params = [self.company, year] + gl_accounts + [month]
+						amount = (frappe.db.sql(query, params)[0][0] or 0)
+
 			# Apply value reversal if show_reversed_value is checked
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
-			
+
 			amount_cache[cache_key] = flt(round((amount / 100000), self.show_decimal_value))
 			return amount_cache[cache_key]
 
@@ -5837,7 +5990,7 @@ class FinancialReport(Document):
 		]
 
 		html = '''
-		<h5 style="text-align: left; font-weight: bold; padding: 8px; margin-bottom: -50px">A. Equity share capital (Amount in ₹ Lacs)</h5>
+		<h5 style="text-align: left; font-weight: bold; padding: 8px;">A. Equity share capital (Amount in ₹ Lacs)</h5>
 		<table style="width: 60%; border-collapse: collapse; border: 1px solid #000; font-family: Arial, sans-serif; font-size: 13px;">
 		<thead>
 			<tr style = "border-bottom:2px solid #222;">
@@ -6612,7 +6765,7 @@ class FinancialReport(Document):
 		]
 
 		html = '''
-		<h5 style="text-align: left; font-weight: bold; padding: 8px; margin-bottom: -50px">A. Equity share capital (Amount in ₹ Lacs)</h5>
+		<h5 style="text-align: left; font-weight: bold; padding: 8px;">A. Equity share capital (Amount in ₹ Lacs)</h5>
 		<table style="width: 60%; border-collapse: collapse; border: 1px solid #000; font-family: Arial, sans-serif; font-size: 13px;">
 		<thead>
 			<tr style = "border-bottom:2px solid #222;">
@@ -6846,12 +6999,20 @@ class FinancialReport(Document):
 						)
 					if gl_accounts:
 						placeholders = ','.join(['%s'] * len(gl_accounts))
-						query = f"""
-							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
-							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
-						"""
-						params = [self.company, year, month] + gl_accounts
-						amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+						erp_type = self.get_erp_type()
+						if erp_type == "ERPNext":
+							start_date, end_date = self.get_month_date_range(month, year)
+							if start_date:
+								query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+								params = [self.company, start_date, end_date] + gl_accounts
+								amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+						else:
+							query = f"""
+								SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+								WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
+							"""
+							params = [self.company, year, month] + gl_accounts
+							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
 			else:
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
@@ -6865,12 +7026,20 @@ class FinancialReport(Document):
 					)
 				if gl_accounts:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
-					query = f"""
-						SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
-						WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
-					"""
-					params = [self.company, year, month] + gl_accounts
-					amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+					erp_type = self.get_erp_type()
+					if erp_type == "ERPNext":
+						start_date, end_date = self.get_month_date_range(month, year)
+						if start_date:
+							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+							params = [self.company, start_date, end_date] + gl_accounts
+							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+					else:
+						query = f"""
+							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
+						"""
+						params = [self.company, year, month] + gl_accounts
+						amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
 
 			if fr_particular.show_reversed_value:
 				amount = -amount
@@ -6956,14 +7125,28 @@ class FinancialReport(Document):
 			if not gl_accounts:
 				return 0
 			placeholders = ','.join(['%s'] * len(gl_accounts))
-			query = f"""
-				SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
-				WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
-			"""
-			params = [self.company, year] + gl_accounts
-			if month:
-				query += " AND month=%s"
-				params.append(month)
+			erp_type = self.get_erp_type()
+
+			if erp_type == "ERPNext":
+				if month:
+					start_date, end_date = self.get_month_date_range(month, year)
+					if not start_date: return 0
+					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+					params = [self.company, start_date, end_date] + gl_accounts
+				else:
+					fy_start, fy_end = self.get_fiscal_year_dates(year)
+					if not fy_start: return 0
+					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+					params = [self.company, fy_start, fy_end] + gl_accounts
+			else:
+				query = f"""
+					SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+					WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
+				"""
+				params = [self.company, year] + gl_accounts
+				if month:
+					query += " AND month=%s"
+					params.append(month)
 			return (frappe.db.sql(query, params)[0][0] or 0) / 100000
 
 		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
@@ -7108,24 +7291,34 @@ class FinancialReport(Document):
 				for g in fr_particular.get('primary_and_secondary_group_mapping'):
 					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
 					gl_accounts.extend(gl_account)
-					
+
 				if len(gl_accounts) == 0:
 					amount = 0
 				else:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
-					query = f"""
-						SELECT SUM(amount) FROM `tabFR Trial Balance Entry`
-						WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
-						AND month >= %s
-					"""
-					params = [self.company, year] + gl_accounts + [month]
-					
-					amount = (frappe.db.sql(query, params)[0][0] or 0)
-			
+					erp_type = self.get_erp_type()
+					if erp_type == "ERPNext":
+						start_date, _ = self.get_month_date_range(month, year)
+						fy_start, fy_end = self.get_fiscal_year_dates(year)
+						if start_date and fy_end:
+							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
+							params = [self.company, start_date, fy_end] + gl_accounts
+							amount = (frappe.db.sql(query, params)[0][0] or 0)
+						else:
+							amount = 0
+					else:
+						query = f"""
+							SELECT SUM(amount) FROM `tabFR Trial Balance Entry`
+							WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
+							AND month >= %s
+						"""
+						params = [self.company, year] + gl_accounts + [month]
+						amount = (frappe.db.sql(query, params)[0][0] or 0)
+
 			# Apply value reversal if show_reversed_value is checked
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
-			
+
 			amount_cache[cache_key] = flt(round((amount / 100000), self.show_decimal_value))
 			return amount_cache[cache_key]
 

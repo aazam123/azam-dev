@@ -10,8 +10,11 @@
   "column_break_hwwa",
   "sap_threshold_amount",
   "column_break_ibet",
+  "erp_type",
   "set_previous_fiscal_year_section",
   "previous_fiscal_year",
+  "schedule_settings_tab",
+  "trade_payables_turnover_ratio_grouping",
   "account_payable_tab",
   "vendor_series_section",
   "vendor_series_for_nature",
@@ -130,13 +133,32 @@
    "fieldname": "timeout",
    "fieldtype": "Int",
    "label": "Timeout"
+  },
+  {
+   "fieldname": "schedule_settings_tab",
+   "fieldtype": "Tab Break",
+   "label": "Schedule Settings"
+  },
+  {
+   "fieldname": "trade_payables_turnover_ratio_grouping",
+   "fieldtype": "Table",
+   "label": "Trade Payables Turnover Ratio Grouping",
+   "options": "Trade Payables Turnover Ratio Grouping"
+  },
+  {
+   "fieldname": "erp_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "ERP Type",
+   "options": "\nSAP\nERPNext",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-10-03 09:37:58.294652",
+ "modified": "2026-01-16 10:23:53.250212",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",

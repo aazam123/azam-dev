@@ -114,13 +114,13 @@
    "fieldname": "type",
    "fieldtype": "Select",
    "label": "Type",
-   "options": "\nNon Current Borrowing\nCurrent Borrowing\nNon Current Lease\nCurrent Lease\nFinance Cost\nDepreciation & Amortisation Expenses\nProfit for the year from continuing operations"
+   "options": "\nInventory\nTrade & Other Receivables\nNon Current Borrowing\nCurrent Borrowing\nNon Current Lease\nCurrent Lease\nRevenue from Operations\nCost of Goods Sold\nChange In Inventory\nFinance Cost\nDepreciation & Amortisation Expenses\nOther Expense\nProfit for the year from continuing operations"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-15 11:49:54.333097",
+ "modified": "2026-01-15 15:51:32.404418",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",
