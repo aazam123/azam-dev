@@ -95,7 +95,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-25 12:24:16.280267",
+ "modified": "2026-01-20 10:44:11.124492",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Trial Balance Entry",
@@ -118,5 +118,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

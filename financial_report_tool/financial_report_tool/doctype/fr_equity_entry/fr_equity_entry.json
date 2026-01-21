@@ -110,7 +110,8 @@
    "fieldname": "investment_value_fc",
    "fieldtype": "Currency",
    "label": "Investment Value (FC)",
-   "options": "default_currency"
+   "options": "default_currency",
+   "precision": "4"
   },
   {
    "fieldname": "exchanges_rate",
@@ -129,7 +130,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-27 13:54:33.648553",
+ "modified": "2026-01-21 11:25:25.337099",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Equity Entry",

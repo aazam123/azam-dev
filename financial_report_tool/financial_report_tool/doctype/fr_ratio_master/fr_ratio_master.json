@@ -1,0 +1,151 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{RATIO}-{#####}",
+ "creation": "2026-01-17 12:44:49.465334",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_ohju",
+  "fiscal_year",
+  "column_break_wstr",
+  "month",
+  "section_break_jflt",
+  "current_ratio",
+  "debt_equity_ratio",
+  "debt_service_coverage_ratio",
+  "return_on_equity_ratio",
+  "inventory_turnover_ratio",
+  "trade_receivables_turnover_ratio",
+  "trade_payables_turnover_ratio",
+  "net_capital_turnover_ratio",
+  "net_profit_ratio",
+  "return_on_capital_employed"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ohju",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "FIscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_wstr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_jflt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "current_ratio",
+   "fieldtype": "Small Text",
+   "label": "Current Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "debt_equity_ratio",
+   "fieldtype": "Small Text",
+   "label": "Debt Equity Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "debt_service_coverage_ratio",
+   "fieldtype": "Small Text",
+   "label": "Debt Service Coverage Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "return_on_equity_ratio",
+   "fieldtype": "Small Text",
+   "label": "Return on Equity Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "inventory_turnover_ratio",
+   "fieldtype": "Small Text",
+   "label": "Inventory Turnover Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "trade_receivables_turnover_ratio",
+   "fieldtype": "Small Text",
+   "label": "Trade Receivables Turnover Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "trade_payables_turnover_ratio",
+   "fieldtype": "Small Text",
+   "label": "Trade Payables Turnover Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "net_capital_turnover_ratio",
+   "fieldtype": "Small Text",
+   "label": "Net Capital Turnover Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "net_profit_ratio",
+   "fieldtype": "Small Text",
+   "label": "Net Profit Ratio",
+   "max_height": "40px"
+  },
+  {
+   "fieldname": "return_on_capital_employed",
+   "fieldtype": "Small Text",
+   "label": "Return on Capital Employed",
+   "max_height": "40px"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-17 13:01:11.334786",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Ratio Master",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

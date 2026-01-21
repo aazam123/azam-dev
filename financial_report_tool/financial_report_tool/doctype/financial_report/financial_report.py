@@ -392,14 +392,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		doc._generate_report_internal()
-		# frappe.enqueue(
-		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-		# 	docname=doc.name,
-		# 	queue='long',                 
-		# 	job_name=f"Generate Financial Report - {doc.name}",
-		# 	timeout=600                   
-		# )
+		# doc._generate_report_internal()
+		frappe.enqueue(
+			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+			docname=doc.name,
+			queue='long',                 
+			job_name=f"Generate Financial Report - {doc.name}",
+			timeout=600                   
+		)
 
 		return {
 			"success": True,
@@ -3152,6 +3152,26 @@ class FinancialReport(Document):
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+
+		cur_cap_comm = frappe.db.exists("FR Capital and Other Commitments", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
+		pre_cap_comm = frappe.db.exists("FR Capital and Other Commitments", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
+
+		if cur_cap_comm:
+			cur_cap_com_doc = frappe.get_doc("FR Capital and Other Commitments", cur_cap_comm)
+			cur_estimated_capital_contracts_unexecuted = cur_cap_com_doc.estimated_capital_contracts_unexecuted
+			cur_other_commitments = cur_cap_com_doc.other_commitments
+		else:
+			cur_estimated_capital_contracts_unexecuted = "-"
+			cur_other_commitments = "-"
+
+		if pre_cap_comm:
+			pre_cap_com_doc = frappe.get_doc("FR Capital and Other Commitments", pre_cap_comm)
+			pre_estimated_capital_contracts_unexecuted = pre_cap_com_doc.estimated_capital_contracts_unexecuted
+			cur_other_commitments = pre_cap_com_doc.other_commitments
+		else:
+			pre_estimated_capital_contracts_unexecuted = "-"
+			pre_other_commitments = "-"
 
 		def fmt(val):
 			if val in (None, "-", ""):
@@ -3162,60 +3182,17 @@ class FinancialReport(Document):
 			(
 				"Estimated value of contracts remaining to be executed on capital account and not provided for "
 				"(Net of advances ₹ 1,477 Lacs (P.Y. ₹ 2,727 Lacs))",
-				2891, 4293
+				cur_estimated_capital_contracts_unexecuted, pre_estimated_capital_contracts_unexecuted
 			),
-			(
-				"Commitment to invest in 72,50,000 (P.Y. 72,50,000) Equity Shares of 1 TRY each in "
-				"Meril Tıbbi Cihazlar İmalat ve Ticaret Anonim Şirketi, Turkey, Foreign subsidiary.",
-				146, 187
-			),
-			(
-				"Commitment to invest in 1,25,000 (P.Y. 1,25,000) Equity Shares of 100 BDT each in "
-				"Meril Bangladesh P. Ltd., Bangladesh, Foreign subsidiary.",
-				88, 95
-			),
-			(
-				"Commitment to invest in 9,500 (P.Y. 9,500) Equity Shares of 1,000 ZAR each in "
-				"Meril SA P. Ltd., South Africa, Foreign subsidiary.",
-				440, 419
-			),
-			(
-				"Commitment to invest in capital of Meril China (Co.) Ltd, China, Foreign subsidiary.",
-				11152, 10946
-			),
-			(
-				"Commitment to invest in 26,299 (P.Y. 25,529) Equity Shares of 100 EGP each in "
-				"Meril Medical Devices Egypt, Egypt, Foreign subsidiary.",
-				44, 46
-			),
-			(
-				"Commitment to invest in Nil (P.Y. 19,95,000) Equity Shares of 1 ARS each in "
-				"Meril Life Sciences Pvt. Ltd. Argentina S.R.L., Argentina, Foreign subsidiary.",
-				"-", 2
-			),
-			(
-				"Commitment to invest in 820 (P.Y. 1,500) Equity Shares of 100 EURO each in "
-				"Meril Sweden AB, Sweden, Foreign subsidiary.",
-				76, 125
-			),
-			(
-				"Commitment to invest in 2,875 Equity Shares of 1,000 DHS each in "
-				"Meril Medical Surgical Articles & Requisites Trading LLC, UAE.",
-				669, "-"
-			),
-			(
-				"Commitment to invest in capital of Meril Medical LLC, Belarus.",
-				105, "-"
-			),
-			(
-				"Commitment to invest in 3,555 Equity Shares of 2,00,000 COP each in "
-				"Meril Colombia S.A.S.",
-				1457, "-"
-			),
+			# (
+			# 	"Commitment to invest in 72,50,000 (P.Y. 72,50,000) Equity Shares of 1 TRY each in "
+			# 	"Meril Tıbbi Cihazlar İmalat ve Ticaret Anonim Şirketi, Turkey, Foreign subsidiary.",
+			# 	146, 187
+			# ),
 			(
 				"<strong>ii) Other Commitments</strong><br>"
 				"Contractual arrangement for payment on corporate credit card facility availed by the company from the bank.",
-				102, 52
+				cur_other_commitments, pre_other_commitments
 			),
 		]
 
@@ -3257,12 +3234,116 @@ class FinancialReport(Document):
 		"""
 
 		return section_description.replace("{{note_table}}", note_table)
-	
-	def get_yearly_earning_per_equity_share_note_data(self, section_description=""):
+
+	def get_yearly_interest_in_subsidiaries_and_nci_note_data(self, section_description=""):
+		# Get dynamic date labels
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 
+		curr_msme = frappe.db.exists("FR MSMSE Disclosure", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
+		prev_msme = frappe.db.exists("FR MSMSE Disclosure", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
+
+		if curr_msme:
+			curr_msme_doc = frappe.get_doc("FR MSMSE Disclosure", curr_msme)
+			cur_principal_amount_outstanding = curr_msme_doc.principal_amount_outstanding
+			cur_interest_amount_outstanding = curr_msme_doc.interest_amount_outstanding
+			cur_interest_paid_on_delayed_payment = curr_msme_doc.interest_paid_on_delayed_payment
+			cur_interest_due_for_the_year = curr_msme_doc.interest_due_for_the_year
+			cur_interest_accrued_unpaid = curr_msme_doc.interest_accrued_unpaid
+			cur_future_interest_payable = curr_msme_doc.future_interest_payable
+		else:
+			cur_principal_amount_outstanding = "-"
+			cur_interest_amount_outstanding = "-"
+			cur_interest_paid_on_delayed_payment = "-"
+			cur_interest_due_for_the_year = "-"
+			cur_interest_accrued_unpaid = "-"
+			cur_future_interest_payable = "-"
+		
+		if prev_msme:
+			prev_msme_doc = frappe.get_doc("FR MSMSE Disclosure", prev_msme)
+			pre_principal_amount_outstanding = prev_msme_doc.principal_amount_outstanding
+			pre_interest_amount_outstanding = prev_msme_doc.interest_amount_outstanding
+			pre_interest_paid_on_delayed_payment = prev_msme_doc.interest_paid_on_delayed_payment
+			pre_interest_due_for_the_year = prev_msme_doc.interest_due_for_the_year
+			pre_interest_accrued_unpaid = prev_msme_doc.interest_accrued_unpaid
+			pre_future_interest_payable = prev_msme_doc.future_interest_payable
+		else:
+			pre_principal_amount_outstanding = "-"
+			pre_interest_amount_outstanding = "-"
+			pre_interest_paid_on_delayed_payment = "-"
+			pre_interest_due_for_the_year = "-"
+			pre_interest_accrued_unpaid = "-"
+			pre_future_interest_payable = "-"
+
+
+		def fmt(val):
+			if val in (None, "-", ""):
+				return "-"
+			if isinstance(val, (int, float)):
+				if val < 0:
+					return f"({abs(val):,})"
+				return f"{val:,}"
+			return val
+
+		note_table = f"""
+		<table style="marign-top: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+			<thead>
+				<tr>
+					<th style="width: 60%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
+					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Year Ended<br>{current_date}<br>(₹ in lacs)</th>
+					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Year Ended<br>{previous_date}<br>(₹ in lacs)</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr>
+					<td style="border:1px solid #000; border-bottom:none; padding:6px;">(i) Principal amount remaining unpaid to any supplier as at the end of the accounting year</td>
+					<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_principal_amount_outstanding)}</td>
+					<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_principal_amount_outstanding)}</td>
+				</tr>
+
+				<tr>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(ii) Interest due thereon remaining unpaid to any supplier as at the end of the accounting year</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_interest_amount_outstanding or "-")}</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_interest_amount_outstanding or "-")}</td>
+				</tr>
+
+				<tr>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(iii) Interest paid on delayed payments beyond the appointed day</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_interest_paid_on_delayed_payment or "-")}</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_interest_paid_on_delayed_payment or "-")}</td>
+				</tr>
+
+				<tr>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(iv) Interest due and payable for the year (CY ₹ 8,284)</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_interest_due_for_the_year or "-")}</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_interest_due_for_the_year or "-")}</td>
+				</tr>
+
+				<tr>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(v) Interest accrued and remaining unpaid at the end of the accounting year (CY ₹ 8,284)</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_interest_accrued_unpaid or "-")}</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_interest_accrued_unpaid or "-")}</td>
+				</tr>
+
+				<tr>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(vi) Further interest due and payable even in the succeeding year until payment</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_future_interest_payable or "-")}</td>
+					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_future_interest_payable or "-")}</td>
+				</tr>
+			</tbody>
+		</table>
+		"""
+
+		return section_description.replace("{{note_table}}", note_table)
+	
+	def get_yearly_earning_per_equity_share_note_data(self, section_description=""):
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		current_year_label, previous_year_label = self.get_yearly_dates()
+		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
+		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		face_value = frappe.get_value("Company", self.company, 'share_capital_amount')
 		def fmt(val, decimals=0):
 			if val in (None, "-", ""):
 				return "-"
@@ -3270,18 +3351,23 @@ class FinancialReport(Document):
 				return f"{val:,.{decimals}f}"
 			return f"{val:,}"
 
+		curr_profit = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount')
+		curr_share = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, self.fiscal_year) or 0), self.show_decimal_value) * 10000
+		
+		prev_profit = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year')
+		prev_shares = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, self.previous_fiscal_year) or 0), self.show_decimal_value) * 10000
 		data = {
 			"current": {
-				"profit": 42545,
-				"shares": 59360000,
-				"eps": 71.67,
-				"face_value": 10
+				"profit": curr_profit,
+				"shares": curr_share,
+				"eps": 0 if curr_share == 0 else (curr_profit/curr_share) * 100000,
+				"face_value": face_value
 			},
 			"previous": {
-				"profit": 18111,
-				"shares": 59360000,
-				"eps": 30.51,
-				"face_value": 10
+				"profit": prev_profit,
+				"shares": prev_shares,
+				"eps": 0 if prev_shares == 0 else (prev_profit/prev_shares) * 100000,
+				"face_value": face_value
 			}
 		}
 
@@ -3322,72 +3408,6 @@ class FinancialReport(Document):
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(data["current"]["face_value"])}</td>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(data["previous"]["face_value"])}</td>
 			</tr>
-		</table>
-		"""
-
-		return section_description.replace("{{note_table}}", note_table)
-
-	def get_yearly_interest_in_subsidiaries_and_nci_note_data(self, section_description=""):
-		# Get dynamic date labels
-		current_year_label, previous_year_label = self.get_yearly_dates()
-		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
-		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
-
-		def fmt(val):
-			if val in (None, "-", ""):
-				return "-"
-			if isinstance(val, (int, float)):
-				if val < 0:
-					return f"({abs(val):,})"
-				return f"{val:,}"
-			return val
-
-		note_table = f"""
-		<table style="marign-top: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
-			<thead>
-				<tr>
-					<th style="width: 60%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
-					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Year Ended<br>{current_date}<br>(₹ in lacs)</th>
-					<th style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; color:#4472C4;">Year Ended<br>{previous_date}<br>(₹ in lacs)</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr>
-					<td style="border:1px solid #000; border-bottom:none; padding:6px;">(i) Principal amount remaining unpaid to any supplier as at the end of the accounting year</td>
-					<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(382)}</td>
-					<td style="border:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt(262)}</td>
-				</tr>
-
-				<tr>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(ii) Interest due thereon remaining unpaid to any supplier as at the end of the accounting year</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt("-")}</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt("-")}</td>
-				</tr>
-
-				<tr>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(iii) Interest paid on delayed payments beyond the appointed day</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt("-")}</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt("-")}</td>
-				</tr>
-
-				<tr>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(iv) Interest due and payable for the year (CY ₹ 8,284)</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt("-")}</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(1)}</td>
-				</tr>
-
-				<tr>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(v) Interest accrued and remaining unpaid at the end of the accounting year (CY ₹ 8,284)</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt("-")}</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(1)}</td>
-				</tr>
-
-				<tr>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px;">(vi) Further interest due and payable even in the succeeding year until payment</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt("-")}</td>
-					<td style="border:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt("-")}</td>
-				</tr>
-			</tbody>
 		</table>
 		"""
 
@@ -3830,11 +3850,12 @@ class FinancialReport(Document):
 		def fmt(val, is_ratio=False, is_pct=False):
 			if val in (None, "", "-"):
 				return "-"
+			val = flt(val)
 			if is_pct:
-				return f"{val}%"
+				return f"{val:.2f}%"
 			if is_ratio:
 				return f"{val:.2f}"
-			return f"{val:,}"
+			return f"{int(val):,}"
 
 		cur_current_asset = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Assets"}, 'name'), 'current_month_amount')
 		cur_current_liab = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'current_month_amount')
@@ -3852,11 +3873,11 @@ class FinancialReport(Document):
 		pre_tot_equ = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year')
 		pre_ded_ratio = 0 if pre_tot_equ == 0 else (pre_tot_ded/pre_tot_equ)
 
-		curr_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount') +self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
+		curr_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
 		curr_deb_ser = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
 		curr_deb_ser_ratio = 0 if curr_deb_ser == 0 else curr_net_op/curr_deb_ser
 
-		pre_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year') +self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
+		pre_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
 		pre_deb_ser = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
 		pre_deb_ser_ratio = 0 if pre_deb_ser == 0 else pre_net_op/pre_deb_ser
 
@@ -3899,6 +3920,23 @@ class FinancialReport(Document):
 		pre_avg_trade_pay = self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year) + self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, pre_year)
 		pre_trade_payable = 0 if pre_avg_trade_pay == 0 else pre_pur/pre_avg_trade_pay
 
+		curr_work_cap = cur_current_asset - cur_current_liab
+		curr_net_rev_rat = 0 if curr_work_cap == 0 else curr_rev/curr_work_cap
+
+		pre_work_cap = pre_current_asset - pre_current_liab
+		pre_net_rev_rat = 0 if pre_work_cap == 0 else pre_rev/ pre_work_cap
+
+		curr_net_pro_ratio = 0 if curr_rev == 0 else curr_pro_af_tax/curr_rev
+		pre_net_pro_ratio = 0 if pre_rev == 0 else pre_pro_af_tax/pre_rev
+
+		curr_ear_be_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
+		curr_cap_emp_equity = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount')
+		curr_ret_cap_emp = 0 if curr_cap_emp_equity == 0 else curr_ear_be_tax/curr_cap_emp_equity 
+
+		pre_ear_be_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
+		pre_cap_emp_equity = pre_total_equity + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year')
+		pre_ret_cap_emp = 0 if pre_cap_emp_equity == 0 else pre_ear_be_tax/pre_cap_emp_equity 
+
 		note_table_1 = f"""
 		<table style="margin-top: -20px; margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<thead>
@@ -3917,31 +3955,31 @@ class FinancialReport(Document):
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Current Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">Current Assets</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_current_asset)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_current_asset)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_ratio, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_current_asset)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_current_asset)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_ratio, is_ratio=True)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ratio == 0 else (curr_ratio/pre_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Current Liabilities</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_current_liab)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_current_liab)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_current_liab)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_current_liab)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Debt-Equity Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">Total Debt</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_tot_ded)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_tot_ded)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(cur_ded_ratio, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_tot_ded)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_tot_ded)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_ded_ratio, is_ratio=True)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ded_ratio == 0 else (cur_ded_ratio/pre_ded_ratio), is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Total Equity</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{round(cur_tot_equ)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{round(pre_tot_equ)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_tot_equ)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_tot_equ)}</td>
 			</tr>
 
 			<tr>
@@ -4021,54 +4059,91 @@ class FinancialReport(Document):
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Net Capital Turnover Ratio</td>
-				<td style="border:1px solid #000; padding:6px;">Revenue</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(170652)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(2.33, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(120164)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(3.63, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(-36, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px;">Revenue from operations</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_rev)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_net_rev_rat, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_rev)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_net_rev_rat, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_net_rev_rat == 0 else curr_net_rev_rat/pre_net_rev_rat, is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Working Capital</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(73268)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(33103)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_work_cap)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_work_cap)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Net Profit Ratio</td>
 				<td style="border:1px solid #000; padding:6px;">PAT</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(42545)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(0.25, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(18111)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0.15, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(67, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_pro_af_tax)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_net_pro_ratio, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_pro_af_tax)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_net_pro_ratio, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_net_pro_ratio == 0 else curr_net_pro_ratio/pre_net_pro_ratio, is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Revenue</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(170652)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(120164)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_rev)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_rev)}</td>
 			</tr>
 
 			<tr>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">Return on Capital Employed</td>
-				<td style="border:1px solid #000; padding:6px;">EBIT</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(63117)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(0.48, is_ratio=True)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(27594)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0.32, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(50, is_pct=True)}</td>
+				<td style="border:1px solid #000; padding:6px;">Earning Before Interest & Tax</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_ear_be_tax)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_ret_cap_emp, is_ratio=True)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_ear_be_tax)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_ret_cap_emp, is_ratio=True)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ret_cap_emp == 0 else curr_ret_cap_emp/pre_ret_cap_emp, is_pct=True)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Capital Employed</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(131505)}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(86237)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_cap_emp_equity)}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_cap_emp_equity)}</td>
 			</tr>
 
 			</tbody>
 		</table>
 		"""
 
-		note_table_2 = """
+		fr_ratio = frappe.db.exists("FR Ratio Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month})
+		curr_ratio_rem, debt_equ_rem, debt_serv_rem, ret_equ_rat, inv_turn_ratio, trade_rec_turn_ratio, trade_pay_turn_ratio, net_cap_turn_ration, net_pro_ration, ret_on_cap_emp = "-", "-", "-","-", "-", "-","-", "-", "-","-"
+		if fr_ratio:
+			fr_ratio_mast = frappe.get_doc("FR Ratio Master", fr_ratio)
+			curr_ratio_rem = fr_ratio_mast.current_ratio
+			debt_equ_rem = fr_ratio_mast.debt_equity_ratio
+			debt_serv_rem = fr_ratio_mast.debt_service_coverage_ratio
+			ret_equ_rat = fr_ratio_mast.return_on_equity_ratio
+			inv_turn_ratio = fr_ratio_mast.inventory_turnover_ratio
+			trade_rec_turn_ratio = fr_ratio_mast.trade_receivables_turnover_ratio
+			trade_pay_turn_ratio = fr_ratio_mast.trade_payables_turnover_ratio
+			net_cap_turn_ration = fr_ratio_mast.net_capital_turnover_ratio
+			net_pro_ration = fr_ratio_mast.net_profit_ratio
+			ret_on_cap_emp = fr_ratio_mast.return_on_capital_employed
+		ratio_data = [
+			("Current Ratio", 0 if pre_ratio == 0 else (curr_ratio - pre_ratio) / pre_ratio * 100, curr_ratio_rem),
+			("Debt-Equity Ratio", 0 if pre_ded_ratio == 0 else (cur_ded_ratio - pre_ded_ratio) / pre_ded_ratio * 100, debt_equ_rem),
+			("Debt Service Coverage Ratio", 0 if pre_deb_ser_ratio == 0 else (curr_deb_ser_ratio - pre_deb_ser_ratio) / pre_deb_ser_ratio * 100, debt_serv_rem),
+			("Return on Equity Ratio", 0 if pre_equ_ratio == 0 else (curr_equ_ratio - pre_equ_ratio) / pre_equ_ratio * 100, ret_equ_rat),
+			("Inventory Turnover Ratio", 0 if pre_inv_ratio == 0 else (curr_inv_ratio - pre_inv_ratio) / pre_inv_ratio * 100, inv_turn_ratio),
+			("Trade Receivables Turnover Ratio", 0 if pre_trade_ratio == 0 else (curr_trade_ratio - pre_trade_ratio) / pre_trade_ratio * 100, trade_rec_turn_ratio),
+			("Trade Payables Turnover Ratio", 0 if pre_trade_payable == 0 else (curr_trade_payable - pre_trade_payable) / pre_trade_payable * 100, trade_pay_turn_ratio),
+			("Net Capital Turnover Ratio", 0 if pre_net_rev_rat == 0 else (curr_net_rev_rat - pre_net_rev_rat) / pre_net_rev_rat * 100, net_cap_turn_ration),
+			("Net Profit Ratio", 0 if pre_net_pro_ratio == 0 else (curr_net_pro_ratio - pre_net_pro_ratio) / pre_net_pro_ratio * 100, net_pro_ration),
+			("Return on Capital Employed", 0 if pre_ret_cap_emp == 0 else (curr_ret_cap_emp - pre_ret_cap_emp) / pre_ret_cap_emp * 100, ret_on_cap_emp),
+		]
+
+		rows_html = ""
+		for idx, (name, change_pct, remark) in enumerate(ratio_data, 1):
+			rows_html += f"""
+				<tr>
+					<td style="border:1px solid #000; padding:6px; text-align:center;">{idx}</td>
+					<td style="border:1px solid #000; padding:6px;">{name}</td>
+					<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(change_pct, is_pct=True)}</td>
+					<td style="border:1px solid #000; padding:6px;">{remark or "-"}</td>
+				</tr>"""
+
+		note_table_2 = f"""
 		<table style="margin-top: -20px; margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<thead>
 				<tr>
@@ -4079,36 +4154,7 @@ class FinancialReport(Document):
 				</tr>
 			</thead>
 			<tbody>
-				<tr>
-					<td style="border:1px solid #000; padding:6px;">1</td>
-					<td style="border:1px solid #000; padding:6px;">Current Ratio</td>
-					<td style="border:1px solid #000; padding:6px;">32%</td>
-					<td style="border:1px solid #000; padding:6px;">Increase due to higher operations leading to increased trade receivables.</td>
-				</tr>
-				<tr>
-					<td style="border:1px solid #000; padding:6px;">4</td>
-					<td style="border:1px solid #000; padding:6px;">Return on Equity Ratio</td>
-					<td style="border:1px solid #000; padding:6px;">57%</td>
-					<td style="border:1px solid #000; padding:6px;">Increase due to higher net profit during the year.</td>
-				</tr>
-				<tr>
-					<td style="border:1px solid #000; padding:6px;">8</td>
-					<td style="border:1px solid #000; padding:6px;">Net Capital Turnover Ratio</td>
-					<td style="border:1px solid #000; padding:6px;">-36%</td>
-					<td style="border:1px solid #000; padding:6px;">Decrease due to increased working capital requirement.</td>
-				</tr>
-				<tr>
-					<td style="border:1px solid #000; padding:6px;">9</td>
-					<td style="border:1px solid #000; padding:6px;">Net Profit Ratio</td>
-					<td style="border:1px solid #000; padding:6px;">67%</td>
-					<td style="border:1px solid #000; padding:6px;">Increase due to proportionately higher profit growth compared to revenue.</td>
-				</tr>
-				<tr>
-					<td style="border:1px solid #000; padding:6px;">10</td>
-					<td style="border:1px solid #000; padding:6px;">Return on Capital Employed</td>
-					<td style="border:1px solid #000; padding:6px;">50%</td>
-					<td style="border:1px solid #000; padding:6px;">Increase due to higher operating profits.</td>
-				</tr>
+				{rows_html}
 			</tbody>
 		</table>
 		"""
@@ -7685,49 +7731,51 @@ class FinancialReport(Document):
 		return html
 
 	def get_monthly_investment_non_current_note_data(self, total=False, field=None):
+		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
+		_, previous_month_date = self.get_month_date_range(self.previous_month, self.fiscal_year)
+
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+		total_current = total_previous = total_previous_year = 0
+		prev_fs_year_start_date, prev_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.previous_fiscal_year, ["year_start_date", "year_end_date"])
+		curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
 
 		data = [{
 			"particulars": "Investment in equity Instruments of subsidiaries measured at Cost (Unquoted, Fully paid Up)",
-			"face_value": "", "shares_current": "", "amount_current": "",
-			"shares_previous": "", "amount_previous": "",
-			"shares_previous_year": "", "amount_previous_year": "",
-			"bold": 1
+			"face_value": "", "shares_current": "", "amount_current": "","shares_previous": "", "amount_previous": "","shares_previous_year": "", "amount_previous_year": "","bold": 1
 		}]
 
-		fiscal_doc = frappe.get_doc("Fiscal Year", self.fiscal_year)
-		all_companies = set(frappe.get_list("FR Equity Entry", {"holding_company": self.company}, pluck="company"))
-
-		total_current = total_previous = total_previous_year = 0
-
+		all_companies = set(frappe.get_list("FR Equity Entry",filters={"holding_company": self.company},pluck="company"))
 		for company in all_companies:
-			prev_fs_year_start_date, prev_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.previous_fiscal_year, ["year_start_date", "year_end_date"])
-			curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
+			def fetch_equity_data(date_filter):
+				return frappe.get_all(
+					"FR Equity Entry",
+					filters={"company": company,"holding_company": self.company,"category": "Equity Shares","posting_date": date_filter},
+					fields=["max(face_value) as face_value","sum(no_of_shares) as no_of_shares","sum(investment_value) as investment_value","sum(investment_value_fc) as investment_value_fc"]
+				)
 
-			face_value = f"{(frappe.get_value('Company', company, 'share_capital_amount')) / 100} {frappe.get_value('Company', company, 'default_currency')}"
-			previous_equity_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [prev_fs_year_start_date, prev_fs_year_end_date]]},
-				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+			e_previous_year = fetch_equity_data(["<=", prev_fs_year_end_date])
+			e_current_fy_end = fetch_equity_data(["<=", previous_month_date])
+			e_current_month = fetch_equity_data(["<=", current_month_date])
 
-			current_month_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_end_date]], 'month': self.current_month},
-				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+			e_previous_year = e_previous_year[0] if e_previous_year else {}
+			e_current_fy_end = e_current_fy_end[0] if e_current_fy_end else {}
+			e_current_month = e_current_month[0] if e_current_month else {}
 
-			previous_month_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_end_date]], 'month': self.previous_month},
-				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+			default_currency = frappe.get_value("Company", company, "default_currency")
 
-			e_previous = previous_equity_entries[0] if previous_equity_entries else None
-			e_current_month = current_month_entries[0] if current_month_entries else None
-			e_previous_month = previous_month_entries[0] if previous_month_entries else None
+			face_value = f"{e_current_month.get('face_value', 0)} {default_currency}"
+			shares_current = e_current_month.get("no_of_shares", 0) or 0
+			shares_previous = e_current_fy_end.get("no_of_shares", 0) or 0
+			shares_previous_year = e_previous_year.get("no_of_shares", 0) or 0
 
-			face_value = face_value
-			shares_current = e_current_month.get("no_of_shares", 0) if e_current_month else 0
-			amount_current = e_current_month.get("investment_value", 0) if e_current_month else 0
-			shares_previous = e_previous_month.get("no_of_shares", 0) if e_previous_month else 0
-			amount_previous = e_previous_month.get("investment_value", 0) if e_previous_month else 0
-			shares_previous_year = e_previous.get("no_of_shares", 0) if e_previous else 0
-			amount_previous_year = e_previous.get("investment_value", 0) if e_previous else 0
+			if self.currency != "INR":
+				amount_current = e_current_month.get("investment_value_fc", 0) or 0
+				amount_previous = e_current_fy_end.get("investment_value_fc", 0) or 0
+				amount_previous_year = e_previous_year.get("investment_value_fc", 0) or 0
+			else:
+				amount_current = e_current_month.get("investment_value", 0) or 0
+				amount_previous = e_current_fy_end.get("investment_value", 0) or 0
+				amount_previous_year = e_previous_year.get("investment_value", 0) or 0
 
 			total_current += amount_current
 			total_previous += amount_previous
@@ -7762,7 +7810,7 @@ class FinancialReport(Document):
 			"amount_previous_year": f"{total_previous_year:,.0f}",
 			"bold": 1
 		})
-
+		
 		# HTML table
 		table = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">

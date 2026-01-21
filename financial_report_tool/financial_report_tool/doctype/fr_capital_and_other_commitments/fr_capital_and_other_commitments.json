@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-20 15:34:42.472040",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "compnay",
+  "column_break_xbmq",
+  "fiscal_year",
+  "column_break_uucw",
+  "select",
+  "section_break_hfee",
+  "estimated_capital_contracts_unexecuted",
+  "other_commitments"
+ ],
+ "fields": [
+  {
+   "fieldname": "compnay",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Compnay",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_xbmq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_uucw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "select",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Select",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_hfee",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "estimated_capital_contracts_unexecuted",
+   "fieldtype": "Float",
+   "label": "Estimated value of contracts remaining to be executed on capital account and not provided"
+  },
+  {
+   "fieldname": "other_commitments",
+   "fieldtype": "Float",
+   "label": "Other Commitments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-20 15:40:18.586377",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Capital and Other Commitments",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

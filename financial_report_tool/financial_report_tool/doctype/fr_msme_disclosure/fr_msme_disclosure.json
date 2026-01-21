@@ -1,0 +1,110 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-20 09:48:23.300492",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_cbqe",
+  "fiscal_year",
+  "column_break_qyim",
+  "month",
+  "section_break_afdd",
+  "principal_amount_outstanding",
+  "interest_amount_outstanding",
+  "interest_paid_on_delayed_payment",
+  "interest_due_for_the_year",
+  "interest_accrued_unpaid",
+  "future_interest_payable"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_cbqe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "column_break_qyim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fieldname": "section_break_afdd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "principal_amount_outstanding",
+   "fieldtype": "Float",
+   "label": "Principal amount remaining unpaid to any supplier as at the end of the accounting year"
+  },
+  {
+   "fieldname": "interest_amount_outstanding",
+   "fieldtype": "Float",
+   "label": "Interest due thereon remaining unpaid to any supplier as at the end of the accounting year"
+  },
+  {
+   "fieldname": "interest_paid_on_delayed_payment",
+   "fieldtype": "Float",
+   "label": "The amount of interest paid along with the amounts of the payment made to the supplier beyond the appointed day"
+  },
+  {
+   "fieldname": "interest_due_for_the_year",
+   "fieldtype": "Float",
+   "label": "The amount of interest due and payable for the year"
+  },
+  {
+   "fieldname": "interest_accrued_unpaid",
+   "fieldtype": "Float",
+   "label": "The amount of interest accrued and remaining unpaid at the end of the accounting year"
+  },
+  {
+   "description": "until such date when the interest dues as above are actually paid",
+   "fieldname": "future_interest_payable",
+   "fieldtype": "Float",
+   "label": "The amount of further interest due and payable even in the succeeding year"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-20 10:19:33.265560",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR MSME Disclosure",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
