@@ -392,14 +392,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -4850,7 +4850,7 @@ class FinancialReport(Document):
 		]
 
 		html = f"""
-		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; background-color:#fff;">
 		<thead>
 		<tr style="border-bottom:2px solid #222; background-color:#fff;">
 			<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:60%; padding:6px 8px; background-color:#fff; text-align:left;"><b>Particulars</b></th>
@@ -4876,41 +4876,44 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_yearly_investment_non_current_note_data(self, total=False, field=None, section_description=""):
-		month_end_label, previous_fiscal_year_end_label = self.get_yearly_dates()
+		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
+		total_current = total_previous_year = 0
+		month_end_label, prev_fy_label = self.get_yearly_dates()
+		prev_fs_year_start_date, prev_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.previous_fiscal_year, ["year_start_date", "year_end_date"])
+		curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
+
 		data = [{
 			"particulars": "Investment in equity Instruments of subsidiaries measured at Cost (Unquoted, Fully paid Up)",
-			"face_value": "", "shares_current": "", "amount_current": "",
-			"shares_previous": "", "amount_previous": "",
-			"shares_previous_year": "", "amount_previous_year": "",
-			"bold": 1
+			"face_value": "", "shares_current": "", "amount_current": "","shares_previous": "", "amount_previous": "","shares_previous_year": "", "amount_previous_year": "","bold": 1
 		}]
 
-		fiscal_doc = frappe.get_doc("Fiscal Year", self.fiscal_year)
-		all_companies = set(frappe.get_list("FR Equity Entry", {"holding_company": self.company}, pluck="company"))
-
-		total_current = total_previous = total_previous_year = 0
-
+		all_companies = set(frappe.get_list("FR Equity Entry",filters={"holding_company": self.company},pluck="company"))
 		for company in all_companies:
-			prev_fs_year_start_date, prev_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.previous_fiscal_year, ["year_start_date", "year_end_date"])
-			curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
+			def fetch_equity_data(date_filter):
+				return frappe.get_all(
+					"FR Equity Entry",
+					filters={"company": company,"holding_company": self.company,"category": "Equity Shares","posting_date": date_filter},
+					fields=["face_value as face_value","sum(no_of_shares) as no_of_shares","sum(investment_value) as investment_value","sum(investment_value_fc) as investment_value_fc"]
+				)
 
-			face_value = f"{(frappe.get_value('Company', company, 'share_capital_amount')) / 100} {frappe.get_value('Company', company, 'default_currency')}"
-			previous_equity_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [prev_fs_year_start_date, prev_fs_year_end_date]]},
-				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+			e_previous_year = fetch_equity_data(["<=", prev_fs_year_end_date])
+			e_current_month = fetch_equity_data(["<=", current_month_date])
 
-			current_month_entries = frappe.get_all("FR Equity Entry", 
-				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_end_date]], 'month': self.current_month},
-				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
+			e_previous_year = e_previous_year[0] if e_previous_year else {}
+			e_current_month = e_current_month[0] if e_current_month else {}
 
-			e_previous = previous_equity_entries[0] if previous_equity_entries else None
-			e_current_month = current_month_entries[0] if current_month_entries else None
+			default_currency = frappe.get_value("Company", company, "default_currency")
 
-			face_value = face_value
-			shares_current = e_current_month.get("no_of_shares", 0) if e_current_month else 0
-			amount_current = e_current_month.get("investment_value", 0) if e_current_month else 0
-			shares_previous_year = e_previous.get("no_of_shares", 0) if e_previous else 0
-			amount_previous_year = e_previous.get("investment_value", 0) if e_previous else 0
+			face_value = f"{e_current_month.get('face_value', 0)} {default_currency}"
+			shares_current = e_current_month.get("no_of_shares", 0) or 0
+			shares_previous_year = e_previous_year.get("no_of_shares", 0) or 0
+
+			if self.currency != "INR":
+				amount_current = e_current_month.get("investment_value_fc", 0) or 0
+				amount_previous_year = e_previous_year.get("investment_value_fc", 0) or 0
+			else:
+				amount_current = e_current_month.get("investment_value", 0) or 0
+				amount_previous_year = e_previous_year.get("investment_value", 0) or 0
 
 			total_current += amount_current
 			total_previous_year += amount_previous_year
@@ -4940,26 +4943,27 @@ class FinancialReport(Document):
 			"amount_previous_year": f"{total_previous_year:,.0f}",
 			"bold": 1
 		})
-
+		
 		# HTML table
-		table = f'''
-		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
+		table = f"""
+		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt; border:1px solid #222;">
 			<thead>
-				<tr style="border-bottom:2px solid #222; background-color:#fff;">
-					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:35%; text-align:left; padding:6px 8px; background-color:#fff;"><b>Particulars</b></th>
-					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:10%; text-align:center; background-color:#fff;"><b>Face Value</b></th>
-					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{month_end_label}</b></th>
-					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{previous_fiscal_year_end_label}</b></th>
+				<tr style="border-bottom:2px solid #222;">
+					<th rowspan="2"style="border:1px solid #222; color:#4472C4; width:25%; text-align:left; padding:6px 8px;"><b>Particulars</b></th>
+					<th rowspan="2"style="border:1px solid #222; color:#4472C4; width:10%; text-align:center;"><b>Face Value</b></th>
+					<th colspan="2"style="border:1px solid #222; color:#4472C4; text-align:center;"><b>{month_end_label}</b></th>
+					<th colspan="2"style="border:1px solid #222; color:#4472C4; text-align:center;"><b>{prev_fy_label}</b></th>
 				</tr>
-				<tr style="background-color:#fff;">
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
+				<tr>
+					<th style="border:1px solid #222; color:#4472C4; text-align:center;">No. of Shares</th>
+					<th style="border:1px solid #222; color:#4472C4; text-align:center;">(₹ in lacs)</th>
+					<th style="border:1px solid #222; color:#4472C4; text-align:center;">No. of Shares</th>
+					<th style="border:1px solid #222; color:#4472C4; text-align:center;">(₹ in lacs)</th>
 				</tr>
 			</thead>
 			<tbody>
-		'''
+		"""
+
 
 		for row in data:
 			bold = "font-weight: bold;" if row["bold"] else ""
@@ -4976,7 +4980,7 @@ class FinancialReport(Document):
 			'''
 
 		table += "</tbody></table>"
-		return section_description.replace("{{note_table}}", table)
+		return table
 
 	def get_yearly_trade_and_other_receivables_note_data(self, section_description=""):
 		"""Get yearly trade and other receivables note data"""
@@ -7750,7 +7754,7 @@ class FinancialReport(Document):
 				return frappe.get_all(
 					"FR Equity Entry",
 					filters={"company": company,"holding_company": self.company,"category": "Equity Shares","posting_date": date_filter},
-					fields=["max(face_value) as face_value","sum(no_of_shares) as no_of_shares","sum(investment_value) as investment_value","sum(investment_value_fc) as investment_value_fc"]
+					fields=["face_value","sum(no_of_shares) as no_of_shares","sum(investment_value) as investment_value","sum(investment_value_fc) as investment_value_fc"]
 				)
 
 			e_previous_year = fetch_equity_data(["<=", prev_fs_year_end_date])
