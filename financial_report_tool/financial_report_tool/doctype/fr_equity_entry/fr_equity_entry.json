@@ -55,7 +55,7 @@
    "fieldname": "capital_type",
    "fieldtype": "Select",
    "label": "Capital Type",
-   "options": "\nAuthorised Capital\nlssued Capital"
+   "options": "\nAuthorised Capital\nIssued Capital"
   },
   {
    "fieldname": "column_break_olot",
@@ -130,7 +130,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-21 11:25:25.337099",
+ "modified": "2026-01-25 14:43:14.248675",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Equity Entry",

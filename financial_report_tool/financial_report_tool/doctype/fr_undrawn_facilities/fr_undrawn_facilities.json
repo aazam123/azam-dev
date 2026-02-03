@@ -1,0 +1,168 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:UNDRAWN-{#####}",
+ "creation": "2026-01-29 11:36:34.661395",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_skkq",
+  "fiscal_year",
+  "column_break_ysdd",
+  "month",
+  "section_break_lztg",
+  "bank_details",
+  "utilisation_details",
+  "section_break_tiiu",
+  "wc_limits",
+  "column_break_ynua",
+  "fdod",
+  "column_break_bpbp",
+  "non_found_based",
+  "column_break_unoj",
+  "term_loan",
+  "column_break_aoow",
+  "eclgs",
+  "column_break_qgnd",
+  "total"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_skkq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ysdd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_lztg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "bank_details",
+   "fieldtype": "Table",
+   "label": "Bank Details",
+   "options": "FR Undrawn Facilities Bank Details"
+  },
+  {
+   "fieldname": "section_break_tiiu",
+   "fieldtype": "Section Break",
+   "label": "Unavailed Loan"
+  },
+  {
+   "fieldname": "utilisation_details",
+   "fieldtype": "Table",
+   "label": "Utilisation Details",
+   "options": "FR Undrawn Facilities Utilisation Details"
+  },
+  {
+   "fieldname": "wc_limits",
+   "fieldtype": "Float",
+   "label": "WC Limits",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ynua",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fdod",
+   "fieldtype": "Float",
+   "label": "FDOD",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_bpbp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "non_found_based",
+   "fieldtype": "Float",
+   "label": "Non-Fund Based",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_unoj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "term_loan",
+   "fieldtype": "Float",
+   "label": "Term Loan",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_aoow",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "eclgs",
+   "fieldtype": "Float",
+   "label": "ECLGS",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qgnd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total",
+   "fieldtype": "Float",
+   "label": "Total",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-29 12:58:32.478192",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Undrawn Facilities",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

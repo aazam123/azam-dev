@@ -1,0 +1,269 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:FVM-{####}",
+ "creation": "2026-01-27 16:11:10.182227",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_txvw",
+  "fiscal_year",
+  "column_break_ilam",
+  "month",
+  "section_break_ofks",
+  "fvtpl_column",
+  "tpl_investment",
+  "tpl_trade_receivable",
+  "tpl_loan",
+  "tpl_fini_assets",
+  "tpl_cach",
+  "tpl_bank_cash",
+  "tpl_borrowing",
+  "tpl_lease_lib",
+  "tpl_trade_pay",
+  "tpl_financial_lib_curr",
+  "tpl_financial_lib_non_curr",
+  "fvoci_column",
+  "oci_investment",
+  "oci_trade_receivable",
+  "oci_loan",
+  "oci_fini_assets",
+  "oci_cach",
+  "oci_bank_cash",
+  "oci_borrowing",
+  "oci_lease_lib",
+  "oci_trade_pay",
+  "oci_financial_lib_curr",
+  "oci_financial_lib_non_curr",
+  "section_break_juni",
+  "section123",
+  "forward_contract",
+  "fair_value_hierarchy",
+  "valuation_technique",
+  "column_break_igbb",
+  "significant_observable",
+  "relationship_observable"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_txvw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "column_break_ilam",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fieldname": "section_break_ofks",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "fvtpl_column",
+   "fieldtype": "Column Break",
+   "label": "FVTPL"
+  },
+  {
+   "fieldname": "tpl_investment",
+   "fieldtype": "Float",
+   "label": "Investments in subsidiary companies"
+  },
+  {
+   "fieldname": "tpl_trade_receivable",
+   "fieldtype": "Float",
+   "label": "Trade receivables"
+  },
+  {
+   "fieldname": "tpl_loan",
+   "fieldtype": "Float",
+   "label": "Loans"
+  },
+  {
+   "fieldname": "tpl_fini_assets",
+   "fieldtype": "Float",
+   "label": "Other financial assets"
+  },
+  {
+   "fieldname": "tpl_cach",
+   "fieldtype": "Float",
+   "label": "Cash and cash equivalents"
+  },
+  {
+   "fieldname": "tpl_bank_cash",
+   "fieldtype": "Float",
+   "label": "Bank balances other than Cash and cash equivalents"
+  },
+  {
+   "fieldname": "tpl_borrowing",
+   "fieldtype": "Float",
+   "label": "Borrowings"
+  },
+  {
+   "fieldname": "tpl_lease_lib",
+   "fieldtype": "Float",
+   "label": "Lease Liabilities"
+  },
+  {
+   "fieldname": "tpl_trade_pay",
+   "fieldtype": "Float",
+   "label": "Trade payables"
+  },
+  {
+   "fieldname": "tpl_financial_lib_curr",
+   "fieldtype": "Float",
+   "label": "Other financial liabilities- Current"
+  },
+  {
+   "fieldname": "tpl_financial_lib_non_curr",
+   "fieldtype": "Float",
+   "label": "Other financial liabilities-Non Current"
+  },
+  {
+   "fieldname": "fvoci_column",
+   "fieldtype": "Column Break",
+   "label": "FVOCI"
+  },
+  {
+   "fieldname": "oci_investment",
+   "fieldtype": "Float",
+   "label": "Investments in subsidiary companies"
+  },
+  {
+   "fieldname": "oci_trade_receivable",
+   "fieldtype": "Float",
+   "label": "Trade receivables"
+  },
+  {
+   "fieldname": "oci_loan",
+   "fieldtype": "Float",
+   "label": "Loans"
+  },
+  {
+   "fieldname": "oci_fini_assets",
+   "fieldtype": "Float",
+   "label": "Other financial assets"
+  },
+  {
+   "fieldname": "oci_cach",
+   "fieldtype": "Float",
+   "label": "Cash and cash equivalents"
+  },
+  {
+   "fieldname": "oci_bank_cash",
+   "fieldtype": "Float",
+   "label": "Bank balances other than Cash and cash equivalents"
+  },
+  {
+   "fieldname": "oci_borrowing",
+   "fieldtype": "Float",
+   "label": "Borrowings"
+  },
+  {
+   "fieldname": "oci_lease_lib",
+   "fieldtype": "Float",
+   "label": "Lease Liabilities"
+  },
+  {
+   "fieldname": "oci_trade_pay",
+   "fieldtype": "Float",
+   "label": "Trade payables"
+  },
+  {
+   "fieldname": "oci_financial_lib_curr",
+   "fieldtype": "Float",
+   "label": "Other financial liabilities- Current"
+  },
+  {
+   "fieldname": "oci_financial_lib_non_curr",
+   "fieldtype": "Float",
+   "label": "Other financial liabilities-Non Current"
+  },
+  {
+   "fieldname": "section_break_juni",
+   "fieldtype": "Section Break",
+   "label": "Financial instruments measured at fair value - Recurring fair value measurements"
+  },
+  {
+   "fieldname": "section123",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "forward_contract",
+   "fieldtype": "Float",
+   "label": "Foreign exchange forward contracts"
+  },
+  {
+   "default": "Level 2",
+   "fieldname": "fair_value_hierarchy",
+   "fieldtype": "Data",
+   "label": "Fair Value Hierarchy"
+  },
+  {
+   "default": "The fair value of forward foreign exchange contracts are determined using forward exchange rates at the Balance Sheet date",
+   "fieldname": "valuation_technique",
+   "fieldtype": "Small Text",
+   "label": "Valuation technique(s) and key input(s)Valuation technique(s) and key input(s)"
+  },
+  {
+   "fieldname": "column_break_igbb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Probable factor exposure",
+   "fieldname": "significant_observable",
+   "fieldtype": "Small Text",
+   "label": "Significant unobservable input(s)"
+  },
+  {
+   "default": "A change of foreign exchange rate by +/- 5% results in a change in FV by expected loss of 370 Lacs and expected gain of 54.60 lacs for current year and Nil for previous year",
+   "fieldname": "relationship_observable",
+   "fieldtype": "Small Text",
+   "label": "Relationship of unobservable inputs to fair value"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-28 09:51:07.757976",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Fair Value Measurements",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

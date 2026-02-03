@@ -141,6 +141,12 @@ class FinancialReport(Document):
 		"""
 		self.foreign_exchange_rate = foreign_exchange_rate
 
+	def fetch_equity_data(self, company, date_filter):
+		return frappe.get_all(
+			"FR Equity Entry",
+			filters={"company": company,"holding_company": self.company,"category": "Equity Shares", "capital_type": "Issued Capital", "posting_date": date_filter},
+			fields=["face_value", "sum(no_of_shares) as no_of_shares", "sum(investment_value) as investment_value", "sum(investment_value_fc) as investment_value_fc"]
+		)
 
 	def generate_note_id(self, note_no, note_title):
 		"""Generate consistent ID for note anchors"""
@@ -274,6 +280,14 @@ class FinancialReport(Document):
 		previous_year = frappe.get_value("FR Previous Fiscal Year",{"current_fiscal_year": year},"previous_fiscal_year")
 		return month, previous_year
 
+	def get_previous_fiscal_year(self, fiscal_year):
+		"""Get the previous fiscal year for a given fiscal year."""
+		return frappe.get_value(
+			"FR Previous Fiscal Year",
+			{"current_fiscal_year": fiscal_year},
+			"previous_fiscal_year"
+		)
+
 	def get_fx_rate(self, default_currency, month, fiscal_year, field_name):
 		if default_currency == self.currency:
 			return 1
@@ -293,7 +307,7 @@ class FinancialReport(Document):
 	def get_month_date_range(self, month, fiscal_year):
 		"""Get date range for a specific month in a fiscal year"""
 		month_num = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-					 'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
+					'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
 		fy_start, fy_end = self.get_fiscal_year_dates(fiscal_year)
 		if not fy_start:
 			return None, None
@@ -342,7 +356,7 @@ class FinancialReport(Document):
 			return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 	def get_sum_grouping_amount_yearly(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
-		filters = {"company": self.company, "report_type": "Yearly","primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
+		filters = {"company": self.company, "report_type": "Yearly","primary_group": primary_group,"secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts: return 0
 
@@ -392,14 +406,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		doc._generate_report_internal()
-		# frappe.enqueue(
-		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-		# 	docname=doc.name,
-		# 	queue='long',                 
-		# 	job_name=f"Generate Financial Report - {doc.name}",
-		# 	timeout=600                   
-		# )
+		# doc._generate_report_internal()
+		frappe.enqueue(
+			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+			docname=doc.name,
+			queue='long',                 
+			job_name=f"Generate Financial Report - {doc.name}",
+			timeout=600                   
+		)
 
 		return {
 			"success": True,
@@ -466,14 +480,14 @@ class FinancialReport(Document):
 					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
 
 					# Anchor ID for PDF navigation
-					# if i.note_no and i.section_name:
-					# 	note_id = self.generate_note_id(i.note_no, i.section_name)
-					# 	if note_id:
-					# 		(
-					# 			f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
-					# 			if i.table_data
-					# 			else f'<div id="{note_id}" class="note-anchor"></div>'
-					# 		)
+					if i.note_no and i.section_name:
+						note_id = self.generate_note_id(i.note_no, i.section_name)
+						if note_id:
+							(
+								f'<div id="{note_id}" class="note-anchor">{i.section_description}</div>'
+								if i.section_description
+								else f'<div id="{note_id}" class="note-anchor"></div>'
+							)
 		elif self.report_type == "Yearly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
@@ -512,6 +526,8 @@ class FinancialReport(Document):
 						i.section_description = self.get_yearly_investment_non_current_note_data(total=False, field=None, section_description=section_description)
 					elif note_type == "Trade & Other receivables":
 						i.section_description = self.get_yearly_trade_and_other_receivables_note_data(section_description)
+					elif note_type == "Trade Payable":
+						i.section_description = self.get_yearly_trade_payable_note_data(section_description)
 					elif note_type == "Equity Share Capital":
 						i.section_description = self.get_yearly_equity_share_capital_note_data(section_description)
 					elif note_type == "Other Equity":
@@ -561,14 +577,14 @@ class FinancialReport(Document):
 						frappe.throw(str(i.section_description))
 
 					# Anchor ID for PDF navigation
-					# if i.note_no and i.section_name:
-					# 	note_id = self.generate_note_id(i.note_no, i.section_name)
-					# 	if note_id:
-					# 		(
-					# 			f'<div id="{note_id}" class="note-anchor">{i.table_data}</div>'
-					# 			if i.table_data
-					# 			else f'<div id="{note_id}" class="note-anchor"></div>'
-					# 		)
+					if i.note_no and i.section_name:
+						note_id = self.generate_note_id(i.note_no, i.section_name)
+						if note_id:
+							(
+								f'<div id="{note_id}" class="note-anchor">{i.section_description}</div>'
+								if i.section_description
+								else f'<div id="{note_id}" class="note-anchor"></div>'
+							)
 
 		self.save(ignore_permissions=True)
 		frappe.db.commit()
@@ -1554,7 +1570,7 @@ class FinancialReport(Document):
 			return py_pip_total - pre_py_pip_total
 
 		html = f'''
-			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto;">
+			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto; margin-top: -30px;">
 				<thead>
 					<tr>
 						<th style="border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
@@ -2075,7 +2091,7 @@ class FinancialReport(Document):
 			return py_pip_total - pre_py_pip_total
 
 		html = f'''
-			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto;">
+			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto; margin-top: 30px;">
 				<thead>
 					<tr>
 						<th style="border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
@@ -2239,11 +2255,13 @@ class FinancialReport(Document):
 			return f"{val:,}"
 
 		html = ""
-
-		# (a) Income Tax Expenses
+		cur_current_tax = self.get_sum_grouping_amount("P&L", "Current Tax", self.fiscal_year, cls_month)
+		pre_current_tax = self.get_sum_grouping_amount("P&L", "Current Tax", self.previous_fiscal_year, cls_month)
+		cur_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", self.fiscal_year, cls_month)
+		pre_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", self.previous_fiscal_year, cls_month)
 		a_data = {
-			"current": {"current_tax": 15668, "prior_year_adj": -9, "deferred_tax": -38},
-			"previous": {"current_tax": 6476, "prior_year_adj": -43, "deferred_tax": -220},
+			"current": {"current_tax": cur_current_tax, "prior_year_adj": cur_prior_year_adj, "deferred_tax": -38},
+			"previous": {"current_tax": pre_current_tax, "prior_year_adj": -43, "deferred_tax": -220},
 		}
 
 		for y in a_data:
@@ -2252,7 +2270,7 @@ class FinancialReport(Document):
 
 		html += f"""
 		<p><strong style="color:#4472C4; font-size:13px;">(a) Income Tax Expenses</strong></p>
-		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff;">
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff; margin-top:10px;">
 			<thead>
 				<tr style="background-color:#fff;">
 					<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Particulars</th>
@@ -2451,9 +2469,29 @@ class FinancialReport(Document):
 		def fmt(val):
 			return f"{val:,.0f}" if isinstance(val, (int, float)) else val
 
+		borrowings_non_current = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
+		borrowings_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_non_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		cur_borrowings = borrowings_non_current + borrowings_current + lease_liabilities_current + lease_liabilities_non_current
+
+		cur_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
+		cur_bank_balances = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
+		cur_tot_equity = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
+
+		pre_borrowings_non_current = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
+		pre_borrowings_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
+		pre_lease_liabilities_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		pre_lease_liabilities_non_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		pre_borrowings = pre_borrowings_non_current + pre_borrowings_current + pre_lease_liabilities_current + pre_lease_liabilities_non_current
+
+		pre_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
+		pre_bank_balances = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
+		pre_tot_equity = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
+
 		data = {
-			"current": {"borrowings": 67430,"cash": 289,"bank_balances": 617,"equity": 111984},
-			"previous": {"borrowings": 53784,"cash": 15,"bank_balances": 576,"equity": 69578}
+			"current": {"borrowings": cur_borrowings,"cash": cur_cash,"bank_balances": cur_bank_balances,"equity": cur_tot_equity},
+			"previous": {"borrowings": pre_borrowings,"cash": pre_cash,"bank_balances": pre_bank_balances,"equity": pre_tot_equity}
 		}
 
 		for y in data:
@@ -2524,6 +2562,7 @@ class FinancialReport(Document):
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 
 		def fmt(val):
 			if val in (None, "-", 0):
@@ -2531,24 +2570,117 @@ class FinancialReport(Document):
 			return f"{val:,.0f}"
 
 		html = ""
+		cur_fair_value = frappe.db.exists("FR Fair Value Measurements", {"company": self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month})
+		if cur_fair_value:
+			fv_doc = frappe.get_doc("FR Fair Value Measurements", cur_fair_value)
+			cur_tpl_investment = fv_doc.tpl_investment or 0
+			cur_oci_investment = fv_doc.oci_investment or 0
+			cur_tpl_trade_receivable = fv_doc.tpl_trade_receivable or 0
+			cur_oci_trade_receivable = fv_doc.oci_trade_receivable or 0
+			cur_tpl_loan = fv_doc.tpl_loan or 0
+			cur_oci_loan = fv_doc.oci_loan or 0
+			cur_tpl_fini_assets = fv_doc.tpl_fini_assets or 0
+			cur_oci_fini_assets = fv_doc.oci_fini_assets or 0
+			cur_tpl_cach = fv_doc.tpl_cach or 0
+			cur_oci_cach = fv_doc.oci_cach or 0
+			cur_tpl_bank_cash = fv_doc.tpl_bank_cash or 0
+			cur_oci_bank_cash = fv_doc.oci_bank_cash or 0
+			cur_tpl_borrowing = fv_doc.tpl_borrowing or 0
+			cur_oci_borrowing = fv_doc.oci_borrowing or 0
+			cur_tpl_lease_lib = fv_doc.tpl_lease_lib or 0
+			cur_oci_lease_lib = fv_doc.oci_lease_lib or 0
+			cur_tpl_trade_pay = fv_doc.tpl_trade_pay or 0
+			cur_oci_trade_pay = fv_doc.oci_trade_pay or 0
+			cur_tpl_financial_lib_curr = fv_doc.tpl_financial_lib_curr or 0
+			cur_oci_financial_lib_curr = fv_doc.oci_financial_lib_curr or 0
+			cur_tpl_financial_lib_non_curr = fv_doc.tpl_financial_lib_non_curr or 0
+			cur_oci_financial_lib_non_curr = fv_doc.oci_financial_lib_non_curr or 0
+			#table2
+			cur_forward_contract = fv_doc.forward_contract or 0
+			cur_fair_value_hierarchy = fv_doc.fair_value_hierarchy or '-'
+			cur_valuation_technique = fv_doc.valuation_technique or '-'
+			cur_significant_observable = fv_doc.significant_observable or '-'
+			cur_relationship_observable = fv_doc.relationship_observable or '-'
+		else:
+			cur_tpl_investment, cur_oci_investment, cur_tpl_trade_receivable, cur_oci_trade_receivable, cur_tpl_loan, cur_oci_loan, cur_tpl_fini_assets, cur_oci_fini_assets, cur_tpl_cach, cur_oci_cach, cur_tpl_bank_cash, cur_oci_bank_cash = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			cur_tpl_borrowing, cur_oci_borrowing, cur_tpl_lease_lib, cur_oci_lease_lib, cur_tpl_trade_pay, cur_oci_trade_pay, cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			cur_forward_contract = 0
+			cur_fair_value_hierarchy = '-'
+			cur_valuation_technique = '-'
+			cur_significant_observable = '-'
+			cur_relationship_observable = '-'
 
-		# NOTE TABLE A – Financial instruments by category
-		# Format: (name, fvtpl_25, fvoci_25, amort_25, fvtpl_24, fvoci_24, amort_24)
+		pre_fair_value = frappe.db.exists("FR Fair Value Measurements", {"company": self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month})
+		if pre_fair_value:
+			prev_fv_doc = frappe.get_doc("FR Fair Value Measurement", pre_fair_value)
+			pre_tpl_investment = prev_fv_doc.tpl_investment or 0
+			pre_oci_investment = prev_fv_doc.oci_investment or 0
+			pre_tpl_trade_receivable = prev_fv_doc.tpl_trade_receivable or 0
+			pre_oci_trade_receivable = prev_fv_doc.oci_trade_receivable or 0
+			pre_tpl_loan = prev_fv_doc.tpl_loan or 0
+			pre_oci_loan = prev_fv_doc.oci_loan or 0
+			pre_tpl_fini_assets = prev_fv_doc.tpl_fini_assets or 0
+			pre_oci_fini_assets = prev_fv_doc.oci_fini_assets or 0
+			pre_tpl_cach = prev_fv_doc.tpl_cach or 0
+			pre_oci_cach = prev_fv_doc.oci_cach or 0
+			pre_tpl_bank_cash = prev_fv_doc.tpl_bank_cash or 0
+			pre_oci_bank_cash = prev_fv_doc.oci_bank_cash or 0
+			pre_tpl_borrowing = prev_fv_doc.tpl_borrowing or 0
+			pre_oci_borrowing = prev_fv_doc.oci_borrowing or 0
+			pre_tpl_lease_lib = prev_fv_doc.tpl_lease_lib or 0
+			pre_oci_lease_lib = prev_fv_doc.oci_lease_lib or 0
+			pre_tpl_trade_pay = prev_fv_doc.tpl_trade_pay or 0
+			pre_oci_trade_pay = prev_fv_doc.oci_trade_pay or 0
+			pre_tpl_financial_lib_curr = prev_fv_doc.tpl_financial_lib_curr or 0
+			pre_oci_financial_lib_curr = prev_fv_doc.oci_financial_lib_curr or 0
+			pre_tpl_financial_lib_non_curr = prev_fv_doc.tpl_financial_lib_non_curr or 0
+			pre_oci_financial_lib_non_curr = prev_fv_doc.oci_financial_lib_non_curr or 0
+
+			pre_forward_contract = fv_doc.forward_contract or 0
+		else:
+			pre_tpl_investment, pre_oci_investment, pre_tpl_trade_receivable, pre_oci_trade_receivable, pre_tpl_loan, pre_oci_loan, pre_tpl_fini_assets, pre_oci_fini_assets, pre_tpl_cach, pre_oci_cach, pre_tpl_bank_cash, pre_oci_bank_cash = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			pre_tpl_borrowing, pre_oci_borrowing, pre_tpl_lease_lib, pre_oci_lease_lib, pre_tpl_trade_pay, pre_oci_trade_pay, pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			pre_forward_contract = 0
+
+		bs_cur_investment = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'current_month_amount') or 0
+		bs_pre_investment = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'previous_year') or 0
+		bs_cur_trade_receivable = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'current_month_amount') or 0
+		bs_pre_trade_receivable = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year') or 0		
+		bs_cur_loan = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Loan"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Loan"}, 'name'), 'current_month_amount') or 0)
+		bs_pre_loan = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Loan"}, 'name'), 'previous_year') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Loan"}, 'name'), 'previous_year') or 0)
+		bs_cur_fin_assets = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Assets"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Assets"}, 'name'), 'current_month_amount') or 0)
+		bs_pre_fin_assets = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Assets"}, 'name'), 'previous_year') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Assets"}, 'name'), 'previous_year') or 0)
+		bs_cur_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'current_month_amount') or 0
+		bs_pre_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'previous_year') or 0
+		bs_cur_bank = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
+		bs_pre_bank = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'previous_year') or 0
+		
 		financial_assets = [
-			("Investments in subsidiary companies", 0, 0, 19386, 0, 0, 20924),
-			("Trade receivables", 0, 0, 100216, 0, 0, 55130),
-			("Loans", 0, 0, 28, 0, 0, 26),
-			("Other financial assets", 0, 0, 1354, 0, 0, 782),
-			("Cash and cash equivalents", 0, 0, 289, 0, 0, 15),
-			("Bank balances other than cash and cash equivalents", 0, 0, 617, 0, 0, 576),
+			("Investments in subsidiary companies", cur_tpl_investment, cur_oci_investment, ((cur_tpl_investment + cur_oci_investment) - bs_cur_investment), pre_tpl_investment, pre_oci_investment, ((pre_tpl_investment + pre_oci_investment) - bs_pre_investment)),
+			("Trade receivables", cur_tpl_trade_receivable, cur_oci_trade_receivable, ((cur_tpl_trade_receivable + cur_oci_trade_receivable) - bs_cur_trade_receivable), pre_tpl_trade_receivable, pre_oci_trade_receivable, ((pre_tpl_trade_receivable + pre_oci_trade_receivable) - bs_pre_trade_receivable)),
+			("Loans", cur_tpl_loan, cur_oci_loan, ((cur_tpl_loan + cur_oci_loan) - bs_cur_loan), pre_tpl_loan, pre_oci_loan, ((pre_tpl_loan + pre_oci_loan) - bs_pre_loan)),
+			("Other financial assets", cur_tpl_fini_assets, cur_oci_fini_assets, ((cur_tpl_fini_assets + cur_oci_fini_assets) - bs_cur_fin_assets), pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr, pre_oci_fini_assets + pre_oci_financial_lib_curr + pre_oci_financial_lib_non_curr, ((pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr) - bs_pre_fin_assets)),
+			("Cash and cash equivalents", cur_tpl_cach, cur_oci_cach, ((cur_tpl_cach + cur_oci_cach) - bs_cur_cash), pre_tpl_cach, pre_oci_cach, ((pre_tpl_cach + pre_oci_cach) - bs_pre_cash)),
+			("Bank balances other than cash and cash equivalents", cur_tpl_bank_cash, cur_oci_bank_cash, ((cur_tpl_bank_cash + cur_oci_bank_cash) - bs_cur_bank), pre_tpl_bank_cash, pre_oci_bank_cash, ((pre_tpl_bank_cash + pre_oci_bank_cash) - bs_pre_bank)),
 		]
 
+		pl_cur_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
+		pl_pre_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0)
+		pl_cur_lease_lib = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') or 0)
+		pl_pre_lease_lib = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') or 0)
+		pl_cur_trade_payable = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
+		pl_pre_trade_payable = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
+		pl_cur_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		pl_pre_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pl_cur_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		pl_pre_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		
 		financial_liabilities = [
-			("Borrowings", 0, 0, 63132, 0, 0, 48472),
-			("Lease liabilities", 0, 0, 4298, 0, 0, 5312),
-			("Trade payables", 0, 0, 17775, 0, 0, 17763),
-			("Other financial liabilities – Current", 0, 0, 1925, 0, 0, 1814),
-			("Other financial liabilities – Non-current", 142, 0, 0, 0, 0, 0),
+			("Borrowings", cur_tpl_borrowing, cur_oci_borrowing, ((cur_tpl_borrowing + cur_oci_borrowing) - pl_cur_borrowing), pre_tpl_borrowing, pre_oci_borrowing, ((pre_tpl_borrowing + pre_oci_borrowing) - pl_pre_borrowing)),
+			("Lease liabilities", cur_tpl_lease_lib, cur_oci_lease_lib, ((cur_tpl_lease_lib + cur_oci_lease_lib) - pl_cur_lease_lib), pre_tpl_lease_lib, pre_oci_lease_lib, ((pre_tpl_lease_lib + pre_oci_lease_lib) - pl_pre_lease_lib)),
+			("Trade payables", cur_tpl_trade_pay, cur_oci_trade_pay, ((cur_tpl_trade_pay + cur_oci_trade_pay) - pl_cur_trade_payable), pre_tpl_trade_pay, pre_oci_trade_pay, ((pre_tpl_trade_pay + pre_oci_trade_pay) - pl_pre_trade_payable)),
+			("Other financial liabilities - Current", cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, ((cur_tpl_financial_lib_curr + cur_oci_financial_lib_curr) - pl_cur_financial_lib_curr), pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, ((pre_tpl_financial_lib_curr + pre_oci_financial_lib_curr) - pl_pre_financial_lib_curr)),
+			("Other financial liabilities - Non-current", cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr, ((cur_tpl_financial_lib_non_curr + cur_oci_financial_lib_non_curr) - pl_cur_financial_lib_non_curr), pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr, ((pre_tpl_financial_lib_non_curr + pre_oci_financial_lib_non_curr) - pl_pre_financial_lib_non_curr)),
 		]
 
 		def build_category_rows(rows):
@@ -2568,10 +2700,21 @@ class FinancialReport(Document):
 				"""
 			return out
 
-		total_fa_25 = sum(r[3] for r in financial_assets)
-		total_fa_24 = sum(r[6] for r in financial_assets)
-		total_fl_25 = sum(r[1] + r[3] for r in financial_liabilities)
-		total_fl_24 = sum(r[6] for r in financial_liabilities)
+		# Financial Assets totals
+		total_fa_fvtpl_25 = sum(r[1] for r in financial_assets)
+		total_fa_fvoci_25 = sum(r[2] for r in financial_assets)
+		total_fa_amort_25 = sum(r[3] for r in financial_assets)
+		total_fa_fvtpl_24 = sum(r[4] for r in financial_assets)
+		total_fa_fvoci_24 = sum(r[5] for r in financial_assets)
+		total_fa_amort_24 = sum(r[6] for r in financial_assets)
+
+		# Financial Liabilities totals
+		total_fl_fvtpl_25 = sum(r[1] for r in financial_liabilities)
+		total_fl_fvoci_25 = sum(r[2] for r in financial_liabilities)
+		total_fl_amort_25 = sum(r[3] for r in financial_liabilities)
+		total_fl_fvtpl_24 = sum(r[4] for r in financial_liabilities)
+		total_fl_fvoci_24 = sum(r[5] for r in financial_liabilities)
+		total_fl_amort_24 = sum(r[6] for r in financial_liabilities)
 
 		note_table_a = f"""
 		<p style="margin-bottom:-20px; margin-top:-20px;"><strong style="color:#4472C4;">(a) Financial instruments by category</strong></p>
@@ -2604,10 +2747,12 @@ class FinancialReport(Document):
 
 		<tr>
 			<td style="border:1px solid #000; padding:6px;"><strong>Total Financial Assets</strong></td>
-			<td style="border:1px solid #000; padding:6px; background-color:#E8F5E8;">-</td><td style="border:1px solid #000; padding:6px; background-color:#E8F5E8;">-</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fa_25)}</strong></td>
-			<td style="border:1px solid #000; padding:6px;">-</td><td style="border:1px solid #000; padding:6px;">-</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fa_24)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fa_fvtpl_25)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fa_fvoci_25)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fa_amort_25)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fa_fvtpl_24)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fa_fvoci_24)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fa_amort_24)}</strong></td>
 		</tr>
 
 		<tr>
@@ -2624,11 +2769,12 @@ class FinancialReport(Document):
 
 		<tr>
 			<td style="border:1px solid #000; padding:6px;"><strong>Total Financial Liabilities</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>142</strong></td>
-			<td style="border:1px solid #000; padding:6px; background-color:#E8F5E8;">-</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fl_25 - 142)}</strong></td>
-			<td style="border:1px solid #000; padding:6px;">-</td><td style="border:1px solid #000; padding:6px;">-</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fl_24)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fl_fvtpl_25)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fl_fvoci_25)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_fl_amort_25)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fl_fvtpl_24)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fl_fvoci_24)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_fl_amort_24)}</strong></td>
 		</tr>
 		</table>
 		"""
@@ -2652,28 +2798,28 @@ class FinancialReport(Document):
 			<td style="border:1px solid #000; padding:6px; font-weight:bold">Financial Assets / (Liabilities)</td>
 			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
 			<td style="border:1px solid #000; padding:6px; text-align:right;"></td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">Level 2</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">Forward exchange rates prevailing at the balance sheet date</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">Probable factor exposure</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">±5% change in FX rate impacts FV by expected loss of ₹370 lacs and gain of ₹54.6 lacs (FY25); Nil for FY24</td>
+			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_fair_value_hierarchy}</td>
+			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_valuation_technique}</td>
+			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_significant_observable}</td>
+			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_relationship_observable}</td>
 		</tr>
 
 		<tr>
-			<td style="border:1px solid #000; padding:6px;">Derivatives designated as hedges</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;">-</td>
+			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">Derivatives designated as hedges</td>
+			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
+			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;"></td>
 		</tr>
 
 		<tr>
-			<td style="border:1px solid #000; padding:6px;">Foreign exchange forward contracts</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">(142)</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;">-</td>
+			<td style="border:1px solid #000; border-top: none; padding:6px;">Foreign exchange forward contracts</td>
+			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{cur_forward_contract or 0}</td>
+			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right;">{pre_forward_contract or 0}</td>
 		</tr>
 
 		<tr>
 			<td style="border:1px solid #000; padding:6px;"><strong>Total</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>(142)</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>-</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(cur_forward_contract) or 0}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(pre_forward_contract) or 0}</strong></td>
 			<td colspan="4" style="border:1px solid #000; padding:6px;"></td>
 		</tr>
 		</table>
@@ -2689,17 +2835,21 @@ class FinancialReport(Document):
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
-
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 		def fmt(val):
 			if val in (None, "-", ""):
 				return "-"
 			return f"{val:,.0f}"
 
 		html = ""
-		# NOTE TABLE B – Reconciliation of loss allowance provision
+		cur_credit_impaired = -round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.fiscal_year) or 0), self.show_decimal_value)
+		cur_provision_deb = round((self.get_sum_grouping_amount("Other expenses", "Provision for Doubtful Debts/Bad Debts", cls_month, self.fiscal_year) or 0), self.show_decimal_value)
+		pre_credit_impaired = -round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.previous_fiscal_year) or 0), self.show_decimal_value)
+		pre_provision_deb = round((self.get_sum_grouping_amount("Other expenses", "Provision for Doubtful Debts/Bad Debts", cls_month, self.previous_fiscal_year) or 0), self.show_decimal_value)
+		
 		loss_allowance = {
-			"FY25": {"opening": 700,"reversed": 0,"provision": 0,"closing": 700},
-			"FY24": {"opening": 325,"reversed": 94,"provision": 469,"closing": 700}
+			"current_year": {"opening": cur_credit_impaired,"reversed": 0,"provision": cur_provision_deb,"closing": cur_credit_impaired - cur_provision_deb},
+			"previous_year": {"opening": pre_credit_impaired,"reversed": 0,"provision": pre_provision_deb,"closing": pre_credit_impaired - pre_provision_deb}
 		}
 
 		note_table_b = f"""
@@ -2712,43 +2862,74 @@ class FinancialReport(Document):
 			</tr>
 			<tr>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px;">As at beginning of the year</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(loss_allowance["FY25"]["opening"])}</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["FY24"]["opening"])}</td>
+				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(loss_allowance["current_year"]["opening"])}</td>
+				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["previous_year"]["opening"])}</td>
 			</tr>
 			<tr>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Less: Loss recognised / (reversed) during the year</td>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">-</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["FY24"]["reversed"])}</td>
+				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["previous_year"]["reversed"])}</td>
 			</tr>
 			<tr>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Add: Loss allowance provision for the year</td>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">-</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["FY24"]["provision"])}</td>
+				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["previous_year"]["provision"])}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;"><strong>As at end of the year</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(loss_allowance["FY25"]["closing"])}</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(loss_allowance["FY24"]["closing"])}</strong></td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(loss_allowance["current_year"]["closing"])}</strong></td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(loss_allowance["previous_year"]["closing"])}</strong></td>
 			</tr>
 		</table>
 		"""
+		hg_sec_groups = frappe.get_all("GL Group Mapping", filters={"company": self.company, "report_type": "Yearly", "primary_group": "Borrowings (Current)", "secondary_group": "Borrowings (Current) - Current Maturities of non-current Borrowings"}, pluck="higher_secondary_group") 
+		non_current_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Borrowings (Current) - Current Maturities of non-current Borrowings", cls_month, self.fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
+		curr_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) - non_current_borrowing
+		current_year_end = frappe.utils.getdate(self.current_year_ending_date)
+		one_year_from_end = current_year_end + timedelta(days=365)
+		three_years_from_end = current_year_end + timedelta(days=1095)
+		repayment = frappe.get_all("FR Repayment", {'company': self.company}, pluck='name') or []
+		repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [current_year_end, one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
+		repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [one_year_from_end + timedelta(days=1), three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
+		repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ 100000
+		lease = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'less_than_one_year') or 0
+		lease_one_to_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'one_to_three_years') or 0
+		lease_more_than_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'more_than_three_years') or 0
+		cur_trade_pay = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
+		cur_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		cur_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
 
-
-		c1_2025 = [
-			("Non current borrowings (including current maturities)", 4157, 13385, 5047),
-			("Lease liabilities (Refer Note No. 37)", 1298, 2344, 1358),
-			("Current borrowings", 41653, 0, 0),
-			("Trade payables", 17775, 0, 0),
-			("Other financial liabilities – Current", 1925, 0, 0),
-			("Other financial liabilities – Non-current", 0, 142, 0),
+		c1_curr = [
+			("Non current borrowings (including current maturities)", repaymnet_less_than_one, repayment_one_three, repayment_more_than_three),
+			("Lease liabilities (Refer Note No. 37)", lease, lease_one_to_three, lease_more_than_three),
+			("Current borrowings", curr_borrowing, 0, 0),
+			("Trade payables", cur_trade_pay, 0, 0),
+			("Other financial liabilities - Current", cur_financial_lib_curr, 0, 0),
+			("Other financial liabilities - Non-current", 0, cur_financial_lib_non_curr, 0),
 		]
 
-		c1_2024 = [
-			("Non current borrowings (including current maturities)", 3036, 6993, 6630),
-			("Lease liabilities (Refer Note No. 37)", 1610, 2576, 2055),
-			("Current borrowings", 33217, 0, 0),
-			("Trade payables", 17763, 0, 0),
-			("Other financial liabilities", 1814, 0, 0),
+		pre_non_current_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Borrowings (Current) - Current Maturities of non-current Borrowings", cls_month, self.previous_fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
+		prev_year_end = frappe.utils.getdate(self.previous_year_ending_date)
+		pre_one_year_from_end = prev_year_end + timedelta(days=365)
+		pre_three_years_from_end = prev_year_end + timedelta(days=1095)
+		pre_repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [prev_year_end, pre_one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
+		pre_repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [pre_one_year_from_end + timedelta(days=1), pre_three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
+		pre_repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', pre_three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ 100000
+		pre_lease = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'less_than_one_year') or 0
+		pre_lease_one_to_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'one_to_three_years') or 0
+		pre_lease_more_than_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'more_than_three_years') or 0
+		pre_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) - pre_non_current_borrowing
+		pre_trade_pay = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
+		pre_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pre_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		
+		c1_prev = [
+			("Non current borrowings (including current maturities)", pre_repaymnet_less_than_one, pre_repayment_one_three, pre_repayment_more_than_three),
+			("Lease liabilities (Refer Note No. 37)", pre_lease, pre_lease_one_to_three, pre_lease_more_than_three),
+			("Current borrowings", pre_borrowing, 0, 0),
+			("Trade payables", pre_trade_pay, 0, 0),
+			("Other financial liabilities - Current", pre_financial_lib_curr, 0, 0),
+			("Other financial liabilities - Non-current", 0, pre_financial_lib_non_curr, 0),
 		]
 
 		def build_maturity_table(title, rows, color=""):
@@ -2792,14 +2973,14 @@ class FinancialReport(Document):
 			return table
 
 		note_table_c1 = (
-			build_maturity_table("Contractual maturities of financial liabilities – 31 March 2025", c1_2025, "#E8F5E8") + build_maturity_table("Contractual maturities of financial liabilities – 31 March 2024", c1_2024)
+			build_maturity_table(f"Contractual maturities of financial liabilities - {current_date}", c1_curr, "#E8F5E8") + build_maturity_table(f"Contractual maturities of financial liabilities - {previous_date}", c1_prev)
 		)
 
-		# NOTE TABLE C2 – Financing arrangements
 		financing = {
-			"current": 11953,
-			"previous": 10592
+			"current": frappe.get_value("FR Undrawn Facilities",{"company": self.company,"fiscal_year": self.fiscal_year,"month": cls_month},"total") or 0,
+			"previous": frappe.get_value("FR Undrawn Facilities",{"company": self.company,"fiscal_year": self.previous_fiscal_year,"month": cls_month},"total") or 0,
 		}
+
 
 		note_table_c2 = f"""
 		<table style="margin-top: -20px; margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -2820,59 +3001,79 @@ class FinancialReport(Document):
 			</tr>
 		</table>
 		"""
-
 		note_data_d = [
 			{"is_section": True, "label": "Financial Assets"},
-			{
-				"particular": "Trade Receivables",
-				"currency": "EUR",
-				"fc_2025": "448.86",
-				"inr_2025": "41,333.85",
-				"fc_2024": "156.91",
-				"inr_2024": "14,112.00",
-				"pbt_2025": "(2,066.69)",
-				"pbt_2024": "(705.60)"
-			},
-			{
-				"particular": "Trade Receivables",
-				"currency": "AED",
-				"fc_2025": "448.86",
-				"inr_2025": "41,333.85",
-				"fc_2024": "156.91",
-				"inr_2024": "14,112.00",
-				"pbt_2025": "(2,066.69)",
-				"pbt_2024": "(705.60)"
-			},
-			{
-				"particular": "Other Deposits",
-				"currency": "USD",
-				"fc_2025": "448.86",
-				"inr_2025": "41,333.85",
-				"fc_2024": "156.91",
-				"inr_2024": "14,112.00",
-				"pbt_2025": "(2,066.69)",
-				"pbt_2024": "(705.60)"
-			},
-			{"is_section": True, "label": "Financial Liabilities"},
-			{
-				"particular": "Trade & Other Payables",
-				"currency": "USD",
-				"fc_2025": "67.80",
-				"inr_2025": "5,795.19",
-				"fc_2024": "63.70",
-				"inr_2024": "5,312.63",
-				"pbt_2025": "289.76",
-				"pbt_2024": "265.63"
-			},
 		]
+		currency_trade_rec = set(frappe.get_all("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': ["in", self.fiscal_year, self.previous_fiscal_year], 'special_gl_ind': ["!=", "D"]}, pluck='currency')) or []
+		for c in currency_trade_rec:
+			result_current = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			fc_current = (result_current[0] if isinstance(result_current, tuple) else result_current) or 0
+			inr_current = (result_current[1] if isinstance(result_current, tuple) else 0) or 0
+			result_previous = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
+			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
+			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
+			pbt_previous = -round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / 100000 if fc_previous else 0
+			note_data_d.append({
+				"particular": "Trade Receivables",
+				"currency": c,
+				"fc_current": fmt(round(fc_current / 100000, self.show_decimal_value)),
+				"inr_current": fmt(round(inr_current / 100000, self.show_decimal_value)),
+				"fc_previous": fmt(round(fc_previous / 100000, self.show_decimal_value)),
+				"inr_previous": fmt(round(inr_previous / 100000, self.show_decimal_value)),
+				"pbt_current": fmt(round(pbt_current, self.show_decimal_value)),
+				"pbt_previous": fmt(round(pbt_previous, self.show_decimal_value)),
+			})
 
+		deposit_currency_trade_rec = set(frappe.get_all("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': ["in", [self.fiscal_year, self.previous_fiscal_year]], 'special_gl_ind': "D"}, pluck='currency')) or []
+		for c in deposit_currency_trade_rec:
+			result_current = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.fiscal_year, 'special_gl_ind': "D"},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			fc_current = (result_current[0] if isinstance(result_current, tuple) else result_current) or 0
+			inr_current = (result_current[1] if isinstance(result_current, tuple) else 0) or 0
+			result_previous = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': "D"},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
+			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
+			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
+			pbt_previous = -round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / 100000 if fc_previous else 0
+			note_data_d.append({
+				"particular": "Other Deposits",
+				"currency": c,
+				"fc_current": fmt(round(fc_current / 100000, self.show_decimal_value)),
+				"inr_current": fmt(round(inr_current / 100000, self.show_decimal_value)),
+				"fc_previous": fmt(round(fc_previous / 100000, self.show_decimal_value)),
+				"inr_previous": fmt(round(inr_previous / 100000, self.show_decimal_value)),
+				"pbt_current": fmt(round(pbt_current, self.show_decimal_value)),
+				"pbt_previous": fmt(round(pbt_previous, self.show_decimal_value)),
+			})
+
+		note_data_d.append({"is_section": True, "label": "Financial Liabilities"})
+		currency_trade_pay = set(frappe.get_all("FR Account Payable Entry", {'company': self.company, 'fiscal_year': ["in", [self.fiscal_year, self.previous_fiscal_year]]}, pluck='currency')) or []
+		for c in currency_trade_pay:
+			result_current = frappe.get_value("FR Account Payable Entry",{'company': self.company, 'currency': c, 'fiscal_year': self.fiscal_year},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			fc_current = (result_current[0] if isinstance(result_current, tuple) else result_current) or 0
+			inr_current = (result_current[1] if isinstance(result_current, tuple) else 0) or 0
+			result_previous = frappe.get_value("FR Account Payable Entry",{'company': self.company, 'currency': c, 'fiscal_year': self.previous_fiscal_year},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
+			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
+			pbt_current = round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
+			pbt_previous = round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / 100000 if fc_previous else 0
+			note_data_d.append({
+				"particular": "Trade & Other Payables",
+				"currency": c,
+				"fc_current": fmt(round(fc_current / 100000, self.show_decimal_value)),
+				"inr_current": fmt(round(inr_current / 100000, self.show_decimal_value)),
+				"fc_previous": fmt(round(fc_previous / 100000, self.show_decimal_value)),
+				"inr_previous": fmt(round(inr_previous / 100000, self.show_decimal_value)),
+				"pbt_current": fmt(round(pbt_current, self.show_decimal_value)),
+				"pbt_previous": fmt(round(pbt_previous, self.show_decimal_value)),
+			})
 
 		note_table_d = """
 		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<thead>
 				<tr>
-					<th rowspan="3" style="width: 20%; border:1px solid #000; padding:6px; color: #4472C4">Particulars</th>
-					<th rowspan="3" style="border:1px solid #000; padding:6px; color: #4472C4">Foreign<br>Currency</th>
+					<th rowspan="3" style="width: 11%; border:1px solid #000; padding:6px; color: #4472C4">Particulars</th>
+					<th rowspan="3" style="width: 8%; border:1px solid #000; padding:6px; color: #4472C4">Foreign<br>Currency</th>
 					<th colspan="4" style="border:1px solid #000; padding:6px; color: #4472C4">Exposure</th>
 					<th colspan="2" style="border:1px solid #000; padding:6px; color: #4472C4">Effect on Profit<br>Before Tax</th>
 				</tr>
@@ -2918,12 +3119,12 @@ class FinancialReport(Document):
 			<tr>
 				<td rowspan="{rowspan}" style="border:1px solid #000; padding:6px; vertical-align:middle;">{r["particular"]}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:center;">{r["currency"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["fc_2025"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["inr_2025"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["fc_2024"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["inr_2024"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["pbt_2025"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["pbt_2024"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["fc_current"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["inr_current"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["fc_previous"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["inr_previous"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["pbt_current"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["pbt_previous"]}</td>
 			</tr>
 			"""
 			i += 1
@@ -2934,12 +3135,12 @@ class FinancialReport(Document):
 				note_table_d += f"""
 			<tr>
 				<td style="border:1px solid #000; padding:6px; text-align:center;">{r["currency"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["fc_2025"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["inr_2025"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["fc_2024"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["inr_2024"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["pbt_2025"]}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["pbt_2024"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["fc_current"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["inr_current"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["fc_previous"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["inr_previous"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{r["pbt_current"]}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;">{r["pbt_previous"]}</td>
 			</tr>
 			"""
 				i += 1
@@ -2958,6 +3159,8 @@ class FinancialReport(Document):
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		pre_prev_year = self.get_previous_fiscal_year(self.previous_fiscal_year)
 
 		def fmt(val):
 			if val in (None, "-", ""):
@@ -2966,22 +3169,64 @@ class FinancialReport(Document):
 				return f"({abs(val):,})"
 			return f"{val:,}"
 
+		# First, get pre_opening from pre_prev_year (needed to calculate pre_closing)
+		pre_prev_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': pre_prev_year, 'month': cls_month})
+		if pre_prev_lease:
+			pre_prev_lease_doc = frappe.get_doc("FR Lease", pre_prev_lease)
+			pre_opening = pre_prev_lease_doc.additions_modifications + pre_prev_lease_doc.finance_cost_accrued + pre_prev_lease_doc.derecognition + pre_prev_lease_doc.payment_of_lease_liabilities
+		else:
+			pre_opening = 0
+
+		# Get previous year lease data and calculate pre_closing (needed for current year opening)
+		pre_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month})
+		if pre_lease:
+			pre_lease_doc = frappe.get_doc("FR Lease", pre_lease)
+			pre_additions_modifications_py = pre_lease_doc.additions_modifications
+			pre_finance_cost_accrued_py = pre_lease_doc.finance_cost_accrued
+			pre_derecognition_py = pre_lease_doc.derecognition
+			pre_payment_of_lease_liabilities_py = pre_lease_doc.payment_of_lease_liabilities
+			pre_closing = pre_opening + pre_additions_modifications_py + pre_finance_cost_accrued_py + pre_derecognition_py + pre_payment_of_lease_liabilities_py
+
+			pre_less_than_one_year = pre_lease_doc.less_than_one_year
+			pre_one_to_five_years = pre_lease_doc.one_to_five_years
+			pre_more_than_five_years = pre_lease_doc.more_than_five_years
+		else:
+			pre_additions_modifications_py, pre_finance_cost_accrued_py, pre_derecognition_py, pre_payment_of_lease_liabilities_py, pre_closing = 0, 0, 0, 0, 0
+			pre_less_than_one_year, pre_one_to_five_years, pre_more_than_five_years = 0, 0, 0
+
+		# Get current year lease data (opening = pre_closing)
+		cur_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month})
+		if cur_lease:
+			cur_lease_doc = frappe.get_doc("FR Lease", cur_lease)
+			cur_additions_modifications = cur_lease_doc.additions_modifications
+			cur_finance_cost_accrued = cur_lease_doc.finance_cost_accrued
+			cur_derecognition = cur_lease_doc.derecognition
+			cur_payment_of_lease_liabilities = cur_lease_doc.payment_of_lease_liabilities
+			cur_closing = pre_closing + cur_additions_modifications + cur_finance_cost_accrued + cur_derecognition + cur_payment_of_lease_liabilities
+
+			cur_less_than_one_year = cur_lease_doc.less_than_one_year
+			cur_one_to_five_years = cur_lease_doc.one_to_five_years
+			cur_more_than_five_years = cur_lease_doc.more_than_five_years
+		else:
+			cur_additions_modifications, cur_finance_cost_accrued, cur_derecognition, cur_payment_of_lease_liabilities, cur_closing = 0, 0, 0, 0, 0
+			cur_less_than_one_year, cur_one_to_five_years, cur_more_than_five_years = 0, 0, 0
+
 		a_data = {
 			"current": {
-				"opening": 5312,
-				"additions": 619,
-				"finance_cost": 313,
-				"derecognition": -590,
-				"payment": -1357,
-				"closing": 4297
+				"opening": pre_closing,
+				"additions": cur_additions_modifications,
+				"finance_cost": cur_finance_cost_accrued,
+				"derecognition": cur_derecognition,
+				"payment": cur_payment_of_lease_liabilities,
+				"closing": cur_closing
 			},
 			"previous": {
-				"opening": 3608,
-				"additions": 3287,
-				"finance_cost": 298,
-				"derecognition": -596,
-				"payment": -1285,
-				"closing": 5312
+				"opening": pre_opening,
+				"additions": pre_additions_modifications_py,
+				"finance_cost": pre_finance_cost_accrued_py,
+				"derecognition": pre_derecognition_py,
+				"payment": pre_payment_of_lease_liabilities_py,
+				"closing": pre_closing
 			}
 		}
 
@@ -2989,8 +3234,8 @@ class FinancialReport(Document):
 		<table style="margin-top:-30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<tr>
 				<th style="border:1px solid #000; padding:6px; width:50%; font-weight:bold; color:#4472C4;">Particulars</th>
-				<th style="border:1px solid #000; padding:6px; width:25%; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">2024-25<br>(₹ in Lacs)</th>
-				<th style="border:1px solid #000; padding:6px; width:25%; font-weight:bold; color:#4472C4;">2023-24<br>(₹ in Lacs)</th>
+				<th style="border:1px solid #000; padding:6px; width:25%; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">{self.fiscal_year}<br>(₹ in Lacs)</th>
+				<th style="border:1px solid #000; padding:6px; width:25%; font-weight:bold; color:#4472C4;">{self.previous_fiscal_year}<br>(₹ in Lacs)</th>
 			</tr>
 
 			<tr>
@@ -3034,16 +3279,16 @@ class FinancialReport(Document):
 
 		b_data = {
 			"current": {
-				"lt_1": 1298,
-				"one_to_five": 3098,
-				"gt_5": 604,
-				"total": 5000
+				"lt_1": cur_less_than_one_year,
+				"one_to_five": cur_one_to_five_years,
+				"gt_5": cur_more_than_five_years,
+				"total": cur_less_than_one_year + cur_one_to_five_years + cur_more_than_five_years
 			},
 			"previous": {
-				"lt_1": 1610,
-				"one_to_five": 3871,
-				"gt_5": 760,
-				"total": 6241
+				"lt_1": pre_less_than_one_year,
+				"one_to_five": pre_one_to_five_years,
+				"gt_5": pre_more_than_five_years,
+				"total": pre_less_than_one_year + pre_one_to_five_years + pre_more_than_five_years
 			}
 		}
 
@@ -3100,7 +3345,7 @@ class FinancialReport(Document):
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
-
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 		def fmt(val):
 			if val in (None, "-", ""):
 				return "-"
@@ -3108,14 +3353,37 @@ class FinancialReport(Document):
 				return val
 			return f"{val:,.0f}"
 
+		# Fetch contingent liabilities data using get_value for efficiency
+		cur_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
+		if cur_contingent:
+			cur_contingent_doc = frappe.get_doc("FR Contingent Liabilities", cur_contingent)
+			cur_bank_guarantees = cur_contingent_doc.bank_guarantees
+			cur_company_imported = cur_contingent_doc.company_imported
+			cur_claim_against = cur_contingent_doc.claim_against
+		else:
+			cur_bank_guarantees = 0
+			cur_company_imported = 0
+			cur_claim_against = "-"
+
+		prev_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
+		if prev_contingent:
+			prev_contingent_doc = frappe.get_doc("FR Contingent Liabilities", prev_contingent)
+			pre_bank_guarantees = prev_contingent_doc.bank_guarantees
+			pre_company_imported = prev_contingent_doc.company_imported
+			pre_claim_against = prev_contingent_doc.claim_against
+		else:
+			pre_bank_guarantees = 0
+			pre_company_imported = 0
+			pre_claim_against = "-"
+
 		data = [
-			("a) Bank guarantees given to excise authorities and other institutions", 125, 42),
-			("b) The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme, of the Government of India, against which the company is committed to make exports of ₹ 397 Lacs (P.Y. ₹ 3,061 Lacs) within prescribed time period. In case the company does not export it would be liable to pay customs duty.",66,510),
-			("c) Claims against the company not acknowledged as debt, Amount indeterminate (Refer Note (ii) below), Amount indeterminate (Refer Note (ii) below)", 66,510)
+			("a) Bank guarantees given to excise authorities and other institutions", cur_bank_guarantees, pre_bank_guarantees),
+			("b) The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme, of the Government of India, against which the company is committed to make exports of ₹ 397 Lacs (P.Y. ₹ 3,061 Lacs) within prescribed time period. In case the company does not export it would be liable to pay customs duty.", cur_company_imported, pre_company_imported),
+			("c) Claims against the company not acknowledged as debt, Amount indeterminate (Refer Note (ii) below), Amount indeterminate (Refer Note (ii) below)", cur_claim_against, pre_claim_against),
 		]
 
-		total_2025 = 125 + 66
-		total_2024 = 42 + 510
+		total_curr = cur_bank_guarantees + cur_company_imported
+		total_prev = pre_bank_guarantees + pre_company_imported
 
 		rows_html = ""
 		for row in data:
@@ -3139,8 +3407,8 @@ class FinancialReport(Document):
 
 			<tr>
 				<td style="border:1px solid #000; padding:6px;"><strong>TOTAL</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_2025)}</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_2024)}</strong></td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_curr)}</strong></td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_prev)}</strong></td>
 			</tr>
 		</table>
 		"""
@@ -3150,64 +3418,121 @@ class FinancialReport(Document):
 	def get_yearly_capital_and_other_commitments_note_data(self, section_description=""):
 		# Get dynamic date labels
 		current_year_label, previous_year_label = self.get_yearly_dates()
-		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
-		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		current_date = current_year_label.replace("Year Ended ", "")
+		previous_date = previous_year_label.replace("Year Ended ", "")
 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		curr_date = datetime.strptime(current_date, "%d/%m/%Y").strftime("%Y-%m-%d")
+		prev_date = datetime.strptime(previous_date, "%d/%m/%Y").strftime("%Y-%m-%d")
 
-		cur_cap_comm = frappe.db.exists("FR Capital and Other Commitments", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
-		pre_cap_comm = frappe.db.exists("FR Capital and Other Commitments", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
+		# Fetch capital and other commitments data using get_value for efficiency
+		cur_cap_data = frappe.db.get_value(
+			"FR Capital and Other Commitments",
+			{"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month},
+			["estimated_capital_contracts_unexecuted", "other_commitments"],
+			as_dict=True
+		)
+		pre_cap_data = frappe.db.get_value(
+			"FR Capital and Other Commitments",
+			{"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month},
+			["estimated_capital_contracts_unexecuted", "other_commitments"],
+			as_dict=True
+		)
 
-		if cur_cap_comm:
-			cur_cap_com_doc = frappe.get_doc("FR Capital and Other Commitments", cur_cap_comm)
-			cur_estimated_capital_contracts_unexecuted = cur_cap_com_doc.estimated_capital_contracts_unexecuted
-			cur_other_commitments = cur_cap_com_doc.other_commitments
-		else:
-			cur_estimated_capital_contracts_unexecuted = "-"
-			cur_other_commitments = "-"
-
-		if pre_cap_comm:
-			pre_cap_com_doc = frappe.get_doc("FR Capital and Other Commitments", pre_cap_comm)
-			pre_estimated_capital_contracts_unexecuted = pre_cap_com_doc.estimated_capital_contracts_unexecuted
-			cur_other_commitments = pre_cap_com_doc.other_commitments
-		else:
-			pre_estimated_capital_contracts_unexecuted = "-"
-			pre_other_commitments = "-"
+		cur_estimated_capital = cur_cap_data.estimated_capital_contracts_unexecuted if cur_cap_data else "-"
+		cur_other_commitments = cur_cap_data.other_commitments if cur_cap_data else "-"
+		pre_estimated_capital = pre_cap_data.estimated_capital_contracts_unexecuted if pre_cap_data else "-"
+		pre_other_commitments = pre_cap_data.other_commitments if pre_cap_data else "-"
 
 		def fmt(val):
 			if val in (None, "-", ""):
 				return "-"
 			return f"{val:,.0f}"
 
-		rows = [
-			(
-				"Estimated value of contracts remaining to be executed on capital account and not provided for "
-				"(Net of advances ₹ 1,477 Lacs (P.Y. ₹ 2,727 Lacs))",
-				cur_estimated_capital_contracts_unexecuted, pre_estimated_capital_contracts_unexecuted
-			),
-			# (
-			# 	"Commitment to invest in 72,50,000 (P.Y. 72,50,000) Equity Shares of 1 TRY each in "
-			# 	"Meril Tıbbi Cihazlar İmalat ve Ticaret Anonim Şirketi, Turkey, Foreign subsidiary.",
-			# 	146, 187
-			# ),
-			(
-				"<strong>ii) Other Commitments</strong><br>"
-				"Contractual arrangement for payment on corporate credit card facility availed by the company from the bank.",
-				cur_other_commitments, pre_other_commitments
-			),
-		]
+		def safe_val(val):
+			"""Return numeric value or 0 for summing"""
+			return val if isinstance(val, (int, float)) else 0
 
-		rows_html = ""
+		rows = []
+		total_current = safe_val(cur_estimated_capital)
+		total_previous = safe_val(pre_estimated_capital)
+
+		rows.append((
+			"Estimated value of contracts remaining to be executed on capital account and not provided for "
+			"(Net of advances ₹ 1,477 Lacs (P.Y. ₹ 2,727 Lacs))",
+			cur_estimated_capital, pre_estimated_capital
+		))
+
+		# Fetch all equity entries in bulk for efficiency
+		companies = frappe.get_all("FR Equity Entry", filters={"holding_company": self.company}, pluck="company")
+
+		if companies:
+			# Batch fetch all required data
+			equity_data = frappe.db.sql("""
+				SELECT
+					name,
+					company,
+					capital_type,
+					face_value,
+					SUM(CASE WHEN posting_date <= %s THEN investment_value ELSE 0 END) AS cur_investment,
+					SUM(CASE WHEN posting_date <= %s THEN investment_value ELSE 0 END) AS pre_investment
+				FROM `tabFR Equity Entry`
+				WHERE company IN %s
+				AND holding_company = %s
+				AND category = 'Equity Shares'
+				AND capital_type IN ('Authorised Capital', 'Issued Capital')
+				GROUP BY company, capital_type, face_value;
+			""", (curr_date, prev_date, tuple(companies), self.company), as_dict=True)
+			
+			# Organize data by company
+			company_data = {}
+			for entry in equity_data:
+				if entry.company not in company_data:
+					company_data[entry.company] = {}
+				company_data[entry.company][entry.capital_type] = entry
+
+			for company in companies:
+				data = company_data.get(company, {})
+				auth_data = data.get("Authorised Capital", {})
+				issued_data = data.get("Issued Capital", {})
+
+				cur_auth_invest = auth_data.get("cur_investment") or 0
+				pre_auth_invest = auth_data.get("pre_investment") or 0
+				face_value = auth_data.get("face_value") or issued_data.get("face_value") or "-"
+
+				cur_commit = issued_data.get("cur_investment") or "-"
+				pre_commit = issued_data.get("pre_investment") or "-"
+
+				# Get company details for display
+				company_name = frappe.db.get_value("Company", company, "company_name") or company
+
+				rows.append((
+					f"Commitment to invest in {fmt(cur_auth_invest)} (P.Y. {fmt(pre_auth_invest)}) Equity Shares of {face_value} TRY each in {company_name}.",
+					cur_commit, pre_commit
+				))
+
+				total_current += safe_val(cur_commit)
+				total_previous += safe_val(pre_commit)
+
+		# Add other commitments
+		rows.append((
+			"<strong>ii) Other Commitments</strong><br>"
+			"Contractual arrangement for payment on corporate credit card facility availed by the company from the bank.",
+			cur_other_commitments, pre_other_commitments
+		))
+		total_current += safe_val(cur_other_commitments)
+		total_previous += safe_val(pre_other_commitments)
+
+		# Build HTML using list join for efficiency
+		rows_html_parts = []
 		for r in rows:
-			rows_html += f"""
+			rows_html_parts.append(f"""
 			<tr>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; vertical-align:top;">{r[0]}</td>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top; background-color:#E8F5E8;">{fmt(r[1])}</td>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top;">{fmt(r[2])}</td>
 			</tr>
-			"""
-
-		total_2025 = 17170
-		total_2024 = 16165
+			""")
+		rows_html = "".join(rows_html_parts)
 
 		note_table = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3227,8 +3552,8 @@ class FinancialReport(Document):
 
 			<tr>
 				<td style="border:1px solid #000; padding:6px;"><strong>TOTAL</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_2025)}</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_2024)}</strong></td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_current)}</strong></td>
+				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_previous)}</strong></td>
 			</tr>
 		</table>
 		"""
@@ -4889,15 +5214,8 @@ class FinancialReport(Document):
 
 		all_companies = set(frappe.get_list("FR Equity Entry",filters={"holding_company": self.company},pluck="company"))
 		for company in all_companies:
-			def fetch_equity_data(date_filter):
-				return frappe.get_all(
-					"FR Equity Entry",
-					filters={"company": company,"holding_company": self.company,"category": "Equity Shares","posting_date": date_filter},
-					fields=["face_value as face_value","sum(no_of_shares) as no_of_shares","sum(investment_value) as investment_value","sum(investment_value_fc) as investment_value_fc"]
-				)
-
-			e_previous_year = fetch_equity_data(["<=", prev_fs_year_end_date])
-			e_current_month = fetch_equity_data(["<=", current_month_date])
+			e_previous_year = self.fetch_equity_data(company, ["<=", prev_fs_year_end_date])
+			e_current_month = self.fetch_equity_data(company, ["<=", current_month_date])
 
 			e_previous_year = e_previous_year[0] if e_previous_year else {}
 			e_current_month = e_current_month[0] if e_current_month else {}
@@ -4946,7 +5264,7 @@ class FinancialReport(Document):
 		
 		# HTML table
 		table = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt; border:1px solid #222;">
+		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top: 20px; border:1px solid #222;">
 			<thead>
 				<tr style="border-bottom:2px solid #222;">
 					<th rowspan="2"style="border:1px solid #222; color:#4472C4; width:25%; text-align:left; padding:6px 8px;"><b>Particulars</b></th>
@@ -5053,6 +5371,61 @@ class FinancialReport(Document):
 
 		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
+	
+	def get_yearly_trade_payable_note_data(self, section_description=""):
+		"""Get yearly trade and other receivables note data"""
+		month_end_label, prev_fy_label = self.get_yearly_dates()
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+
+		default_currency = frappe.get_value("Company", self.company, "default_currency")
+		current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		prev_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
+
+		msme_current = round(self.get_sum_grouping_amount("Trade payables", "Dues of MSME", cls_month, self.fiscal_year) or 0,self.show_decimal_value)
+		msme_previous = round(self.get_sum_grouping_amount("Trade payables", "Dues of MSME", cls_month, self.previous_fiscal_year) or 0,self.show_decimal_value)
+
+		creditor_current = round((self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.fiscal_year) or 0) +(self.get_sum_grouping_amount("Trade payables", "Dues of Creditors Other Than MSME", cls_month, self.fiscal_year) or 0),self.show_decimal_value)
+		creditor_previous = round((self.get_sum_grouping_amount("Trade payables", "Dues of Creditors Other Than MSME", cls_month, self.previous_fiscal_year) or 0) +(self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year) or 0),self.show_decimal_value)
+
+		# (label, current, previous)
+		rows = [
+			("Total outstanding dues of micro enterprises and small enterprises", msme_current, msme_previous),
+			("Total outstanding dues of creditors other than micro enterprises and small enterprises", creditor_current, creditor_previous),
+			("Total", (msme_current + creditor_current), (msme_previous + creditor_previous))
+		]
+
+
+		html = f"""
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000;">
+			<thead>
+				<tr style="color: #4472C4; background-color: #E8F5E8;">
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:60%; padding:2px 5px; text-align:left;">Particulars</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center; background-color: #E8F5E8;">{month_end_label}</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center;">{prev_fy_label}</th>
+				</tr>
+			</thead>
+			<tbody>
+		"""
+
+		for i, (label, cur, prev) in enumerate(rows):
+			last = i == len(rows) - 1
+			style = "font-weight:bold;" if last else ""
+			# Only vertical borders for regular rows, full borders for last (Total) row
+			if last:
+				border = "border:1px solid #222;"
+			else:
+				border = "border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;"
+
+			html += f"""
+			<tr style="line-height: 1; border:none;">
+				<td style="{border} padding:2px 5px; text-align:left; {style}">{label}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{cur}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{prev}</td>
+			</tr>
+			"""
+
+		html += "</tbody></table>"
+		return section_description.replace("{{note_table}}", html)
 
 	@frappe.whitelist()
 	def get_yearly_consolidation_note_data(self, primary_group):
@@ -5061,8 +5434,8 @@ class FinancialReport(Document):
 		def format_amount(val):
 			return flt(-val if show_reversed_value and val < 0 else val or 0)
 
-		def append_data(account, cm, py, indent=0):
-			data.append({"account": account, "current_year": format_amount(cm), "previous_year": format_amount(py), "indent": indent, "is_bold": 0})
+		def append_data(account, cm, py, indent=0, is_bold=0):
+			data.append({"account": account, "current_year": format_amount(cm), "previous_year": format_amount(py), "indent": indent, "is_bold": is_bold})
 
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
@@ -5141,7 +5514,7 @@ class FinancialReport(Document):
 							append_data(sec, cm, py)
 					else:
 						if any(val != 0 for val in (cm, py)) or has_hg_sec_group:
-							append_data(sec, cm, py)
+							append_data(sec, cm, py, is_bold=1 if has_hg_sec_group else 0)
 					
 					for hg_sec in has_hg_sec_group:
 						cm = self.get_sum_grouping_amount(primary_group, sec, cls_month, self.fiscal_year, hg_sec_group=hg_sec) * current_fx
@@ -5511,7 +5884,7 @@ class FinancialReport(Document):
 					else:
 						amount += child_amount
 
-			elif fr_particular.fetch_from_schedule:
+			elif fr_particular.fetch_from_schedule and not fr_particular.is_purchase_of_stock_in_trade:
 				note_type = get_fr_section(fr_particular.schedule).note_type
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'net_increase_total' if is_current else ('prev_year_amt' if is_yearly else 'previous_month_amt')
@@ -5521,38 +5894,47 @@ class FinancialReport(Document):
 					amount = self.get_yearly_cost_of_material_consumed(note_type, total=True, field=field)
 
 			elif fr_particular.schedule and fr_particular.is_purchase_of_stock_in_trade:
-				cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-				opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
-				closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.fiscal_year)
+				if default_currency != "INR":
+					cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+					opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
+					closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.fiscal_year)
 
-				if is_current:
-					amount = (
-						self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, year)
-						- self.get_yearly_finished_goods_and_wip(total=True, field='net_increase_total')
-						+ (closing_stock_current - opening_stock)
-					)
+					if is_current:
+						amount = (
+							self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, year)
+							- self.get_yearly_finished_goods_and_wip(total=True, field='net_increase_total')
+							+ (closing_stock_current - opening_stock)
+						)
 
-				elif is_yearly:
-					closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
-					prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
+					elif is_yearly:
+						closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
+						prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
 
-					closing_wip_pre_previous = (
-						self.sum_group_amt("Inventories", "Work in Progress", pre_year)
-						+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
-						+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
-					)
+						closing_wip_pre_previous = (
+							self.sum_group_amt("Inventories", "Work in Progress", pre_year)
+							+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
+							+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
+						)
 
-					prev_year_closing_wip = (
-						self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
-						+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
-						+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
-					)
+						prev_year_closing_wip = (
+							self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+							+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+							+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+						)
 
-					amount = (
-						self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
-						+ (prev_year_closing_wip - closing_wip_pre_previous)
-						+ (prev_year_closing_stock - closing_stock_pre_previous)
-					)
+						amount = (
+							self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
+							+ (prev_year_closing_wip - closing_wip_pre_previous)
+							+ (prev_year_closing_stock - closing_stock_pre_previous)
+						)
+					else:
+						amount = (
+							self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
+							+ (prev_year_closing_wip - closing_wip_pre_previous)
+							+ (prev_year_closing_stock - closing_stock_pre_previous)
+						)
+				else:
+					amount = self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", year)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
@@ -6137,14 +6519,14 @@ class FinancialReport(Document):
 			})
 
 	"""	    ################################################################################################
-		    ################################################################################################
+			################################################################################################
 		#######################                                                              #####################
 		#######################                                                              #####################
 		#######################                Monthly Financial Report Logic                #####################
 		#######################                                                              #####################
 		#######################                                                              #####################
-		    ################################################################################################
-		    ################################################################################################        """
+			################################################################################################
+			################################################################################################        """
 
 	def get_monthly_dates(self, only_dates=False):
 		if not self.current_month or not self.previous_month:
@@ -6964,7 +7346,7 @@ class FinancialReport(Document):
 					else:
 						amount += child_amount
 
-			elif fr_particular.fetch_from_schedule:
+			elif fr_particular.fetch_from_schedule and not fr_particular.is_purchase_of_stock_in_trade:
 				note_type = get_fr_section(fr_particular.schedule).note_type
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'net_increase_total' if is_current else ('prev_year_amt' if is_yearly else 'previous_month_amt')
@@ -6974,45 +7356,50 @@ class FinancialReport(Document):
 					amount = self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
 
 			elif fr_particular.schedule and fr_particular.is_purchase_of_stock_in_trade:
-				cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-				opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
-				closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
-				closing_stock_previous = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
+				default_currency = frappe.get_value("Company", self.company, 'default_currency')
+				if default_currency != "INR":
+					cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+					opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
+					closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
+					closing_stock_previous = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
 
-				if is_current:
-					amount = (
-						self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
-						- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='net_increase_total')
-						+ (closing_stock_current - opening_stock)
-					)
+					if is_current:
+						amount = (
+							self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
+							- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='net_increase_total')
+							+ (closing_stock_current - opening_stock)
+						)
 
-				elif is_yearly:
-					closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
-					prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
+					elif is_yearly:
+						closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
+						prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
 
-					closing_wip_pre_previous = (
-						self.sum_group_amt("Inventories", "Work in Progress", pre_year)
-						+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
-						+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
-					)
+						closing_wip_pre_previous = (
+							self.sum_group_amt("Inventories", "Work in Progress", pre_year)
+							+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
+							+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
+						)
 
-					prev_year_closing_wip = (
-						self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
-						+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
-						+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
-					)
+						prev_year_closing_wip = (
+							self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
+							+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
+							+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
+						)
 
-					amount = (
-						self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
-						+ (prev_year_closing_wip - closing_wip_pre_previous)
-						+ (prev_year_closing_stock - closing_stock_pre_previous)
-					)
+						amount = (
+							self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
+							+ (prev_year_closing_wip - closing_wip_pre_previous)
+							+ (prev_year_closing_stock - closing_stock_pre_previous)
+						)
+					else:
+						amount = (
+							self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
+							- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='previous_month_amt')
+							+ (closing_stock_previous - opening_stock)
+						)
 				else:
-					amount = (
-						self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
-						- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='previous_month_amt')
-						+ (closing_stock_previous - opening_stock)
-					)
+					amount = self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
+		
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
@@ -7750,16 +8137,9 @@ class FinancialReport(Document):
 
 		all_companies = set(frappe.get_list("FR Equity Entry",filters={"holding_company": self.company},pluck="company"))
 		for company in all_companies:
-			def fetch_equity_data(date_filter):
-				return frappe.get_all(
-					"FR Equity Entry",
-					filters={"company": company,"holding_company": self.company,"category": "Equity Shares","posting_date": date_filter},
-					fields=["face_value","sum(no_of_shares) as no_of_shares","sum(investment_value) as investment_value","sum(investment_value_fc) as investment_value_fc"]
-				)
-
-			e_previous_year = fetch_equity_data(["<=", prev_fs_year_end_date])
-			e_current_fy_end = fetch_equity_data(["<=", previous_month_date])
-			e_current_month = fetch_equity_data(["<=", current_month_date])
+			e_previous_year = self.fetch_equity_data(company, ["<=", prev_fs_year_end_date])
+			e_current_fy_end = self.fetch_equity_data(company, ["<=", previous_month_date])
+			e_current_month = self.fetch_equity_data(company, ["<=", current_month_date])
 
 			e_previous_year = e_previous_year[0] if e_previous_year else {}
 			e_current_fy_end = e_current_fy_end[0] if e_current_fy_end else {}

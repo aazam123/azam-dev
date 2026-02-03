@@ -43,6 +43,7 @@
    "reqd": 1
   },
   {
+   "fetch_from": "gl_account.account_currency",
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
@@ -95,7 +96,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-20 10:44:11.124492",
+ "modified": "2026-01-30 12:03:40.557606",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Trial Balance Entry",

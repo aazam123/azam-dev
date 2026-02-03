@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:LEASE-{#####}",
+ "creation": "2026-01-28 16:47:05.532643",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_qlig",
+  "fiscal_year",
+  "column_break_yvuv",
+  "month",
+  "section_break_fqjz",
+  "additions_modifications",
+  "finance_cost_accrued",
+  "derecognition",
+  "payment_of_lease_liabilities",
+  "column_break_izhi",
+  "less_than_one_year",
+  "one_to_five_years",
+  "more_than_five_years",
+  "for_fair_value_measurements_section",
+  "one_to_three_years",
+  "column_break_sanr",
+  "more_than_three_years"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_qlig",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "column_break_yvuv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fieldname": "section_break_fqjz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "finance_cost_accrued",
+   "fieldtype": "Float",
+   "label": "Finance Cost Accrued"
+  },
+  {
+   "fieldname": "payment_of_lease_liabilities",
+   "fieldtype": "Float",
+   "label": "Payment of Lease Liabilities"
+  },
+  {
+   "fieldname": "column_break_izhi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "less_than_one_year",
+   "fieldtype": "Float",
+   "label": "Less than one year"
+  },
+  {
+   "fieldname": "one_to_five_years",
+   "fieldtype": "Float",
+   "label": "One to five years"
+  },
+  {
+   "fieldname": "more_than_five_years",
+   "fieldtype": "Float",
+   "label": "More than five years"
+  },
+  {
+   "fieldname": "additions_modifications",
+   "fieldtype": "Float",
+   "label": "Additions/Modifications During The Year"
+  },
+  {
+   "fieldname": "derecognition",
+   "fieldtype": "Float",
+   "label": "Derecognition During The Year"
+  },
+  {
+   "fieldname": "for_fair_value_measurements_section",
+   "fieldtype": "Section Break",
+   "label": "For Fair Value Measurements"
+  },
+  {
+   "fieldname": "one_to_three_years",
+   "fieldtype": "Float",
+   "label": "One to three years"
+  },
+  {
+   "fieldname": "column_break_sanr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "more_than_three_years",
+   "fieldtype": "Float",
+   "label": "More than three years"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-29 14:29:01.330321",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Lease",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-29 11:39:36.547536",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "bank",
+  "column_break_ltcu",
+  "particulars",
+  "section_break_lvjh",
+  "wc_limits",
+  "fdod",
+  "column_break_eeux",
+  "non_fund",
+  "term_loan",
+  "column_break_elpq",
+  "eclgs",
+  "total"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "bank",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Bank"
+  },
+  {
+   "fieldname": "column_break_ltcu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "default": "Limits",
+   "fieldname": "particulars",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Particulars",
+   "options": "\nLimits"
+  },
+  {
+   "fieldname": "section_break_lvjh",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "wc_limits",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "WC Limits"
+  },
+  {
+   "columns": 1,
+   "fieldname": "fdod",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "FDOD"
+  },
+  {
+   "fieldname": "column_break_eeux",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "non_fund",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Non-Fund Based"
+  },
+  {
+   "columns": 1,
+   "fieldname": "term_loan",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Term Loan"
+  },
+  {
+   "fieldname": "column_break_elpq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "eclgs",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "ECLGS"
+  },
+  {
+   "columns": 1,
+   "fieldname": "total",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-29 12:08:07.417762",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Undrawn Facilities Bank Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

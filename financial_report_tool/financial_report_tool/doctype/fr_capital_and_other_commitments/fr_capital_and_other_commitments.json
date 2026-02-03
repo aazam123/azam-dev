@@ -1,28 +1,21 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format:CACO-{#####}",
  "creation": "2026-01-20 15:34:42.472040",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "compnay",
+  "company",
   "column_break_xbmq",
   "fiscal_year",
   "column_break_uucw",
-  "select",
+  "month",
   "section_break_hfee",
   "estimated_capital_contracts_unexecuted",
   "other_commitments"
  ],
  "fields": [
-  {
-   "fieldname": "compnay",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Compnay",
-   "options": "Company",
-   "reqd": 1
-  },
   {
    "fieldname": "column_break_xbmq",
    "fieldtype": "Column Break"
@@ -40,14 +33,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "select",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Select",
-   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
-   "reqd": 1
-  },
-  {
    "fieldname": "section_break_hfee",
    "fieldtype": "Section Break"
   },
@@ -60,15 +45,32 @@
    "fieldname": "other_commitments",
    "fieldtype": "Float",
    "label": "Other Commitments"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-20 15:40:18.586377",
+ "modified": "2026-01-25 13:54:02.310512",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Capital and Other Commitments",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

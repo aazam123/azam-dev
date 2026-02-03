@@ -36,7 +36,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Note Type",
-   "options": "\nProperty, plant and equipment\nOther intangible assets\nRight-of-use assets\nCapital work-in-progress\nIntangible assets under development\nInvestments (Non-current)\nTrade & Other receivables\nEquity Share Capital\nOther Equity\nBorrowings (Non-current)\nBorrowings (Current)\nChanges in inventories of Finished Goods and\nCost of Materials Consumed\nDetails of Payment to Auditors\nCurrent Tax\nCapital Management\nFair Value Measurements\nFinancial Risk Management\nContingent Liabilities\nCapital & Other Commitments\nRelated Party Disclosure\nEarning Per Equity Share\nLeases\nDisclosure u/s. 22 of the Micro, Small and Medium Enterprises Development Act, 2006\nEmployee Benefit Obligation\nRatio\nDetails of Research & Development Expenditure\nCorporate Social Responsibliity\nSegmental Information"
+   "options": "\nProperty, plant and equipment\nOther intangible assets\nRight-of-use assets\nCapital work-in-progress\nIntangible assets under development\nInvestments (Non-current)\nTrade & Other receivables\nTrade Payable\nEquity Share Capital\nOther Equity\nBorrowings (Non-current)\nBorrowings (Current)\nChanges in inventories of Finished Goods and\nCost of Materials Consumed\nDetails of Payment to Auditors\nCurrent Tax\nCapital Management\nFair Value Measurements\nFinancial Risk Management\nContingent Liabilities\nCapital & Other Commitments\nRelated Party Disclosure\nEarning Per Equity Share\nLeases\nDisclosure u/s. 22 of the Micro, Small and Medium Enterprises Development Act, 2006\nEmployee Benefit Obligation\nRatio\nDetails of Research & Development Expenditure\nCorporate Social Responsibliity\nSegmental Information"
   },
   {
    "fieldname": "column_break_ftjl",
@@ -72,7 +72,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-05 15:40:39.327004",
+ "modified": "2026-01-27 09:53:35.942215",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Section",

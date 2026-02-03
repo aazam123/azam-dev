@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:CONT-LIAB-{#####}",
+ "creation": "2026-01-27 15:05:39.394702",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_diir",
+  "fiscal_year",
+  "column_break_jmei",
+  "month",
+  "section_break_rmzw",
+  "bank_guarantees",
+  "company_imported",
+  "claim_against"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_diir",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "column_break_jmei",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_rmzw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "bank_guarantees",
+   "fieldtype": "Float",
+   "label": "Bank guarantees given to excise authorities and other institutions"
+  },
+  {
+   "description": "b) The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme, of the Government of India, against which the company is committed to make exports of \u20b9 X Lacs (P.Y. \u20b9 Y Lacs)  within prescribed time period. In case the company  does not export then it would be liable to pay customs duty.",
+   "fieldname": "company_imported",
+   "fieldtype": "Float",
+   "label": "The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme"
+  },
+  {
+   "fieldname": "claim_against",
+   "fieldtype": "Small Text",
+   "label": "Claims Against The Company Not Acknowledged as Debt"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-27 15:32:48.524033",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Contingent Liabilities",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,32 @@
+{
+ "custom_fields": [],
+ "custom_perms": [],
+ "doctype": "FR Repayment",
+ "links": [],
+ "property_setters": [
+  {
+   "_assign": null,
+   "_comments": null,
+   "_liked_by": null,
+   "_user_tags": null,
+   "creation": "2026-01-29 15:57:31.646015",
+   "default_value": null,
+   "doc_type": "FR Repayment",
+   "docstatus": 0,
+   "doctype_or_field": "DocType",
+   "field_name": null,
+   "idx": 0,
+   "is_system_generated": 0,
+   "modified": "2026-01-29 15:57:31.646015",
+   "modified_by": "Administrator",
+   "module": null,
+   "name": "FR Repayment-main-allow_import",
+   "owner": "Administrator",
+   "property": "allow_import",
+   "property_type": "Check",
+   "row_name": null,
+   "value": "1"
+  }
+ ],
+ "sync_on_migrate": 1
+}
