@@ -1,7 +1,7 @@
 {
  "charts": [],
- "content": "[{\"id\":\"UgOFzsoETB\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Finance</span>\",\"col\":12}},{\"id\":\"5c-g3ymaS9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report\",\"col\":3}},{\"id\":\"PdJhsjwEgu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Settings\",\"col\":3}},{\"id\":\"xO2YgVbWvU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Templates</b></span>\",\"col\":12}},{\"id\":\"sr2qQoy_9e\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report Template\",\"col\":3}},{\"id\":\"ijk1rCaUqV\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Balance Sheet Template\",\"col\":3}},{\"id\":\"VUdPQkK_JW\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Profit & Loss Template\",\"col\":3}},{\"id\":\"13aD0nGrL6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Flow Template\",\"col\":3}},{\"id\":\"ww8cbiG1Nk\",\"type\":\"paragraph\",\"data\":{\"text\":\"Transaction\",\"col\":12}},{\"id\":\"QtGqKgq_OA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Trail Balance Entry\",\"col\":3}},{\"id\":\"rwDFrq6TWy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Asset Register Entry\",\"col\":3}},{\"id\":\"u5xJ60GaZ8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Payable Entry\",\"col\":3}},{\"id\":\"bZ8tBYEVNu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Receivable Entry\",\"col\":3}},{\"id\":\"Cwl1ySaT21\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sync Sap Trial Balance\",\"col\":3}},{\"id\":\"uuyGnSNCm1\",\"type\":\"paragraph\",\"data\":{\"text\":\"Masters\",\"col\":12}},{\"id\":\"Tj45RnFZOy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Company\",\"col\":3}},{\"id\":\"ZDnQzb5iMQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account\",\"col\":3}},{\"id\":\"phJ__CbO7Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Standalone Group\",\"col\":3}},{\"id\":\"d-PkPk3mUz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"GL Group Mapping\",\"col\":3}},{\"id\":\"ef9kh68ZZr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Section\",\"col\":3}},{\"id\":\"UqxJPUB8XG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Subsection\",\"col\":3}},{\"id\":\"AwnImsdM3W\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Schedule Reorder\",\"col\":3}},{\"id\":\"4pXrjzG6pG\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"VPol_2Gnuu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"GL Account Group Report\",\"col\":3}},{\"id\":\"zs9IApGRTD\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts with Parent & Groups\",\"col\":3}},{\"id\":\"6OginumraL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Ageing Report\",\"col\":3}},{\"id\":\"b6iOtBOrgd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Receivable Regrouping\",\"col\":3}},{\"id\":\"YHJlI--_OZ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Comment Financial Report\",\"col\":3}}]",
- "creation": "2026-01-17 10:58:09.649088",
+ "content": "[{\"id\":\"UgOFzsoETB\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Finance</span>\",\"col\":12}},{\"id\":\"xO2YgVbWvU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Templates</b></span>\",\"col\":12}},{\"id\":\"5c-g3ymaS9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report\",\"col\":4}},{\"id\":\"sr2qQoy_9e\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Report Template\",\"col\":4}},{\"id\":\"cYld3ghRpD\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Financial Settings\",\"col\":4}},{\"id\":\"_VMhjWxkaK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Balance Sheet Template\",\"col\":4}},{\"id\":\"wFfKEpdI8N\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cash Flow Template\",\"col\":4}},{\"id\":\"thq6H1mCCf\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Profit And Loss Template\",\"col\":4}},{\"id\":\"ww8cbiG1Nk\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Transaction Master</b>\",\"col\":12}},{\"id\":\"QtGqKgq_OA\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Trail Balance Entry\",\"col\":4}},{\"id\":\"rwDFrq6TWy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Asset Register Entry\",\"col\":4}},{\"id\":\"u5xJ60GaZ8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Payable Entry\",\"col\":4}},{\"id\":\"bZ8tBYEVNu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Receivable Entry\",\"col\":4}},{\"id\":\"GWoLSR-Hmn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Investment Master\",\"col\":4}},{\"id\":\"AwnImsdM3W\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Schedule Reorder\",\"col\":4}},{\"id\":\"uuyGnSNCm1\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Masters</b>\",\"col\":12}},{\"id\":\"Tj45RnFZOy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Company\",\"col\":4}},{\"id\":\"ZDnQzb5iMQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account\",\"col\":4}},{\"id\":\"d-PkPk3mUz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"GL Group Mapping\",\"col\":4}},{\"id\":\"phJ__CbO7Y\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Standalone Group\",\"col\":4}},{\"id\":\"ef9kh68ZZr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Section\",\"col\":4}},{\"id\":\"UqxJPUB8XG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Subsection\",\"col\":4}},{\"id\":\"4pXrjzG6pG\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"VPol_2Gnuu\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"GL Account Group Report\",\"col\":4}},{\"id\":\"zs9IApGRTD\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts with Parent & Groups\",\"col\":4}},{\"id\":\"b6iOtBOrgd\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Account Receivable Regrouping\",\"col\":4}},{\"id\":\"3vFYJndxE4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Missing GL Group Mapping\",\"col\":4}},{\"id\":\"YHJlI--_OZ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Comment Financial Report\",\"col\":4}},{\"id\":\"6OginumraL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Ageing Report\",\"col\":4}}]",
+ "creation": "2026-02-04 18:58:07.712503",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -13,7 +13,7 @@
  "is_hidden": 0,
  "label": "Finance",
  "links": [],
- "modified": "2026-01-19 09:54:29.450981",
+ "modified": "2026-02-04 20:27:54.497879",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Finance",
@@ -35,8 +35,8 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Comment Financial Report",
-   "link_to": "individual-financial",
+   "label": "Missing GL Group Mapping",
+   "link_to": "missing-gl-group-mapping",
    "type": "Page"
   },
   {
@@ -49,16 +49,15 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Sync Sap Trial Balance",
-   "link_to": "Sync SAP Trial Balance",
-   "stats_filter": "[]",
-   "type": "DocType"
+   "label": "Comment Financial Report",
+   "link_to": "individual-financial",
+   "type": "Page"
   },
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "GL Group Mapping",
-   "link_to": "GL Group Mapping",
+   "label": "Investment Master",
+   "link_to": "FR Equity Entry",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -73,6 +72,22 @@
   {
    "color": "Grey",
    "doc_view": "List",
+   "label": "GL Group Mapping",
+   "link_to": "GL Group Mapping",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Cash Flow Template",
+   "link_to": "Cash Flow Template",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
    "label": "Accounts with Parent & Groups",
    "link_to": "Accounts with Parent & Groups",
    "report_ref_doctype": "Account",
@@ -81,7 +96,7 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Profit & Loss Template",
+   "label": "Profit And Loss Template",
    "link_to": "Profit And Loss Template",
    "stats_filter": "[]",
    "type": "DocType"
@@ -91,14 +106,6 @@
    "doc_view": "List",
    "label": "Schedule Reorder",
    "link_to": "Schedule Reorder",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Cash Flow Template",
-   "link_to": "Cash Flow Template",
    "stats_filter": "[]",
    "type": "DocType"
   },
