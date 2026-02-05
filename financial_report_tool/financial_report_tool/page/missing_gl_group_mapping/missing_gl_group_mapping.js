@@ -473,7 +473,6 @@ function render_table(page, data) {
                 <table class="missing-gl-table">
                     <thead>
                         <tr>
-                            <th style="width: 50px;">#</th>
                             <th style="width: 120px;">Account No.</th>
                             <th>GL Account</th>
                             <th><span style="display:inline-flex;align-items:center;gap:2px;">Primary Group<span class="text-danger">*</span></span></th>
@@ -489,7 +488,6 @@ function render_table(page, data) {
         const accountNumber = frappe.utils.escape_html(row.account_number || '');
         html += `
             <tr data-idx="${idx}" data-gl-account="${frappe.utils.escape_html(row.gl_account)}" id="row-${idx}">
-                <td style="color: var(--text-muted); font-size: 12px;">${idx + 1}</td>
                 <td class="account-number-cell">
                     ${accountNumber ? accountNumber : '-'}
                 </td>

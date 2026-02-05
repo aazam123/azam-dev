@@ -127,13 +127,32 @@ def get_data(filters):
 def get_conditions(filters):
     conditions = []
 
-    if filters.get("primary_group"):
-        conditions.append("AND gm.primary_group IN %(primary_group)s")
+    # Handle MultiSelect filters - convert list to tuple for IN clause
+    primary_group = filters.get("primary_group")
+    if primary_group:
+        if isinstance(primary_group, list) and len(primary_group) > 0:
+            filters["primary_group"] = tuple(primary_group)
+            conditions.append("AND gm.primary_group IN %(primary_group)s")
+        elif isinstance(primary_group, str):
+            filters["primary_group"] = (primary_group,)
+            conditions.append("AND gm.primary_group IN %(primary_group)s")
 
-    if filters.get("secondary_group"):
-        conditions.append("AND gm.secondary_group IN %(secondary_group)s")
+    secondary_group = filters.get("secondary_group")
+    if secondary_group:
+        if isinstance(secondary_group, list) and len(secondary_group) > 0:
+            filters["secondary_group"] = tuple(secondary_group)
+            conditions.append("AND gm.secondary_group IN %(secondary_group)s")
+        elif isinstance(secondary_group, str):
+            filters["secondary_group"] = (secondary_group,)
+            conditions.append("AND gm.secondary_group IN %(secondary_group)s")
 
-    if filters.get("higher_secondary_group"):
-        conditions.append("AND gm.higher_secondary_group IN %(higher_secondary_group)s")
+    higher_secondary_group = filters.get("higher_secondary_group")
+    if higher_secondary_group:
+        if isinstance(higher_secondary_group, list) and len(higher_secondary_group) > 0:
+            filters["higher_secondary_group"] = tuple(higher_secondary_group)
+            conditions.append("AND gm.higher_secondary_group IN %(higher_secondary_group)s")
+        elif isinstance(higher_secondary_group, str):
+            filters["higher_secondary_group"] = (higher_secondary_group,)
+            conditions.append("AND gm.higher_secondary_group IN %(higher_secondary_group)s")
 
     return " ".join(conditions)
