@@ -46,12 +46,13 @@ def get_missing_gl_accounts(company, report_type):
         account = frappe.db.get_value(
             "Account",
             gl,
-            ["name", "account_name", "report_type", "root_type", "parent_account"],
+            ["name", "account_name", "account_number", "report_type", "root_type", "parent_account"],
             as_dict=True
         )
         if account:
             data.append({
                 "gl_account": account.name,
+                "account_number": account.account_number or "",
                 "primary_group": "",
                 "secondary_group": "",
                 "higher_secondary_group": "",
@@ -146,5 +147,198 @@ def create_single_gl_group_mapping(gl_account, company, report_type, primary_gro
         frappe.db.commit()
 
         return {"success": True, "name": doc.name}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def parse_excel_mappings(file_url):
+    """Parse Excel file and return mappings data without creating entries"""
+    from frappe.utils.file_manager import get_file
+    from frappe.utils.xlsxutils import read_xlsx_file_from_attached_file
+
+    try:
+        # Read the uploaded file
+        fcontent = get_file(file_url)
+        rows = read_xlsx_file_from_attached_file(fcontent=fcontent[1])
+
+        if not rows or len(rows) < 2:
+            return {"success": False, "error": "Empty file or no data rows"}
+
+        # Skip header row
+        data_rows = rows[1:]
+
+        mappings = []
+        errors = []
+
+        for row_idx, row in enumerate(data_rows, start=2):
+            if len(row) < 4:
+                errors.append({"row": row_idx, "error": "Insufficient columns"})
+                continue
+
+            # Column mapping: Account Number, GL Account, Primary Group, Secondary Group, Higher Secondary Group
+            gl_account = str(row[1]).strip() if row[1] else ""
+            primary_group = str(row[2]).strip() if row[2] else ""
+            secondary_group = str(row[3]).strip() if row[3] else ""
+            higher_secondary_group = str(row[4]).strip() if len(row) > 4 and row[4] else ""
+
+            if not gl_account:
+                continue  # Skip empty rows
+
+            # Validate Primary Group exists (if provided)
+            if primary_group and not frappe.db.exists("Standalone Group", primary_group):
+                errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Primary Group '{primary_group}' not found"})
+                continue
+
+            # Validate Secondary Group exists (if provided)
+            if secondary_group and not frappe.db.exists("Standalone Group", secondary_group):
+                errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Secondary Group '{secondary_group}' not found"})
+                continue
+
+            # Validate Higher Secondary Group exists (if provided)
+            if higher_secondary_group and not frappe.db.exists("Standalone Group", higher_secondary_group):
+                errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Higher Secondary Group '{higher_secondary_group}' not found"})
+                higher_secondary_group = ""  # Clear invalid value but continue
+
+            mappings.append({
+                "gl_account": gl_account,
+                "primary_group": primary_group,
+                "secondary_group": secondary_group,
+                "higher_secondary_group": higher_secondary_group
+            })
+
+        return {
+            "success": True,
+            "mappings": mappings,
+            "errors": errors
+        }
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def download_template(company, report_type):
+    """Download Excel template with missing GL accounts"""
+    import io
+    from frappe.utils.xlsxutils import make_xlsx
+
+    result = get_missing_gl_accounts(company, report_type)
+    data = result.get("data", [])
+
+    # Prepare Excel data
+    header = ["Account Number", "GL Account", "Primary Group", "Secondary Group", "Higher Secondary Group"]
+    rows = [header]
+
+    for row in data:
+        gl_account = row.get("gl_account", "")
+        # Extract account number from GL account name
+        account_number = ""
+        if gl_account:
+            account_doc = frappe.db.get_value("Account", gl_account, ["account_number"], as_dict=True)
+            if account_doc:
+                account_number = account_doc.get("account_number") or ""
+
+        rows.append([
+            account_number,
+            gl_account,
+            "",  # Primary Group - to be filled
+            "",  # Secondary Group - to be filled
+            ""   # Higher Secondary Group - optional
+        ])
+
+    # Create Excel file
+    xlsx_file = make_xlsx(rows, "Missing GL Mappings")
+
+    # Set response headers for download
+    frappe.response["filename"] = f"missing_gl_mappings_{company}_{report_type}.xlsx"
+    frappe.response["filecontent"] = xlsx_file.getvalue()
+    frappe.response["type"] = "binary"
+
+
+@frappe.whitelist()
+def upload_mappings(file_url, company, report_type):
+    """Upload Excel file and create mappings"""
+    import json
+    from frappe.utils.file_manager import get_file
+    from frappe.utils.xlsxutils import read_xlsx_file_from_attached_file
+
+    try:
+        # Read the uploaded file
+        fcontent = get_file(file_url)
+        rows = read_xlsx_file_from_attached_file(fcontent=fcontent[1])
+
+        if not rows or len(rows) < 2:
+            return {"success": False, "error": "Empty file or no data rows"}
+
+        # Skip header row
+        header = rows[0]
+        data_rows = rows[1:]
+
+        created = []
+        errors = []
+        skipped = []
+
+        for row_idx, row in enumerate(data_rows, start=2):
+            if len(row) < 4:
+                errors.append({"row": row_idx, "error": "Insufficient columns"})
+                continue
+
+            # Column mapping: Account Number, GL Account, Primary Group, Secondary Group, Higher Secondary Group
+            gl_account = str(row[1]).strip() if row[1] else ""
+            primary_group = str(row[2]).strip() if row[2] else ""
+            secondary_group = str(row[3]).strip() if row[3] else ""
+            higher_secondary_group = str(row[4]).strip() if len(row) > 4 and row[4] else ""
+
+            if not gl_account:
+                continue  # Skip empty rows
+
+            if not primary_group or not secondary_group:
+                skipped.append({"row": row_idx, "gl_account": gl_account, "reason": "Missing Primary or Secondary Group"})
+                continue
+
+            # Validate GL Account exists
+            if not frappe.db.exists("Account", gl_account):
+                errors.append({"row": row_idx, "gl_account": gl_account, "error": "GL Account not found"})
+                continue
+
+            # Validate Primary Group exists
+            if not frappe.db.exists("Standalone Group", primary_group):
+                errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Primary Group '{primary_group}' not found"})
+                continue
+
+            # Validate Secondary Group exists
+            if not frappe.db.exists("Standalone Group", secondary_group):
+                errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Secondary Group '{secondary_group}' not found"})
+                continue
+
+            # Check if mapping already exists
+            if frappe.db.exists("GL Group Mapping", {"gl_account": gl_account, "company": company, "report_type": report_type}):
+                skipped.append({"row": row_idx, "gl_account": gl_account, "reason": "Mapping already exists"})
+                continue
+
+            try:
+                doc = frappe.new_doc("GL Group Mapping")
+                doc.gl_account = gl_account
+                doc.company = company
+                doc.report_type = report_type
+                doc.primary_group = primary_group
+                doc.secondary_group = secondary_group
+                if higher_secondary_group:
+                    doc.higher_secondary_group = higher_secondary_group
+                doc.insert()
+                created.append(gl_account)
+            except Exception as e:
+                errors.append({"row": row_idx, "gl_account": gl_account, "error": str(e)})
+
+        frappe.db.commit()
+
+        return {
+            "success": True,
+            "created": created,
+            "errors": errors,
+            "skipped": skipped
+        }
+
     except Exception as e:
         return {"success": False, "error": str(e)}
