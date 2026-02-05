@@ -1,0 +1,139 @@
+# Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
+# For license information, please see license.txt
+
+import frappe
+from frappe import _
+
+
+def execute(filters=None):
+    if not filters:
+        filters = {}
+
+    validate_filters(filters)
+    columns = get_columns()
+    data = get_data(filters)
+    return columns, data
+
+
+def validate_filters(filters):
+    if not filters.get("company"):
+        frappe.throw(_("Company is required"))
+    if not filters.get("fiscal_year"):
+        frappe.throw(_("Fiscal Year is required"))
+    if not filters.get("month"):
+        frappe.throw(_("Month is required"))
+    if not filters.get("report_type"):
+        frappe.throw(_("Report Type is required"))
+
+
+def get_columns():
+    return [
+        {
+            "label": _("Account Number"),
+            "fieldname": "account_number",
+            "fieldtype": "Data",
+            "width": 120
+        },
+        {
+            "label": _("GL Account"),
+            "fieldname": "gl_account",
+            "fieldtype": "Link",
+            "options": "Account",
+            "width": 430
+        },
+        {
+            "label": _("Amount"),
+            "fieldname": "amount",
+            "fieldtype": "Currency",
+            "width": 200,
+            "options": "Company:company:default_currency"
+        },
+        {
+            "label": _("Primary Group"),
+            "fieldname": "primary_group",
+            "fieldtype": "Link",
+            "options": "Standalone Group",
+            "width": 240
+        },
+        {
+            "label": _("Secondary Group"),
+            "fieldname": "secondary_group",
+            "fieldtype": "Link",
+            "options": "Standalone Group",
+            "width": 240
+        },
+        {
+            "label": _("Higher Secondary Group"),
+            "fieldname": "higher_secondary_group",
+            "fieldtype": "Link",
+            "options": "Standalone Group",
+            "width": 200
+        },
+        {
+            "label": _("Report Type"),
+            "fieldname": "report_type",
+            "fieldtype": "Data",
+            "width": 120
+        }
+    ]
+
+
+def get_data(filters):
+    conditions = get_conditions(filters)
+
+    data = frappe.db.sql("""
+        SELECT
+            acc.report_type AS report_type,
+            t.gl_account AS gl_account,
+            acc.account_number AS account_number,
+            gm.primary_group AS primary_group,
+            gm.secondary_group AS secondary_group,
+            gm.higher_secondary_group AS higher_secondary_group,
+            SUM(t.uploaded_amount) AS amount,
+            t.month AS month,
+            t.fiscal_year AS fiscal_year,
+            t.company AS company
+        FROM `tabFR Trial Balance Entry` t
+        INNER JOIN `tabGL Group Mapping` gm
+            ON t.gl_account = gm.gl_account
+            AND t.company = gm.company
+        INNER JOIN `tabAccount` acc
+            ON t.gl_account = acc.name
+            AND t.company = acc.company
+        WHERE t.company = %(company)s
+            AND t.fiscal_year = %(fiscal_year)s
+            AND t.month = %(month)s
+            AND gm.report_type = %(report_type)s
+            {conditions}
+        GROUP BY
+            acc.report_type,
+            t.gl_account,
+            acc.account_number,
+            gm.primary_group,
+            gm.secondary_group,
+            gm.higher_secondary_group,
+            t.month,
+            t.fiscal_year,
+            t.company
+        ORDER BY
+            gm.primary_group,
+            gm.secondary_group,
+            t.gl_account
+    """.format(conditions=conditions), filters, as_dict=True)
+
+    return data
+
+
+def get_conditions(filters):
+    conditions = []
+
+    if filters.get("primary_group"):
+        conditions.append("AND gm.primary_group IN %(primary_group)s")
+
+    if filters.get("secondary_group"):
+        conditions.append("AND gm.secondary_group IN %(secondary_group)s")
+
+    if filters.get("higher_secondary_group"):
+        conditions.append("AND gm.higher_secondary_group IN %(higher_secondary_group)s")
+
+    return " ".join(conditions)

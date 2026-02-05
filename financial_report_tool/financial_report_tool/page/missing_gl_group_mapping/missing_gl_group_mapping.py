@@ -99,6 +99,14 @@ def create_bulk_gl_group_mappings(mappings, company, report_type):
         secondary_group = mapping.get("secondary_group")
         higher_secondary_group = mapping.get("higher_secondary_group")
 
+        # Handle multi-select arrays - join with comma
+        if isinstance(primary_group, list):
+            primary_group = ", ".join(primary_group) if primary_group else ""
+        if isinstance(secondary_group, list):
+            secondary_group = ", ".join(secondary_group) if secondary_group else ""
+        if isinstance(higher_secondary_group, list):
+            higher_secondary_group = ", ".join(higher_secondary_group) if higher_secondary_group else ""
+
         if not gl_account or not primary_group or not secondary_group:
             errors.append({"gl_account": gl_account, "error": "Missing required fields"})
             continue

@@ -272,6 +272,62 @@ function add_page_styles() {
             display: none;
         }
 
+        /* MultiSelect field styles */
+        .link-field-cell .frappe-control[data-fieldtype="MultiSelect"] {
+            width: 100%;
+        }
+
+        .link-field-cell .frappe-control[data-fieldtype="MultiSelect"] .form-group {
+            margin-bottom: 0;
+        }
+
+        .link-field-cell .frappe-control[data-fieldtype="MultiSelect"] .control-label {
+            display: none;
+        }
+
+        .link-field-cell .frappe-control[data-fieldtype="MultiSelect"] .control-input-wrapper {
+            position: relative;
+        }
+
+        .link-field-cell .frappe-control[data-fieldtype="MultiSelect"] input {
+            height: 32px;
+            font-size: 13px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            padding: 4px 10px;
+        }
+
+        .link-field-cell .frappe-control[data-fieldtype="MultiSelect"] input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+
+        .link-field-cell .frappe-control[data-fieldtype="MultiSelect"] .awesomplete > ul {
+            z-index: 100000 !important;
+            max-height: 250px;
+        }
+
+        .link-field-cell .tb-selected-value {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin: 2px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .link-field-cell .tb-selected-value .btn-remove {
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        .link-field-cell .tb-selected-value .btn-remove:hover {
+            opacity: 1;
+        }
+
         .status-cell {
             text-align: center;
             width: 60px;
@@ -510,10 +566,10 @@ function render_table(page, data) {
 }
 
 function init_link_fields(page, idx) {
-    // Primary Group Link (Mandatory)
+    // Primary Group MultiSelect Link (Mandatory)
     const primary_field = frappe.ui.form.make_control({
         df: {
-            fieldtype: 'Link',
+            fieldtype: 'MultiSelect',
             fieldname: `primary_group_${idx}`,
             options: 'Standalone Group',
             placeholder: 'Select Primary',
@@ -531,8 +587,8 @@ function init_link_fields(page, idx) {
                 page.gl_data[idx].primary_group = val;
                 // Clear secondary when primary changes
                 if (page.gl_data[idx]._secondary_field) {
-                    page.gl_data[idx]._secondary_field.set_value('');
-                    page.gl_data[idx].secondary_group = '';
+                    page.gl_data[idx]._secondary_field.set_value([]);
+                    page.gl_data[idx].secondary_group = [];
                 }
                 update_filled_count(page);
             }
@@ -543,22 +599,18 @@ function init_link_fields(page, idx) {
     primary_field.refresh();
     page.gl_data[idx]._primary_field = primary_field;
 
-    // Secondary Group Link (Mandatory)
+    // Secondary Group MultiSelect Link (Mandatory)
     const secondary_field = frappe.ui.form.make_control({
         df: {
-            fieldtype: 'Link',
+            fieldtype: 'MultiSelect',
             fieldname: `secondary_group_${idx}`,
             options: 'Standalone Group',
             placeholder: 'Select Secondary',
             reqd: 1,
             get_query: function() {
-                const primary = page.gl_data[idx].primary_group;
                 let filters = {
                     'disable': 0
                 };
-                if (primary) {
-                    filters['parent_standalone_group'] = primary;
-                }
                 return { filters: filters };
             },
             change: function() {
@@ -572,10 +624,10 @@ function init_link_fields(page, idx) {
     secondary_field.refresh();
     page.gl_data[idx]._secondary_field = secondary_field;
 
-    // Higher Secondary Group Link (Optional)
+    // Higher Secondary Group MultiSelect Link (Optional)
     const higher_secondary_field = frappe.ui.form.make_control({
         df: {
-            fieldtype: 'Link',
+            fieldtype: 'MultiSelect',
             fieldname: `higher_secondary_group_${idx}`,
             options: 'Standalone Group',
             placeholder: 'Optional',
@@ -610,13 +662,25 @@ function create_all_filled_mappings(page) {
     const mappings = [];
 
     page.gl_data.forEach((row, idx) => {
-        if (row.primary_group && row.secondary_group && !row._mapping_created) {
+        const primary = row.primary_group;
+        const secondary = row.secondary_group;
+        const hasPrimary = primary && (Array.isArray(primary) ? primary.length > 0 : primary);
+        const hasSecondary = secondary && (Array.isArray(secondary) ? secondary.length > 0 : secondary);
+
+        if (hasPrimary && hasSecondary && !row._mapping_created) {
+            // Convert to arrays if not already
+            const primaryGroups = Array.isArray(primary) ? primary : [primary];
+            const secondaryGroups = Array.isArray(secondary) ? secondary : [secondary];
+            const higherSecondaryGroups = row.higher_secondary_group
+                ? (Array.isArray(row.higher_secondary_group) ? row.higher_secondary_group : [row.higher_secondary_group])
+                : [];
+
             mappings.push({
                 idx: idx,
                 gl_account: row.gl_account,
-                primary_group: row.primary_group,
-                secondary_group: row.secondary_group,
-                higher_secondary_group: row.higher_secondary_group || null
+                primary_group: primaryGroups,
+                secondary_group: secondaryGroups,
+                higher_secondary_group: higherSecondaryGroups.length > 0 ? higherSecondaryGroups : null
             });
         }
     });
@@ -693,7 +757,11 @@ function create_all_filled_mappings(page) {
 function update_filled_count(page) {
     let filled = 0;
     page.gl_data.forEach(row => {
-        if (row.primary_group && row.secondary_group && !row._mapping_created) {
+        const primary = row.primary_group;
+        const secondary = row.secondary_group;
+        const hasPrimary = primary && (Array.isArray(primary) ? primary.length > 0 : primary);
+        const hasSecondary = secondary && (Array.isArray(secondary) ? secondary.length > 0 : secondary);
+        if (hasPrimary && hasSecondary && !row._mapping_created) {
             filled++;
         }
     });
@@ -771,22 +839,31 @@ function upload_excel_dialog(page) {
                             if (idx !== -1 && !page.gl_data[idx]._mapping_created) {
                                 const row = page.gl_data[idx];
 
-                                // Fill Primary Group
+                                // Fill Primary Group (convert to array for multi-select)
                                 if (mapping.primary_group && row._primary_field) {
-                                    row._primary_field.set_value(mapping.primary_group);
-                                    row.primary_group = mapping.primary_group;
+                                    const primaryValues = Array.isArray(mapping.primary_group)
+                                        ? mapping.primary_group
+                                        : [mapping.primary_group];
+                                    row._primary_field.set_value(primaryValues);
+                                    row.primary_group = primaryValues;
                                 }
 
-                                // Fill Secondary Group
+                                // Fill Secondary Group (convert to array for multi-select)
                                 if (mapping.secondary_group && row._secondary_field) {
-                                    row._secondary_field.set_value(mapping.secondary_group);
-                                    row.secondary_group = mapping.secondary_group;
+                                    const secondaryValues = Array.isArray(mapping.secondary_group)
+                                        ? mapping.secondary_group
+                                        : [mapping.secondary_group];
+                                    row._secondary_field.set_value(secondaryValues);
+                                    row.secondary_group = secondaryValues;
                                 }
 
-                                // Fill Higher Secondary Group
+                                // Fill Higher Secondary Group (convert to array for multi-select)
                                 if (mapping.higher_secondary_group && row._higher_secondary_field) {
-                                    row._higher_secondary_field.set_value(mapping.higher_secondary_group);
-                                    row.higher_secondary_group = mapping.higher_secondary_group;
+                                    const higherSecValues = Array.isArray(mapping.higher_secondary_group)
+                                        ? mapping.higher_secondary_group
+                                        : [mapping.higher_secondary_group];
+                                    row._higher_secondary_field.set_value(higherSecValues);
+                                    row.higher_secondary_group = higherSecValues;
                                 }
 
                                 if (mapping.primary_group && mapping.secondary_group) {

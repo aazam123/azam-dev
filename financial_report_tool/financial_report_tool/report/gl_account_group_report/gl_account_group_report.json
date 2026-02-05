@@ -1,6 +1,5 @@
 {
  "add_total_row": 1,
- "add_translate_data": 0,
  "columns": [],
  "creation": "2025-08-22 15:57:41.603169",
  "disabled": 0,
@@ -13,6 +12,7 @@
    "label": "Company",
    "mandatory": 1,
    "options": "Company",
+   "default": "",
    "wildcard_filter": 0
   },
   {
@@ -36,29 +36,55 @@
    "fieldtype": "Select",
    "label": "Report Type",
    "mandatory": 1,
-   "options": "\nMonthly\nYearly",
+   "options": "\nMonthly\nYearly\nMIS",
+   "wildcard_filter": 0
+  },
+  {
+   "fieldname": "primary_group",
+   "fieldtype": "Link",
+   "label": "Primary Group",
+   "mandatory": 0,
+   "options": "Standalone Group",
+   "wildcard_filter": 0
+  },
+  {
+   "fieldname": "secondary_group",
+   "fieldtype": "Link",
+   "label": "Secondary Group",
+   "mandatory": 0,
+   "options": "Standalone Group",
+   "wildcard_filter": 0
+  },
+  {
+   "fieldname": "higher_secondary_group",
+   "fieldtype": "Link",
+   "label": "Higher Secondary Group",
+   "mandatory": 0,
+   "options": "Standalone Group",
    "wildcard_filter": 0
   }
  ],
  "idx": 3,
  "is_standard": "Yes",
  "letterhead": null,
- "modified": "2026-01-17 14:32:03.803352",
+ "modified": "2026-02-05 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "GL Account Group Report",
  "owner": "Administrator",
  "prepared_report": 0,
- "query": "SELECT \n    acc.report_type AS \"Report Type:Data:200\",\n    t.gl_account AS \"GL Account:Data:200\",\n    gm.primary_group AS \"Primary Group:Data:180\",\n    gm.secondary_group AS \"Secondary Group:Data:220\",\n    SUM(t.uploaded_amount) AS \"Amount:Currency:150\",\n    t.month AS \"Month:Data:120\",\n    t.fiscal_year AS \"Fiscal Year:Data:120\",\n    t.company AS \"Company:Link/Company:220\"\nFROM `tabFR Trial Balance Entry` t\nINNER JOIN `tabGL Group Mapping` gm \n    ON t.gl_account = gm.gl_account \n    AND t.company = gm.company\nINNER JOIN `tabAccount` acc\n    ON t.gl_account = acc.name \n    AND t.company = acc.company\nWHERE t.company = %(company)s\n  AND t.fiscal_year = %(fiscal_year)s\n  AND t.month = %(month)s\n  AND gm.report_type = %(report_type)s\nGROUP BY acc.report_type, t.gl_account, gm.primary_group, gm.secondary_group, t.month, t.fiscal_year, t.company",
  "ref_doctype": "FR Trial Balance Entry",
  "report_name": "GL Account Group Report",
- "report_type": "Query Report",
+ "report_type": "Script Report",
  "roles": [
   {
    "role": "Financial Report Manager"
   },
   {
    "role": "Financial Report User"
+  },
+  {
+   "role": "System Manager"
   }
  ],
  "timeout": 0
