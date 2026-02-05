@@ -566,10 +566,9 @@ function render_table(page, data) {
 }
 
 function init_link_fields(page, idx) {
-    // Primary Group MultiSelect Link (Mandatory)
     const primary_field = frappe.ui.form.make_control({
         df: {
-            fieldtype: 'MultiSelect',
+            fieldtype: 'Link',
             fieldname: `primary_group_${idx}`,
             options: 'Standalone Group',
             placeholder: 'Select Primary',
@@ -599,10 +598,9 @@ function init_link_fields(page, idx) {
     primary_field.refresh();
     page.gl_data[idx]._primary_field = primary_field;
 
-    // Secondary Group MultiSelect Link (Mandatory)
     const secondary_field = frappe.ui.form.make_control({
         df: {
-            fieldtype: 'MultiSelect',
+            fieldtype: 'Link',
             fieldname: `secondary_group_${idx}`,
             options: 'Standalone Group',
             placeholder: 'Select Secondary',
@@ -627,7 +625,7 @@ function init_link_fields(page, idx) {
     // Higher Secondary Group MultiSelect Link (Optional)
     const higher_secondary_field = frappe.ui.form.make_control({
         df: {
-            fieldtype: 'MultiSelect',
+            fieldtype: 'Link',
             fieldname: `higher_secondary_group_${idx}`,
             options: 'Standalone Group',
             placeholder: 'Optional',
