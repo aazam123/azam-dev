@@ -39,6 +39,7 @@ frappe.query_reports["GL Account Group Report"] = {
             label: __("Primary Group"),
             fieldtype: "MultiSelectList",
             options: "Standalone Group",
+            ignore_permissions: 1,
             get_data: function(txt) {
                 return frappe.db.get_link_options("Standalone Group", txt, {
                     disable: 0
@@ -50,6 +51,8 @@ frappe.query_reports["GL Account Group Report"] = {
             label: __("Secondary Group"),
             fieldtype: "MultiSelectList",
             options: "Standalone Group",
+            ignore_permissions: 1,
+
             get_data: function(txt) {
                 return frappe.db.get_link_options("Standalone Group", txt, {
                     disable: 0
@@ -57,10 +60,12 @@ frappe.query_reports["GL Account Group Report"] = {
             }
         },
         {
-            "fieldname": "higher_secondary_group",
-            "label": __("Higher Secondary Group"),
-            "fieldtype": "MultiSelectList",
-            "options": "Standalone Group",
+            fieldname: "higher_secondary_group",
+            label: __("Higher Secondary Group"),
+            fieldtype: "MultiSelectList",
+            options: "Standalone Group",
+            ignore_permissions: 1,
+
             get_data: function(txt) {
                 return frappe.db.get_link_options("Standalone Group", txt, {
                     disable: 0
