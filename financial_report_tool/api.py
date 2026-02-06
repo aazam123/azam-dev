@@ -49,3 +49,41 @@ def create_gl_group_mapping(gl_account, company, report_type, primary_group, sec
 	doc.insert()
 
 	return {"success": True, "name": doc.name, "created": True}
+
+
+@frappe.whitelist()
+def bulk_update_gl_group_mappings(gl_accounts, company, report_type, primary_group=None, secondary_group=None, higher_secondary_group=None):
+	"""Bulk update GL Group Mapping entries for multiple GL accounts"""
+	import json
+	if isinstance(gl_accounts, str):
+		gl_accounts = json.loads(gl_accounts)
+
+	updated = []
+	errors = []
+
+	for gl_account in gl_accounts:
+		try:
+			existing = frappe.db.exists("GL Group Mapping", {
+				"gl_account": gl_account,
+				"company": company,
+				"report_type": report_type,
+			})
+
+			if not existing:
+				errors.append({"gl_account": gl_account, "error": "No existing mapping found"})
+				continue
+
+			doc = frappe.get_doc("GL Group Mapping", existing)
+			if primary_group:
+				doc.primary_group = primary_group
+			if secondary_group:
+				doc.secondary_group = secondary_group
+			if higher_secondary_group is not None:
+				doc.higher_secondary_group = higher_secondary_group or ""
+			doc.save()
+			updated.append(gl_account)
+		except Exception as e:
+			errors.append({"gl_account": gl_account, "error": str(e)})
+
+	frappe.db.commit()
+	return {"updated": updated, "errors": errors}
