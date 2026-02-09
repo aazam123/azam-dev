@@ -88,6 +88,21 @@ frappe.query_reports["GL Account Group Report"] = {
     },
 
     onload(report) {
+        report.page.add_inner_button(__("Download Excel"), function() {
+            let filters = report.get_values();
+            frappe.call({
+                method: "financial_report_tool.financial_report_tool.report.gl_account_group_report.gl_account_group_report.download_excel",
+                args: { filters: filters },
+                freeze: true,
+                freeze_message: __("Generating Excel..."),
+                callback: function(r) {
+                    if (r.message) {
+                        window.open(r.message);
+                    }
+                }
+            });
+        });
+
         report.page.add_inner_button(__("Update Grouping"), function() {
             let checked_items = report.get_checked_items();
             if (!checked_items || checked_items.length === 0) {

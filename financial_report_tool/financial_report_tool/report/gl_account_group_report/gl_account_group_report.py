@@ -1,8 +1,11 @@
 # Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
 # For license information, please see license.txt
 
+import json
+
 import frappe
 from frappe import _
+from frappe.utils.xlsxutils import make_xlsx
 
 
 def execute(filters=None):
@@ -168,3 +171,33 @@ def get_conditions(filters):
             conditions.append("AND gm.higher_secondary_group IN %(higher_secondary_group)s")
 
     return " ".join(conditions)
+
+
+@frappe.whitelist()
+def download_excel(filters):
+    if isinstance(filters, str):
+        filters = json.loads(filters)
+
+    columns, data = execute(filters)
+
+    # Build header row
+    header = [col.get("label") for col in columns]
+
+    # Build data rows
+    xlsx_data = [header]
+    fieldnames = [col.get("fieldname") for col in columns]
+    for row in data:
+        xlsx_data.append([row.get(f) for f in fieldnames])
+
+    xlsx_file = make_xlsx(xlsx_data, "GL Account Group Report")
+
+    file_name = "GL_Account_Group_Report.xlsx"
+    file_doc = frappe.get_doc({
+        "doctype": "File",
+        "file_name": file_name,
+        "content": xlsx_file.getvalue(),
+        "is_private": 1,
+    })
+    file_doc.save(ignore_permissions=True)
+
+    return file_doc.file_url
