@@ -16,7 +16,7 @@ def execute(filters=None):
 
 
 def validate_filters(filters):
-    if not filters.get("company"):
+    if not filters.get("all_companies") and not filters.get("company"):
         frappe.throw(_("Company is required"))
     if not filters.get("fiscal_year"):
         frappe.throw(_("Fiscal Year is required"))
@@ -74,12 +74,23 @@ def get_columns():
             "fieldname": "report_type",
             "fieldtype": "Data",
             "width": 120
+        },
+        {
+            "label": _("Company"),
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "options": "Company",
+            "width": 180
         }
     ]
 
 
 def get_data(filters):
     conditions = get_conditions(filters)
+
+    company_condition = ""
+    if not filters.get("all_companies"):
+        company_condition = "AND t.company = %(company)s"
 
     data = frappe.db.sql("""
         SELECT
@@ -100,10 +111,10 @@ def get_data(filters):
         INNER JOIN `tabAccount` acc
             ON t.gl_account = acc.name
             AND t.company = acc.company
-        WHERE t.company = %(company)s
-            AND t.fiscal_year = %(fiscal_year)s
+        WHERE t.fiscal_year = %(fiscal_year)s
             AND t.month = %(month)s
             AND gm.report_type = %(report_type)s
+            {company_condition}
             {conditions}
         GROUP BY
             acc.report_type,
@@ -116,10 +127,11 @@ def get_data(filters):
             t.fiscal_year,
             t.company
         ORDER BY
+            t.company,
             gm.primary_group,
             gm.secondary_group,
             t.gl_account
-    """.format(conditions=conditions), filters, as_dict=True)
+    """.format(company_condition=company_condition, conditions=conditions), filters, as_dict=True)
 
     return data
 
