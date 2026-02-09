@@ -9,7 +9,6 @@ frappe.query_reports["GL Account Group Report"] = {
             "fieldtype": "Link",
             "options": "Company",
             "default": frappe.defaults.get_user_default("Company"),
-            "reqd": 1,
             "depends_on": "eval:!doc.all_companies"
         },
         {
