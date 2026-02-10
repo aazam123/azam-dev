@@ -6,16 +6,13 @@ frappe.query_reports["GL Account Group Report"] = {
         {
             "fieldname": "company",
             "label": __("Company"),
-            "fieldtype": "Link",
+            "fieldtype": "MultiSelectList",
             "options": "Company",
             "default": frappe.defaults.get_user_default("Company"),
-            "depends_on": "eval:!doc.all_companies"
-        },
-        {
-            "fieldname": "all_companies",
-            "label": __("Get For All Companies"),
-            "fieldtype": "Check",
-            "default": 0
+            "depends_on": "eval:!doc.all_companies",
+            get_data: function(txt) {
+                return frappe.db.get_link_options("Company", txt, {});
+            }
         },
         {
             "fieldname": "fiscal_year",
@@ -77,6 +74,12 @@ frappe.query_reports["GL Account Group Report"] = {
                     disable: 0
                 });
             }
+        },
+        {
+            "fieldname": "all_companies",
+            "label": __("Get For All Companies"),
+            "fieldtype": "Check",
+            "default": 0
         }
     ],
 
