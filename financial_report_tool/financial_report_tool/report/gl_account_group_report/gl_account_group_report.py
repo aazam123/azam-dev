@@ -93,7 +93,7 @@ def get_data(filters):
 
     company_condition = ""
     if not filters.get("all_companies"):
-        company_condition = "AND t.company in %(company)s"
+        company_condition = "AND t.company = %(company)s"
 
     data = frappe.db.sql("""
         SELECT

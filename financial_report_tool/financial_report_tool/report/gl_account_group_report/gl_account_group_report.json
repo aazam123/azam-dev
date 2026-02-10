@@ -12,7 +12,7 @@
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",
-   "mandatory": 1,
+   "mandatory": 0,
    "options": "Company",
    "wildcard_filter": 0
   },
