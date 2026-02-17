@@ -6595,14 +6595,23 @@ class FinancialReport(Document):
 		default_currency = frappe.get_value("Company", self.company, "default_currency")
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
+		# --- Currency Conversion ---
+		if default_currency != self.currency:
+			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate')
+			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate')
+			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
+			pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'average_rate')
+		else:
+			current_fx = previous_fx = prev_year_fx = pre_prev_year_fx = 1
+
 		# totals
 		current_month_total = cls_previous_month_total = f_previous_year_amt = ftm_total = previous_month_total = 0
 
 		def add_inventory_group(secondary_group, label):
 			nonlocal current_month_total, cls_previous_month_total, f_previous_year_amt, ftm_total
-			cur = self.get_sum_grouping_amount("Inventories", secondary_group, self.current_month, self.fiscal_year)
-			prev = self.get_sum_grouping_amount("Inventories", secondary_group, self.previous_month, self.fiscal_year)
-			prev_year_closing = self.sum_group_amt("Inventories", secondary_group, self.previous_fiscal_year)
+			cur = self.get_sum_grouping_amount("Inventories", secondary_group, self.current_month, self.fiscal_year) * current_fx
+			prev = self.get_sum_grouping_amount("Inventories", secondary_group, self.previous_month, self.fiscal_year) * previous_fx
+			prev_year_closing = self.sum_group_amt("Inventories", secondary_group, self.previous_fiscal_year) * prev_year_fx
 			ftm_val = cur - prev
 
 			add_row(label, cur, prev, ftm_val, prev_year_closing)
@@ -6615,9 +6624,9 @@ class FinancialReport(Document):
 			)
 
 			for hg in hg_list:
-				cur_hg = self.get_sum_grouping_amount("Inventories", secondary_group, self.current_month, self.fiscal_year, hg_sec_group=hg)
-				prev_hg = self.get_sum_grouping_amount("Inventories", secondary_group, self.previous_month, self.fiscal_year, hg_sec_group=hg)
-				prev_year_hg = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year, hg_sec_group=hg)
+				cur_hg = self.get_sum_grouping_amount("Inventories", secondary_group, self.current_month, self.fiscal_year, hg_sec_group=hg) * current_fx
+				prev_hg = self.get_sum_grouping_amount("Inventories", secondary_group, self.previous_month, self.fiscal_year, hg_sec_group=hg) * previous_fx
+				prev_year_hg = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year, hg_sec_group=hg) * prev_year_fx
 				add_row(f"  {hg}", cur_hg, prev_hg, cur_hg - prev_hg, prev_year_hg)
 				current_month_total += cur_hg; cls_previous_month_total += prev_hg
 				f_previous_year_amt += prev_year_hg; ftm_total += (cur_hg - prev_hg)
@@ -6641,8 +6650,8 @@ class FinancialReport(Document):
 		# ---------- Previous year section (optimized same way) ----------
 		def add_prev_year_group(secondary_group, label):
 			nonlocal previous_month_total
-			prev_month_val = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year)
-			pre_prev_closing = self.sum_group_amt("Inventories", secondary_group, pre_year)
+			prev_month_val = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year) * prev_year_fx
+			pre_prev_closing = self.sum_group_amt("Inventories", secondary_group, pre_year) * pre_prev_year_fx
 			add_row(label, prev_month_val, prev_month_val, 0, pre_prev_closing)
 
 			hg_list = frappe.get_all(
@@ -6651,8 +6660,8 @@ class FinancialReport(Document):
 				pluck="higher_secondary_group", distinct=True
 			)
 			for hg in hg_list:
-				hg_val = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year, hg_sec_group=hg)
-				prev_year_hg = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, pre_year, hg_sec_group=hg)
+				hg_val = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year, hg_sec_group=hg) * prev_year_fx
+				prev_year_hg = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, pre_year, hg_sec_group=hg) * pre_prev_year_fx
 				add_row(f"  {hg}", hg_val, hg_val, 0, prev_year_hg)
 				previous_month_total += hg_val; pre_prev_closing += prev_year_hg
 			return prev_month_val, pre_prev_closing
