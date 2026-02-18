@@ -79,22 +79,6 @@ frappe.query_reports["GL Account Group Report"] = {
     },
 
     onload(report) {
-        // Hide "Generate Report" button initially (show only when all_companies is checked)
-        report.page.btn_primary.hide();
-
-        // Toggle "Generate Report" button based on all_companies checkbox
-        frappe.query_report.filters.forEach(function(filter) {
-            if (filter.fieldname === "all_companies") {
-                filter.df.onchange = function() {
-                    if (filter.get_value()) {
-                        report.page.btn_primary.show();
-                    } else {
-                        report.page.btn_primary.hide();
-                    }
-                };
-            }
-        });
-
         report.page.add_inner_button(__("Download Excel"), function() {
             let filters = report.get_values();
             frappe.call({

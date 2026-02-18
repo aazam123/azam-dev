@@ -5461,6 +5461,14 @@ class FinancialReport(Document):
 				self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
 				+ (prev_year_closing_wip - closing_wip_pre_previous) + (prev_year_closing_stock - closing_stock_pre_previous)
 			)
+
+			# --- Currency Conversion for Purchases of Stock in Trade ---
+			if default_currency != self.currency:
+				current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, 'average_rate')
+				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
+				purchases_current = round(purchases_current * current_fx, self.show_decimal_value)
+				prev_year_purchases = round(prev_year_purchases * prev_year_fx, self.show_decimal_value)
+
 			append_data(primary_group, purchases_current, round(prev_year_purchases, self.show_decimal_value))
 		else:
 			if group_type in ("Other Income", "Other Expense"):
@@ -5778,9 +5786,9 @@ class FinancialReport(Document):
 				amount = -amount
 
 			# Apply FX only on leaf nodes (not totals, not schedule fetches)
-			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
+			if convert and not fr_particular.is_total and (not fr_particular.fetch_from_schedule or fr_particular.is_purchase_of_stock_in_trade) and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
 				amount *= fx_rate
-			
+
 			amount_cache[cache_key] = flt(round(amount if amount else 0, self.show_decimal_value))
 			return amount_cache[cache_key]
 
@@ -6016,7 +6024,7 @@ class FinancialReport(Document):
 			if fr_particular.show_reversed_value:
 				amount = -amount
 
-			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule:
+			if convert and not fr_particular.is_total and (not fr_particular.fetch_from_schedule or fr_particular.is_purchase_of_stock_in_trade):
 				amount *= fx_rate
 
 			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
@@ -6926,6 +6934,16 @@ class FinancialReport(Document):
 				+ (prev_year_closing_wip - closing_wip_pre_previous)
 				+ (prev_year_closing_stock - closing_stock_pre_previous)
 			)
+
+			# --- Currency Conversion for Purchases of Stock in Trade ---
+			if default_currency != self.currency:
+				current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate')
+				previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate')
+				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
+				purchases_current = round(purchases_current * current_fx, self.show_decimal_value)
+				purchases_previous = round(purchases_previous * previous_fx, self.show_decimal_value)
+				prev_year_purchases = round(prev_year_purchases * prev_year_fx, self.show_decimal_value)
+
 			append_data(primary_group, purchases_current, purchases_previous, (purchases_current - purchases_previous), round(prev_year_purchases, self.show_decimal_value))
 		else:
 			if group_type in ("Other Income", "Other Expense"):
@@ -7490,7 +7508,7 @@ class FinancialReport(Document):
 			if fr_particular.show_reversed_value:
 				amount = -amount
 
-			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule:
+			if convert and not fr_particular.is_total and (not fr_particular.fetch_from_schedule or fr_particular.is_purchase_of_stock_in_trade):
 				amount *= fx_rate
 
 			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
@@ -7661,9 +7679,9 @@ class FinancialReport(Document):
 				amount = -amount
 
 			# Apply FX only on leaf nodes (not totals, not schedule fetches)
-			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
+			if convert and not fr_particular.is_total and (not fr_particular.fetch_from_schedule or fr_particular.is_purchase_of_stock_in_trade) and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
 				amount *= fx_rate
-			
+
 			amount_cache[cache_key] = flt(round(amount if amount else 0, self.show_decimal_value))
 			return amount_cache[cache_key]
 
