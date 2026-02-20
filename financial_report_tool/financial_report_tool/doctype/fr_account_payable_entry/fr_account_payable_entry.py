@@ -17,6 +17,10 @@ class FRAccountPayableEntry(Document):
 			self.grouping = "Employee Foreign Payable"
 	
 	def before_save(self):
+		self.reconciliation_account = frappe.get_value("Account", {"account_number": self.account_no, "company": self.company, 'disabled': 0}, 'name')
+		if not self.reconciliation_account:
+			frappe.throw(f"Reconciliation account not found for account number {self.account_no} in company {self.company}")
+
 		self.ap = "Payable" if self.amount_in_lc < 0 else "Advance"
 		
 		if self.document_type in ("AB", "SA"):
@@ -24,7 +28,7 @@ class FRAccountPayableEntry(Document):
 		elif self.document_type == "EE":
 			self.nature = "Employee"
 			self.set_employee_grouping()
-		elif self.document_type in ("KR", "RE"):
+		elif self.document_type in ("KR", "RE", "MB"):
 			self.nature = "Invoicing Document"
 		elif self.document_type in ("KZ", "FP", "KG"):
 			self.nature = "Payment"

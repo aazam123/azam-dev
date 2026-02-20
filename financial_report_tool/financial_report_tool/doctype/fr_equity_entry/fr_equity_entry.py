@@ -1,16 +1,12 @@
-# Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
+# Copyright (c) 2026, Hybrowlabs Pvt Ltd and contributors
 # For license information, please see license.txt
 
 import frappe
-from datetime import datetime
 from frappe.model.document import Document
+
 
 class FREquityEntry(Document):
 	def before_save(self):
-		if self.posting_date:
-			if isinstance(self.posting_date, str):
-				date_obj = datetime.strptime(self.posting_date, "%Y-%m-%d")
-			else:
-				date_obj = self.posting_date
-			self.month = date_obj.strftime("%B")
-		self.investment_value = round(self.exchanges_rate * self.investment_value_fc, 3)
+		if self.currency and self.currency == "INR":
+			self.exchange_rate = 1
+		self.investment_inr = round((self.investment_value or 0) * (self.exchange_rate or 0), 4)

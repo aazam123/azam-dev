@@ -1,0 +1,182 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:INVENTORY-{#####}",
+ "creation": "2026-02-20 15:47:36.451467",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "plant",
+  "material_description",
+  "mrp_controller",
+  "material_type",
+  "business_area",
+  "month",
+  "column_break_vdxw",
+  "material",
+  "storage_location",
+  "mrp_type",
+  "material_group",
+  "division",
+  "section_break_oglj",
+  "l_valuated_stock_value",
+  "n_valuated_stock",
+  "p_consignment_stock",
+  "r_value_class",
+  "consider",
+  "column_break_motw",
+  "m_valuated_stock_value_currency",
+  "n_valuated_stock_type",
+  "p_consignment_stock_type",
+  "gl_code",
+  "grouping"
+ ],
+ "fields": [
+  {
+   "fieldname": "plant",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Plant",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_vdxw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "material",
+   "fieldtype": "Data",
+   "label": "Material"
+  },
+  {
+   "fieldname": "material_description",
+   "fieldtype": "Data",
+   "label": "Material Description"
+  },
+  {
+   "fieldname": "storage_location",
+   "fieldtype": "Data",
+   "label": "Storage Location"
+  },
+  {
+   "fieldname": "mrp_controller",
+   "fieldtype": "Data",
+   "label": "MRP Controller"
+  },
+  {
+   "fieldname": "mrp_type",
+   "fieldtype": "Data",
+   "label": "MRP Type"
+  },
+  {
+   "fieldname": "material_type",
+   "fieldtype": "Data",
+   "label": "Material Type"
+  },
+  {
+   "fieldname": "material_group",
+   "fieldtype": "Data",
+   "label": "Material Group"
+  },
+  {
+   "fieldname": "business_area",
+   "fieldtype": "Data",
+   "label": "Business Area"
+  },
+  {
+   "fieldname": "division",
+   "fieldtype": "Data",
+   "label": "Division"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Data",
+   "label": "Month"
+  },
+  {
+   "fieldname": "grouping",
+   "fieldtype": "Data",
+   "label": "Grouping"
+  },
+  {
+   "fieldname": "gl_code",
+   "fieldtype": "Data",
+   "label": "GL Code"
+  },
+  {
+   "fieldname": "consider",
+   "fieldtype": "Data",
+   "label": "Consider"
+  },
+  {
+   "fieldname": "l_valuated_stock_value",
+   "fieldtype": "Data",
+   "label": "L - Valuated Stock Value"
+  },
+  {
+   "fieldname": "m_valuated_stock_value_currency",
+   "fieldtype": "Data",
+   "label": "M - Valuated Stock Value currency"
+  },
+  {
+   "fieldname": "n_valuated_stock",
+   "fieldtype": "Data",
+   "label": "N - Valuated stock"
+  },
+  {
+   "fieldname": "n_valuated_stock_type",
+   "fieldtype": "Data",
+   "label": "N - Valuated Stock Type"
+  },
+  {
+   "fieldname": "section_break_oglj",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_motw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "p_consignment_stock",
+   "fieldtype": "Data",
+   "label": "P - Consignment Stock"
+  },
+  {
+   "fieldname": "p_consignment_stock_type",
+   "fieldtype": "Data",
+   "label": "P - Consignment Stock Type"
+  },
+  {
+   "fieldname": "r_value_class",
+   "fieldtype": "Data",
+   "label": "R - Value Class"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-20 15:51:21.293834",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Inventory Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

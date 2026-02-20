@@ -57,7 +57,7 @@
    "color": "Grey",
    "doc_view": "List",
    "label": "Investment Master",
-   "link_to": "FR Equity Entry",
+   "link_to": "FR Investment Entry",
    "stats_filter": "[]",
    "type": "DocType"
   },

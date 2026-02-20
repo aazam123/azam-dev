@@ -94,7 +94,7 @@
     "icon": null,
     "kanban_board": null,
     "label": "Investment Master",
-    "link_to": "FR Equity Entry",
+    "link_to": "FR Investment Entry",
     "parent": "Finance",
     "parentfield": "shortcuts",
     "parenttype": "Workspace",

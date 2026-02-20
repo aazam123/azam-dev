@@ -1005,12 +1005,12 @@ class TestFinancialReport(FrappeTestCase):
 # 		total_previous = 0
 
 # 		for company in all_companies:
-# 			current_equity_entries = frappe.get_all("FR Equity Entry", 
+# 			current_equity_entries = frappe.get_all("FR Investment Entry", 
 # 				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["Between", [fiscal_doc.year_start_date, fiscal_doc.year_end_date]]},
 # 				fields=["company", "no_of_shares", "face_value", "investment_value", "posting_date"], 
 # 				order_by="posting_date desc")
 
-# 			previous_equity_entries = frappe.get_all("FR Equity Entry", 
+# 			previous_equity_entries = frappe.get_all("FR Investment Entry", 
 # 				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["Between", [prev_fiscal_doc.year_start_date, prev_fiscal_doc.year_end_date]]},
 # 				fields=["company", "no_of_shares", "face_value", "investment_value", "posting_date"], 
 # 				order_by="posting_date desc")
@@ -2767,7 +2767,7 @@ class TestFinancialReport(FrappeTestCase):
 # 					amount += calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly, fx_rate, convert)
 
 # 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
-# 				amount = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+# 				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
 
 # 			elif fr_particular.fetch_from_schedule:
 # 				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
@@ -2843,7 +2843,7 @@ class TestFinancialReport(FrappeTestCase):
 
 # 			# Special case: Equity Share Capital → fixed INR investment value
 # 			if default_currency != self.currency and particular_type == "Equity Share Capital":
-# 				investment_value = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
+# 				investment_value = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
 # 				current_month_amount = previous_month_amount = previous_year_amount = investment_value
 # 			else:
 # 				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
@@ -3303,7 +3303,7 @@ class TestFinancialReport(FrappeTestCase):
 # 		}]
 
 # 		fiscal_doc = frappe.get_doc("Fiscal Year", self.fiscal_year)
-# 		all_companies = set(frappe.get_list("FR Equity Entry", {"holding_company": self.company}, pluck="company"))
+# 		all_companies = set(frappe.get_list("FR Investment Entry", {"holding_company": self.company}, pluck="company"))
 
 # 		total_current = total_previous = total_previous_year = 0
 
@@ -3312,15 +3312,15 @@ class TestFinancialReport(FrappeTestCase):
 # 			curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
 
 # 			face_value = f"{(frappe.get_value('Company', company, 'share_capital_amount')) / 100} {frappe.get_value('Company', company, 'default_currency')}"
-# 			previous_equity_entries = frappe.get_all("FR Equity Entry", 
+# 			previous_equity_entries = frappe.get_all("FR Investment Entry", 
 # 				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [prev_fs_year_start_date, prev_fs_year_end_date]]},
 # 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
-# 			current_month_entries = frappe.get_all("FR Equity Entry", 
+# 			current_month_entries = frappe.get_all("FR Investment Entry", 
 # 				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_end_date]], 'month': self.current_month},
 # 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 
-# 			previous_month_entries = frappe.get_all("FR Equity Entry", 
+# 			previous_month_entries = frappe.get_all("FR Investment Entry", 
 # 				filters={"company": company, "holding_company": self.company, "category": "Equity Shares", "posting_date": ["between", [curr_fs_year_start_date, curr_fs_year_end_date]], 'month': self.previous_month},
 # 				fields=["no_of_shares", "investment_value"], order_by="posting_date desc")
 

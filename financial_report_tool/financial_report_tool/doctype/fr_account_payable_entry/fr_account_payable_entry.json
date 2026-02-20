@@ -11,6 +11,7 @@
   "supplier",
   "supplier_name",
   "purchase_order",
+  "account_no",
   "reconciliation_account",
   "assignment",
   "column_break_tqmd",
@@ -142,8 +143,7 @@
    "fieldname": "reconciliation_account",
    "fieldtype": "Link",
    "label": "Reconciliation Account",
-   "options": "Account",
-   "reqd": 1
+   "options": "Account"
   },
   {
    "fieldname": "grouping",
@@ -337,12 +337,18 @@
    "fieldtype": "Select",
    "label": "Company Group",
    "options": "\nGroup\nNon Group"
+  },
+  {
+   "fieldname": "account_no",
+   "fieldtype": "Data",
+   "label": "Account No.",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-05 13:55:44.065857",
+ "modified": "2026-02-20 15:53:32.090984",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",

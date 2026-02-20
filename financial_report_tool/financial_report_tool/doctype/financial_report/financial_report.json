@@ -8,12 +8,14 @@
  "field_order": [
   "company",
   "fiscal_year",
+  "current_year_start_date",
   "current_year_ending_date",
   "current_month",
   "approved_on",
   "column_break_nyhx",
   "financial_report_template",
   "previous_fiscal_year",
+  "previous_year_start_date",
   "previous_year_ending_date",
   "previous_month",
   "approved_by",
@@ -138,12 +140,24 @@
    "fieldtype": "Data",
    "label": "Approved By",
    "read_only": 1
+  },
+  {
+   "fetch_from": "fiscal_year.year_start_date",
+   "fieldname": "current_year_start_date",
+   "fieldtype": "Date",
+   "label": "Current Year Start Date"
+  },
+  {
+   "fetch_from": "previous_fiscal_year.year_start_date",
+   "fieldname": "previous_year_start_date",
+   "fieldtype": "Date",
+   "label": "Previous Year Start Date"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-29 15:37:47.177159",
+ "modified": "2026-02-19 12:14:10.599854",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",

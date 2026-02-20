@@ -143,7 +143,7 @@ class FinancialReport(Document):
 
 	def fetch_equity_data(self, company, date_filter):
 		return frappe.get_all(
-			"FR Equity Entry",
+			"FR Investment Entry",
 			filters={"company": company,"holding_company": self.company,"category": "Equity Shares", "capital_type": "Issued Capital", "posting_date": date_filter},
 			fields=["face_value", "sum(no_of_shares) as no_of_shares", "sum(investment_value) as investment_value", "sum(investment_value_fc) as investment_value_fc"]
 		)
@@ -425,11 +425,11 @@ class FinancialReport(Document):
 		if self.report_type == "Monthly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
-					i.section_description = self.render_monthly_balance_sheet(i.section)
+					i.table_data, i.section_description = self.render_monthly_balance_sheet(i.section)
 				if i.section_type == "Profit & Loss":
-					i.section_description = self.render_monthly_profit_and_loss(i.section)
+					i.table_data, i.section_description = self.render_monthly_profit_and_loss(i.section)
 				if i.section_type == "Cash Flow":
-					i.section_description = self.render_monthly_cash_flow(i.section)
+					i.table_data, i.section_description = self.render_monthly_cash_flow(i.section)
 				if i.section_type == "Equity":
 					i.section_description = self.render_monthly_equity_share_table()
 				if i.section_type == "Consolidation Note":
@@ -447,9 +447,7 @@ class FinancialReport(Document):
 						data = []
 						if primary_group:
 							data = self.get_monthly_consolidation_note_data(primary_group)
-							show_descending_order = frappe.get_value(
-								"Standalone Group", primary_group, "show_descending_order"
-							)
+							show_descending_order = frappe.get_value("Standalone Group", primary_group, "show_descending_order")
 							if show_descending_order:
 								data = sorted(
 									data, key=lambda x: x["current_month_amount"], reverse=bool(show_descending_order)
@@ -457,27 +455,26 @@ class FinancialReport(Document):
 						note_table = self.monthly_table_for_note_template_1(data)
 
 					if note_type == "Investments (Non-current)":
-						note_table = self.get_monthly_investment_non_current_note_data()
+						i.section_description = self.get_monthly_investment_non_current_note_data(section_description)
 					if note_type == "Trade & Other receivables":
-						note_table = self.get_monthly_trade_and_other_receivables_note_data()
+						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
 					if note_type == "Equity Share Capital":
-						note_table = self.get_monthly_equity_share_capital_note_data()
+						i.section_description = self.get_monthly_equity_share_capital_note_data(section_description)
 					if note_type == "Other Equity":
-						note_table = self.get_monthly_other_equity_note_data()
+						i.section_description = self.get_monthly_other_equity_note_data(section_description)
 					if note_type == "Borrowings (Non-current)":
-						note_table = self.get_monthly_borrowing_non_current_note_data(note_type)
+						i.section_description = self.get_monthly_borrowing_non_current_note_data(section_description, primary_group)
 					if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-						note_table = self.get_monthly_finished_goods_and_wip(note_type, total=False, field=None)
+						i.section_description = self.get_monthly_finished_goods_and_wip(section_description, total=False, field=None)
 					if note_type == "Cost of Materials Consumed":
-						note_table = self.get_monthly_cost_of_material_consumed(note_type, total=False, field=None)
-
-					if note_table:
-						context = {"note_table": note_table}
-						i.section_description = frappe.render_template(section_description or "", context)
+						i.section_description = self.get_monthly_cost_of_material_consumed(section_description, total=False, field=None)
 
 					context = {"company": self.company}
-					i.section_description = frappe.render_template(i.section_description or "", context)
-					i.subsection_description = frappe.render_template(i.subsection_description or "", context)
+					try:
+						i.section_description = frappe.render_template(i.section_description or "", context)
+						i.subsection_description = frappe.render_template(i.subsection_description or "", context)
+					except Exception as e:
+						frappe.throw(str(i.section_description))
 
 					# Anchor ID for PDF navigation
 					if i.note_no and i.section_name:
@@ -488,6 +485,7 @@ class FinancialReport(Document):
 								if i.section_description
 								else f'<div id="{note_id}" class="note-anchor"></div>'
 							)
+
 		elif self.report_type == "Yearly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
@@ -499,9 +497,7 @@ class FinancialReport(Document):
 				if i.section_type == "Equity":
 					i.section_description = self.render_yearly_equity_share_table()
 				if i.section_type == "Consolidation Note":
-					section_data = frappe.db.get_value(
-						"FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True
-					)
+					section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
 					section_description = section_data.section_type_description if section_data else ""
 					fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
 					primary_group = section_data.primary_consolidation_group if section_data else ""
@@ -2469,25 +2465,25 @@ class FinancialReport(Document):
 		def fmt(val):
 			return f"{val:,.0f}" if isinstance(val, (int, float)) else val
 
-		borrowings_non_current = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
-		borrowings_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
-		lease_liabilities_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
-		lease_liabilities_non_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
+		borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
 		cur_borrowings = borrowings_non_current + borrowings_current + lease_liabilities_current + lease_liabilities_non_current
 
-		cur_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
-		cur_bank_balances = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
-		cur_tot_equity = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
+		cur_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
+		cur_bank_balances = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
+		cur_tot_equity = self.get_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
 
-		pre_borrowings_non_current = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
-		pre_borrowings_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
-		pre_lease_liabilities_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
-		pre_lease_liabilities_non_current = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		pre_borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
+		pre_borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
+		pre_lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		pre_lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
 		pre_borrowings = pre_borrowings_non_current + pre_borrowings_current + pre_lease_liabilities_current + pre_lease_liabilities_non_current
 
-		pre_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
-		pre_bank_balances = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
-		pre_tot_equity = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
+		pre_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
+		pre_bank_balances = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
+		pre_tot_equity = self.get_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
 
 		data = {
 			"current": {"borrowings": cur_borrowings,"cash": cur_cash,"bank_balances": cur_bank_balances,"equity": cur_tot_equity},
@@ -2642,18 +2638,18 @@ class FinancialReport(Document):
 			pre_tpl_borrowing, pre_oci_borrowing, pre_tpl_lease_lib, pre_oci_lease_lib, pre_tpl_trade_pay, pre_oci_trade_pay, pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 			pre_forward_contract = 0
 
-		bs_cur_investment = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'current_month_amount') or 0
-		bs_pre_investment = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'previous_year') or 0
-		bs_cur_trade_receivable = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'current_month_amount') or 0
-		bs_pre_trade_receivable = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year') or 0		
-		bs_cur_loan = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Loan"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Loan"}, 'name'), 'current_month_amount') or 0)
-		bs_pre_loan = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Loan"}, 'name'), 'previous_year') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Loan"}, 'name'), 'previous_year') or 0)
-		bs_cur_fin_assets = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Assets"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Assets"}, 'name'), 'current_month_amount') or 0)
-		bs_pre_fin_assets = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Assets"}, 'name'), 'previous_year') or 0) + (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Assets"}, 'name'), 'previous_year') or 0)
-		bs_cur_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'current_month_amount') or 0
-		bs_pre_cash = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'previous_year') or 0
-		bs_cur_bank = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
-		bs_pre_bank = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'previous_year') or 0
+		bs_cur_investment = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'current_month_amount') or 0
+		bs_pre_investment = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'previous_year') or 0
+		bs_cur_trade_receivable = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'current_month_amount') or 0
+		bs_pre_trade_receivable = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year') or 0		
+		bs_cur_loan = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Loan"}, 'name'), 'current_month_amount') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Loan"}, 'name'), 'current_month_amount') or 0)
+		bs_pre_loan = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Loan"}, 'name'), 'previous_year') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Loan"}, 'name'), 'previous_year') or 0)
+		bs_cur_fin_assets = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Assets"}, 'name'), 'current_month_amount') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Assets"}, 'name'), 'current_month_amount') or 0)
+		bs_pre_fin_assets = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Assets"}, 'name'), 'previous_year') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Assets"}, 'name'), 'previous_year') or 0)
+		bs_cur_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'current_month_amount') or 0
+		bs_pre_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'previous_year') or 0
+		bs_cur_bank = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
+		bs_pre_bank = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'previous_year') or 0
 		
 		financial_assets = [
 			("Investments in subsidiary companies", cur_tpl_investment, cur_oci_investment, ((cur_tpl_investment + cur_oci_investment) - bs_cur_investment), pre_tpl_investment, pre_oci_investment, ((pre_tpl_investment + pre_oci_investment) - bs_pre_investment)),
@@ -2664,16 +2660,16 @@ class FinancialReport(Document):
 			("Bank balances other than cash and cash equivalents", cur_tpl_bank_cash, cur_oci_bank_cash, ((cur_tpl_bank_cash + cur_oci_bank_cash) - bs_cur_bank), pre_tpl_bank_cash, pre_oci_bank_cash, ((pre_tpl_bank_cash + pre_oci_bank_cash) - bs_pre_bank)),
 		]
 
-		pl_cur_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
-		pl_pre_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0)
-		pl_cur_lease_lib = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') or 0)
-		pl_pre_lease_lib = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year') or 0) + (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') or 0)
-		pl_cur_trade_payable = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
-		pl_pre_trade_payable = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
-		pl_cur_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
-		pl_pre_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
-		pl_cur_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
-		pl_pre_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pl_cur_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
+		pl_pre_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0)
+		pl_cur_lease_lib = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') or 0)
+		pl_pre_lease_lib = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') or 0)
+		pl_cur_trade_payable = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
+		pl_pre_trade_payable = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
+		pl_cur_financial_lib_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		pl_pre_financial_lib_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pl_cur_financial_lib_non_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		pl_pre_financial_lib_non_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
 		
 		financial_liabilities = [
 			("Borrowings", cur_tpl_borrowing, cur_oci_borrowing, ((cur_tpl_borrowing + cur_oci_borrowing) - pl_cur_borrowing), pre_tpl_borrowing, pre_oci_borrowing, ((pre_tpl_borrowing + pre_oci_borrowing) - pl_pre_borrowing)),
@@ -2884,7 +2880,7 @@ class FinancialReport(Document):
 		"""
 		hg_sec_groups = frappe.get_all("GL Group Mapping", filters={"company": self.company, "report_type": "Yearly", "primary_group": "Borrowings (Current)", "secondary_group": "Borrowings (Current) - Current Maturities of non-current Borrowings"}, pluck="higher_secondary_group") 
 		non_current_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Borrowings (Current) - Current Maturities of non-current Borrowings", cls_month, self.fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
-		curr_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) - non_current_borrowing
+		curr_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) - non_current_borrowing
 		current_year_end = frappe.utils.getdate(self.current_year_ending_date)
 		one_year_from_end = current_year_end + timedelta(days=365)
 		three_years_from_end = current_year_end + timedelta(days=1095)
@@ -2895,9 +2891,9 @@ class FinancialReport(Document):
 		lease = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'less_than_one_year') or 0
 		lease_one_to_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'one_to_three_years') or 0
 		lease_more_than_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'more_than_three_years') or 0
-		cur_trade_pay = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
-		cur_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
-		cur_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		cur_trade_pay = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
+		cur_financial_lib_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		cur_financial_lib_non_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
 
 		c1_curr = [
 			("Non current borrowings (including current maturities)", repaymnet_less_than_one, repayment_one_three, repayment_more_than_three),
@@ -2918,10 +2914,10 @@ class FinancialReport(Document):
 		pre_lease = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'less_than_one_year') or 0
 		pre_lease_one_to_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'one_to_three_years') or 0
 		pre_lease_more_than_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'more_than_three_years') or 0
-		pre_borrowing = (self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) - pre_non_current_borrowing
-		pre_trade_pay = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
-		pre_financial_lib_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
-		pre_financial_lib_non_curr = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pre_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) - pre_non_current_borrowing
+		pre_trade_pay = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
+		pre_financial_lib_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pre_financial_lib_non_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
 		
 		c1_prev = [
 			("Non current borrowings (including current maturities)", pre_repaymnet_less_than_one, pre_repayment_one_three, pre_repayment_more_than_three),
@@ -3463,7 +3459,7 @@ class FinancialReport(Document):
 		))
 
 		# Fetch all equity entries in bulk for efficiency
-		companies = frappe.get_all("FR Equity Entry", filters={"holding_company": self.company}, pluck="company")
+		companies = frappe.get_all("FR Investment Entry", filters={"holding_company": self.company}, pluck="company")
 
 		if companies:
 			# Batch fetch all required data
@@ -3475,7 +3471,7 @@ class FinancialReport(Document):
 					face_value,
 					SUM(CASE WHEN posting_date <= %s THEN investment_value ELSE 0 END) AS cur_investment,
 					SUM(CASE WHEN posting_date <= %s THEN investment_value ELSE 0 END) AS pre_investment
-				FROM `tabFR Equity Entry`
+				FROM `tabFR Investment Entry`
 				WHERE company IN %s
 				AND holding_company = %s
 				AND category = 'Equity Shares'
@@ -3676,10 +3672,10 @@ class FinancialReport(Document):
 				return f"{val:,.{decimals}f}"
 			return f"{val:,}"
 
-		curr_profit = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount')
+		curr_profit = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount')
 		curr_share = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, self.fiscal_year) or 0), self.show_decimal_value) * 10000
 		
-		prev_profit = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year')
+		prev_profit = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year')
 		prev_shares = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, self.previous_fiscal_year) or 0), self.show_decimal_value) * 10000
 		data = {
 			"current": {
@@ -4182,66 +4178,66 @@ class FinancialReport(Document):
 				return f"{val:.2f}"
 			return f"{int(val):,}"
 
-		cur_current_asset = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Assets"}, 'name'), 'current_month_amount')
-		cur_current_liab = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'current_month_amount')
+		cur_current_asset = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Assets"}, 'name'), 'current_month_amount')
+		cur_current_liab = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'current_month_amount')
 		curr_ratio = 0 if cur_current_liab == 0 else round(cur_current_asset/cur_current_liab, 2)
 
-		pre_current_asset = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Assets"}, 'name'), 'previous_year')
-		pre_current_liab = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'previous_year')
+		pre_current_asset = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Assets"}, 'name'), 'previous_year')
+		pre_current_liab = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'previous_year')
 		pre_ratio = 0 if pre_current_liab == 0 else round(pre_current_asset/pre_current_liab, 2)
 
-		cur_tot_ded = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount')
-		cur_tot_equ = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount')
+		cur_tot_ded = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount')
+		cur_tot_equ = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount')
 		cur_ded_ratio = 0 if cur_tot_equ == 0 else (cur_tot_ded/cur_tot_equ)
 
-		pre_tot_ded = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year')
-		pre_tot_equ = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year')
+		pre_tot_ded = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year')
+		pre_tot_equ = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year')
 		pre_ded_ratio = 0 if pre_tot_equ == 0 else (pre_tot_ded/pre_tot_equ)
 
-		curr_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
-		curr_deb_ser = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
+		curr_net_op = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'current_month_amount') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
+		curr_deb_ser = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
 		curr_deb_ser_ratio = 0 if curr_deb_ser == 0 else curr_net_op/curr_deb_ser
 
-		pre_net_op = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
-		pre_deb_ser = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
+		pre_net_op = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Depreciation & Amortisation Expenses"}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
+		pre_deb_ser = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
 		pre_deb_ser_ratio = 0 if pre_deb_ser == 0 else pre_net_op/pre_deb_ser
 
-		curr_pro_af_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount')
-		curr_avg_share_equ = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year'))/2
+		curr_pro_af_tax = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'current_month_amount')
+		curr_avg_share_equ = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year'))/2
 		curr_equ_ratio = 0 if curr_avg_share_equ == 0 else curr_pro_af_tax/curr_avg_share_equ
 
 		pre_total_equity = flt(self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, pre_year)) + flt(self.get_yearly_other_equity_note_data(self.previous_fiscal_year, pre_year, total=True, field='grand_total_prev_year')) or 0
-		pre_pro_af_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year')
-		pre_avg_share_equ = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year') + pre_total_equity)/2
+		pre_pro_af_tax = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit for the year from continuing operations"}, 'name'), 'previous_year')
+		pre_avg_share_equ = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year') + pre_total_equity)/2
 		pre_equ_ratio = 0 if pre_avg_share_equ == 0 else pre_pro_af_tax/pre_avg_share_equ
 
-		curr_cogs = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Cost of Goods Sold"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'is_purchase_of_stock_in_trade': 1}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Change In Inventory"}, 'name'), 'current_month_amount')
-		curr_avg_inv = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year')) / 2
+		curr_cogs = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Cost of Goods Sold"}, 'name'), 'current_month_amount') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'is_purchase_of_stock_in_trade': 1}, 'name'), 'current_month_amount') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Change In Inventory"}, 'name'), 'current_month_amount')
+		curr_avg_inv = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year')) / 2
 		curr_inv_ratio = 0 if curr_avg_inv == 0 else curr_cogs/curr_avg_inv
 
 		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": "Inventories", "company": self.company}, pluck="secondary_group") if g))
-		pre_cogs = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Cost of Goods Sold"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'is_purchase_of_stock_in_trade': 1}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Change In Inventory"}, 'name'), 'previous_year')
-		pre_avg_inv = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year') + sum(flt(self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year)) for sec in secondary_groups)) / 2
+		pre_cogs = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Cost of Goods Sold"}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'is_purchase_of_stock_in_trade': 1}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Change In Inventory"}, 'name'), 'previous_year')
+		pre_avg_inv = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year') + sum(flt(self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year)) for sec in secondary_groups)) / 2
 		pre_inv_ratio = 0 if pre_avg_inv == 0 else pre_cogs/pre_avg_inv
 
-		curr_rev = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'current_month_amount') 
-		curr_avg_trade = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year'))/2
+		curr_rev = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'current_month_amount') 
+		curr_avg_trade = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year'))/2
 		curr_trade_ratio = 0 if curr_avg_trade == 0 else curr_rev/curr_avg_trade
 
 		credit_impaired_prev = round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, pre_year) or 0), self.show_decimal_value)
 		trade_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Trade Receivables", cls_month, pre_year) or 0), self.show_decimal_value)
 		other_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Other Trade receivables", cls_month, pre_year) or 0), self.show_decimal_value)
 
-		pre_rev = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'current_month_amount') 
-		pre_avg_trade = (self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year') + (credit_impaired_prev + trade_recv_prev + other_recv_prev))/2
+		pre_rev = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'current_month_amount') 
+		pre_avg_trade = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year') + (credit_impaired_prev + trade_recv_prev + other_recv_prev))/2
 		pre_trade_ratio = 0 if pre_avg_trade == 0 else pre_rev/pre_avg_trade
 
 		trade_payables_turnover_ratio_grouping = frappe.get_doc("FR Financial Settings").trade_payables_turnover_ratio_grouping or []
-		curr_pur = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Other Expense"}, 'name'), 'current_month_amount') + sum(self.get_sum_grouping_amount(i.primary_group, i.secoundary_group, cls_month, self.fiscal_year) for i in trade_payables_turnover_ratio_grouping)
+		curr_pur = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Other Expense"}, 'name'), 'current_month_amount') + sum(self.get_sum_grouping_amount(i.primary_group, i.secoundary_group, cls_month, self.fiscal_year) for i in trade_payables_turnover_ratio_grouping)
 		curr_avg_trade_pay = self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.fiscal_year) + self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year)
 		curr_trade_payable = 0 if curr_avg_trade_pay == 0 else curr_pur/curr_avg_trade_pay
 
-		pre_pur = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Other Expense"}, 'name'), 'current_month_amount') + sum(self.get_sum_grouping_amount(i.primary_group, i.secoundary_group, cls_month, self.previous_fiscal_year) for i in trade_payables_turnover_ratio_grouping)
+		pre_pur = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Other Expense"}, 'name'), 'current_month_amount') + sum(self.get_sum_grouping_amount(i.primary_group, i.secoundary_group, cls_month, self.previous_fiscal_year) for i in trade_payables_turnover_ratio_grouping)
 		pre_avg_trade_pay = self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year) + self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, pre_year)
 		pre_trade_payable = 0 if pre_avg_trade_pay == 0 else pre_pur/pre_avg_trade_pay
 
@@ -4254,12 +4250,12 @@ class FinancialReport(Document):
 		curr_net_pro_ratio = 0 if curr_rev == 0 else curr_pro_af_tax/curr_rev
 		pre_net_pro_ratio = 0 if pre_rev == 0 else pre_pro_af_tax/pre_rev
 
-		curr_ear_be_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'current_month_amount') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
-		curr_cap_emp_equity = self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount')
+		curr_ear_be_tax = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'current_month_amount') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
+		curr_cap_emp_equity = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount')
 		curr_ret_cap_emp = 0 if curr_cap_emp_equity == 0 else curr_ear_be_tax/curr_cap_emp_equity 
 
-		pre_ear_be_tax = self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'previous_year') + self.get_yearly_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
-		pre_cap_emp_equity = pre_total_equity + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year')
+		pre_ear_be_tax = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
+		pre_cap_emp_equity = pre_total_equity + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year')
 		pre_ret_cap_emp = 0 if pre_cap_emp_equity == 0 else pre_ear_be_tax/pre_cap_emp_equity 
 
 		note_table_1 = f"""
@@ -4716,12 +4712,12 @@ class FinancialReport(Document):
 
 		current_ccsa_row = flt(frappe.get_value("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': self.fiscal_year, 'currency': ["!=", "INR"]}, "amount_in_lc")) + \
 			flt(self.get_yearly_other_intangible_assets(field="curr_intangel_asset")) + flt(frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ccsa_row"))
-		curr_total = flt(self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'current_month_amount'))
+		curr_total = flt(self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'current_month_amount'))
 		current_ccsa_ind = curr_total - current_ccsa_row
 
 		previous_ccsa_row = flt(frappe.get_value("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'currency': ["!=", "INR"]}, "amount_in_lc")) + \
 			flt(self.get_yearly_other_intangible_assets(field="intangel_asset")) + flt(frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, "ccsa_row"))
-		prev_total = flt(self.get_yearly_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'previous_year'))
+		prev_total = flt(self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'previous_year'))
 		previous_ccsa_ind = prev_total - previous_ccsa_row
 
 		current_ce_ind = flt(self.get_yearly_other_intangible_assets(field="curr_addition")) + flt(self.get_yearly_intangible_assets_under_development(field="curr_total")) + flt(self.get_yearly_capital_work_in_progress(field="curr_pre_total"))
@@ -5204,15 +5200,15 @@ class FinancialReport(Document):
 		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
 		total_current = total_previous_year = 0
 		month_end_label, prev_fy_label = self.get_yearly_dates()
-		prev_fs_year_start_date, prev_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.previous_fiscal_year, ["year_start_date", "year_end_date"])
-		curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
+		prev_fs_year_start_date, prev_fs_year_end_date = self.previous_year_start_date, self.previous_year_ending_date
+		curr_fs_year_start_date, curr_fs_year_end_date = self.current_year_start_date, self.current_year_ending_date
 
 		data = [{
 			"particulars": "Investment in equity Instruments of subsidiaries measured at Cost (Unquoted, Fully paid Up)",
 			"face_value": "", "shares_current": "", "amount_current": "","shares_previous": "", "amount_previous": "","shares_previous_year": "", "amount_previous_year": "","bold": 1
 		}]
 
-		all_companies = set(frappe.get_list("FR Equity Entry",filters={"holding_company": self.company},pluck="company"))
+		all_companies = set(frappe.get_list("FR Investment Entry",filters={"holding_company": self.company},pluck="company"))
 		for company in all_companies:
 			e_previous_year = self.fetch_equity_data(company, ["<=", prev_fs_year_end_date])
 			e_current_month = self.fetch_equity_data(company, ["<=", current_month_date])
@@ -5733,7 +5729,7 @@ class FinancialReport(Document):
 					amount += calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly, fx_rate, convert)
 
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
-				amount = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
 
 			elif fr_particular.fetch_from_schedule:
 				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
@@ -5809,7 +5805,7 @@ class FinancialReport(Document):
 
 			# Special case: Equity Share Capital → fixed INR investment value
 			if default_currency != self.currency and particular_type == "Equity Share Capital":
-				investment_value = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
+				investment_value = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
 				current_month_amount = previous_year_amount = investment_value
 			else:
 				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
@@ -6465,7 +6461,7 @@ class FinancialReport(Document):
 		html += "</tbody>\n</table>"
 		return section_description.replace("{{note_table}}", html)
 
-	def get_yearly_bs_particular_data(self, id, field):
+	def get_bs_particular_data(self, id, field):
 		import json
 		data = self.get('financial_report_details', {'section_type': "Balance Sheet"})
 		if not data:
@@ -6482,7 +6478,7 @@ class FinancialReport(Document):
 				return row.get(field)
 		return 0
 
-	def get_yearly_pl_particular_data(self, id, field):
+	def get_pl_particular_data(self, id, field):
 		import json
 		data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
 		if not data:
@@ -6592,7 +6588,7 @@ class FinancialReport(Document):
 
 		return current_month_label, previous_month_label, previous_year_label
 
-	def get_monthly_finished_goods_and_wip(self, note_type, total, get_face=None, field=None):
+	def get_monthly_finished_goods_and_wip(self, section_description, total, get_face=None, field=None):
 		rows = []
 		add_row = lambda p, cm=0, pm=0, ftm=0, py=0, st=False: rows.append({
 			"particulars": p, "current_month_amt": cm, "previous_month_amt": pm, "ftm_amt": ftm, "previous_year_amt": py, "is_subtotal": st
@@ -6736,9 +6732,9 @@ class FinancialReport(Document):
 			'''
 
 		html += "</tbody></table>"
-		return html
+		return section_description.replace("{{note_table}}", html)
 
-	def get_monthly_cost_of_material_consumed(self, note_type, total, field=None):
+	def get_monthly_cost_of_material_consumed(self, section_description, total, field=None):
 		rows = []
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
@@ -6882,7 +6878,7 @@ class FinancialReport(Document):
 			'''
 		
 		html += "</tbody></table>"
-		return html
+		return section_description.replace("{{note_table}}", html)
 
 	@frappe.whitelist()
 	def get_monthly_consolidation_note_data(self, primary_group):
@@ -7100,8 +7096,7 @@ class FinancialReport(Document):
 			"""
 
 		html += "</tbody></table>"
-		return html
-
+		return json.dumps(data), html
 
 	def render_monthly_profit_and_loss(self, template_name):
 		"""Render monthly profit and loss with note-style UI"""
@@ -7163,7 +7158,7 @@ class FinancialReport(Document):
 			"""
 
 		html += "</tbody></table>"
-		return html
+		return json.dumps(data), html
 
 	def render_monthly_cash_flow(self, template_name):
 		"""Render monthly cash flow with note-style UI"""
@@ -7211,7 +7206,7 @@ class FinancialReport(Document):
 			"""
 
 		html += "</tbody></table>"
-		return html
+		return json.dumps(data), html
 
 	def render_monthly_equity_share_table(self):
 		"""Render monthly equity share table with optimized structure"""
@@ -7626,7 +7621,7 @@ class FinancialReport(Document):
 					amount += calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly, fx_rate, convert)
 
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
-				amount = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
 
 			elif fr_particular.fetch_from_schedule:
 				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
@@ -7641,10 +7636,11 @@ class FinancialReport(Document):
 					amount = self.get_monthly_other_equity_note_data(note_type, total=True, field=field)
 				elif note_type == "Borrowings (Non-current)":
 					field = 'total_current_month_amt' if is_current else 'total_previous_year'
-					amount = self.get_monthly_borrowing_non_current_note_data(note_type, total=True, field=field)
+					primary_group = frappe.get_value("FR Section", fr_particular.schedule, 'primary_consolidation_group')
+					amount = self.get_monthly_borrowing_non_current_note_data(note_type, primary_group, total=True, field=field)
 				elif note_type == "Investments (Non-current)":
 					field = 'total_current' if is_current else 'total_previous_year'
-					amount = self.get_monthly_investment_non_current_note_data(total=True, field=field)
+					amount = self.get_monthly_investment_non_current_note_data(note_type, total=True, field=field)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
@@ -7702,7 +7698,7 @@ class FinancialReport(Document):
 
 			# Special case: Equity Share Capital → fixed INR investment value
 			if default_currency != self.currency and particular_type == "Equity Share Capital":
-				investment_value = frappe.get_value("FR Equity Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
+				investment_value = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
 				current_month_amount = previous_month_amount = previous_year_amount = investment_value
 			else:
 				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
@@ -7806,7 +7802,7 @@ class FinancialReport(Document):
 			})
 		return data
 
-	def get_monthly_borrowing_non_current_note_data(self, primary_group, total=False, field=None):
+	def get_monthly_borrowing_non_current_note_data(self, section_description, primary_group, total=False, field=None):
 		"""Get monthly borrowing non-current note data with optimized structure"""
 		rows = []
 		total_current_month_amt = 0
@@ -7895,9 +7891,14 @@ class FinancialReport(Document):
 			</tr>
 		'''
 		html += "</tbody></table>"
-		return html
+		return section_description.replace("{{note_table}}", html)
 
-	def get_monthly_other_equity_note_data(self, note_type=None, total=False, field=None):
+	def get_surplus_in_foreign_exchange_reserves_for_fx_case(self, month, year):
+		"""Get surplus in foreign exchange reserves amount for given month and year"""
+		tot_asset = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'previous_year')
+		return 0
+
+	def get_monthly_other_equity_note_data(self, section_description, total=False, field=None):
 		"""Generate monthly Other Equity note table (Retained Earnings & Capital Contribution)"""
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
@@ -7988,9 +7989,14 @@ class FinancialReport(Document):
 		bal_sp_tot_prev = sp_previous_mnt + add_sp_previous_mnt
 
 		# --- Surplus in Foreign Exchange Reserves ---
-		for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
-		add_for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
-		prev_year_for_exc_res_tot = round(for_exc_previous_year + add_for_exc_previous_year, self.show_decimal_value)
+		if default_currency != self.currency:
+			prev_year_for_exc_res_tot = self.get_surplus_in_foreign_exchange_reserves_for_fx_case(cls_month, self.previous_fiscal_year) or 0
+			for_exc_previous_year = 0
+			add_for_exc_previous_year = 0
+		else:
+			for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
+			add_for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
+			prev_year_for_exc_res_tot = round(for_exc_previous_year + add_for_exc_previous_year, self.show_decimal_value)
 
 		curr_add_for_exc_res = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
 		prev_add_for_exc_res = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
@@ -8066,13 +8072,73 @@ class FinancialReport(Document):
 			</tr>'''
 
 		html += "</tbody></table>"
-		return html
+		return section_description.replace("{{note_table}}", html)
 
+	def get_monthly_equity_share_capital_note_data(self, section_description):
+		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
+		month_end_label, prev_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+		current_date = month_end_label.replace("Year Ended ", "").replace("/", "-")
+		previous_date = previous_fiscal_year_end_label.replace("Year Ended ", "").replace("/", "-")
 
-	def get_monthly_equity_share_capital_note_data(self):
-		pass
+		company_currency = frappe.get_value("Company", self.company, "default_currency")
+		currency = self.currency if self.currency != company_currency else company_currency
 
-	def get_monthly_trade_and_other_receivables_note_data(self):
+		headers = ["Particulars",f"As at {current_date}", "",f"As at {previous_date}", ""]
+		sub_headers = ["","No. of shares", f"{currency} in Lacs","No. of shares", f"{currency} in Lacs"]
+
+		def get_equity_data(entry_type, date, amt_field):
+			data = frappe.db.get_values("FR Equity Entry", {"company": self.company, "type": entry_type, "date": ["<=", date]}, ["sum(no_of_shares) as shares", f"sum({amt_field}) as amount", "face_value"], as_dict=True)
+			row = data[0] if data else {}
+			return (row.get("face_value") or "-",row.get("shares") or 0, round(row.get("amount")/100000, self.show_decimal_value or 0))
+
+		amt_field = "investment_inr" if self.currency != company_currency else "investment_value"
+
+		face_value, curr_auth_shares, curr_auth_amt = get_equity_data("Authorised", current_month_date, amt_field)
+		_, curr_issue_shares, curr_issue_amt = get_equity_data("Issued", current_month_date, amt_field)
+		_, pre_auth_shares, pre_auth_amt = get_equity_data("Authorised", self.previous_year_ending_date, amt_field)
+		_, pre_issue_shares, pre_issue_amt = get_equity_data("Issued", self.previous_year_ending_date, amt_field)
+
+		rows = [
+			["Equity Share Capital", "", "", "", ""],
+			["Authorised", "", "", "", ""],
+			[f"Equity Shares of {face_value} each",curr_auth_shares, curr_auth_amt,pre_auth_shares, pre_auth_amt],
+			["Issued, Subscribed and Fully Paid", "", "", "", ""],
+			[f"Equity Shares of {face_value} each",curr_issue_shares, curr_issue_amt,pre_issue_shares, pre_issue_amt],
+			["Total", curr_issue_shares, curr_issue_amt,pre_issue_shares, pre_issue_amt],
+		]
+
+		html = """<table style="width:100%; border-collapse:collapse; font-size:13px;">
+		<thead>"""
+
+		html += "<tr>"
+		for idx, h in enumerate(headers):
+			colspan = " colspan='2'" if idx in (1, 3) else ""
+			width = "width:30%;" if idx == 0 else ""
+			if h:
+				html += f"<th{colspan} style='border:1px solid #000; padding:5px; text-align:center; {width}'>{h}</th>"
+		html += "</tr>"
+
+		html += "<tr>"
+		for idx, sh in enumerate(sub_headers):
+			width = "width:30%;" if idx == 0 else ""
+			html += f"<th style='border:1px solid #000; padding:5px; text-align:center; {width}'>{sh}</th>"
+		html += "</tr>"
+
+		html += "</thead><tbody>"
+
+		for row in rows:
+			is_section = row[0] and all(not c for c in row[1:])
+			html += "<tr>"
+			for idx, col in enumerate(row):
+				width = "width:30%;" if idx == 0 else ""
+				style = "font-weight:bold;" if is_section and idx == 0 else ""
+				html += f"<td style='border:1px solid #000; padding:5px; {width} {style}'>{col}</td>"
+			html += "</tr>"
+
+		html += "</tbody></table>"
+		return section_description.replace("{{note_table}}", html)
+
+	def get_monthly_trade_and_other_receivables_note_data(self, section_description):
 		"""Get monthly trade and other receivables note data with optimized structure"""
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
@@ -8146,23 +8212,23 @@ class FinancialReport(Document):
 			</tr>
 			'''
 		html += "</tbody></table>"
-		return html
+		return section_description.replace("{{note_table}}", html)
 
-	def get_monthly_investment_non_current_note_data(self, total=False, field=None):
+	def get_monthly_investment_non_current_note_data(self, section_description, total=False, field=None):
 		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
 		_, previous_month_date = self.get_month_date_range(self.previous_month, self.fiscal_year)
 
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 		total_current = total_previous = total_previous_year = 0
-		prev_fs_year_start_date, prev_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.previous_fiscal_year, ["year_start_date", "year_end_date"])
-		curr_fs_year_start_date, curr_fs_year_end_date = frappe.db.get_value("Fiscal Year", self.fiscal_year, ["year_start_date", "year_end_date"])
+		prev_fs_year_start_date, prev_fs_year_end_date = self.previous_year_start_date, self.previous_year_ending_date
+		curr_fs_year_start_date, curr_fs_year_end_date = self.current_year_start_date, self.current_year_ending_date
 
 		data = [{
 			"particulars": "Investment in equity Instruments of subsidiaries measured at Cost (Unquoted, Fully paid Up)",
 			"face_value": "", "shares_current": "", "amount_current": "","shares_previous": "", "amount_previous": "","shares_previous_year": "", "amount_previous_year": "","bold": 1
 		}]
 
-		all_companies = set(frappe.get_list("FR Equity Entry",filters={"holding_company": self.company},pluck="company"))
+		all_companies = set(frappe.get_list("FR Investment Entry",filters={"holding_company": self.company},pluck="company"))
 		for company in all_companies:
 			e_previous_year = self.fetch_equity_data(company, ["<=", prev_fs_year_end_date])
 			e_current_fy_end = self.fetch_equity_data(company, ["<=", previous_month_date])
@@ -8262,7 +8328,7 @@ class FinancialReport(Document):
 			'''
 
 		table += "</tbody></table>"
-		return table
+		return section_description.replace("{{note_type}}", table)
 
 	@frappe.whitelist()
 	def export_to_excel(self):

@@ -1,85 +1,55 @@
 {
  "actions": [],
- "allow_import": 1,
  "allow_rename": 1,
- "autoname": "FEE-.#####",
- "creation": "2025-07-10 17:18:25.722027",
+ "autoname": "Equity-.#####",
+ "creation": "2026-02-18 16:14:05.222514",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "company",
-  "holding_company",
-  "percentage_holding",
-  "column_break_rixy",
-  "posting_date",
+  "date",
+  "type",
+  "column_break_rdzg",
   "no_of_shares",
   "face_value",
-  "column_break_olot",
-  "month",
-  "category",
-  "capital_type",
-  "section_break_gppp",
-  "default_currency",
-  "investment_value_fc",
-  "column_break_rqyy",
-  "exchanges_rate",
-  "investment_value"
+  "currency",
+  "column_break_qbey",
+  "investment_value",
+  "exchange_rate",
+  "investment_inr"
  ],
  "fields": [
   {
    "fieldname": "company",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "in_standard_filter": 1,
    "label": "Company",
-   "options": "Company"
-  },
-  {
-   "fieldname": "posting_date",
-   "fieldtype": "Date",
-   "in_list_view": 1,
-   "label": "Posting Date",
+   "options": "Company",
    "reqd": 1
   },
   {
-   "fieldname": "column_break_rixy",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "category",
-   "fieldtype": "Select",
-   "label": "Category",
-   "options": "\nEquity Shares\nIND AS\nPreference Shares"
-  },
-  {
-   "fieldname": "capital_type",
-   "fieldtype": "Select",
-   "label": "Capital Type",
-   "options": "\nAuthorised Capital\nIssued Capital"
-  },
-  {
-   "fieldname": "column_break_olot",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fetch_from": "company.parent_company",
-   "fetch_if_empty": 1,
-   "fieldname": "holding_company",
-   "fieldtype": "Link",
+   "fieldname": "date",
+   "fieldtype": "Date",
    "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Holding company",
-   "options": "Company"
+   "label": "Date",
+   "reqd": 1
   },
   {
-   "fieldname": "percentage_holding",
-   "fieldtype": "Float",
-   "label": "Percentage Holding"
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Authorised\nIssued",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_rdzg",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "no_of_shares",
    "fieldtype": "Float",
-   "label": "No. of Shares"
+   "label": "No of shares"
   },
   {
    "fieldname": "face_value",
@@ -87,50 +57,42 @@
    "label": "Face Value"
   },
   {
-   "fieldname": "investment_value",
-   "fieldtype": "Float",
-   "label": "Investment Value"
-  },
-  {
-   "fieldname": "section_break_gppp",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "column_break_rqyy",
-   "fieldtype": "Column Break"
-  },
-  {
    "fetch_from": "company.default_currency",
-   "fieldname": "default_currency",
+   "fieldname": "currency",
    "fieldtype": "Link",
-   "label": "Default Currency",
+   "label": "Currency",
    "options": "Currency"
   },
   {
-   "fieldname": "investment_value_fc",
+   "fieldname": "column_break_qbey",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "investment_value",
    "fieldtype": "Currency",
-   "label": "Investment Value (FC)",
-   "options": "default_currency",
-   "precision": "4"
+   "in_list_view": 1,
+   "label": "Investment Value",
+   "non_negative": 1,
+   "options": "currency",
+   "reqd": 1
   },
   {
-   "fieldname": "exchanges_rate",
+   "fieldname": "exchange_rate",
    "fieldtype": "Float",
-   "label": "Exchanges Rate",
-   "precision": "5"
+   "label": "Exchange Rate",
+   "non_negative": 1,
+   "reqd": 1
   },
   {
-   "fieldname": "month",
-   "fieldtype": "Select",
-   "label": "Month",
-   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
-   "read_only": 1
+   "fieldname": "investment_inr",
+   "fieldtype": "Currency",
+   "label": "Investment (INR)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-25 14:43:14.248675",
+ "modified": "2026-02-19 13:20:46.420719",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Equity Entry",
@@ -153,5 +115,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }
