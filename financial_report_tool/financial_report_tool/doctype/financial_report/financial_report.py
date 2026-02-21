@@ -7698,8 +7698,9 @@ class FinancialReport(Document):
 
 			# Special case: Equity Share Capital → fixed INR investment value
 			if default_currency != self.currency and particular_type == "Equity Share Capital":
-				investment_value = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
-				current_month_amount = previous_month_amount = previous_year_amount = investment_value
+				_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
+				previous_month_amount = current_month_amount = round((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0)/100000, self.show_decimal_value)
+				previous_year_amount = round((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)")/100000 or 0), self.show_decimal_value)
 			else:
 				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
 				previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx) or 0
