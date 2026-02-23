@@ -29,8 +29,9 @@
   {
    "fieldname": "assets_id",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Assets Id",
-   "unique": 1
+   "reqd": 1
   },
   {
    "fieldname": "shift",
@@ -98,8 +99,10 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fetch_from": "company.abbr",
@@ -110,13 +113,15 @@
   {
    "fieldname": "subnumber",
    "fieldtype": "Int",
-   "label": "Subnumber"
+   "in_list_view": 1,
+   "label": "Subnumber",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-23 10:10:23.759122",
+ "modified": "2026-02-23 12:51:03.248608",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Assets Master",

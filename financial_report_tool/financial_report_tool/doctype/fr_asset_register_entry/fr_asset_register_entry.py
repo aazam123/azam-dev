@@ -8,6 +8,12 @@ import calendar
 
 class FRAssetRegisterEntry(Document):
 	def before_insert(self):
+		if not self.asset:
+			asset = frappe.get_doc("FR Assets Master", {"assets_id": self.asset_id, 'company': self.company, 'subnumber': self.subnumber})
+			if not asset:
+				frappe.throw(f"No Assets Master found for Asset ID {self.asset_id} in Company {self.company} with Subnumber {self.subnumber}")
+			else:
+				self.asset = asset.name
 		self.calculate_days_in_current_year()
 		self.set_starting_book_value()
 		self.calculation()

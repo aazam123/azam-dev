@@ -8,6 +8,7 @@
  "engine": "InnoDB",
  "field_order": [
   "asset_details_section",
+  "asset",
   "asset_id",
   "asset_name",
   "asset_class",
@@ -19,12 +20,13 @@
   "life_years",
   "life_days",
   "days_in_current_year",
+  "shift",
   "column_break_xvns",
   "posting_date",
   "company",
+  "abbr",
   "fiscal_year",
   "sales_date",
-  "shift",
   "section_break_uxnm",
   "column_break_zmlr",
   "balance_sheet_account_apc",
@@ -74,19 +76,18 @@
  "fields": [
   {
    "fieldname": "asset_id",
-   "fieldtype": "Link",
-   "label": "Asset ID",
-   "options": "FR Assets Master"
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Asset Id",
+   "reqd": 1
   },
   {
-   "fetch_from": "asset_id.asset_class",
    "fieldname": "asset_class",
    "fieldtype": "Data",
    "label": "Asset Class",
    "read_only": 1
   },
   {
-   "fetch_from": "asset_id.asset_name",
    "fieldname": "asset_name",
    "fieldtype": "Data",
    "label": "Asset Name",
@@ -106,7 +107,9 @@
   {
    "fieldname": "subnumber",
    "fieldtype": "Data",
-   "label": "Subnumber"
+   "in_list_view": 1,
+   "label": "Subnumber",
+   "reqd": 1
   },
   {
    "fieldname": "vendor",
@@ -278,13 +281,16 @@
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
    "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "asset_details_section",
@@ -322,7 +328,6 @@
    "read_only": 1
   },
   {
-   "fetch_from": "asset_id.assets_value",
    "fieldname": "asset_value",
    "fieldtype": "Float",
    "label": "Asset Value",
@@ -411,12 +416,24 @@
    "fieldtype": "Float",
    "label": "Depreciation",
    "read_only": 1
+  },
+  {
+   "fieldname": "asset",
+   "fieldtype": "Link",
+   "label": "Asset",
+   "options": "FR Assets Master"
+  },
+  {
+   "fetch_from": "company.abbr",
+   "fieldname": "abbr",
+   "fieldtype": "Data",
+   "label": "Abbr"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-31 09:46:19.058351",
+ "modified": "2026-02-23 12:46:26.569854",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",
@@ -437,7 +454,6 @@
   }
  ],
  "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
