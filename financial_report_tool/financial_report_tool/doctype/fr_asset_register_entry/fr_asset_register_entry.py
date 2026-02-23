@@ -82,7 +82,7 @@ class FRAssetRegisterEntry(Document):
 		fy_start = getdate(fy.year_start_date)
 		fy_end = getdate(fy.year_end_date)
 
-		# --- Basic Depreciation ---
+		# --- Basic self.depreciation ---
 		self.depreciation = round((self.asset_value * self.days_in_current_year) / self.life_days, 3)
 
 		# --- Shift-based Additional Depreciation ---

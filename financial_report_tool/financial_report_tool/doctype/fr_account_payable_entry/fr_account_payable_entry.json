@@ -100,7 +100,7 @@
    "fieldname": "nature",
    "fieldtype": "Select",
    "label": "Nature",
-   "options": "\nAdvance\nPayable\nPayment\nClearing Document\nInvoicing Document\nDeposit\nEmployee"
+   "options": "\nAdvance\nPayable\nPayment\nClearing Document\nInvoicing Document\nDeposit\nEmployee\nTransfer Entry\nAsset Posting"
   },
   {
    "fieldname": "ageing",
@@ -185,7 +185,7 @@
    "fieldname": "document_type",
    "fieldtype": "Select",
    "label": "Document Type",
-   "options": "\nAB\nEE\nKZ\nFP\nKR\nRE\nSA\nKG\nMB"
+   "options": "\nAB\nEE\nKZ\nFP\nKR\nRE\nSA\nKG\nMB\nMP\nAA\nUE\nB1"
   },
   {
    "fieldname": "msme_vendor",
@@ -347,7 +347,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-21 10:16:45.795861",
+ "modified": "2026-02-23 17:47:25.673066",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",

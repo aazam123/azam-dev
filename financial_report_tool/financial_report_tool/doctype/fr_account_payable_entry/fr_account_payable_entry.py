@@ -30,8 +30,14 @@ class FRAccountPayableEntry(Document):
 			self.set_employee_grouping()
 		elif self.document_type in ("KR", "RE", "MB"):
 			self.nature = "Invoicing Document"
-		elif self.document_type in ("KZ", "FP", "KG"):
+		elif self.document_type in ("KZ", "FP", "KG", "MP"):
 			self.nature = "Payment"
+		elif self.document_type == "AA":
+			self.nature = "Asset Posting"
+		elif self.document_type == "UE":
+			self.nature = "Transfer Entry"
+		elif self.document_type == "B1":
+			self.nature = "Deposit"
 		else:
 			self.nature = "Payable" if self.amount_in_lc < 0 else "Advance"
 

@@ -114,13 +114,13 @@
    "fieldname": "type",
    "fieldtype": "Select",
    "label": "Type",
-   "options": "\nInvestment\nCurrent Loan\nNon Current Loan\nInventory\nCurrent Financial Assets\nNon Current Financial Assets\nCash & Cash Equivalents\nOther Bank Balances\nTrade & Other Receivables\nNon Current Borrowing\nCurrent Borrowing\nCurrent Lease\nNon Current Lease\nCurrent Financial Liabilities\nNon Current Financial Liabilities\nTrade & Other Payables\nRevenue from Operations\nCost of Goods Sold\nChange In Inventory\nFinance Cost\nDepreciation & Amortisation Expenses\nOther Expense\nProfit Before Tax\nProfit for the year from continuing operations"
+   "options": "\nInvestment\nCurrent Loan\nNon Current Loan\nInventory\nCurrent Financial Assets\nNon Current Financial Assets\nCash & Cash Equivalents\nOther Bank Balances\nTrade & Other Receivables\nNon Current Borrowing\nCurrent Borrowing\nCurrent Lease\nNon Current Lease\nCurrent Financial Liabilities\nNon Current Financial Liabilities\nTrade & Other Payables\nRevenue from Operations\nCost of Goods Sold\nChange In Inventory\nFinance Cost\nDepreciation & Amortisation Expenses\nOther Expense\nProfit Before Tax\nProfit for the year from continuing operations\nForeign Exchange Difference"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-27 17:53:11.504533",
+ "modified": "2026-02-23 16:01:44.056943",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Particular",

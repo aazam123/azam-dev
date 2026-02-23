@@ -406,14 +406,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		doc._generate_report_internal()
-		# frappe.enqueue(
-		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-		# 	docname=doc.name,
-		# 	queue='long',                 
-		# 	job_name=f"Generate Financial Report - {doc.name}",
-		# 	timeout=600                   
-		# )
+		# doc._generate_report_internal()
+		frappe.enqueue(
+			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+			docname=doc.name,
+			queue='long',                 
+			job_name=f"Generate Financial Report - {doc.name}",
+			timeout=600                   
+		)
 
 		return {
 			"success": True,
@@ -6503,7 +6503,6 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_bs_particular_data(self, id, field):
-		import json
 		data = self.get('financial_report_details', {'section_type': "Balance Sheet"})
 		if not data:
 			return 0
@@ -6520,7 +6519,6 @@ class FinancialReport(Document):
 		return 0
 
 	def get_pl_particular_data(self, id, field):
-		import json
 		data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
 		if not data:
 			return 0
@@ -7151,10 +7149,11 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 		return json.dumps(data), html
 
-	def render_monthly_profit_and_loss(self, template_name):
+	def render_monthly_profit_and_loss(self, template_name, data=None):
 		"""Render monthly profit and loss with note-style UI"""
 		current_month_end, previous_month_end, previous_fiscal_year_end_label = self.get_monthly_dates()
-		data = self.get_monthly_profit_and_loss_data(template_name)
+		if data is None:
+			data = self.get_monthly_profit_and_loss_data(template_name)
 
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
@@ -7904,10 +7903,51 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
 
-	def get_surplus_in_foreign_exchange_reserves_for_fx_case(self, month, year):
-		"""Get surplus in foreign exchange reserves amount for given month and year"""
-		tot_asset = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Assets"}, 'name'), 'previous_year')
-		return 0
+	def update_forgein_exchange_reserves_in_other_equity_data(self, current_month, previous_month, previous_year):
+		data = self.get('financial_report_details',{'section_type': "Profit & Loss"})
+		if not data:
+			return []
+
+		account = frappe.get_value("FR Particular",{'template_type': "Profit & Loss", 'type': "Foreign Exchange Difference"},'particular_name')
+		table_data_str = data[0].table_data or "[]"
+
+		try:
+			table_data = json.loads(table_data_str)
+		except (json.JSONDecodeError, TypeError):
+			table_data = []
+
+		# ✅ INIT FLAG
+		found_account = False
+
+		# ✅ Cache is_total flags (NO DB calls in loop)
+		particular_ids = [row.get("id") for row in table_data if row.get("id")]
+		is_total_map = dict(
+			frappe.get_all(
+				"FR Particular",
+				filters={"name": ["in", particular_ids]},
+				fields=["name", "is_total"]
+			)
+		)
+
+		# 1️⃣ Update Foreign Exchange Difference row
+		for row in table_data:
+			if row.get("account") == account:
+				row["current_month_amount"] = current_month
+				row["previous_month_amount"] = previous_month
+				row["previous_year_amount"] = previous_year
+				row["ftm_amount"] = current_month - previous_month
+				found_account = True
+				break
+
+		if found_account:
+			for row in table_data:
+				if is_total_map.get(row.get("id")):
+					row["current_month_amount"] = (row.get("current_month_amount") or 0) + current_month
+					row["previous_month_amount"] = (row.get("previous_month_amount") or 0) + previous_month
+					row["previous_year_amount"] = (row.get("previous_year_amount") or 0) + previous_year
+					row["ftm_amount"] = (row["current_month_amount"] - row["previous_month_amount"]	)
+		data[0].table_data = json.dumps(table_data)
+		_, data[0].section_description = self.render_monthly_profit_and_loss(data[0].section, table_data)
 
 	def get_monthly_other_equity_note_data(self, section_description, total=False, field=None):
 		"""Generate monthly Other Equity note table (Retained Earnings & Capital Contribution)"""
@@ -7947,10 +7987,6 @@ class FinancialReport(Document):
 			sp_previous_year = -sp_previous_year if sp_previous_year < 0 else sp_previous_year
 			bal_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
 
-			add_sp_previous_year = 0
-			add_sp_current_mnt = 0
-			add_sp_previous_mnt = 0
-
 		# --- Retained Earnings ---
 		oci_previous_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
 		retained_tot_prev_year = round(bal_previous_year + net_previous_year + oci_previous_year, self.show_decimal_value)
@@ -7977,19 +8013,14 @@ class FinancialReport(Document):
 		cc_closing_current = round(cc_opening_current + cc_add_current, self.show_decimal_value)
 		cc_closing_previous = round(cc_opening_previous + cc_add_previous, self.show_decimal_value)
 
-		bal_sp_tot_prev_year = sp_previous_year + add_sp_previous_year
-		# --- Final Securities Premium balances ---
-		sp_current_mnt = bal_sp_tot_prev_year
-		sp_previous_mnt = bal_sp_tot_prev_year
-
-		bal_sp_tot_current = sp_current_mnt + add_sp_current_mnt
-		bal_sp_tot_prev = sp_previous_mnt + add_sp_previous_mnt
+		bal_sp_tot_current = sp_previous_year
+		bal_sp_tot_prev = sp_previous_year
 
 		# --- Surplus in Foreign Exchange Reserves ---
 		if default_currency != self.currency:
 			for_exc_previous_year = 0
-			curr_add_for_exc_res = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
-			prev_add_for_exc_res = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
+			curr_add_for_exc_res = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - sp_previous_year, self.show_decimal_value) or 0
+			prev_add_for_exc_res = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - sp_previous_year, self.show_decimal_value) or 0
 			add_for_exc_previous_year = round(prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year, self.show_decimal_value) or 0
 		else:
 			for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
@@ -8002,9 +8033,9 @@ class FinancialReport(Document):
 		prev_for_exc_res_tot = round(prev_year_for_exc_res_tot + prev_add_for_exc_res, self.show_decimal_value)
 
 		# --- Grand Totals ---
-		grand_total_current = round(retained_tot_current + cc_closing_current + bal_sp_tot_current + curr_for_exc_res_tot, self.show_decimal_value)
-		grand_total_previous = round(retained_tot_prev + cc_closing_previous + bal_sp_tot_prev + prev_for_exc_res_tot, self.show_decimal_value)
-		grand_total_prev_year = round(retained_tot_prev_year + cc_closing_previous_year + bal_sp_tot_prev_year + prev_year_for_exc_res_tot, self.show_decimal_value)
+		grand_total_current = round(retained_tot_current + cc_closing_current + sp_previous_year + curr_for_exc_res_tot, self.show_decimal_value)
+		grand_total_previous = round(retained_tot_prev + cc_closing_previous + sp_previous_year + prev_for_exc_res_tot, self.show_decimal_value)
+		grand_total_prev_year = round(retained_tot_prev_year + cc_closing_previous_year + sp_previous_year + prev_year_for_exc_res_tot, self.show_decimal_value)
 
 		# --- Return if only total requested ---
 		if total and field:
@@ -8017,9 +8048,9 @@ class FinancialReport(Document):
 
 		data = [
 			("Securities premium account", "", "", "", True),
-			("Balance as at the beginning of the year", sp_current_mnt, sp_previous_mnt, sp_previous_year, False),
-			("Addition: During the year on issue of equity shares", add_sp_current_mnt, add_sp_previous_mnt, add_sp_previous_year, False),
-			("Balance as at the end of the year", bal_sp_tot_current, bal_sp_tot_prev, bal_sp_tot_prev_year, True),
+			("Balance as at the beginning of the year", sp_previous_year, sp_previous_year, sp_previous_year, False),
+			("Addition: During the year on issue of equity shares", 0, 0, 0, False),
+			("Balance as at the end of the year", sp_previous_year, sp_previous_year, sp_previous_year, True),
 
 			("Surplus in Foreign Exchange Reserves", "", "", "", True),
 			("Balance as at the beginning of the year", prev_year_for_exc_res_tot, prev_year_for_exc_res_tot, for_exc_previous_year, False),
@@ -8039,7 +8070,7 @@ class FinancialReport(Document):
 			("Total", grand_total_current, grand_total_previous, grand_total_prev_year, True),
 		]
 
-		# --- HTML Output ---
+		self.update_forgein_exchange_reserves_in_other_equity_data(curr_add_for_exc_res, prev_add_for_exc_res, add_for_exc_previous_year)
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
