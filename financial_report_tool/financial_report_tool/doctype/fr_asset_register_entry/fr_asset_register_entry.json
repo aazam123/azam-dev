@@ -88,6 +88,7 @@
    "read_only": 1
   },
   {
+   "fetch_from": "asset.asset_name",
    "fieldname": "asset_name",
    "fieldtype": "Data",
    "label": "Asset Name",
@@ -143,9 +144,8 @@
   },
   {
    "fieldname": "cost_center",
-   "fieldtype": "Link",
-   "label": "Cost Center",
-   "options": "Cost Center"
+   "fieldtype": "Data",
+   "label": "Cost Center"
   },
   {
    "fieldname": "quantity",
@@ -328,6 +328,7 @@
    "read_only": 1
   },
   {
+   "fetch_from": "asset.assets_value",
    "fieldname": "asset_value",
    "fieldtype": "Float",
    "label": "Asset Value",
@@ -433,7 +434,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-23 12:46:26.569854",
+ "modified": "2026-02-23 15:11:42.256249",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",

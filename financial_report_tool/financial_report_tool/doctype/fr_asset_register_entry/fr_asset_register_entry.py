@@ -12,8 +12,12 @@ class FRAssetRegisterEntry(Document):
 			asset = frappe.get_doc("FR Assets Master", {"assets_id": self.asset_id, 'company': self.company, 'subnumber': self.subnumber})
 			if not asset:
 				frappe.throw(f"No Assets Master found for Asset ID {self.asset_id} in Company {self.company} with Subnumber {self.subnumber}")
-			else:
-				self.asset = asset.name
+			self.asset = asset.name
+			self.asset_value = asset.asset_value
+			self.ordinary_depreciation_start_date = asset.ordinary_depreciation_start_date
+			self.life_days = asset.life_days
+			self.shift = asset.shift
+		
 		self.calculate_days_in_current_year()
 		self.set_starting_book_value()
 		self.calculation()

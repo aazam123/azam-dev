@@ -7918,9 +7918,9 @@ class FinancialReport(Document):
 		net_current_mnt, net_previous_mnt, net_previous_year = self.get_monthly_profit_and_loss_data(p_and_l_template, fetch_for_other_equity=True)
 
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
-		sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
 		if default_currency != self.currency:
-			bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, "fiscal_year": pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
+			sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
+			bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
 
 			tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {'particular_type': 'Total Assets'}, 'name'))
 			curr_mnt_tot_asset = tot_asset['current_month_amount']
@@ -7943,7 +7943,7 @@ class FinancialReport(Document):
 			prev_yr_mnt_equity_share = equity_share['previous_year']
 
 		else:
-			sp_previous_year = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0 + sp_previous_year
+			sp_previous_year = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Share Premium", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
 			sp_previous_year = -sp_previous_year if sp_previous_year < 0 else sp_previous_year
 			bal_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, self.previous_fiscal_year, self.show_decimal_value), self.show_decimal_value) or 0
 
@@ -7977,12 +7977,6 @@ class FinancialReport(Document):
 		cc_closing_current = round(cc_opening_current + cc_add_current, self.show_decimal_value)
 		cc_closing_previous = round(cc_opening_previous + cc_add_previous, self.show_decimal_value)
 
-		# --- Adjust Securities Premium for FX case ---
-		if default_currency != self.currency:
-			add_sp_previous_year = round(prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year, self.show_decimal_value) or 0
-			add_sp_current_mnt = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
-			add_sp_previous_mnt = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
-
 		bal_sp_tot_prev_year = sp_previous_year + add_sp_previous_year
 		# --- Final Securities Premium balances ---
 		sp_current_mnt = bal_sp_tot_prev_year
@@ -7993,17 +7987,17 @@ class FinancialReport(Document):
 
 		# --- Surplus in Foreign Exchange Reserves ---
 		if default_currency != self.currency:
-			prev_year_for_exc_res_tot = self.get_surplus_in_foreign_exchange_reserves_for_fx_case(cls_month, self.previous_fiscal_year) or 0
 			for_exc_previous_year = 0
-			add_for_exc_previous_year = 0
+			curr_add_for_exc_res = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
+			prev_add_for_exc_res = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - (sp_previous_year + add_sp_previous_year), self.show_decimal_value) or 0
+			add_for_exc_previous_year = round(prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year, self.show_decimal_value) or 0
 		else:
 			for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
 			add_for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
-			prev_year_for_exc_res_tot = round(for_exc_previous_year + add_for_exc_previous_year, self.show_decimal_value)
+			curr_add_for_exc_res = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
+			prev_add_for_exc_res = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
 
-		curr_add_for_exc_res = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
-		prev_add_for_exc_res = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
-
+		prev_year_for_exc_res_tot = round(for_exc_previous_year + add_for_exc_previous_year, self.show_decimal_value)
 		curr_for_exc_res_tot = round(prev_year_for_exc_res_tot + curr_add_for_exc_res, self.show_decimal_value)
 		prev_for_exc_res_tot = round(prev_year_for_exc_res_tot + prev_add_for_exc_res, self.show_decimal_value)
 
