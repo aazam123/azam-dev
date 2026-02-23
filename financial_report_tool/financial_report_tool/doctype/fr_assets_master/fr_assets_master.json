@@ -2,7 +2,7 @@
  "actions": [],
  "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:{assets_id}-{abbr}",
+ "autoname": "format:{assets_id}-{abbr}-{subnumber}",
  "creation": "2025-11-05 11:54:07.422375",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -21,6 +21,7 @@
   "column_break_rmye",
   "company",
   "abbr",
+  "subnumber",
   "section_break_wvmx",
   "description"
  ],
@@ -105,12 +106,17 @@
    "fieldname": "abbr",
    "fieldtype": "Data",
    "label": "Abbr"
+  },
+  {
+   "fieldname": "subnumber",
+   "fieldtype": "Int",
+   "label": "Subnumber"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-21 10:15:10.107246",
+ "modified": "2026-02-23 10:10:23.759122",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Assets Master",
