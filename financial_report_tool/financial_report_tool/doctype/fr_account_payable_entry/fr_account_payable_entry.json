@@ -31,12 +31,13 @@
   "section_break_rklm",
   "ap",
   "nature",
+  "domesticimport",
   "grouping",
-  "company_group",
   "column_break_cxvr",
   "special_gl_ind",
   "ageing",
   "closing_exchange_rate",
+  "company_group",
   "column_break_idfv",
   "report_type",
   "restated_value",
@@ -89,7 +90,7 @@
    "fieldname": "special_gl_ind",
    "fieldtype": "Select",
    "label": "Special G/L Ind",
-   "options": "\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nS"
+   "options": "\nA\nB\nC\nD\nE\nF\nG\nH\nI\nJ\nK\nS\nL\n1"
   },
   {
    "fieldname": "assignment",
@@ -342,12 +343,18 @@
    "fieldtype": "Data",
    "label": "Account No.",
    "reqd": 1
+  },
+  {
+   "fieldname": "domesticimport",
+   "fieldtype": "Select",
+   "label": "Domestic/Import",
+   "options": "\nDomestic\nImport"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-23 17:47:25.673066",
+ "modified": "2026-02-24 10:56:51.145132",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",
