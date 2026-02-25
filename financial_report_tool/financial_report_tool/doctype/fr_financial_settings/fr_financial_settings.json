@@ -11,17 +11,12 @@
   "sap_threshold_amount",
   "column_break_ibet",
   "erp_type",
+  "column_break_ectp",
+  "print_format",
   "set_previous_fiscal_year_section",
   "previous_fiscal_year",
   "schedule_settings_tab",
   "trade_payables_turnover_ratio_grouping",
-  "account_payable_tab",
-  "vendor_series_section",
-  "vendor_series_for_nature",
-  "purchase_order_series_section",
-  "purchase_order_series_for_grouping",
-  "special_gl_indicator_grouping",
-  "gl_account_for_grouping",
   "sap_tab",
   "api_end_point",
   "timeout",
@@ -53,39 +48,6 @@
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
   },
   {
-   "fieldname": "account_payable_tab",
-   "fieldtype": "Tab Break",
-   "label": "Account Payable"
-  },
-  {
-   "fieldname": "vendor_series_section",
-   "fieldtype": "Section Break",
-   "label": "Nature"
-  },
-  {
-   "fieldname": "vendor_series_for_nature",
-   "fieldtype": "Table",
-   "label": "Vendor Series For Nature",
-   "options": "Vendor Series For Nature"
-  },
-  {
-   "fieldname": "purchase_order_series_section",
-   "fieldtype": "Section Break",
-   "label": "Grouping"
-  },
-  {
-   "fieldname": "purchase_order_series_for_grouping",
-   "fieldtype": "Table",
-   "label": "Purchase Order Series For Grouping",
-   "options": "Purchase Order Series For Grouping"
-  },
-  {
-   "fieldname": "special_gl_indicator_grouping",
-   "fieldtype": "Table",
-   "label": "Special GL Indicator Grouping",
-   "options": "Special GL Indicator Grouping"
-  },
-  {
    "fieldname": "column_break_hwwa",
    "fieldtype": "Column Break"
   },
@@ -97,12 +59,6 @@
   {
    "fieldname": "column_break_ibet",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "gl_account_for_grouping",
-   "fieldtype": "Table",
-   "label": "GL Account For Grouping",
-   "options": "GL Account For Grouping"
   },
   {
    "fieldname": "user_name",
@@ -152,13 +108,25 @@
    "label": "ERP Type",
    "options": "\nSAP\nERPNext",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ectp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "print_format",
+   "fieldtype": "Link",
+   "label": "Print Format",
+   "link_filters": "[[\"Print Format\",\"doc_type\",\"=\",\"Financial Report\"]]",
+   "options": "Print Format",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-01-16 10:23:53.250212",
+ "modified": "2026-02-25 14:31:09.446204",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",

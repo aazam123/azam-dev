@@ -7062,9 +7062,10 @@ class FinancialReport(Document):
 
 		return data
 
-	def render_monthly_balance_sheet(self, template_name):
+	def render_monthly_balance_sheet(self, template_name, data=None):
 		"""Render monthly balance sheet with note-style UI"""
-		data = self.get_monthly_balance_sheet_data(template_name)
+		if not data:
+			data = self.get_monthly_balance_sheet_data(template_name)
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		html = f"""
@@ -7481,6 +7482,34 @@ class FinancialReport(Document):
 							"""
 							params = [self.company, year, month] + gl_accounts
 							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+						
+			elif fr_particular.type == "Deferred Tax" and default_currency != self.currency:
+				cls_month, prev_year = self.get_previous_year_cls_month(year)
+				gl_accounts = []
+				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
+					gl_accounts.extend(
+						frappe.get_list("GL Group Mapping", {
+							"company": self.company,
+							"report_type": self.report_type,
+							"primary_group": g.primary_group,
+							"secondary_group": g.secondary_group
+						}, pluck='gl_account')
+					)
+				if gl_accounts:
+					placeholders = ','.join(['%s'] * len(gl_accounts))
+					query = f"""
+							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
+						"""
+					curr_params = [self.company, year, month] + gl_accounts
+					cur_amount = (frappe.db.sql(query, curr_params)[0][0] or 0)
+
+					prev_params = [self.company, prev_year, cls_month] + gl_accounts
+					prev_amount = (frappe.db.sql(query, prev_params)[0][0] or 0)
+
+					amount = ((cur_amount - prev_amount) / 100000) * fx_rate
+				else:
+					amount = 0
 			else:
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
@@ -7512,7 +7541,7 @@ class FinancialReport(Document):
 			if fr_particular.show_reversed_value:
 				amount = -amount
 
-			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule:
+			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and fr_particular.type == "Deferred Tax":
 				amount *= fx_rate
 
 			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
@@ -7672,7 +7701,6 @@ class FinancialReport(Document):
 					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
 						gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type, "primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
 					amount = get_grouped_gl_amount(gl_accounts, year, month)
-
 			else:
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
@@ -7708,7 +7736,7 @@ class FinancialReport(Document):
 			# Special case: Equity Share Capital → fixed INR investment value
 			if default_currency != self.currency and particular_type == "Equity Share Capital":
 				_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
-				previous_month_amount = current_month_amount = round((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0)/100000, self.show_decimal_value)
+				previous_month_amount = current_month_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0))/100000, self.show_decimal_value)
 				previous_year_amount = round((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)")/100000 or 0), self.show_decimal_value)
 			else:
 				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
@@ -7949,6 +7977,42 @@ class FinancialReport(Document):
 		data[0].table_data = json.dumps(table_data)
 		_, data[0].section_description = self.render_monthly_profit_and_loss(data[0].section, table_data)
 
+	def update_other_equity(self, current_month, previous_month, previous_year):
+		bs_data = self.get('financial_report_details',{'section_type': "Balance Sheet"})
+		other_equity_account = frappe.get_value("FR Particular",{'template_type': "Balance Sheet", 'particular_type': "Other Equity"},'name')
+		equity_share_cap_account = frappe.get_value("FR Particular",{'template_type': "Balance Sheet", 'particular_type': "Equity Share Capital"},'name')
+		total_equity_account = frappe.get_value("FR Particular",{'template_type': "Balance Sheet", 'particular_type': "Total Equity"},'name')
+		tot_cur_liab = frappe.get_value("FR Particular",{'template_type': "Balance Sheet", 'particular_type': "Total Current Liabilities"},'name')
+		tot_non_cur_liab = frappe.get_value("FR Particular",{'template_type': "Balance Sheet", 'particular_type': "Total Non Current Liabilities"},'name')
+		tot_liab = frappe.get_value("FR Particular",{'template_type': "Balance Sheet", 'particular_type': "Total Liabilities"},'name')
+		bs_table_data_str = bs_data[0].table_data if bs_data else "[]"
+		try:
+			bs_table_data = json.loads(bs_table_data_str)
+		except (json.JSONDecodeError, TypeError):
+			bs_table_data = []
+		
+		for row in bs_table_data:
+			if row.get("id") == equity_share_cap_account:
+				equity_share_cap_current = row.get("current_month_amount") or 0
+				equity_share_cap_previous_year = row.get("previous_year_amount") or 0
+			elif row.get("id") == other_equity_account:
+				row["current_month_amount"] = current_month
+				row["previous_year_amount"] = previous_year
+			elif row.get("id") == total_equity_account:
+				row["current_month_amount"] = round(equity_share_cap_current + current_month, self.show_decimal_value)
+				row["previous_year_amount"] = round(equity_share_cap_previous_year + previous_year, self.show_decimal_value)
+			elif row.get("id") == tot_cur_liab:
+				tot_cur_liab_current = row.get("current_month_amount") or 0
+				tot_cur_liab_previous_year = row.get("previous_year_amount") or 0
+			elif row.get("id") == tot_non_cur_liab:
+				tot_non_cur_liab_current = row.get("current_month_amount") or 0
+				tot_non_cur_liab_previous_year = row.get("previous_year_amount") or 0
+			elif row.get("id") == tot_liab:
+				row["current_month_amount"] = round(tot_cur_liab_current + tot_non_cur_liab_current + equity_share_cap_current + current_month, self.show_decimal_value)
+				row["previous_year_amount"] = round(tot_cur_liab_previous_year + tot_non_cur_liab_previous_year + equity_share_cap_previous_year + previous_year, self.show_decimal_value)
+		bs_data[0].table_data = json.dumps(bs_table_data)
+		_, bs_data[0].section_description = self.render_monthly_balance_sheet(bs_data[0].section, bs_table_data)
+	
 	def get_monthly_other_equity_note_data(self, section_description, total=False, field=None):
 		"""Generate monthly Other Equity note table (Retained Earnings & Capital Contribution)"""
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
@@ -8071,6 +8135,7 @@ class FinancialReport(Document):
 		]
 
 		self.update_forgein_exchange_reserves_in_other_equity_data(curr_add_for_exc_res, prev_add_for_exc_res, add_for_exc_previous_year)
+		self.update_other_equity(grand_total_current, grand_total_previous, grand_total_prev_year)
 		html = f'''
 		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
