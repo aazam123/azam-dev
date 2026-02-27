@@ -8084,6 +8084,8 @@ class FinancialReport(Document):
 			prev_add_for_exc_res = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
 
 		prev_year_for_exc_res_tot = round(for_exc_previous_year + add_for_exc_previous_year, self.show_decimal_value)
+		curr_add_for_exc_res = curr_add_for_exc_res - prev_year_for_exc_res_tot
+		prev_add_for_exc_res = prev_add_for_exc_res - prev_year_for_exc_res_tot
 		curr_for_exc_res_tot = round(prev_year_for_exc_res_tot + curr_add_for_exc_res, self.show_decimal_value)
 		prev_for_exc_res_tot = round(prev_year_for_exc_res_tot + prev_add_for_exc_res, self.show_decimal_value)
 
