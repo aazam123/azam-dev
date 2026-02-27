@@ -19,6 +19,9 @@ class FRAssetRegisterEntry(Document):
 			self.life_days = asset.life_days
 			self.shift = asset.shift
 			self.assets_end_date = asset.end_date
+
+		if not self.life_days and self.depreciation_key != "Z000":
+			frappe.throw("Life Days cannot be zero unless Depreciation Key is Z000.")
 		
 		self.calculate_days_in_current_year()
 		self.set_starting_book_value()
@@ -74,8 +77,17 @@ class FRAssetRegisterEntry(Document):
 
 	# 3️⃣ Main depreciation calculation logic
 	def calculation(self):
-		if self.life_days == 0:
-			frappe.throw("Life Days cannot be zero while calculating depreciation.")
+		print(self.life_days)
+		if not self.life_days or self.life_days == 0:
+			self.depreciation = 0
+			self.additional = 0
+			self.total_depreciation = 0
+			self.open_accumulated_depreciation = 0
+			self.planned_depreciation = 0
+			self.close_gross_block = (self.open_gross_block or 0) + (self.transaction_acquisition_value or 0)
+			self.close_accumulated_depreciation = 0
+			self.ending_book_value = self.close_gross_block
+			return
 
 		# Get fiscal year range
 		fy = frappe.get_doc("Fiscal Year", self.fiscal_year)
