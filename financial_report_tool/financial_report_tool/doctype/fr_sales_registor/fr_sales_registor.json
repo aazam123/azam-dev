@@ -1,0 +1,809 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "Sales-.#####",
+ "creation": "2026-02-25 20:52:45.313132",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "plant",
+  "plant_region",
+  "sosto",
+  "billing_type",
+  "billing_document",
+  "month",
+  "party_type",
+  "column_break_qapo",
+  "gst_no",
+  "company_code",
+  "sales_organization",
+  "sosto_type",
+  "sosto_date",
+  "bill_type_description",
+  "billing_date",
+  "fiscal_year",
+  "section_break_oury",
+  "accounting_document_excise",
+  "excise_invoice",
+  "bill_to",
+  "bill_to_city",
+  "bill_to_gstn_no",
+  "ship_to_name",
+  "ship_to_region",
+  "ship_to_gstn_no",
+  "column_break_hfeb",
+  "account_document",
+  "excise_document_date",
+  "bill_to_name",
+  "bill_to_country",
+  "ship_to_party",
+  "ship_to_city",
+  "ship_to_country",
+  "nature",
+  "section_break_vftw",
+  "division",
+  "item",
+  "material_group",
+  "material_type",
+  "hsnsac_code",
+  "description",
+  "column_break_eltk",
+  "division_text",
+  "batch",
+  "material_group_description",
+  "material_type_description",
+  "material",
+  "section_break_hmtd",
+  "sales_unit",
+  "exchange_rate_account",
+  "rate",
+  "discount",
+  "net_amount",
+  "taxable_amount",
+  "igst",
+  "cgst",
+  "sgst",
+  "ugst",
+  "luxury_cess",
+  "gross_amount",
+  "column_break_kcgg",
+  "billed_qty",
+  "document_currency",
+  "base_amount",
+  "volume_discount",
+  "freight",
+  "igst_percentage",
+  "cgst_percentage",
+  "sgst_percentage",
+  "ugst_percentage",
+  "cess",
+  "roundoff",
+  "section_break_ipah",
+  "tax_code",
+  "column_break_bkkc",
+  "tax_description",
+  "section_break_reconciliation",
+  "export_type",
+  "custom_bed",
+  "invoice_value",
+  "tax_amount",
+  "aag_material",
+  "document_status",
+  "delivery_date",
+  "reference_invoice_no",
+  "days_count",
+  "cancelled",
+  "revenue_gl",
+  "tax_gl",
+  "ph_level_02_description",
+  "ph_level_04_description",
+  "column_break_thoe",
+  "custom_base_amount",
+  "revenue",
+  "invoice_value_in_lc",
+  "aag_customer",
+  "fi_status",
+  "delivery",
+  "so_reference",
+  "ref_invoice_date",
+  "returns",
+  "customer_type",
+  "revenue_gl_description",
+  "ph_level_01_description",
+  "ph_level_03_description",
+  "section_break_ulbb",
+  "cost",
+  "gstr1",
+  "document_month",
+  "gstr3b_month",
+  "sb_date",
+  "egm_no",
+  "tax_rate",
+  "transaction_type_as_per_gstr1",
+  "total_tax",
+  "e_invoice_status",
+  "remarks_reconciliation",
+  "column_break_arwl",
+  "gstr1_sap",
+  "segment",
+  "gstr1_month",
+  "sb_no",
+  "port_code",
+  "egm_date",
+  "sales_type",
+  "taxable_amount_as_per_gstr1",
+  "invoice_value_gstr",
+  "e_way_bill_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "gst_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "GST No.",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company_code",
+   "fieldtype": "Data",
+   "label": "Company Code"
+  },
+  {
+   "fieldname": "plant",
+   "fieldtype": "Data",
+   "label": "Plant"
+  },
+  {
+   "fieldname": "plant_region",
+   "fieldtype": "Data",
+   "label": "Plant Region"
+  },
+  {
+   "fieldname": "sosto_type",
+   "fieldtype": "Data",
+   "label": "SO/STO Type"
+  },
+  {
+   "fieldname": "sosto",
+   "fieldtype": "Data",
+   "label": "SO/STO"
+  },
+  {
+   "fieldname": "billing_type",
+   "fieldtype": "Data",
+   "label": "Billing Type"
+  },
+  {
+   "fieldname": "bill_type_description",
+   "fieldtype": "Data",
+   "label": "Bill Type Description"
+  },
+  {
+   "fieldname": "billing_document",
+   "fieldtype": "Data",
+   "label": "Billing Document"
+  },
+  {
+   "fieldname": "billing_date",
+   "fieldtype": "Date",
+   "label": "Billing Date"
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Select",
+   "label": "Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fieldname": "account_document",
+   "fieldtype": "Data",
+   "label": "Account Document"
+  },
+  {
+   "fieldname": "sales_organization",
+   "fieldtype": "Data",
+   "label": "Sales Organization"
+  },
+  {
+   "fieldname": "sosto_date",
+   "fieldtype": "Date",
+   "label": "SO/STO Date"
+  },
+  {
+   "fieldname": "column_break_qapo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "accounting_document_excise",
+   "fieldtype": "Data",
+   "label": "Accounting Document Excise"
+  },
+  {
+   "fieldname": "excise_invoice",
+   "fieldtype": "Data",
+   "label": "Excise Invoice"
+  },
+  {
+   "fieldname": "excise_document_date",
+   "fieldtype": "Date",
+   "label": "Excise Document Date"
+  },
+  {
+   "fieldname": "bill_to",
+   "fieldtype": "Data",
+   "label": "Bill To"
+  },
+  {
+   "fieldname": "bill_to_name",
+   "fieldtype": "Data",
+   "label": "Bill To Name"
+  },
+  {
+   "fieldname": "bill_to_city",
+   "fieldtype": "Data",
+   "label": "Bill To City"
+  },
+  {
+   "fieldname": "bill_to_country",
+   "fieldtype": "Data",
+   "label": "Bill To Country"
+  },
+  {
+   "fieldname": "bill_to_gstn_no",
+   "fieldtype": "Data",
+   "label": "Bill To GSTN No."
+  },
+  {
+   "fieldname": "ship_to_party",
+   "fieldtype": "Data",
+   "label": "Ship To Party"
+  },
+  {
+   "fieldname": "ship_to_name",
+   "fieldtype": "Data",
+   "label": "Ship To Name"
+  },
+  {
+   "fieldname": "ship_to_city",
+   "fieldtype": "Data",
+   "label": "Ship To City"
+  },
+  {
+   "fieldname": "ship_to_region",
+   "fieldtype": "Data",
+   "label": "Ship To Region"
+  },
+  {
+   "fieldname": "section_break_oury",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_hfeb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ship_to_country",
+   "fieldtype": "Data",
+   "label": "Ship To Country"
+  },
+  {
+   "fieldname": "ship_to_gstn_no",
+   "fieldtype": "Data",
+   "label": "Ship To GSTN No"
+  },
+  {
+   "fieldname": "section_break_vftw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "division",
+   "fieldtype": "Data",
+   "label": "Division"
+  },
+  {
+   "fieldname": "column_break_eltk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "division_text",
+   "fieldtype": "Data",
+   "label": "Division Text"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Data",
+   "label": "Item"
+  },
+  {
+   "fieldname": "batch",
+   "fieldtype": "Data",
+   "label": "Batch"
+  },
+  {
+   "fieldname": "material_group",
+   "fieldtype": "Data",
+   "label": "Material Group"
+  },
+  {
+   "fieldname": "material_group_description",
+   "fieldtype": "Data",
+   "label": "Material Group Description"
+  },
+  {
+   "fieldname": "material_type",
+   "fieldtype": "Data",
+   "label": "Material Type"
+  },
+  {
+   "fieldname": "material_type_description",
+   "fieldtype": "Data",
+   "label": "Material Type Description"
+  },
+  {
+   "fieldname": "hsnsac_code",
+   "fieldtype": "Data",
+   "label": "HSN/SAC Code"
+  },
+  {
+   "fieldname": "material",
+   "fieldtype": "Data",
+   "label": "Material"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "section_break_hmtd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sales_unit",
+   "fieldtype": "Data",
+   "label": "Sales Unit"
+  },
+  {
+   "fieldname": "column_break_kcgg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "billed_qty",
+   "fieldtype": "Data",
+   "label": "Billed Qty"
+  },
+  {
+   "fieldname": "exchange_rate_account",
+   "fieldtype": "Float",
+   "label": "Exchange Rate Account"
+  },
+  {
+   "fieldname": "document_currency",
+   "fieldtype": "Data",
+   "label": "Document Currency"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Float",
+   "label": "Rate"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Float",
+   "label": "Base Amount"
+  },
+  {
+   "fieldname": "discount",
+   "fieldtype": "Float",
+   "label": "Discount"
+  },
+  {
+   "fieldname": "volume_discount",
+   "fieldtype": "Float",
+   "label": "Volume Discount"
+  },
+  {
+   "fieldname": "net_amount",
+   "fieldtype": "Float",
+   "label": "Net Amount"
+  },
+  {
+   "fieldname": "freight",
+   "fieldtype": "Float",
+   "label": "Freight"
+  },
+  {
+   "fieldname": "taxable_amount",
+   "fieldtype": "Float",
+   "label": "Taxable Amount"
+  },
+  {
+   "fieldname": "igst",
+   "fieldtype": "Float",
+   "label": "IGST"
+  },
+  {
+   "fieldname": "igst_percentage",
+   "fieldtype": "Float",
+   "label": "IGST%"
+  },
+  {
+   "fieldname": "cgst_percentage",
+   "fieldtype": "Float",
+   "label": "CGST%"
+  },
+  {
+   "fieldname": "cgst",
+   "fieldtype": "Float",
+   "label": "CGST"
+  },
+  {
+   "fieldname": "sgst_percentage",
+   "fieldtype": "Float",
+   "label": "SGST%"
+  },
+  {
+   "fieldname": "sgst",
+   "fieldtype": "Float",
+   "label": "SGST"
+  },
+  {
+   "fieldname": "ugst",
+   "fieldtype": "Float",
+   "label": "UGST"
+  },
+  {
+   "fieldname": "ugst_percentage",
+   "fieldtype": "Float",
+   "label": "UGST%"
+  },
+  {
+   "fieldname": "cess",
+   "fieldtype": "Float",
+   "label": "Cess"
+  },
+  {
+   "fieldname": "luxury_cess",
+   "fieldtype": "Float",
+   "label": "Luxury Cess"
+  },
+  {
+   "fieldname": "roundoff",
+   "fieldtype": "Float",
+   "label": "RoundOff"
+  },
+  {
+   "fieldname": "gross_amount",
+   "fieldtype": "Float",
+   "label": "Gross Amount"
+  },
+  {
+   "fieldname": "section_break_ipah",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "tax_code",
+   "fieldtype": "Data",
+   "label": "Tax Code"
+  },
+  {
+   "fieldname": "tax_description",
+   "fieldtype": "Long Text",
+   "label": "Tax Description"
+  },
+  {
+   "fieldname": "section_break_reconciliation",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "export_type",
+   "fieldtype": "Data",
+   "label": "Export Type"
+  },
+  {
+   "fieldname": "custom_base_amount",
+   "fieldtype": "Float",
+   "label": "Custom Base Amount"
+  },
+  {
+   "fieldname": "custom_bed",
+   "fieldtype": "Float",
+   "label": "Custom BED"
+  },
+  {
+   "fieldname": "revenue",
+   "fieldtype": "Float",
+   "label": "Revenue"
+  },
+  {
+   "fieldname": "invoice_value_in_lc",
+   "fieldtype": "Float",
+   "label": "Invoice Value in LC"
+  },
+  {
+   "fieldname": "tax_amount",
+   "fieldtype": "Float",
+   "label": "Tax Amount"
+  },
+  {
+   "fieldname": "aag_customer",
+   "fieldtype": "Data",
+   "label": "AAG Customer"
+  },
+  {
+   "fieldname": "aag_material",
+   "fieldtype": "Data",
+   "label": "AAG Material"
+  },
+  {
+   "fieldname": "fi_status",
+   "fieldtype": "Data",
+   "label": "FI Status"
+  },
+  {
+   "fieldname": "delivery",
+   "fieldtype": "Data",
+   "label": "Delivery"
+  },
+  {
+   "fieldname": "ref_invoice_date",
+   "fieldtype": "Date",
+   "label": "Ref Invoice Date"
+  },
+  {
+   "fieldname": "days_count",
+   "fieldtype": "Data",
+   "label": "Days Count"
+  },
+  {
+   "fieldname": "returns",
+   "fieldtype": "Data",
+   "label": "Returns"
+  },
+  {
+   "fieldname": "cancelled",
+   "fieldtype": "Data",
+   "label": "Cancelled"
+  },
+  {
+   "fieldname": "customer_type",
+   "fieldtype": "Data",
+   "label": "Customer Type"
+  },
+  {
+   "fieldname": "revenue_gl_description",
+   "fieldtype": "Data",
+   "label": "Revenue G/L Description"
+  },
+  {
+   "fieldname": "tax_gl",
+   "fieldtype": "Data",
+   "label": "Tax G/L"
+  },
+  {
+   "fieldname": "cost",
+   "fieldtype": "Float",
+   "label": "Cost"
+  },
+  {
+   "fieldname": "gstr1_sap",
+   "fieldtype": "Data",
+   "label": "GSTR1 - SAP"
+  },
+  {
+   "fieldname": "gstr1",
+   "fieldtype": "Data",
+   "label": "GSTR1"
+  },
+  {
+   "fieldname": "segment",
+   "fieldtype": "Data",
+   "label": "Segment"
+  },
+  {
+   "fieldname": "gstr1_month",
+   "fieldtype": "Data",
+   "label": "GSTR1 Month"
+  },
+  {
+   "fieldname": "gstr3b_month",
+   "fieldtype": "Data",
+   "label": "GSTR3B Month"
+  },
+  {
+   "fieldname": "sb_no",
+   "fieldtype": "Data",
+   "label": "SB No"
+  },
+  {
+   "fieldname": "sb_date",
+   "fieldtype": "Date",
+   "label": "SB Date"
+  },
+  {
+   "fieldname": "port_code",
+   "fieldtype": "Data",
+   "label": "Port Code"
+  },
+  {
+   "fieldname": "egm_no",
+   "fieldtype": "Data",
+   "label": "EGM No"
+  },
+  {
+   "fieldname": "egm_date",
+   "fieldtype": "Date",
+   "label": "EGM Date"
+  },
+  {
+   "fieldname": "tax_rate",
+   "fieldtype": "Float",
+   "label": "Tax Rate"
+  },
+  {
+   "fieldname": "sales_type",
+   "fieldtype": "Data",
+   "label": "Sales Type"
+  },
+  {
+   "fieldname": "transaction_type_as_per_gstr1",
+   "fieldtype": "Data",
+   "label": "Transaction Type As Per GSTR1"
+  },
+  {
+   "fieldname": "total_tax",
+   "fieldtype": "Float",
+   "label": "Total Tax"
+  },
+  {
+   "fieldname": "invoice_value_gstr",
+   "fieldtype": "Float",
+   "label": "Invoice Value"
+  },
+  {
+   "fieldname": "e_way_bill_status",
+   "fieldtype": "Data",
+   "label": "E-Way Bill Status"
+  },
+  {
+   "fieldname": "remarks_reconciliation",
+   "fieldtype": "Long Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "column_break_bkkc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "invoice_value",
+   "fieldtype": "Float",
+   "label": "Invoice Value"
+  },
+  {
+   "fieldname": "column_break_thoe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "document_status",
+   "fieldtype": "Data",
+   "label": "Document Status"
+  },
+  {
+   "fieldname": "delivery_date",
+   "fieldtype": "Date",
+   "label": "Delivery Date"
+  },
+  {
+   "fieldname": "so_reference",
+   "fieldtype": "Data",
+   "label": "SO Reference"
+  },
+  {
+   "fieldname": "reference_invoice_no",
+   "fieldtype": "Data",
+   "label": "Reference Invoice No"
+  },
+  {
+   "fieldname": "revenue_gl",
+   "fieldtype": "Data",
+   "label": "Revenue G/L"
+  },
+  {
+   "fieldname": "ph_level_01_description",
+   "fieldtype": "Data",
+   "label": "PH Level 01 - Description"
+  },
+  {
+   "fieldname": "ph_level_02_description",
+   "fieldtype": "Data",
+   "label": "PH Level 02 - Description"
+  },
+  {
+   "fieldname": "ph_level_03_description",
+   "fieldtype": "Data",
+   "label": "PH Level 03 - Description"
+  },
+  {
+   "fieldname": "ph_level_04_description",
+   "fieldtype": "Data",
+   "label": "PH Level 04 - Description"
+  },
+  {
+   "fieldname": "section_break_ulbb",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_arwl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "document_month",
+   "fieldtype": "Data",
+   "label": "Document Month"
+  },
+  {
+   "fieldname": "taxable_amount_as_per_gstr1",
+   "fieldtype": "Float",
+   "label": "Taxable Amount As per GSTR1"
+  },
+  {
+   "fieldname": "e_invoice_status",
+   "fieldtype": "Data",
+   "label": "E Invoice Status"
+  },
+  {
+   "fieldname": "nature",
+   "fieldtype": "Select",
+   "label": "Nature",
+   "options": "\nDomestic\nForeign"
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Select",
+   "label": "Party Type",
+   "options": "\nRelated Party\nUnrealted Party\nBranch Transfer"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-27 11:56:47.109102",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Sales Registor",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

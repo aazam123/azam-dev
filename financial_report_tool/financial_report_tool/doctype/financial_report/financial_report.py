@@ -406,14 +406,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -7455,6 +7455,7 @@ class FinancialReport(Document):
 								face_amount = face_amount if face_amount > 0 else 0 
 							if (group_type == "Other Income" and face_amount < 0) or (group_type == "Other Expense" and face_amount > 0) or (group_type not in ("Other Income", "Other Expense") and face_amount != 0):
 								amount += face_amount
+					amount = amount * fx_rate
 				else:
 					gl_accounts = []
 					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
@@ -7474,14 +7475,14 @@ class FinancialReport(Document):
 							if start_date:
 								query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 								params = [self.company, start_date, end_date] + gl_accounts
-								amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+								amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
 						else:
 							query = f"""
 								SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 								WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 							"""
 							params = [self.company, year, month] + gl_accounts
-							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
 						
 			elif fr_particular.type == "Deferred Tax" and default_currency != self.currency:
 				cls_month, prev_year = self.get_previous_year_cls_month(year)
@@ -7506,7 +7507,6 @@ class FinancialReport(Document):
 
 					prev_params = [self.company, prev_year, cls_month] + gl_accounts
 					prev_amount = (frappe.db.sql(query, prev_params)[0][0] or 0)
-
 					amount = ((cur_amount - prev_amount) / 100000) * fx_rate
 				else:
 					amount = 0
@@ -7529,20 +7529,17 @@ class FinancialReport(Document):
 						if start_date:
 							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 							params = [self.company, start_date, end_date] + gl_accounts
-							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
 					else:
 						query = f"""
 							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 						"""
 						params = [self.company, year, month] + gl_accounts
-						amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+						amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
 
 			if fr_particular.show_reversed_value:
 				amount = -amount
-
-			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and fr_particular.type == "Deferred Tax":
-				amount *= fx_rate
 
 			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
 			return amount_cache[cache_key]
@@ -7560,14 +7557,14 @@ class FinancialReport(Document):
 			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx)
 			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx)
 			previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
-
-			ftm_amount = round(current_month_amount - previous_month_amount, self.show_decimal_value)
+			ftm_amount = round((current_month_amount - previous_month_amount), self.show_decimal_value)
 
 			fr_particular = get_fr_particular(row.account)
 			schedule = getattr(fr_particular, "schedule", "")
 			note_no = self.get_note_number_for_schedule(schedule) if schedule else ""
 
 			grouped_data.append({
+				"id": row.account,
 				"account": row.particular_name,
 				"note_no": note_no or "",
 				"current_month_amount": current_month_amount,
@@ -7936,7 +7933,7 @@ class FinancialReport(Document):
 		if not data:
 			return []
 
-		account = frappe.get_value("FR Particular",{'template_type': "Profit & Loss", 'type': "Foreign Exchange Difference"},'particular_name')
+		account = frappe.get_value("FR Particular",{'template_type': "Profit & Loss", 'type': "Foreign Exchange Difference"},'name')
 		table_data_str = data[0].table_data or "[]"
 
 		try:
@@ -7947,33 +7944,27 @@ class FinancialReport(Document):
 		# ✅ INIT FLAG
 		found_account = False
 
-		# ✅ Cache is_total flags (NO DB calls in loop)
-		particular_ids = [row.get("id") for row in table_data if row.get("id")]
-		is_total_map = dict(
-			frappe.get_all(
-				"FR Particular",
-				filters={"name": ["in", particular_ids]},
-				fields=["name", "is_total"]
-			)
-		)
-
 		# 1️⃣ Update Foreign Exchange Difference row
 		for row in table_data:
-			if row.get("account") == account:
-				row["current_month_amount"] = current_month
-				row["previous_month_amount"] = previous_month
-				row["previous_year_amount"] = previous_year
-				row["ftm_amount"] = current_month - previous_month
+			if row.get("id") == account:
+				row["current_month_amount"] = round(current_month, self.show_decimal_value)
+				row["previous_month_amount"] = round(previous_month, self.show_decimal_value)
+				row["previous_year_amount"] = round(previous_year, self.show_decimal_value)
+				row["ftm_amount"] = round(current_month - previous_month, self.show_decimal_value)
 				found_account = True
-				break
-
-		if found_account:
-			for row in table_data:
-				if is_total_map.get(row.get("id")):
-					row["current_month_amount"] = (row.get("current_month_amount") or 0) + current_month
-					row["previous_month_amount"] = (row.get("previous_month_amount") or 0) + previous_month
-					row["previous_year_amount"] = (row.get("previous_year_amount") or 0) + previous_year
-					row["ftm_amount"] = (row["current_month_amount"] - row["previous_month_amount"]	)
+			elif found_account:
+				is_total = frappe.get_value("FR Particular", row.get("id"), "is_total")
+				is_sub = frappe.get_value("FR Particular", row.get("id"), "to_subtract")
+				if is_total and not is_sub:
+					row["current_month_amount"] = round((row.get("current_month_amount") or 0) + current_month, self.show_decimal_value)
+					row["previous_month_amount"] = round((row.get("previous_month_amount") or 0) + previous_month, self.show_decimal_value)
+					row["previous_year_amount"] = round((row.get("previous_year_amount") or 0) + previous_year, self.show_decimal_value)
+					row["ftm_amount"] = round(row["current_month_amount"] - row["previous_month_amount"], self.show_decimal_value)
+				if is_total and is_sub:
+					row["current_month_amount"] = round((row.get("current_month_amount") or 0) - current_month, self.show_decimal_value)
+					row["previous_month_amount"] = round((row.get("previous_month_amount") or 0) - previous_month, self.show_decimal_value)
+					row["previous_year_amount"] = round((row.get("previous_year_amount") or 0) - previous_year, self.show_decimal_value)
+					row["ftm_amount"] = round(((row.get("current_month_amount") or 0) - current_month) - ((row.get("previous_month_amount") or 0) - previous_month), self.show_decimal_value)
 		data[0].table_data = json.dumps(table_data)
 		_, data[0].section_description = self.render_monthly_profit_and_loss(data[0].section, table_data)
 

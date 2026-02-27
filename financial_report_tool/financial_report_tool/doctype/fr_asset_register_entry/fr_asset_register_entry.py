@@ -74,7 +74,7 @@ class FRAssetRegisterEntry(Document):
 
 	# 3️⃣ Main depreciation calculation logic
 	def calculation(self):
-		if self.life_days == 0:
+		if self.life_days == 0 and self.depreciation_key != "Z000":
 			frappe.throw("Life Days cannot be zero while calculating depreciation.")
 
 		# Get fiscal year range
@@ -83,7 +83,7 @@ class FRAssetRegisterEntry(Document):
 		fy_end = getdate(fy.year_end_date)
 
 		# --- Basic self.depreciation ---
-		self.depreciation = round((self.asset_value * self.days_in_current_year) / self.life_days, 3)
+		self.depreciation = round((self.asset_value * self.days_in_current_year) / self.life_days, 3) if self.depreciation_key != "Z000" else 0
 
 		# --- Shift-based Additional Depreciation ---
 		if self.shift == "1":
