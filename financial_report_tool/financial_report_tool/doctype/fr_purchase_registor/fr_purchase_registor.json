@@ -1,0 +1,901 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-02 12:32:49.351436",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "invoice_document_no",
+  "party_type",
+  "purchase_order",
+  "purchase_order_type",
+  "item",
+  "purchase_order_item",
+  "column_break_kldi",
+  "company_code",
+  "transaction_type",
+  "accounting_year",
+  "accounting_document",
+  "reference",
+  "purchase_order_type_description",
+  "purchasing_organization",
+  "column_break_nccl",
+  "fiscal_year",
+  "posting_date",
+  "document_date",
+  "document_type",
+  "currency",
+  "nature",
+  "section_break_lwvu",
+  "invoicing_party",
+  "city",
+  "country",
+  "vat_no",
+  "vendor_type",
+  "exchange_rate",
+  "reversed_by",
+  "column_break_psco",
+  "vendor_name",
+  "region",
+  "cst_no",
+  "gstn_no",
+  "vendor_class",
+  "miro_status",
+  "reversed_year",
+  "column_break_zvie",
+  "payment_terms",
+  "payment_term_description",
+  "incoterms",
+  "incoterms_2",
+  "tax_code",
+  "tax_code_description",
+  "section_break_nrml",
+  "material",
+  "material_group",
+  "material_group_description",
+  "material_group_description_2",
+  "material_type",
+  "column_break_nrov",
+  "division",
+  "item_text",
+  "purchasing_group",
+  "plant_region",
+  "column_break_uwxe",
+  "material_type_description",
+  "division_text",
+  "purchasing_group_description",
+  "plant",
+  "section_break_lumt",
+  "gl_account_no",
+  "gl_long_name",
+  "qty_pouom",
+  "order_unit",
+  "base_unit",
+  "column_break_hjxj",
+  "po_date",
+  "text",
+  "reference_document",
+  "reference_document_item",
+  "column_break_mipt",
+  "hsnsac_code",
+  "year_current_period",
+  "migo_date",
+  "base_amount",
+  "created_by",
+  "section_break_rcht",
+  "pr_no",
+  "pr_date",
+  "department",
+  "agency_charge",
+  "vendor_miscellaneous",
+  "service_chargecha",
+  "surcharge",
+  "erecinsttrain",
+  "octroi",
+  "column_break_udri",
+  "pr_item",
+  "requester_name_pr",
+  "cc_name",
+  "person_responsible",
+  "additional_customs_duty",
+  "insurance",
+  "cha_miscellaneous",
+  "packing_and_handling_charges",
+  "development_charges",
+  "column_break_hovr",
+  "cost_center",
+  "cc_long_name",
+  "landing_charge",
+  "fandf_air_sea",
+  "service_chargedest",
+  "local_freight",
+  "total_expenses",
+  "miscellaneous",
+  "section_break_lzwm",
+  "custom_duty_percentage",
+  "cessbcdcvd",
+  "column_break_ueqb",
+  "custom_duty",
+  "hcessbcdcvd",
+  "column_break_tsop",
+  "taxable_amount",
+  "section_break_hnwv",
+  "cgst_percentage",
+  "cgst",
+  "cgstncr",
+  "cgstpay",
+  "column_break_kbec",
+  "sgst_percentage",
+  "sgst",
+  "sgstncr",
+  "sgstpay",
+  "column_break_oess",
+  "igst_percentage",
+  "igst",
+  "igstncr",
+  "igstpay",
+  "column_break_ljtb",
+  "ugst_percentage",
+  "ugst",
+  "ugstncr",
+  "gross_amount",
+  "section_break_spqe",
+  "social_welfare_per",
+  "social_welfare_sc",
+  "column_break_skoa",
+  "health_cess_per",
+  "health_cess",
+  "column_break_ivol",
+  "asset_code",
+  "assessable_value",
+  "column_break_nmqk",
+  "assessable_value_boe",
+  "valueigst"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "invoice_document_no",
+   "fieldtype": "Data",
+   "label": "Invoice Document No"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Data",
+   "label": "Item"
+  },
+  {
+   "fieldname": "purchase_order_item",
+   "fieldtype": "Data",
+   "label": "Purchase Order Item"
+  },
+  {
+   "fieldname": "purchase_order_type_description",
+   "fieldtype": "Data",
+   "label": "Purchase Order Type Description"
+  },
+  {
+   "fieldname": "column_break_kldi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company_code",
+   "fieldtype": "Data",
+   "label": "Company Code"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "purchase_order",
+   "fieldtype": "Data",
+   "label": "Purchase Order"
+  },
+  {
+   "fieldname": "purchase_order_type",
+   "fieldtype": "Data",
+   "label": "Purchase Order Type"
+  },
+  {
+   "fieldname": "accounting_document",
+   "fieldtype": "Data",
+   "label": "Accounting Document"
+  },
+  {
+   "fieldname": "accounting_year",
+   "fieldtype": "Data",
+   "label": "Accounting Year"
+  },
+  {
+   "fieldname": "document_type",
+   "fieldtype": "Data",
+   "label": "Document Type"
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Data",
+   "label": "Transaction Type"
+  },
+  {
+   "fieldname": "document_date",
+   "fieldtype": "Date",
+   "label": "Document Date"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "reference",
+   "fieldtype": "Data",
+   "label": "Reference"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "invoicing_party",
+   "fieldtype": "Data",
+   "label": "Invoicing Party"
+  },
+  {
+   "fieldname": "section_break_lwvu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "vendor_name",
+   "fieldtype": "Data",
+   "label": "Vendor Name"
+  },
+  {
+   "fieldname": "column_break_psco",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Data",
+   "label": "Region"
+  },
+  {
+   "fieldname": "country",
+   "fieldtype": "Data",
+   "label": "Country"
+  },
+  {
+   "fieldname": "cst_no",
+   "fieldtype": "Data",
+   "label": "CST No."
+  },
+  {
+   "fieldname": "vat_no",
+   "fieldtype": "Data",
+   "label": "VAT No."
+  },
+  {
+   "fieldname": "gstn_no",
+   "fieldtype": "Data",
+   "label": "GSTN No."
+  },
+  {
+   "fieldname": "vendor_type",
+   "fieldtype": "Data",
+   "label": "Vendor Type"
+  },
+  {
+   "fieldname": "vendor_class",
+   "fieldtype": "Data",
+   "label": "Vendor Class"
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange rate"
+  },
+  {
+   "fieldname": "miro_status",
+   "fieldtype": "Data",
+   "label": "MIRO Status"
+  },
+  {
+   "fieldname": "reversed_by",
+   "fieldtype": "Data",
+   "label": "Reversed by"
+  },
+  {
+   "fieldname": "reversed_year",
+   "fieldtype": "Data",
+   "label": "Reversed Year"
+  },
+  {
+   "fieldname": "tax_code",
+   "fieldtype": "Data",
+   "label": "Tax code"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Data",
+   "label": "Payment Terms"
+  },
+  {
+   "fieldname": "payment_term_description",
+   "fieldtype": "Data",
+   "label": "Payment Term Description"
+  },
+  {
+   "fieldname": "tax_code_description",
+   "fieldtype": "Data",
+   "label": "Tax Code Description"
+  },
+  {
+   "fieldname": "incoterms",
+   "fieldtype": "Data",
+   "label": "Incoterms"
+  },
+  {
+   "fieldname": "incoterms_2",
+   "fieldtype": "Data",
+   "label": "Incoterms 2"
+  },
+  {
+   "fieldname": "purchasing_organization",
+   "fieldtype": "Data",
+   "label": "Purchasing Organization"
+  },
+  {
+   "fieldname": "material",
+   "fieldtype": "Data",
+   "label": "Material"
+  },
+  {
+   "fieldname": "section_break_nrml",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_uwxe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "material_group",
+   "fieldtype": "Data",
+   "label": "Material Group"
+  },
+  {
+   "fieldname": "material_group_description",
+   "fieldtype": "Data",
+   "label": "Material Group Description"
+  },
+  {
+   "fieldname": "material_group_description_2",
+   "fieldtype": "Data",
+   "label": "Material Group Description 2"
+  },
+  {
+   "fieldname": "material_type",
+   "fieldtype": "Data",
+   "label": "Material Type"
+  },
+  {
+   "fieldname": "material_type_description",
+   "fieldtype": "Data",
+   "label": "Material Type Description"
+  },
+  {
+   "fieldname": "division",
+   "fieldtype": "Data",
+   "label": "Division"
+  },
+  {
+   "fieldname": "division_text",
+   "fieldtype": "Data",
+   "label": "Division Text"
+  },
+  {
+   "fieldname": "purchasing_group",
+   "fieldtype": "Data",
+   "label": "Purchasing Group"
+  },
+  {
+   "fieldname": "purchasing_group_description",
+   "fieldtype": "Data",
+   "label": "Purchasing Group Description"
+  },
+  {
+   "fieldname": "item_text",
+   "fieldtype": "Data",
+   "label": "Item Text"
+  },
+  {
+   "fieldname": "plant",
+   "fieldtype": "Data",
+   "label": "Plant"
+  },
+  {
+   "fieldname": "plant_region",
+   "fieldtype": "Data",
+   "label": "Plant Region"
+  },
+  {
+   "fieldname": "section_break_lumt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "gl_account_no",
+   "fieldtype": "Data",
+   "label": "GL Account No"
+  },
+  {
+   "fieldname": "column_break_mipt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gl_long_name",
+   "fieldtype": "Data",
+   "label": "GL Account Name"
+  },
+  {
+   "fieldname": "qty_pouom",
+   "fieldtype": "Float",
+   "label": "Qty (POUom)"
+  },
+  {
+   "fieldname": "order_unit",
+   "fieldtype": "Data",
+   "label": "Order Unit"
+  },
+  {
+   "fieldname": "base_unit",
+   "fieldtype": "Data",
+   "label": "Base Unit"
+  },
+  {
+   "fieldname": "hsnsac_code",
+   "fieldtype": "Data",
+   "label": "HSN/SAC Code"
+  },
+  {
+   "fieldname": "reference_document",
+   "fieldtype": "Data",
+   "label": "Reference Document"
+  },
+  {
+   "fieldname": "year_current_period",
+   "fieldtype": "Data",
+   "label": "Year Current Period"
+  },
+  {
+   "fieldname": "reference_document_item",
+   "fieldtype": "Data",
+   "label": "Reference Document Item"
+  },
+  {
+   "fieldname": "migo_date",
+   "fieldtype": "Date",
+   "label": "MIGO Date"
+  },
+  {
+   "fieldname": "text",
+   "fieldtype": "Data",
+   "label": "Text"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Float",
+   "label": "Base Amount"
+  },
+  {
+   "fieldname": "po_date",
+   "fieldtype": "Date",
+   "label": "PO Date"
+  },
+  {
+   "fieldname": "created_by",
+   "fieldtype": "Data",
+   "label": "Created By"
+  },
+  {
+   "fieldname": "pr_no",
+   "fieldtype": "Data",
+   "label": "PR No."
+  },
+  {
+   "fieldname": "section_break_rcht",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_udri",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pr_item",
+   "fieldtype": "Data",
+   "label": "PR Item"
+  },
+  {
+   "fieldname": "pr_date",
+   "fieldtype": "Date",
+   "label": "PR Date"
+  },
+  {
+   "fieldname": "requester_name_pr",
+   "fieldtype": "Data",
+   "label": "Requester Name PR"
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Data",
+   "label": "Cost Center"
+  },
+  {
+   "fieldname": "cc_name",
+   "fieldtype": "Data",
+   "label": "CC Name"
+  },
+  {
+   "fieldname": "cc_long_name",
+   "fieldtype": "Data",
+   "label": "CC Long Name"
+  },
+  {
+   "fieldname": "person_responsible",
+   "fieldtype": "Data",
+   "label": "Person Responsible"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Data",
+   "label": "Department"
+  },
+  {
+   "fieldname": "additional_customs_duty",
+   "fieldtype": "Float",
+   "label": "Additional Customs Duty"
+  },
+  {
+   "fieldname": "landing_charge",
+   "fieldtype": "Float",
+   "label": "Landing Charge"
+  },
+  {
+   "fieldname": "insurance",
+   "fieldtype": "Float",
+   "label": "Insurance"
+  },
+  {
+   "fieldname": "fandf_air_sea",
+   "fieldtype": "Float",
+   "label": "F And F AirSea"
+  },
+  {
+   "fieldname": "local_freight",
+   "fieldtype": "Float",
+   "label": "Local Freight"
+  },
+  {
+   "fieldname": "agency_charge",
+   "fieldtype": "Float",
+   "label": "Agency Charge"
+  },
+  {
+   "fieldname": "cha_miscellaneous",
+   "fieldtype": "Float",
+   "label": "CHA Miscellaneous"
+  },
+  {
+   "fieldname": "vendor_miscellaneous",
+   "fieldtype": "Float",
+   "label": "Vendor Miscellaneous"
+  },
+  {
+   "fieldname": "packing_and_handling_charges",
+   "fieldtype": "Float",
+   "label": "Packing & Handling"
+  },
+  {
+   "fieldname": "service_chargecha",
+   "fieldtype": "Float",
+   "label": "Service Charge(CHA)"
+  },
+  {
+   "fieldname": "service_chargedest",
+   "fieldtype": "Float",
+   "label": "Service Charge(Dest)"
+  },
+  {
+   "fieldname": "surcharge",
+   "fieldtype": "Float",
+   "label": "Surcharge"
+  },
+  {
+   "fieldname": "development_charges",
+   "fieldtype": "Float",
+   "label": "Dev.Chrg"
+  },
+  {
+   "fieldname": "erecinsttrain",
+   "fieldtype": "Float",
+   "label": "Erec/Inst/Train"
+  },
+  {
+   "fieldname": "miscellaneous",
+   "fieldtype": "Float",
+   "label": "Miscellaneous"
+  },
+  {
+   "fieldname": "octroi",
+   "fieldtype": "Float",
+   "label": "Octroi"
+  },
+  {
+   "fieldname": "total_expenses",
+   "fieldtype": "Float",
+   "label": "Total Expenses"
+  },
+  {
+   "fieldname": "section_break_lzwm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "custom_duty_percentage",
+   "fieldtype": "Float",
+   "label": "Custm.Duty(%)"
+  },
+  {
+   "fieldname": "column_break_ueqb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_duty",
+   "fieldtype": "Float",
+   "label": "Custm.Duty"
+  },
+  {
+   "fieldname": "cessbcdcvd",
+   "fieldtype": "Float",
+   "label": "CESS(BCD+CVD)"
+  },
+  {
+   "fieldname": "hcessbcdcvd",
+   "fieldtype": "Float",
+   "label": "HCESS(BCD+CVD)"
+  },
+  {
+   "fieldname": "taxable_amount",
+   "fieldtype": "Float",
+   "label": "Taxable Amount"
+  },
+  {
+   "fieldname": "cgst_percentage",
+   "fieldtype": "Percent",
+   "label": "CGST(%)"
+  },
+  {
+   "fieldname": "section_break_hnwv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_oess",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cgst",
+   "fieldtype": "Float",
+   "label": "CGST"
+  },
+  {
+   "fieldname": "cgstncr",
+   "fieldtype": "Float",
+   "label": "CGST(NCr)"
+  },
+  {
+   "fieldname": "cgstpay",
+   "fieldtype": "Float",
+   "label": "CGST(Pay)"
+  },
+  {
+   "fieldname": "sgst_percentage",
+   "fieldtype": "Float",
+   "label": "SGST(%)"
+  },
+  {
+   "fieldname": "sgst",
+   "fieldtype": "Float",
+   "label": "SGST"
+  },
+  {
+   "fieldname": "sgstncr",
+   "fieldtype": "Float",
+   "label": "SGST(NCr)"
+  },
+  {
+   "fieldname": "sgstpay",
+   "fieldtype": "Float",
+   "label": "SGST(Pay)"
+  },
+  {
+   "fieldname": "igst_percentage",
+   "fieldtype": "Float",
+   "label": "IGST(%)"
+  },
+  {
+   "fieldname": "igst",
+   "fieldtype": "Float",
+   "label": "IGST"
+  },
+  {
+   "fieldname": "igstncr",
+   "fieldtype": "Float",
+   "label": "IGST(NCr)"
+  },
+  {
+   "fieldname": "igstpay",
+   "fieldtype": "Float",
+   "label": "IGST(Pay)"
+  },
+  {
+   "fieldname": "ugst_percentage",
+   "fieldtype": "Float",
+   "label": "UGST(%)"
+  },
+  {
+   "fieldname": "ugst",
+   "fieldtype": "Float",
+   "label": "UGST"
+  },
+  {
+   "fieldname": "ugstncr",
+   "fieldtype": "Float",
+   "label": "UGST(NCr)"
+  },
+  {
+   "fieldname": "social_welfare_sc",
+   "fieldtype": "Float",
+   "label": "Social Welfare SC"
+  },
+  {
+   "fieldname": "social_welfare_per",
+   "fieldtype": "Float",
+   "label": "Social Welfare Per"
+  },
+  {
+   "fieldname": "health_cess",
+   "fieldtype": "Float",
+   "label": "Health Cess"
+  },
+  {
+   "fieldname": "health_cess_per",
+   "fieldtype": "Float",
+   "label": "Health Cess Per"
+  },
+  {
+   "fieldname": "gross_amount",
+   "fieldtype": "Float",
+   "label": "Gross Amount"
+  },
+  {
+   "fieldname": "assessable_value",
+   "fieldtype": "Float",
+   "label": "Assessable Value"
+  },
+  {
+   "fieldname": "assessable_value_boe",
+   "fieldtype": "Float",
+   "label": "Assessable Value BOE"
+  },
+  {
+   "fieldname": "valueigst",
+   "fieldtype": "Float",
+   "label": "Assessable Value IGST"
+  },
+  {
+   "fieldname": "asset_code",
+   "fieldtype": "Float",
+   "label": "Asset Code"
+  },
+  {
+   "fieldname": "nature",
+   "fieldtype": "Select",
+   "label": "Nature",
+   "options": "\nDomestic\nForeign"
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Select",
+   "label": "Party Type",
+   "options": "\nRelated Party\nBranch Transfer\nUnrelated Party"
+  },
+  {
+   "fieldname": "column_break_nccl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_zvie",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_nrov",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_hjxj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_hovr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_tsop",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_kbec",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ljtb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_spqe",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_skoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ivol",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_nmqk",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-02 12:51:07.113829",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Purchase Registor",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

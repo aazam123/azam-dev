@@ -27,24 +27,6 @@ class FRAccountPayableEntry(Document):
 			frappe.throw(f"Reconciliation account not found for account number {self.account_no} in company {self.company}")
 
 		self.ap = "Payable" if self.amount_in_lc < 0 else "Advance"
-		
-		if self.document_type in ("AB", "SA"):
-			self.nature = "Clearing Document"
-		elif self.document_type == "EE":
-			self.nature = "Employee"
-			self.set_employee_grouping()
-		elif self.document_type in ("KR", "RE", "MB"):
-			self.nature = "Invoicing Document"
-		elif self.document_type in ("KZ", "FP", "KG", "MP"):
-			self.nature = "Payment"
-		elif self.document_type == "AA":
-			self.nature = "Asset Posting"
-		elif self.document_type == "UE":
-			self.nature = "Transfer Entry"
-		elif self.document_type == "B1":
-			self.nature = "Deposit"
-		else:
-			self.nature = "Payable" if self.amount_in_lc < 0 else "Advance"
 
 		if self.ap == "Advance":
 			if self.special_gl_ind:
@@ -101,6 +83,24 @@ class FRAccountPayableEntry(Document):
 					self.set_employee_grouping()
 				break
 
+		if self.document_type in ("AB", "SA"):
+			self.nature = "Clearing Document"
+		elif self.document_type == "EE":
+			self.nature = "Employee"
+			self.set_employee_grouping()
+		elif self.document_type in ("KR", "RE", "MB"):
+			self.nature = "Invoicing Document"
+		elif self.document_type in ("KZ", "FP", "KG", "MP"):
+			self.nature = "Payment"
+		elif self.document_type == "AA":
+			self.nature = "Asset Posting"
+		elif self.document_type == "UE":
+			self.nature = "Transfer Entry"
+		elif self.document_type == "B1":
+			self.nature = "Deposit"
+		else:
+			self.nature = "Payable" if self.amount_in_lc < 0 else "Advance"
+		
 		if self.due_days == 0:
 			self.ageing = "Not Due"
 		elif 0 < self.due_days <= 180:

@@ -6798,14 +6798,14 @@ class FinancialReport(Document):
 
 		purchases_current = (
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", self.current_month, self.fiscal_year)
-			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip(note_type, total=True, field='net_increase_total'))
+			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip("Changes in inventories of Finished Goods and Work-In-Progress", total=True, field='net_increase_total'))
 			+ (closing_stock_current - opening_stock)
 			- curr_month_purchase_sit
 		)
 
 		purchases_previous = (
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year)
-			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip(note_type, total=True, field='previous_month_amt'))
+			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip("Changes in inventories of Finished Goods and Work-In-Progress", total=True, field='previous_month_amt'))
 			+ (closing_stock_previous - opening_stock)
 			- prev_month_purchase_sit
 		)
@@ -6936,12 +6936,12 @@ class FinancialReport(Document):
 
 		purchases_current = (
 			self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
-			- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='net_increase_total')
+			- self.get_monthly_finished_goods_and_wip("Changes in inventories of Finished Goods and Work-In-Progress", total=True, field='net_increase_total')
 			+ (closing_stock_current - opening_stock)
 		)
 		purchases_previous = (
 			self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
-			- self.get_monthly_finished_goods_and_wip("Cost of Materials Consumed", total=True, field='previous_month_amt')
+			- self.get_monthly_finished_goods_and_wip("Changes in inventories of Finished Goods and Work-In-Progress", total=True, field='previous_month_amt')
 			+ (closing_stock_previous - opening_stock)
 		)
 
