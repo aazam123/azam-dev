@@ -2241,7 +2241,6 @@ class FinancialReport(Document):
 
 	def get_yearly_current_tax_note_data(self, section_description=""):
 		# Get dynamic date labels
-		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
@@ -2493,11 +2492,7 @@ class FinancialReport(Document):
 
 		for y in data:
 			data[y]["adjusted_net_debt"] = (data[y]["borrowings"] - data[y]["cash"] - data[y]["bank_balances"])
-			equity = data[y].get("equity", 0)
-			if equity:
-				data[y]["de_ratio"] = round(data[y]["adjusted_net_debt"] / data[y]["equity"], 1)
-			else:
-				data[y]["de_ratio"] = 0
+			data[y]["de_ratio"] = round(data[y]["adjusted_net_debt"] / data[y]["equity"], 1)
 
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff;">
@@ -4977,7 +4972,6 @@ class FinancialReport(Document):
 		)
 
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
-		ftm_cost_consumed = 0
 
 		# --- Currency Conversion ---
 		if default_currency != self.currency:
@@ -5167,27 +5161,24 @@ class FinancialReport(Document):
 
 		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) - cc_close_prev
 		cc_close_cur = round(cc_close_prev + cc_add_cur, self.show_decimal_value)
-		add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
-		add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
-		add_sp_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
-		
-		for_exc_open = for_exc_add_prev = for_exc_add_cur = 0
-		if default_currency != self.currency:
-			for_exc_open = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
-			for_exc_add_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year), self.show_decimal_value)
-			for_exc_add_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year), self.show_decimal_value)
-		else:
-			for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
-			for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
-			for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
 
-		
-		sp_open = round(sp_prev_year + add_sp_prev_year, self.show_decimal_value)
-		sp_cur = round(sp_open + add_sp_cur, self.show_decimal_value)
+		if default_currency != self.currency:
+			add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
+			add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
+			add_sp_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
+
+		sp_open = sp_prev_year + add_sp_prev_year
+		sp_cur, sp_prev = sp_open + add_sp_cur, sp_open + add_sp_prev
+
+		for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
+		for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
 		for_exc_prev_year = round(for_exc_open + for_exc_add_prev, self.show_decimal_value)
+
+		for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
 		for_exc_cur = round(for_exc_prev_year + for_exc_add_cur, self.show_decimal_value)
 
 		grand_cur = round(retained_cur + cc_close_cur + sp_cur + for_exc_cur, self.show_decimal_value)
+		grand_prev = round(retained_prev + cc_close_prev + sp_prev + for_exc_prev_year, self.show_decimal_value)
 		grand_prev_year = round(retained_prev_year + cc_close_prev + sp_open + for_exc_prev_year, self.show_decimal_value)
 
 		if total and field:
@@ -5220,7 +5211,6 @@ class FinancialReport(Document):
 
 			("Total", grand_cur, grand_prev_year, True),
 		]
-		self.update_yearly_foreign_exchange_in_profit_loss(for_exc_add_cur, for_exc_add_prev)
 
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; background-color:#fff;">
@@ -7977,90 +7967,6 @@ class FinancialReport(Document):
 					row["ftm_amount"] = round(((row.get("current_month_amount") or 0) - current_month) - ((row.get("previous_month_amount") or 0) - previous_month), self.show_decimal_value)
 		data[0].table_data = json.dumps(table_data)
 		_, data[0].section_description = self.render_monthly_profit_and_loss(data[0].section, table_data)
-
-	def update_yearly_foreign_exchange_in_profit_loss(self,for_exc_add_cur,for_exc_add_prev):
-		data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
-		if not data:
-			return
-		account = frappe.get_value(
-            "FR Particular",
-            {
-                'template_type': "Profit & Loss",
-                'type': "Foreign Exchange Difference"
-            },
-            'name'
-        )
-		if not account:
-			return
-		table_data_str = data[0].table_data or "[]"
-		try:
-			table_data = json.loads(table_data_str)
-		except (json.JSONDecodeError, TypeError):
-			table_data = []
-		found_account = False
-		profit_row = None
-		total_oci_row = None
-		final_total_row = None
-		for row in table_data:
-			row_id = row.get("id")
-			row_account = row.get("account")
-			if row_account == "Profit for the year from continuing operations (III-IV)":
-				profit_row = row
-			elif row_account == "Exchange differences on translation of foreign operations":
-				exc_oci_row = row
-			elif row_account == "Total other comprehensive income":
-				total_oci_row = row
-			elif row_account == "Total comprehensive income for the year (V-VI)":
-				final_total_row = row
-
-			if row_id == account:
-				row["current_month_amount"] = round(for_exc_add_cur, self.show_decimal_value)
-				row["previous_year"] = round(for_exc_add_prev, self.show_decimal_value)
-				found_account = True
-			elif found_account:
-				is_total = frappe.get_value("FR Particular", row_id, "is_total")
-				is_sub = frappe.get_value("FR Particular", row_id, "to_subtract")
-				if is_total:
-					if not is_sub:
-						row["current_month_amount"] = round(
-						(row.get("current_month_amount") or 0) + for_exc_add_cur,
-						self.show_decimal_value
-					)
-						row["previous_year"] = round(
-						(row.get("previous_year") or 0) + for_exc_add_prev,
-						self.show_decimal_value
-					)
-					else:
-						row["current_month_amount"] = round(
-						    (row.get("current_month_amount") or 0) - for_exc_add_cur,
-						    self.show_decimal_value
-					    )
-						row["previous_year"] = round(
-						    (row.get("previous_year") or 0) - for_exc_add_prev,
-						    self.show_decimal_value
-					    )
-					
-		if profit_row and exc_oci_row:
-			exc_oci_row["current_month_amount"] = round(for_exc_add_cur, self.show_decimal_value)
-			exc_oci_row["previous_year"] = round(for_exc_add_prev, self.show_decimal_value)
-
-			final_total_row["current_month_amount"] = round(
-			(profit_row.get("current_month_amount", 0)
-			 - total_oci_row.get("current_month_amount", 0)),
-			self.show_decimal_value
-		)
-			final_total_row["previous_year"] = round(
-			(profit_row.get("previous_year", 0)
-			 - total_oci_row.get("previous_year", 0)),
-			self.show_decimal_value
-		)
-
-		data[0].table_data = json.dumps(table_data)
-		_, data[0].section_description = self.render_monthly_profit_and_loss(
-        data[0].section,
-        table_data
-        )
-
 
 	def update_other_equity(self, current_month, previous_month, previous_year):
 		bs_data = self.get('financial_report_details',{'section_type': "Balance Sheet"})
