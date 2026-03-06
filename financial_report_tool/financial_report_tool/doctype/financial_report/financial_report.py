@@ -2463,18 +2463,13 @@ class FinancialReport(Document):
 		# Dynamically fetch DTA rows from GL Group Mapping + FR Trial Balance Entry
 		dta_primary_group = "Deferred tax assets (net)"
 		dta_secondary_groups = sorted(set(
-			g for g in frappe.get_list(
-				"GL Group Mapping",
-				{"primary_group": dta_primary_group, "company": self.company},
-				pluck="secondary_group"
-			) if g
+			g for g in frappe.get_list("GL Group Mapping", {"primary_group": dta_primary_group, "company": self.company}, pluck="secondary_group") if g
 		))
 
 		dta_rows = []
 		for sec_group in dta_secondary_groups:
 			gl_accounts = frappe.get_list("GL Group Mapping",
-				{"company": self.company, "primary_group": dta_primary_group, "secondary_group": sec_group},
-				pluck="gl_account"
+				{"company": self.company, "primary_group": dta_primary_group, "secondary_group": sec_group}, pluck="gl_account"
 			)
 			cur_amt = 0
 			pre_amt = 0
@@ -2483,7 +2478,7 @@ class FinancialReport(Document):
 				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders}) AND month=%s"
 				cur_amt = round((frappe.db.sql(query, [self.company, self.fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
 				pre_amt = round((frappe.db.sql(query, [self.company, self.previous_fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
-			charged_credited = cur_amt - pre_amt
+			charged_credited = round(cur_amt - pre_amt, self.show_decimal_value)
 			dta_rows.append((sec_group, cur_amt, charged_credited, pre_amt))
 
 		html += render_dta_table(dta_rows)
