@@ -27,6 +27,7 @@
   "document_type",
   "currency",
   "nature",
+  "rpt",
   "section_break_lwvu",
   "invoicing_party",
   "city",
@@ -824,6 +825,12 @@
    "options": "\nRelated Party\nBranch Transfer\nUnrelated Party"
   },
   {
+   "fieldname": "rpt",
+   "fieldtype": "Select",
+   "label": "RPT",
+   "options": "\nYes\nNo"
+  },
+  {
    "fieldname": "column_break_nccl",
    "fieldtype": "Column Break"
   },
@@ -878,7 +885,7 @@
  "modified": "2026-03-02 12:51:07.113829",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
- "name": "FR Purchase Registor",
+ "name": "FR Purchase Register",
  "owner": "Administrator",
  "permissions": [
   {

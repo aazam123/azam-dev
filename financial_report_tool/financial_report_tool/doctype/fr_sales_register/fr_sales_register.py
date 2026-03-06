@@ -5,9 +5,9 @@ import frappe
 from frappe.model.document import Document
 
 
-class FRPurchaseRegistor(Document):
+class FRSalesRegister(Document):
 	def validate(self):
-		if self.country == "India":
+		if self.ship_to_country == "IN":
 			self.nature = "Domestic"
 		else:
 			self.nature = "Foreign"
@@ -20,9 +20,9 @@ class FRPurchaseRegistor(Document):
 		related_customers = {row.customer_code for row in settings.related_customer_list}
 		internal_customers = {row.customer_code for row in settings.internal_customer_list}
 
-		if self.invoicing_party in related_customers:
+		if self.ship_to_party in related_customers:
 			self.party_type = "Related Party"
-		elif self.invoicing_party in internal_customers:
+		elif self.ship_to_party in internal_customers:
 			self.party_type = "Branch Transfer"
 		else:
 			self.party_type = "Unrelated Party"

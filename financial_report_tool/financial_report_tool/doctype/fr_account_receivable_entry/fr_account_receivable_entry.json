@@ -48,6 +48,7 @@
   "exchange_rate",
   "reference",
   "ageing_days",
+  "legal",
   "column_break_evvr",
   "payment_terms",
   "payment_days",
@@ -79,8 +80,9 @@
   },
   {
    "fieldname": "rpt",
-   "fieldtype": "Data",
-   "label": "RPT"
+   "fieldtype": "Select",
+   "label": "RPT",
+   "options": "\nYes\nNo"
   },
   {
    "fieldname": "column_break_wqhg",
@@ -360,6 +362,12 @@
    "fieldname": "provision_amount",
    "fieldtype": "Data",
    "label": "Provision Amount"
+  },
+  {
+   "fieldname": "legal",
+   "fieldtype": "Select",
+   "label": "Legal",
+   "options": "\nYes\nNo"
   }
  ],
  "grid_page_length": 50,

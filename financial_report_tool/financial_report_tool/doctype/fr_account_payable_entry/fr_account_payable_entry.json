@@ -21,6 +21,7 @@
   "debitcredit",
   "reference",
   "msme_vendor",
+  "legal",
   "column_break_qlzr",
   "company",
   "fiscal_year",
@@ -28,6 +29,7 @@
   "city",
   "state",
   "document_type",
+  "rpt",
   "section_break_rklm",
   "ap",
   "nature",
@@ -349,6 +351,18 @@
    "fieldtype": "Select",
    "label": "Domestic/Import",
    "options": "\nDomestic\nImport"
+  },
+  {
+   "fieldname": "legal",
+   "fieldtype": "Select",
+   "label": "Legal",
+   "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "rpt",
+   "fieldtype": "Select",
+   "label": "RPT",
+   "options": "\nYes\nNo"
   }
  ],
  "grid_page_length": 50,

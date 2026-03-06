@@ -2244,6 +2244,7 @@ class FinancialReport(Document):
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 
 		def fmt(val):
 			if val < 0:
@@ -2251,10 +2252,10 @@ class FinancialReport(Document):
 			return f"{val:,}"
 
 		html = ""
-		cur_current_tax = self.get_sum_grouping_amount("P&L", "Current Tax", self.fiscal_year, cls_month)
-		pre_current_tax = self.get_sum_grouping_amount("P&L", "Current Tax", self.previous_fiscal_year, cls_month)
-		cur_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", self.fiscal_year, cls_month)
-		pre_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", self.previous_fiscal_year, cls_month)
+		cur_current_tax = self.get_sum_grouping_amount("P&L", "Current Tax", cls_month, self.fiscal_year)
+		pre_current_tax = self.get_sum_grouping_amount("P&L", "Current Tax", cls_month, self.previous_fiscal_year)
+		cur_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", cls_month, self.fiscal_year)
+		pre_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", cls_month, self.previous_fiscal_year)
 		a_data = {
 			"current": {"current_tax": cur_current_tax, "prior_year_adj": cur_prior_year_adj, "deferred_tax": -38},
 			"previous": {"current_tax": pre_current_tax, "prior_year_adj": -43, "deferred_tax": -220},
@@ -2321,14 +2322,34 @@ class FinancialReport(Document):
 		<br>
 		"""
 
-		# (b) Tax Rate Reconciliation
-		b_data = {
-			"current": {"pbt": 58166, "rate": 25.17, "non_deductible": 836, "others": 154, "prior_adj": -9, "tax": 15621},
-			"previous": {"pbt": 24324, "rate": 25.17, "non_deductible": 175, "others": -41, "prior_adj": -43, "tax": 6213},
-		}
+		# Fetch PBT from P&L Particular
+		pbt_particular = frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name')
+		cur_pbt = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'),'current_month_amount') or 0
+		pre_pbt = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'),'previous_year') or 0
 
-		for y in b_data:
-			b_data[y]["tax_at_rate"] = round(b_data[y]["pbt"] * b_data[y]["rate"] / 100)
+		# Fetch tax rate from FR Tax Master
+		cur_tax_master = frappe.get_value("FR Tax Master", {"company": self.company, "fiscal_year": self.fiscal_year}, 'name')
+		pre_tax_master = frappe.get_value("FR Tax Master", {"company": self.company, "fiscal_year": self.previous_fiscal_year}, 'name')
+		cur_rate = frappe.db.get_value("FR Tax Master", cur_tax_master, "profit_before_tax") or 0 if cur_tax_master else 0
+		pre_rate = frappe.db.get_value("FR Tax Master", pre_tax_master, "profit_before_tax") or 0 if pre_tax_master else 0
+
+		# Fetch difference_due_to child table items
+		cur_diff_items = frappe.get_all("Difference Due", filters={"parent": cur_tax_master}, fields=["particulars", "percentage", "value"], order_by="idx") if cur_tax_master else []
+		pre_diff_items = frappe.get_all("Difference Due", filters={"parent": pre_tax_master}, fields=["particulars", "percentage", "value"], order_by="idx") if pre_tax_master else []
+
+		# Build lookup for previous items by particulars
+		pre_diff_map = {d["particulars"]: d for d in pre_diff_items}
+
+		cur_tax_at_rate = round(cur_pbt * cur_rate / 100)
+		pre_tax_at_rate = round(pre_pbt * pre_rate / 100)
+
+		# Calculate total tax (tax_at_rate + sum of all difference values)
+		cur_diff_total = sum(flt(d["value"]) for d in cur_diff_items)
+		pre_diff_total = sum(flt(d["value"]) for d in pre_diff_items)
+		cur_tax = cur_tax_at_rate + cur_diff_total
+		pre_tax = pre_tax_at_rate + pre_diff_total
+		cur_tax_pct = round(cur_tax / cur_pbt * 100, 2) if cur_pbt else 0
+		pre_tax_pct = round(pre_tax / pre_pbt * 100, 2) if pre_pbt else 0
 
 		html += f"""
 		<p><strong style="color:#4472C4; font-size:13px;">b) Reconciliation between the average effective tax rate and applicable tax rate:</strong></p>
@@ -2348,51 +2369,56 @@ class FinancialReport(Document):
 			</thead>
 			<tbody>
 				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px;">Profit before tax</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; background-color:#E8F5E8;">{b_data["current"]["rate"]}%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(b_data["current"]["pbt"])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px;">{b_data["previous"]["rate"]}%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt(b_data["previous"]["pbt"])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px;font-weight: bold;">Profit before tax</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; background-color:#E8F5E8;">{cur_rate}%</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_pbt)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px;">{pre_rate}%</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:1px solid #000; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_pbt)}</td>
 				</tr>
 
 				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Tax at domestic rate</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;font-weight: bold;">Tax at domestic rate</td>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;"></td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(b_data["current"]["tax_at_rate"])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_tax_at_rate)}</td>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;"></td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(b_data["previous"]["tax_at_rate"])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_tax_at_rate)}</td>
 				</tr>
-
+		"""
+		# Dynamic difference_due_to rows from FR Tax Master child table
+		all_particulars = list(dict.fromkeys([d["particulars"] for d in cur_diff_items] + [d["particulars"] for d in pre_diff_items]))
+		html += f"""
 				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Non-deductible expenses</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;">1.44%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(b_data["current"]["non_deductible"])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">0.72%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(b_data["previous"]["non_deductible"])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; font-weight: bold;">Difference due to :</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;"></td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;"></td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;"></td>
 				</tr>
-
+				"""
+		for particular in all_particulars:
+			cur_d = next((d for d in cur_diff_items if d["particulars"] == particular), {})
+			pre_d = pre_diff_map.get(particular, {})
+			cur_pct = f'{flt(cur_d.get("percentage", 0)):.2f}%' if cur_d else ""
+			pre_pct = f'{flt(pre_d.get("percentage", 0)):.2f}%' if pre_d else ""
+			cur_val = flt(cur_d.get("value", 0))
+			pre_val = flt(pre_d.get("value", 0))
+			html += f"""
 				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Others</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;">0.26%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(b_data["current"]["others"])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">-0.17%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(b_data["previous"]["others"])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{particular}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;">{cur_pct}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_val)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{pre_pct}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_val)}</td>
 				</tr>
+			"""
 
-				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Prior year adjustment</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; background-color:#E8F5E8;">-0.02%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(b_data["current"]["prior_adj"])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">-0.18%</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(b_data["previous"]["prior_adj"])}</td>
-				</tr>
-
+		html += f"""
 				<tr>
 					<td style="border:1px solid #000; padding:6px;"><strong>Income tax expense</strong></td>
-					<td style="border:1px solid #000; padding:6px; background-color:#E8F5E8;"><strong>26.85%</strong></td>
-					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(b_data["current"]["tax"])}</strong></td>
-					<td style="border:1px solid #000; padding:6px;"><strong>25.54%</strong></td>
-					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(b_data["previous"]["tax"])}</strong></td>
+					<td style="border:1px solid #000; padding:6px; background-color:#E8F5E8;"><strong>{cur_tax_pct}%</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(cur_tax)}</strong></td>
+					<td style="border:1px solid #000; padding:6px;"><strong>{pre_tax_pct}%</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(pre_tax)}</strong></td>
 				</tr>
 			</tbody>
 		</table>
@@ -2407,10 +2433,10 @@ class FinancialReport(Document):
 			table = f"""
 			<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff;">
 				<tr style="background-color:#fff;">
-					<th style="width: 45%; border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:2px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Particulars</th>
-					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:2px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Closing</th>
-					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:2px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Movement</th>
-					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:2px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Opening</th>
+					<th style="width: 45%; border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Particulars</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">As at <br> {current_date}</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">(Charged)/Credited to <br> profit or loss</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">As at <br> {previous_date}</th>
 				</tr>
 			"""
 			for r in rows:
@@ -2433,27 +2459,34 @@ class FinancialReport(Document):
 			<br>
 			"""
 			return table
+			
+		# Dynamically fetch DTA rows from GL Group Mapping + FR Trial Balance Entry
+		dta_primary_group = "Deferred tax assets (net)"
+		dta_secondary_groups = sorted(set(
+			g for g in frappe.get_list(
+				"GL Group Mapping",
+				{"primary_group": dta_primary_group, "company": self.company},
+				pluck="secondary_group"
+			) if g
+		))
 
-		html += render_dta_table(
-			[
-				("Property, plant and equipment", -114, -151, 37),
-				("Provision for gratuity", 321, 71, 250),
-				("Provision for compensated absences", 241, 84, 157),
-				("Lease liabilities", 81, 34, 47),
-				("Provision for doubtful debts", 176, 0, 176),
-			],
-		)
+		dta_rows = []
+		for sec_group in dta_secondary_groups:
+			gl_accounts = frappe.get_list("GL Group Mapping",
+				{"company": self.company, "primary_group": dta_primary_group, "secondary_group": sec_group},
+				pluck="gl_account"
+			)
+			cur_amt = 0
+			pre_amt = 0
+			if gl_accounts:
+				placeholders = ','.join(['%s'] * len(gl_accounts))
+				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders}) AND month=%s"
+				cur_amt = round((frappe.db.sql(query, [self.company, self.fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
+				pre_amt = round((frappe.db.sql(query, [self.company, self.previous_fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
+			charged_credited = cur_amt - pre_amt
+			dta_rows.append((sec_group, cur_amt, charged_credited, pre_amt))
 
-		html += render_dta_table(
-			[
-				("Property, plant and equipment", 37, -4, 41),
-				("Provision for gratuity", 250, 57, 193),
-				("Provision for compensated absences", 157, 36, 121),
-				("Lease liabilities", 47, 37, 10),
-				("Provision for doubtful debts", 176, 94, 82),
-			],
-		)
-
+		html += render_dta_table(dta_rows)
 		return section_description.replace("{{note_table}}", html)
 
 	def get_yearly_capital_management_note_data(self, section_description=""):
@@ -5116,18 +5149,49 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
 
+	def update_yearly_foreign_exchange_in_profit_loss(self, current_year, previous_year):
+		data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
+		found_account = False
+
+		if not data:
+			return
+		account = frappe.get_value("FR Particular", {'template_type': "Profit & Loss", 'type': "Foreign Exchange Difference"}, 'name')
+		if not account:
+			return
+
+		table_data_str = data[0].table_data or "[]"
+		try:
+			table_data = json.loads(table_data_str)
+		except (json.JSONDecodeError, TypeError):
+			table_data = []
+	
+		for row in table_data:
+			if row.get("id") == account:
+				row["current_month_amount"] = round(for_exc_add_cur, self.show_decimal_value)
+				row["previous_year"] = round(for_exc_add_prev, self.show_decimal_value)
+				found_account = True
+			elif found_account:
+				is_total, is_sub = frappe.db.get_values("FR Particular", row.get("id"), ["is_total", "to_subtract"])
+				if is_total:
+					if not is_sub:
+						row["current_month_amount"] = round((row.get("current_month_amount") or 0) + for_exc_add_cur,self.show_decimal_value)
+						row["previous_year"] = round((row.get("previous_year") or 0) + for_exc_add_prev,self.show_decimal_value)
+					else:
+						row["current_month_amount"] = round((row.get("current_month_amount") or 0) - for_exc_add_cur,self.show_decimal_value)
+						row["previous_year"] = round((row.get("previous_year") or 0) - for_exc_add_prev,self.show_decimal_value)
+
+		data[0].table_data = json.dumps(table_data)
+		_, data[0].section_description = self.render_monthly_profit_and_loss(data[0].section, table_data)
 
 	def get_yearly_other_equity_note_data(self, current_year, previous_year, section_description="", total=False, field=None):
 		"""Generate yearly Other Equity note table"""
 		cls_month, pre_year = self.get_previous_year_cls_month(previous_year)
 		month_end_label, prev_fy_label = self.get_yearly_dates()
-
 		pnl_template = self.get("financial_report_details", {"section_type": "Profit & Loss"})[0].section
 		bs_template = self.get("financial_report_details", {"section_type": "Balance Sheet"})[0].section
-
 		net_cur, net_prev, net_prev_year = self.get_monthly_profit_and_loss_data(pnl_template, fetch_for_other_equity=True)
-
 		default_currency = frappe.get_value("Company", self.company, "default_currency")
+		cur_tot_asset = prev_tot_asset = cur_cur_liab = prev_cur_liab = cur_ncur_liab = prev_ncur_liab = cur_eq_share = prev_eq_share = 0
 
 		if default_currency != self.currency:
 			sp_prev_year = round(frappe.get_value("Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
@@ -5142,7 +5206,6 @@ class FinancialReport(Document):
 			cur_cur_liab, prev_cur_liab = tot_cur_liab["current_month_amount"], tot_cur_liab["previous_year"]
 			cur_ncur_liab, prev_ncur_liab = tot_ncur_liab["current_month_amount"], tot_ncur_liab["previous_year"]
 			cur_eq_share, prev_eq_share = equity_share["current_month_amount"], equity_share["previous_year"]
-
 		else:
 			sp_prev_year = abs(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Share Premium", cls_month, previous_year), self.show_decimal_value))
 			bal_prev_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, previous_year), self.show_decimal_value)
@@ -5151,34 +5214,37 @@ class FinancialReport(Document):
 		oci_prev_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, previous_year), self.show_decimal_value)
 		retained_prev_year = round(bal_prev_year + net_prev_year + oci_prev_year, self.show_decimal_value)
 
-		oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", self.current_month, current_year), self.show_decimal_value)
+		oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, current_year), self.show_decimal_value)
 		retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
 		retained_prev = round(retained_prev_year + net_prev, self.show_decimal_value)
 
-		cc_open_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
+		cc_open_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value)
 		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) - cc_open_prev
 		cc_close_prev = round(cc_open_prev + cc_add_prev, self.show_decimal_value)
 
 		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) - cc_close_prev
 		cc_close_cur = round(cc_close_prev + cc_add_cur, self.show_decimal_value)
-
+		add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
+		add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
+		add_sp_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
+		
+		for_exc_open = for_exc_add_prev = for_exc_add_cur = 0
 		if default_currency != self.currency:
-			add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
-			add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
-			add_sp_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
+			for_exc_open = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
+			for_exc_add_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year), self.show_decimal_value)
+			for_exc_add_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year), self.show_decimal_value)
+		else:
+			for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
+			for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
+			for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
 
-		sp_open = sp_prev_year + add_sp_prev_year
-		sp_cur, sp_prev = sp_open + add_sp_cur, sp_open + add_sp_prev
-
-		for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
-		for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
+		
+		sp_open = round(sp_prev_year + add_sp_prev_year, self.show_decimal_value)
+		sp_cur = round(sp_open + add_sp_cur, self.show_decimal_value)
 		for_exc_prev_year = round(for_exc_open + for_exc_add_prev, self.show_decimal_value)
-
-		for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
 		for_exc_cur = round(for_exc_prev_year + for_exc_add_cur, self.show_decimal_value)
 
 		grand_cur = round(retained_cur + cc_close_cur + sp_cur + for_exc_cur, self.show_decimal_value)
-		grand_prev = round(retained_prev + cc_close_prev + sp_prev + for_exc_prev_year, self.show_decimal_value)
 		grand_prev_year = round(retained_prev_year + cc_close_prev + sp_open + for_exc_prev_year, self.show_decimal_value)
 
 		if total and field:
@@ -5211,6 +5277,7 @@ class FinancialReport(Document):
 
 			("Total", grand_cur, grand_prev_year, True),
 		]
+		self.update_yearly_foreign_exchange_in_profit_loss(for_exc_add_cur, for_exc_add_prev)
 
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; background-color:#fff;">
@@ -5342,7 +5409,8 @@ class FinancialReport(Document):
 		"""Get yearly trade and other receivables note data"""
 		month_end_label, prev_fy_label = self.get_yearly_dates()
 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
-
+		current_year_end_date = frappe.utils.formatdate(self.current_year_ending_date, "dd-MM-yyyy")
+		previous_year_end_date = frappe.utils.formatdate(self.previous_year_ending_date, "dd-MM-yyyy")
 		default_currency = frappe.get_value("Company", self.company, "default_currency")
 		current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
 		prev_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
@@ -5408,6 +5476,149 @@ class FinancialReport(Document):
 			"""
 
 		html += "</tbody></table>"
+
+		ageing_keys = ["Not Due", "0-6 Months", "6-12 Months", "1-2 Years", "2-3 Years", "More Than 3 Years"]
+		undisputed_good = {k: 0 for k in ageing_keys}
+		undisputed_doubtful = {k: 0 for k in ageing_keys}
+		disputed_good = {k: 0 for k in ageing_keys}
+		disputed_doubtful = {k: 0 for k in ageing_keys}
+
+		cur_entries = frappe.get_all("FR Account Receivable Entry",
+			filters={'company': self.company, 'fiscal_year': self.fiscal_year, 'report_type': 'Yearly'},
+			fields=['ageing', 'legal', 'provision_percentage', 'provision_amount', 'amount_in_lc'],
+			limit_page_length=0
+		)
+
+		for entry in cur_entries:
+			if not entry.ageing or entry.ageing not in ageing_keys:
+				continue
+			amount = flt(entry.amount_in_lc)
+			provision_pct = flt(entry.provision_percentage)
+			provision_amt = flt(entry.provision_amount)
+
+			if entry.legal == "Yes":
+				if provision_pct:
+					disputed_good[entry.ageing] += amount - provision_amt
+					disputed_doubtful[entry.ageing] += provision_amt
+				else:
+					disputed_good[entry.ageing] += amount
+			else:
+				if provision_pct:
+					undisputed_good[entry.ageing] += amount - provision_amt
+					undisputed_doubtful[entry.ageing] += provision_amt
+				else:
+					undisputed_good[entry.ageing] += amount
+
+		def fmt_ageing_val(val):
+			val = round(val/100000, self.show_decimal_value)
+			return frappe.utils.fmt_money(val, self.show_decimal_value) if val else "-"
+
+		ageing_rows = []
+		for label, data in [
+			("Undisputed trade receivables \u2013 considered good", undisputed_good),
+			("Undisputed trade receivables \u2013 considered doubtful", undisputed_doubtful),
+			("Disputed trade receivables \u2013 considered good", disputed_good),
+			("Disputed trade receivables \u2013 considered doubtful", disputed_doubtful),
+		]:
+			vals = [data[k] for k in ageing_keys]
+			row_total = sum(vals)
+			ageing_rows.append((label,) + tuple(fmt_ageing_val(v) for v in vals) + (fmt_ageing_val(row_total),))
+
+		for label, not_due, lt6m, m6_1y, y1_2, y2_3, mt3, total in ageing_rows:
+			html += f"""
+			<tr style="line-height:1.4;line-width">
+				<td style="border:1px solid #222; padding:2px 5px; text-align:left;">{label}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{not_due}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{lt6m}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{m6_1y}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y1_2}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y2_3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{mt3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{total}</td>
+			</tr>
+			"""
+
+		html += "</tbody></table>"
+
+		#previous year
+		html += f"""
+		<p style="text-align:left;"><b>Ageing for trade & other receivables outstanding as at {previous_year_end_date}</b></p>
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
+			<thead>
+				<tr>
+					<th rowspan="2" style="border:1px solid #222; width:28%; padding:4px 5px; text-align:center;">Particulars</th>
+					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Not Due</th>
+					<th colspan="5" style="border:1px solid #222; padding:4px 5px; text-align:center; ">Outstanding for following periods from due date of payment as on {previous_year_end_date}</th>
+					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Total</th>
+				</tr>
+				<tr>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">Less than 6 Month</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">6 Month - 1 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">1 Year - 2 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">2 Year - 3 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">More than 3 Year</th>
+				</tr>
+			</thead>
+			<tbody>
+		"""
+
+		prev_undisputed_good = {k: 0 for k in ageing_keys}
+		prev_undisputed_doubtful = {k: 0 for k in ageing_keys}
+		prev_disputed_good = {k: 0 for k in ageing_keys}
+		prev_disputed_doubtful = {k: 0 for k in ageing_keys}
+
+		prev_entries = frappe.get_all("FR Account Receivable Entry",
+			filters={'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'report_type': 'Yearly'},
+			fields=['ageing', 'legal', 'provision_percentage', 'provision_amount', 'amount_in_lc'],
+			limit_page_length=0
+		)
+
+		for entry in prev_entries:
+			if not entry.ageing or entry.ageing not in ageing_keys:
+				continue
+			amount = flt(entry.amount_in_lc)
+			provision_pct = flt(entry.provision_percentage)
+			provision_amt = flt(entry.provision_amount)
+
+			if entry.legal == "Yes":
+				if provision_pct:
+					prev_disputed_good[entry.ageing] += amount - provision_amt
+					prev_disputed_doubtful[entry.ageing] += provision_amt
+				else:
+					prev_disputed_good[entry.ageing] += amount
+			else:
+				if provision_pct:
+					prev_undisputed_good[entry.ageing] += amount - provision_amt
+					prev_undisputed_doubtful[entry.ageing] += provision_amt
+				else:
+					prev_undisputed_good[entry.ageing] += amount
+
+		ageing_rows = []
+		for label, data in [
+			("Undisputed trade receivables \u2013 considered good", prev_undisputed_good),
+			("Undisputed trade receivables \u2013 considered doubtful", prev_undisputed_doubtful),
+			("Disputed trade receivables \u2013 considered good", prev_disputed_good),
+			("Disputed trade receivables \u2013 considered doubtful", prev_disputed_doubtful),
+		]:
+			vals = [data[k] for k in ageing_keys]
+			row_total = sum(vals)
+			ageing_rows.append((label,) + tuple(fmt_ageing_val(v) for v in vals) + (fmt_ageing_val(row_total),))
+
+		for label, not_due, lt6m, m6_1y, y1_2, y2_3, mt3, total in ageing_rows:
+			html += f"""
+			<tr style="line-height:1.4;">
+				<td style="border:1px solid #222; padding:2px 5px; text-align:left;">{label}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{not_due}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{lt6m}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{m6_1y}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y1_2}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y2_3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{mt3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{total}</td>
+			</tr>
+			"""
+
+		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
 	
 	def get_yearly_trade_payable_note_data(self, section_description=""):
@@ -5459,6 +5670,171 @@ class FinancialReport(Document):
 				<td style="{border} padding:2px 5px; text-align:left; {style}">{label}</td>
 				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{cur}</td>
 				<td style="{border} padding:2px 5px; text-align:right; {style}">{prev}</td>
+			</tr>
+			"""
+
+		html += "</tbody></table>"
+
+		#current year
+		html += f"""
+		<p style="text-align:left; padding:2px 5px; border:none;"><b><u style="color:#00008B;">Ageing for trade payables outstanding as at {month_end_label}</u></b></p>
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
+			<thead>
+				<tr style="color: #00008B;">
+					<th rowspan="2" style="border:1px solid #222; width:28%; padding:4px 5px; text-align:center;">Particulars</th>
+					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Not Due</th>
+					<th colspan="4" style="border:1px solid #222; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Outstanding for following periods from due date of payment</th>
+					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Total</th>
+				</tr>
+				<tr>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;background-color: #D5F5D5 !important;">Less than 1 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;background-color: #D5F5D5 !important;">1-2 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;background-color: #D5F5D5 !important;">2-3 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;background-color: #D5F5D5 !important;">More than 3 Year</th>
+				</tr>
+			</thead>
+			<tbody>
+		"""
+
+		pay_ageing_keys = ["Not Due", "0-6 Months", "6-12 Months", "1-2 Years", "2-3 Years", "More Than 3 Years"]
+		pay_display_keys = ["Not Due", "Less than 1 Year", "1-2 Year", "2-3 Year", "More than 3 Year"]
+		msme_undisputed = {k: 0 for k in pay_display_keys}
+		others_undisputed = {k: 0 for k in pay_display_keys}
+		msme_disputed = {k: 0 for k in pay_display_keys}
+		others_disputed = {k: 0 for k in pay_display_keys}
+
+		pay_ageing_map = {
+			"Not Due": "Not Due",
+			"0-6 Months": "Less than 1 Year",
+			"6-12 Months": "Less than 1 Year",
+			"1-2 Years": "1-2 Year",
+			"2-3 Years": "2-3 Year",
+			"More Than 3 Years": "More than 3 Year",
+		}
+
+		cur_pay_entries = frappe.get_all("FR Account Payable Entry",
+			filters={'company': self.company, 'fiscal_year': self.fiscal_year, 'report_type': 'Yearly'},
+			fields=['ageing', 'msme_vendor', 'legal', 'amount_in_lc'],
+			limit_page_length=0
+		)
+
+		for entry in cur_pay_entries:
+			if not entry.ageing or entry.ageing not in pay_ageing_keys:
+				continue
+			amount = flt(entry.amount_in_lc)
+			display_key = pay_ageing_map[entry.ageing]
+
+			if entry.legal == "Yes":
+				if entry.msme_vendor == "Yes":
+					msme_disputed[display_key] += amount
+				else:
+					others_disputed[display_key] += amount
+			else:
+				if entry.msme_vendor == "Yes":
+					msme_undisputed[display_key] += amount
+				else:
+					others_undisputed[display_key] += amount
+
+		def fmt_pay_ageing_val(val):
+			val = round(val / 100000, self.show_decimal_value)
+			return frappe.utils.fmt_money(val, self.show_decimal_value) if val else "-"
+
+		pay_ageing_rows = []
+		for label, data in [
+			("MSME", msme_undisputed),
+			("Others", others_undisputed),
+			("Disputed dues-MSME", msme_disputed),
+			("Disputed dues-Others", others_disputed),
+		]:
+			vals = [data[k] for k in pay_display_keys]
+			row_total = sum(vals)
+			pay_ageing_rows.append((label,) + tuple(fmt_pay_ageing_val(v) for v in vals) + (fmt_pay_ageing_val(row_total),))
+
+		for label, not_due, lt1y, y1_2, y2_3, mt3, total in pay_ageing_rows:
+			html += f"""
+			<tr style="line-height:1.4;">
+				<td style="border:1px solid #222; padding:2px 5px; text-align:left;">{label}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;background-color: #D5F5D5 !important;">{not_due}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;background-color: #D5F5D5 !important;">{lt1y}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;background-color: #D5F5D5 !important;">{y1_2}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;background-color: #D5F5D5 !important;">{y2_3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;background-color: #D5F5D5 !important;">{mt3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;background-color: #D5F5D5 !important;">{total}</td>
+			</tr>
+			"""
+
+		html += "</tbody></table>"
+
+		#previous year
+		html += f"""
+		<p style="text-align:left; padding:2px 5px; border:none;"><b><u style="color:#00008B;">Ageing for trade payables outstanding as at {prev_fy_label}</u></b></p>
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
+			<thead>
+				<tr style="color: #00008B;">
+					<th rowspan="2" style="border:1px solid #222; width:28%; padding:4px 5px; text-align:center;">Particulars</th>
+					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Not Due</th>
+					<th colspan="4" style="border:1px solid #222; padding:4px 5px; text-align:center; ">Outstanding for following periods from due date of payment</th>
+					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Total</th>
+				</tr>
+				<tr>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">Less than 1 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">1-2 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">2-3 Year</th>
+					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">More than 3 Year</th>
+				</tr>
+			</thead>
+			<tbody>
+		"""
+
+		prev_msme_undisputed = {k: 0 for k in pay_display_keys}
+		prev_others_undisputed = {k: 0 for k in pay_display_keys}
+		prev_msme_disputed = {k: 0 for k in pay_display_keys}
+		prev_others_disputed = {k: 0 for k in pay_display_keys}
+
+		prev_pay_entries = frappe.get_all("FR Account Payable Entry",
+			filters={'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'report_type': 'Yearly'},
+			fields=['ageing', 'msme_vendor', 'legal', 'amount_in_lc'],
+			limit_page_length=0
+		)
+
+		for entry in prev_pay_entries:
+			if not entry.ageing or entry.ageing not in pay_ageing_keys:
+				continue
+			amount = flt(entry.amount_in_lc)
+			display_key = pay_ageing_map[entry.ageing]
+
+			if entry.legal == "Yes":
+				if entry.msme_vendor == "Yes":
+					prev_msme_disputed[display_key] += amount
+				else:
+					prev_others_disputed[display_key] += amount
+			else:
+				if entry.msme_vendor == "Yes":
+					prev_msme_undisputed[display_key] += amount
+				else:
+					prev_others_undisputed[display_key] += amount
+
+		prev_pay_ageing_rows = []
+		for label, data in [
+			("MSME", prev_msme_undisputed),
+			("Others", prev_others_undisputed),
+			("Disputed dues-MSME", prev_msme_disputed),
+			("Disputed dues-Others", prev_others_disputed),
+		]:
+			vals = [data[k] for k in pay_display_keys]
+			row_total = sum(vals)
+			prev_pay_ageing_rows.append((label,) + tuple(fmt_pay_ageing_val(v) for v in vals) + (fmt_pay_ageing_val(row_total),))
+
+		for label, not_due, lt1y, y1_2, y2_3, mt3, total in prev_pay_ageing_rows:
+			html += f"""
+			<tr style="line-height:1.4;">
+				<td style="border:1px solid #222; padding:2px 5px; text-align:left;">{label}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{not_due}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{lt1y}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y1_2}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y2_3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{mt3}</td>
+				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{total}</td>
 			</tr>
 			"""
 

@@ -554,3 +554,127 @@
 
 #     table += "</tbody></table>"
 #     return table
+
+
+
+# Code Before Indrageets Change of Other Equity Note
+# def get_yearly_other_equity_note_data(self, current_year, previous_year, section_description="", total=False, field=None):
+# 	"""Generate yearly Other Equity note table"""
+# 	cls_month, pre_year = self.get_previous_year_cls_month(previous_year)
+# 	month_end_label, prev_fy_label = self.get_yearly_dates()
+
+# 	pnl_template = self.get("financial_report_details", {"section_type": "Profit & Loss"})[0].section
+# 	bs_template = self.get("financial_report_details", {"section_type": "Balance Sheet"})[0].section
+
+# 	net_cur, net_prev, net_prev_year = self.get_monthly_profit_and_loss_data(pnl_template, fetch_for_other_equity=True)
+
+# 	default_currency = frappe.get_value("Company", self.company, "default_currency")
+
+# 	if default_currency != self.currency:
+# 		sp_prev_year = round(frappe.get_value("Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
+# 		bal_prev_year = round(frappe.get_value("Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "pl_inr") or 0, self.show_decimal_value)
+
+# 		tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Assets"}, "name"))
+# 		tot_cur_liab = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Current Liabilities"}, "name"))
+# 		tot_ncur_liab = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Non Current Liabilities"}, "name"))
+# 		equity_share = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Equity Share Capital"}, "name"))
+
+# 		cur_tot_asset, prev_tot_asset = tot_asset["current_month_amount"], tot_asset["previous_year"]
+# 		cur_cur_liab, prev_cur_liab = tot_cur_liab["current_month_amount"], tot_cur_liab["previous_year"]
+# 		cur_ncur_liab, prev_ncur_liab = tot_ncur_liab["current_month_amount"], tot_ncur_liab["previous_year"]
+# 		cur_eq_share, prev_eq_share = equity_share["current_month_amount"], equity_share["previous_year"]
+
+# 	else:
+# 		sp_prev_year = abs(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Share Premium", cls_month, previous_year), self.show_decimal_value))
+# 		bal_prev_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, previous_year), self.show_decimal_value)
+# 		add_sp_prev_year = add_sp_cur = add_sp_prev = 0
+
+# 	oci_prev_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, previous_year), self.show_decimal_value)
+# 	retained_prev_year = round(bal_prev_year + net_prev_year + oci_prev_year, self.show_decimal_value)
+
+# 	oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", self.current_month, current_year), self.show_decimal_value)
+# 	retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
+# 	retained_prev = round(retained_prev_year + net_prev, self.show_decimal_value)
+
+# 	cc_open_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
+# 	cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) - cc_open_prev
+# 	cc_close_prev = round(cc_open_prev + cc_add_prev, self.show_decimal_value)
+
+# 	cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) - cc_close_prev
+# 	cc_close_cur = round(cc_close_prev + cc_add_cur, self.show_decimal_value)
+
+# 	if default_currency != self.currency:
+# 		add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
+# 		add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
+# 		add_sp_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
+
+# 	sp_open = sp_prev_year + add_sp_prev_year
+# 	sp_cur, sp_prev = sp_open + add_sp_cur, sp_open + add_sp_prev
+
+# 	for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
+# 	for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value)
+# 	for_exc_prev_year = round(for_exc_open + for_exc_add_prev, self.show_decimal_value)
+
+# 	for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
+# 	for_exc_cur = round(for_exc_prev_year + for_exc_add_cur, self.show_decimal_value)
+
+# 	grand_cur = round(retained_cur + cc_close_cur + sp_cur + for_exc_cur, self.show_decimal_value)
+# 	grand_prev = round(retained_prev + cc_close_prev + sp_prev + for_exc_prev_year, self.show_decimal_value)
+# 	grand_prev_year = round(retained_prev_year + cc_close_prev + sp_open + for_exc_prev_year, self.show_decimal_value)
+
+# 	if total and field:
+# 		if field == "grand_total_current":
+# 			return grand_cur
+# 		elif field == "grand_total_prev_year":
+# 			return grand_prev_year
+        
+# 	rows = [
+# 		("Securities premium account", "", "", True),
+# 		("Balance as at the beginning of the year", sp_open, sp_prev_year, False),
+# 		("Addition during the year", add_sp_cur, add_sp_prev_year, False),
+# 		("Balance as at the end of the year", sp_cur, sp_open, True),
+
+# 		("Surplus in Foreign Exchange Reserves", "", "", True),
+# 		("Balance as at the beginning of the year", for_exc_prev_year, for_exc_open, False),
+# 		("Addition during the year", for_exc_add_cur, for_exc_add_prev, False),
+# 		("Balance as at the end of the year", for_exc_cur, for_exc_prev_year, True),
+
+# 		("Retained earnings", "", "", True),
+# 		("Balance as at the beginning of the year", retained_prev_year, bal_prev_year, False),
+# 		("Net Profit for the year", net_cur, net_prev_year, False),
+# 		("Other comprehensive income", oci_cur, oci_prev_year, False),
+# 		("Balance as at the end of the year", retained_cur, retained_prev_year, True),
+
+# 		("Capital Contribution", "", "", True),
+# 		("Balance as at the beginning of the year", cc_close_prev, cc_open_prev, False),
+# 		("Add: Equity contribution on financial guarantee taken", cc_add_cur, cc_add_prev, False),
+# 		("Balance as at the end of the year", cc_close_cur, cc_close_prev, True),
+
+# 		("Total", grand_cur, grand_prev_year, True),
+# 	]
+
+# 	html = f"""
+# 	<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; background-color:#fff;">
+# 	<thead>
+# 	<tr style="border-bottom:2px solid #222; background-color:#fff;">
+# 		<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:60%; padding:6px 8px; background-color:#fff; text-align:left;"><b>Particulars</b></th>
+# 		<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{month_end_label}</b></th>
+# 		<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{prev_fy_label}</b></th>
+# 	</tr>
+# 	</thead><tbody>
+# 	"""
+
+# 	for i, (p, c, py, b) in enumerate(rows):
+# 		style = "font-weight:bold;" if b else ""
+# 		# Only vertical borders for regular rows, full borders for bold/total rows
+# 		if b:
+# 			border = "border-top:1px solid #222; border-bottom:1px solid #222;"
+# 		else:
+# 			border = "border-top:none; border-bottom:none;"
+# 		html += f"""<tr style='background-color:#fff;'>
+# 			<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:left; background-color:#fff; {style}'>{p}</td>
+# 			<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#E8F5E8; {style}'>{c}</td>
+# 			<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {style}'>{py}</td></tr>"""
+
+# 	html += "</tbody></table>"
+# 	return section_description.replace("{{note_table}}", html)

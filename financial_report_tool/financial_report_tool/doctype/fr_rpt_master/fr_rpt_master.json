@@ -2,37 +2,21 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:company",
- "creation": "2026-02-26 14:20:58.323864",
+ "creation": "2026-03-05 10:58:30.570947",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "company",
   "internal_customer_section",
   "internal_customer_list",
+  "column_break_qked",
+  "related_customer_list",
   "related_customer_section",
-  "related_customer_list"
+  "internal_supplier",
+  "column_break_lmqw",
+  "related_party_supplier"
  ],
  "fields": [
-  {
-   "fieldname": "internal_customer_section",
-   "fieldtype": "Section Break",
-   "label": "Internal Customer"
-  },
-  {
-   "fieldname": "related_customer_section",
-   "fieldtype": "Section Break",
-   "label": "Related Customer"
-  },
-  {
-   "fieldname": "internal_customer_list",
-   "fieldtype": "Table",
-   "options": "FR RPT Internal Customer"
-  },
-  {
-   "fieldname": "related_customer_list",
-   "fieldtype": "Table",
-   "options": "FR RPT Related Customer"
-  },
   {
    "fieldname": "company",
    "fieldtype": "Link",
@@ -41,12 +25,52 @@
    "options": "Company",
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "internal_customer_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "internal_customer_list",
+   "fieldtype": "Table",
+   "label": "Internal Customer",
+   "options": "FR RPT Internal Customer"
+  },
+  {
+   "fieldname": "related_customer_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "related_customer_list",
+   "fieldtype": "Table",
+   "label": "Related Party Customer",
+   "options": "FR RPT Related Customer"
+  },
+  {
+   "fieldname": "column_break_qked",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "internal_supplier",
+   "fieldtype": "Table",
+   "label": "Internal Supplier",
+   "options": "FR RPT Internal Supplier"
+  },
+  {
+   "fieldname": "column_break_lmqw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "related_party_supplier",
+   "fieldtype": "Table",
+   "label": "Related Party Supplier",
+   "options": "FR RPT Related Supplier"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-27 12:24:37.473250",
+ "modified": "2026-03-05 11:00:08.119681",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR RPT Master",
