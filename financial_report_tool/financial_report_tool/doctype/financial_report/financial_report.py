@@ -2525,7 +2525,7 @@ class FinancialReport(Document):
 
 		for y in data:
 			data[y]["adjusted_net_debt"] = (data[y]["borrowings"] - data[y]["cash"] - data[y]["bank_balances"])
-			data[y]["de_ratio"] = round(data[y]["adjusted_net_debt"] / data[y]["equity"], 1)
+			data[y]["de_ratio"] = (round(data[y]["adjusted_net_debt"] / data[y]["equity"], 1)) if data[y]["equity"] != 0 else 0
 
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff;">
@@ -5149,7 +5149,7 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
 
-	def update_yearly_foreign_exchange_in_profit_loss(self, current_year, previous_year):
+	def update_yearly_foreign_exchange_in_profit_loss(self, for_exc_add_cur, for_exc_add_prev):
 		data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
 		found_account = False
 
@@ -5171,7 +5171,7 @@ class FinancialReport(Document):
 				row["previous_year"] = round(for_exc_add_prev, self.show_decimal_value)
 				found_account = True
 			elif found_account:
-				is_total, is_sub = frappe.db.get_values("FR Particular", row.get("id"), ["is_total", "to_subtract"])
+				is_total, is_sub = frappe.db.get_value("FR Particular",row.get("id"), ["is_total", "to_subtract"])
 				if is_total:
 					if not is_sub:
 						row["current_month_amount"] = round((row.get("current_month_amount") or 0) + for_exc_add_cur,self.show_decimal_value)
