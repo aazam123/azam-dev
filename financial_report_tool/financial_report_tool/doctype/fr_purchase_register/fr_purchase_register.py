@@ -17,12 +17,12 @@ class FRPurchaseRegister(Document):
 			frappe.throw("Please set the Related and Internal Customer List in FR RPT Master")
 
 		settings = frappe.get_doc("FR RPT Master", self.company)
-		related_customers = {row.customer_code for row in settings.related_customer_list}
-		internal_customers = {row.customer_code for row in settings.internal_customer_list}
+		related_supplier = {row.customer_code for row in settings.related_party_supplier}
+		internal_supplier = {row.customer_code for row in settings.internal_supplier}
 
-		if self.invoicing_party in related_customers:
+		if self.invoicing_party in related_supplier:
 			self.party_type = "Related Party"
-		elif self.invoicing_party in internal_customers:
+		elif self.invoicing_party in internal_supplier:
 			self.party_type = "Branch Transfer"
 		else:
 			self.party_type = "Unrelated Party"

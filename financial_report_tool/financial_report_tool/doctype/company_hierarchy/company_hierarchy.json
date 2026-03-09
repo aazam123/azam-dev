@@ -47,14 +47,14 @@
    "fieldname": "old_parent",
    "fieldtype": "Link",
    "label": "Old Parent",
-   "options": "Company Tree"
+   "options": "Company Hierarchy"
   },
   {
    "fieldname": "parent_company_tree",
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
    "label": "Parent Company Tree",
-   "options": "Company Tree"
+   "options": "Company Hierarchy"
   },
   {
    "fieldname": "company",
@@ -81,7 +81,7 @@
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2026-03-03 13:07:09.878019",
+ "modified": "2026-03-09 09:08:56.113173",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Company Hierarchy",
