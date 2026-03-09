@@ -27,6 +27,115 @@ def do_generate_report(docname):
 	frappe.db.commit()
 
 class FinancialReport(Document):
+	def _init_report_caches(self):
+		"""Initialize instance-level caches for report generation to avoid repeated DB queries."""
+		if getattr(self, '_caches_initialized', False):
+			return
+
+		# Cache singleton/static values fetched repeatedly
+		self._erp_type = frappe.get_single_value("FR Financial Settings", "erp_type") or "SAP"
+		self._closing_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		self._default_currency = frappe.get_value("Company", self.company, "default_currency")
+
+		# Cache dicts for DB lookups
+		self._fy_dates_cache = {}
+		self._month_date_range_cache = {}
+		self._fx_rate_cache = {}
+		self._sum_grouping_cache = {}
+		self._sum_group_amt_cache = {}
+		self._fr_particular_cache = {}
+		self._fr_section_cache = {}
+		self._standalone_group_cache = {}
+		self._secondary_groups_cache = {}
+		self._hg_sec_group_cache = {}
+		self._gl_mapping_cache = {}
+		self._gl_accounts_for_particular_cache = {}
+
+		# Pre-compute note numbers for schedules
+		self._note_number_map = {}
+		note_counter = 4
+		# Bulk-fetch all FR Section is_schedule values needed
+		section_names = [i.section for i in self.financial_report_details if i.section_type == "Consolidation Note" and i.section]
+		if section_names:
+			section_schedule_data = frappe.get_all("FR Section", filters={"name": ["in", section_names]}, fields=["name", "is_schedule"])
+			section_schedule_map = {s.name: s.is_schedule for s in section_schedule_data}
+		else:
+			section_schedule_map = {}
+
+		for i in self.financial_report_details:
+			if i.section_type == "Consolidation Note" and i.section:
+				if section_schedule_map.get(i.section) == 1:
+					self._note_number_map[i.section] = str(note_counter)
+					note_counter += 1
+
+		# Pre-fetch FR Section data for _generate_report_internal to avoid per-row queries
+		if section_names:
+			section_details = frappe.get_all("FR Section", filters={"name": ["in", section_names]},
+				fields=["name", "section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type", "is_schedule"])
+			self._fr_section_detail_cache = {s.name: s for s in section_details}
+		else:
+			self._fr_section_detail_cache = {}
+
+		# Cache for parsed BS/PL table data JSON
+		self._bs_table_data_parsed = None
+		self._pl_table_data_parsed = None
+
+		self._caches_initialized = True
+
+	def _get_cached_fr_particular(self, name):
+		"""Instance-level cached FR Particular doc fetch."""
+		if name not in self._fr_particular_cache:
+			self._fr_particular_cache[name] = frappe.get_doc("FR Particular", name)
+		return self._fr_particular_cache[name]
+
+	def _get_cached_fr_section(self, name):
+		"""Instance-level cached FR Section doc fetch."""
+		if name not in self._fr_section_cache:
+			self._fr_section_cache[name] = frappe.get_doc("FR Section", name)
+		return self._fr_section_cache[name]
+
+	def _get_cached_standalone_group(self, name):
+		"""Instance-level cached Standalone Group value fetch."""
+		if name not in self._standalone_group_cache:
+			self._standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type", "report_type"], as_dict=True)
+		return self._standalone_group_cache[name]
+
+	def _get_cached_secondary_groups(self, primary_group):
+		"""Instance-level cached secondary groups for a primary group."""
+		if primary_group not in self._secondary_groups_cache:
+			self._secondary_groups_cache[primary_group] = sorted(set(
+				g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
+			))
+		return self._secondary_groups_cache[primary_group]
+
+	def _get_cached_hg_sec_groups(self, primary_group, secondary_group):
+		"""Instance-level cached higher secondary group lookup."""
+		cache_key = (primary_group, secondary_group)
+		if cache_key not in self._hg_sec_group_cache:
+			self._hg_sec_group_cache[cache_key] = frappe.get_all(
+				"GL Group Mapping",
+				{"company": self.company, "primary_group": primary_group, "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
+				pluck="higher_secondary_group", distinct=True
+			)
+		return self._hg_sec_group_cache[cache_key]
+
+	def _get_gl_accounts_for_mappings(self, mappings, report_type=None):
+		"""Cached GL account fetch for primary_and_secondary_group_mapping entries."""
+		if not mappings:
+			return []
+		rt = report_type or self.report_type
+		gl_accounts = []
+		for g in mappings:
+			cache_key = (self.company, rt, g.primary_group, g.secondary_group)
+			if cache_key not in self._gl_mapping_cache:
+				self._gl_mapping_cache[cache_key] = frappe.get_list(
+					"GL Group Mapping",
+					{"company": self.company, "report_type": rt, "primary_group": g.primary_group, "secondary_group": g.secondary_group},
+					pluck='gl_account'
+				)
+			gl_accounts.extend(self._gl_mapping_cache[cache_key])
+		return gl_accounts
+
 	def on_update(self):
 		if self.workflow_state == "Approved" and not self.approved_on:
 			self.approved_on = now_datetime()
@@ -37,22 +146,42 @@ class FinancialReport(Document):
 			vc.approved_on = now_datetime()
 			vc.approved_by = frappe.session.user
 
+			# Bulk-fetch all GL Group Mappings for this company into a dict
+			all_mappings = frappe.get_all("GL Group Mapping", {'company': self.company},
+				fields=['gl_account', 'primary_group', 'secondary_group', 'higher_secondary_group'])
+			mapping_dict = {m.gl_account: (m.primary_group or "", m.secondary_group or "", m.higher_secondary_group or "") for m in all_mappings}
+
 			erp_type = self.get_erp_type()
 			if erp_type == "ERPNext":
 				gl_accounts = frappe.get_all("GL Entry", {'company': self.company}, pluck='account', distinct=True)
-				for account in gl_accounts:
-					pg, sg, hg = frappe.db.get_value("GL Group Mapping", {'company': self.company, 'gl_account': account}, ['primary_group', 'secondary_group', 'higher_secondary_group']) or ("", "", "")
-					# Get amounts from GL Entry
-					ca_start, ca_end = self.get_month_date_range(self.current_month, self.fiscal_year)
-					pa_start, pa_end = self.get_month_date_range(self.previous_month, self.fiscal_year)
-					py_start, py_end = self.get_month_date_range(cls_month, self.previous_fiscal_year)
-					ppy_start, ppy_end = self.get_month_date_range(cls_month, pre_year)
+				# Pre-compute date ranges once (not per account)
+				ca_start, ca_end = self.get_month_date_range(self.current_month, self.fiscal_year)
+				pa_start, pa_end = self.get_month_date_range(self.previous_month, self.fiscal_year)
+				py_start, py_end = self.get_month_date_range(cls_month, self.previous_fiscal_year)
+				ppy_start, ppy_end = self.get_month_date_range(cls_month, pre_year)
 
-					ca = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, ca_start, ca_end])[0][0] or 0 if ca_start else 0
-					pa = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, pa_start, pa_end])[0][0] or 0 if pa_start else 0
-					py = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, py_start, py_end])[0][0] or 0 if py_start else 0
-					ppy = frappe.db.sql("SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE account=%s AND company=%s AND posting_date BETWEEN %s AND %s", [account, self.company, ppy_start, ppy_end])[0][0] or 0 if ppy_start else 0
-					if any([ca, pa, py, ppy]):
+				# Bulk-fetch all amounts with a single query per date range
+				def bulk_gl_amounts(start, end):
+					if not start:
+						return {}
+					results = frappe.db.sql(
+						"SELECT account, SUM(debit) - SUM(credit) as amount FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s GROUP BY account",
+						[self.company, start, end], as_dict=True
+					)
+					return {r.account: r.amount or 0 for r in results}
+
+				ca_amounts = bulk_gl_amounts(ca_start, ca_end)
+				pa_amounts = bulk_gl_amounts(pa_start, pa_end)
+				py_amounts = bulk_gl_amounts(py_start, py_end)
+				ppy_amounts = bulk_gl_amounts(ppy_start, ppy_end)
+
+				for account in gl_accounts:
+					pg, sg, hg = mapping_dict.get(account, ("", "", ""))
+					ca = ca_amounts.get(account, 0)
+					pa = pa_amounts.get(account, 0)
+					py_val = py_amounts.get(account, 0)
+					ppy_val = ppy_amounts.get(account, 0)
+					if any([ca, pa, py_val, ppy_val]):
 						vc.append("details", {
 							"gl_account": account,
 							"currency": self.currency,
@@ -61,18 +190,32 @@ class FinancialReport(Document):
 							"higher_secondary_group": hg,
 							"current_amount": ca,
 							"previous_amount": pa,
-							"previous_year": py,
-							"pre_previous_year": ppy
+							"previous_year": py_val,
+							"pre_previous_year": ppy_val
 						})
 			else:
 				gl_accounts = frappe.get_all("FR Trial Balance Entry", {'company': self.company}, pluck='gl_account', distinct=True)
+
+				# Bulk-fetch all trial balance amounts with single queries
+				def bulk_tb_amounts(fiscal_year, month):
+					results = frappe.db.sql(
+						"SELECT gl_account, uploaded_amount FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND month=%s",
+						[self.company, fiscal_year, month], as_dict=True
+					)
+					return {r.gl_account: r.uploaded_amount or 0 for r in results}
+
+				ca_amounts = bulk_tb_amounts(self.fiscal_year, self.current_month)
+				pa_amounts = bulk_tb_amounts(self.fiscal_year, self.previous_month)
+				py_amounts = bulk_tb_amounts(self.previous_fiscal_year, cls_month)
+				ppy_amounts = bulk_tb_amounts(pre_year, cls_month)
+
 				for account in gl_accounts:
-					pg, sg, hg = frappe.db.get_value("GL Group Mapping", {'company': self.company, 'gl_account': account}, ['primary_group', 'secondary_group', 'higher_secondary_group']) or ("", "", "")
-					ca = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.current_month}, 'uploaded_amount') or 0
-					pa = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.fiscal_year, 'month': self.previous_month}, 'uploaded_amount') or 0
-					py = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month}, 'uploaded_amount') or 0
-					ppy = frappe.db.get_value("FR Trial Balance Entry", {'gl_account': account, 'fiscal_year': pre_year, 'month': cls_month}, 'uploaded_amount') or 0
-					if any([ca, pa, py, ppy]):
+					pg, sg, hg = mapping_dict.get(account, ("", "", ""))
+					ca = ca_amounts.get(account, 0)
+					pa = pa_amounts.get(account, 0)
+					py_val = py_amounts.get(account, 0)
+					ppy_val = ppy_amounts.get(account, 0)
+					if any([ca, pa, py_val, ppy_val]):
 						vc.append("details", {
 							"gl_account": account,
 							"currency": self.currency,
@@ -81,8 +224,8 @@ class FinancialReport(Document):
 							"higher_secondary_group": hg,
 							"current_amount": ca,
 							"previous_amount": pa,
-							"previous_year": py,
-							"pre_previous_year": ppy
+							"previous_year": py_val,
+							"pre_previous_year": ppy_val
 						})
 
 			vc.insert(ignore_permissions=True)
@@ -161,7 +304,10 @@ class FinancialReport(Document):
 		"""Get the note number for a given schedule"""
 		if not schedule_name:
 			return ""
-		
+		# Use pre-computed map if caches are initialized
+		if getattr(self, '_caches_initialized', False):
+			return self._note_number_map.get(schedule_name, "")
+
 		note_counter = 4
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
@@ -291,28 +437,51 @@ class FinancialReport(Document):
 	def get_fx_rate(self, default_currency, month, fiscal_year, field_name):
 		if default_currency == self.currency:
 			return 1
+		if not field_name:
+			return 1
+		if getattr(self, '_caches_initialized', False):
+			cache_key = (default_currency, month, fiscal_year, field_name)
+			if cache_key not in self._fx_rate_cache:
+				self._fx_rate_cache[cache_key] = frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
+			return self._fx_rate_cache[cache_key]
 		return frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
 
 	def get_erp_type(self):
 		"""Get ERP type from settings - returns 'SAP' or 'ERPNext'"""
+		if getattr(self, '_caches_initialized', False):
+			return self._erp_type
 		return frappe.get_single_value("FR Financial Settings", "erp_type") or "SAP"
 
 	def get_fiscal_year_dates(self, fiscal_year):
 		"""Get start and end dates for a fiscal year"""
+		if getattr(self, '_caches_initialized', False):
+			if fiscal_year not in self._fy_dates_cache:
+				fy = frappe.get_value("Fiscal Year", fiscal_year, ["year_start_date", "year_end_date"], as_dict=True)
+				self._fy_dates_cache[fiscal_year] = (fy.year_start_date, fy.year_end_date) if fy else (None, None)
+			return self._fy_dates_cache[fiscal_year]
 		fy = frappe.get_value("Fiscal Year", fiscal_year, ["year_start_date", "year_end_date"], as_dict=True)
 		if fy:
 			return fy.year_start_date, fy.year_end_date
 		return None, None
 
+	_MONTH_NUM_MAP = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+					'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
+
 	def get_month_date_range(self, month, fiscal_year):
 		"""Get date range for a specific month in a fiscal year"""
-		month_num = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
-					'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
+		if getattr(self, '_caches_initialized', False):
+			cache_key = (month, fiscal_year)
+			if cache_key in self._month_date_range_cache:
+				return self._month_date_range_cache[cache_key]
+
 		fy_start, fy_end = self.get_fiscal_year_dates(fiscal_year)
 		if not fy_start:
-			return None, None
+			result = (None, None)
+			if getattr(self, '_caches_initialized', False):
+				self._month_date_range_cache[cache_key] = result
+			return result
 
-		m = month_num.get(month, 1)
+		m = self._MONTH_NUM_MAP.get(month, 1)
 		# Determine year based on fiscal year structure
 		if m >= fy_start.month:
 			year = fy_start.year
@@ -322,54 +491,93 @@ class FinancialReport(Document):
 		last_day = calendar.monthrange(year, m)[1]
 		start_date = date(year, m, 1)
 		end_date = date(year, m, last_day)
-		return start_date, end_date
+		result = (start_date, end_date)
+		if getattr(self, '_caches_initialized', False):
+			self._month_date_range_cache[(month, fiscal_year)] = result
+		return result
 
 	def sum_group_amt(self, primary_group, group, year, hg_sec_group=""):
+		if getattr(self, '_caches_initialized', False):
+			cache_key = ("sum_group_amt", primary_group, group, year, hg_sec_group)
+			if cache_key in self._sum_group_amt_cache:
+				return self._sum_group_amt_cache[cache_key]
+
 		filters = {"company": self.company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
-		if not gl_accounts: return 0
-
-		erp_type = self.get_erp_type()
-		if erp_type == "ERPNext":
-			fy_start, fy_end = self.get_fiscal_year_dates(year)
-			if not fy_start: return 0
-			query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
-			return (frappe.db.sql(query, [self.company, fy_start, fy_end]+gl_accounts)[0][0] or 0) / 100000
+		if not gl_accounts:
+			result = 0
 		else:
-			query = f"SELECT SUM(amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
-			return (frappe.db.sql(query, [self.company, year]+gl_accounts)[0][0] or 0) / 100000
+			erp_type = self.get_erp_type()
+			if erp_type == "ERPNext":
+				fy_start, fy_end = self.get_fiscal_year_dates(year)
+				if not fy_start:
+					result = 0
+				else:
+					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
+					result = (frappe.db.sql(query, [self.company, fy_start, fy_end]+gl_accounts)[0][0] or 0) / 100000
+			else:
+				query = f"SELECT SUM(amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
+				result = (frappe.db.sql(query, [self.company, year]+gl_accounts)[0][0] or 0) / 100000
+
+		if getattr(self, '_caches_initialized', False):
+			self._sum_group_amt_cache[cache_key] = result
+		return result
 
 	def get_sum_grouping_amount(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
+		if getattr(self, '_caches_initialized', False):
+			cache_key = ("sum_grouping", primary_group, group, month, year, is_ftm, hg_sec_group)
+			if cache_key in self._sum_grouping_cache:
+				return self._sum_grouping_cache[cache_key]
+
 		filters = {"company": self.company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
-		if not gl_accounts: return 0
-
-		erp_type = self.get_erp_type()
-		if erp_type == "ERPNext":
-			start_date, end_date = self.get_month_date_range(month, year)
-			if not start_date: return 0
-			query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
-			return round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+		if not gl_accounts:
+			result = 0
 		else:
-			field = "amount" if is_ftm else "uploaded_amount"
-			query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
-			return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+			erp_type = self.get_erp_type()
+			if erp_type == "ERPNext":
+				start_date, end_date = self.get_month_date_range(month, year)
+				if not start_date:
+					result = 0
+				else:
+					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
+					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+			else:
+				field = "amount" if is_ftm else "uploaded_amount"
+				query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+
+		if getattr(self, '_caches_initialized', False):
+			self._sum_grouping_cache[cache_key] = result
+		return result
 
 	def get_sum_grouping_amount_yearly(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
+		if getattr(self, '_caches_initialized', False):
+			cache_key = ("sum_grouping_yearly", primary_group, group, month, year, is_ftm, str(hg_sec_group))
+			if cache_key in self._sum_grouping_cache:
+				return self._sum_grouping_cache[cache_key]
+
 		filters = {"company": self.company, "report_type": "Yearly","primary_group": primary_group,"secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
-		if not gl_accounts: return 0
-
-		erp_type = self.get_erp_type()
-		if erp_type == "ERPNext":
-			start_date, end_date = self.get_month_date_range(month, year)
-			if not start_date: return 0
-			query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
-			return round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+		if not gl_accounts:
+			result = 0
 		else:
-			field = "amount" if is_ftm else "uploaded_amount"
-			query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
-			return round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+			erp_type = self.get_erp_type()
+			if erp_type == "ERPNext":
+				start_date, end_date = self.get_month_date_range(month, year)
+				if not start_date:
+					result = 0
+				else:
+					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
+					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+			else:
+				field = "amount" if is_ftm else "uploaded_amount"
+				query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+
+		if getattr(self, '_caches_initialized', False):
+			self._sum_grouping_cache[cache_key] = result
+		return result
 
 	def get_yearly_dates(self, only_dates=False):
 		month_num = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12}
@@ -422,6 +630,7 @@ class FinancialReport(Document):
 		}
 
 	def _generate_report_internal(self):
+		self._init_report_caches()
 		if self.report_type == "Monthly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
@@ -433,10 +642,7 @@ class FinancialReport(Document):
 				if i.section_type == "Equity":
 					i.section_description = self.render_monthly_equity_share_table()
 				if i.section_type == "Consolidation Note":
-					section_data = frappe.db.get_value(
-						"FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"],
-						as_dict=True
-					)
+					section_data = self._fr_section_detail_cache.get(i.section)
 					section_description = section_data.section_type_description if section_data else ""
 					fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
 					primary_group = section_data.primary_consolidation_group if section_data else ""
@@ -497,7 +703,7 @@ class FinancialReport(Document):
 				if i.section_type == "Equity":
 					i.section_description = self.render_yearly_equity_share_table()
 				if i.section_type == "Consolidation Note":
-					section_data = frappe.db.get_value("FR Section", i.section, ["section_type_description", "fetch_data_from_trial_balance", "primary_consolidation_group", "note_type"], as_dict=True)
+					section_data = self._fr_section_detail_cache.get(i.section)
 					section_description = section_data.section_type_description if section_data else ""
 					fetch_data_from_trial_balance = section_data.fetch_data_from_trial_balance if section_data else ""
 					primary_group = section_data.primary_consolidation_group if section_data else ""
@@ -5838,8 +6044,11 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def get_yearly_consolidation_note_data(self, primary_group):
+		self._init_report_caches()
 		data = []
-		show_reversed_value, group_type = frappe.get_value("Standalone Group", primary_group, ["show_reversed_value", "group_type"])
+		group_info = self._get_cached_standalone_group(primary_group)
+		show_reversed_value = group_info.show_reversed_value
+		group_type = group_info.group_type
 		def format_amount(val):
 			return flt(-val if show_reversed_value and val < 0 else val or 0)
 
@@ -5847,7 +6056,7 @@ class FinancialReport(Document):
 			data.append({"account": account, "current_year": format_amount(cm), "previous_year": format_amount(py), "indent": indent, "is_bold": is_bold})
 
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+		default_currency = self._default_currency
 
 		if primary_group == "Purchases of Stock in Trade" and default_currency != "INR":
 			cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
@@ -5898,9 +6107,10 @@ class FinancialReport(Document):
 				else:
 					secondary_consolidation_groups = secondary_groups
 
-				report_type = frappe.get_value("Standalone Group", primary_group, 'report_type')
-				default_currency = frappe.get_value("Company", self.company, 'default_currency')
-				cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+				sg_info = self._get_cached_standalone_group(primary_group)
+				report_type = sg_info.report_type if sg_info else None
+				default_currency = self._default_currency
+				cls_month = self._closing_month
 				if default_currency != self.currency:
 					if report_type == "Balance Sheet":
 						field_name = 'closing_rate'
@@ -5912,12 +6122,12 @@ class FinancialReport(Document):
 					field_name = None
 
 				current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, field_name) if field_name else 1
-				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, field_name) if field_name else 1 
-				
+				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, field_name) if field_name else 1
+
 				for sec in secondary_consolidation_groups:
 					cm = self.get_sum_grouping_amount(primary_group, sec, cls_month, self.fiscal_year) * current_fx
 					py = self.get_sum_grouping_amount(primary_group, sec, cls_month, self.previous_fiscal_year) * prev_year_fx
-					has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": primary_group, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+					has_hg_sec_group = self._get_cached_hg_sec_groups(primary_group, sec)
 
 					if group_type in ("Other Income", "Other Expense"):
 						if group_type == "Other Income":
@@ -5932,7 +6142,7 @@ class FinancialReport(Document):
 					else:
 						if any(val != 0 for val in (cm, py)) or has_hg_sec_group:
 							append_data(sec, cm, py, is_bold=1 if has_hg_sec_group else 0)
-					
+
 					for hg_sec in has_hg_sec_group:
 						cm = self.get_sum_grouping_amount(primary_group, sec, cls_month, self.fiscal_year, hg_sec_group=hg_sec) * current_fx
 						py = self.get_sum_grouping_amount(primary_group, sec, cls_month, self.previous_fiscal_year, hg_sec_group=hg_sec) * prev_year_fx
@@ -6075,31 +6285,15 @@ class FinancialReport(Document):
 
 	def get_yearly_balance_sheet_data(self, template_name, for_other_equity=False, account=None, field=""):
 		"""Get yearly balance sheet data with current year, previous year, and FTY amounts"""
+		self._init_report_caches()
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
-		amount_cache, group_mapping_cache, standalone_group_cache, fr_section_cache, fr_particular_cache = {}, {}, {}, {}, {}
-		default_currency = frappe.get_value("Company", self.company, "default_currency")
+		amount_cache = {}
+		default_currency = self._default_currency
 
-		def get_fr_particular(name):
-			if name not in fr_particular_cache:
-				fr_particular_cache[name] = frappe.get_doc("FR Particular", name)
-			return fr_particular_cache[name]
-
-		def get_fr_section(name):
-			if name not in fr_section_cache:
-				fr_section_cache[name] = frappe.get_doc("FR Section", name)
-			return fr_section_cache[name]
-
-		def get_standalone_group(name):
-			if name not in standalone_group_cache:
-				standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
-			return standalone_group_cache[name]
-
-		def get_secondary_groups(primary_group):
-			if primary_group not in group_mapping_cache:
-				group_mapping_cache[primary_group] = sorted(set(
-					g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
-				))
-			return group_mapping_cache[primary_group]
+		get_fr_particular = self._get_cached_fr_particular
+		get_fr_section = self._get_cached_fr_section
+		get_standalone_group = self._get_cached_standalone_group
+		get_secondary_groups = self._get_cached_secondary_groups
 
 		def get_grouped_gl_amount(gl_accounts, year, month=None):
 			if not gl_accounts:
@@ -6145,7 +6339,7 @@ class FinancialReport(Document):
 				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
 
 			elif fr_particular.fetch_from_schedule:
-				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
+				note_type = get_fr_section(fr_particular.schedule).note_type if fr_particular.schedule else None
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'ftm_total' if is_current else 'net_increase_total'
 					amount = self.get_yearly_finished_goods_and_wip(total=True, field=field)
@@ -6171,7 +6365,7 @@ class FinancialReport(Document):
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.get_sum_grouping_amount(pg, sec, month, year)
-							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+							has_hg_sec_group = self._get_cached_hg_sec_groups(pg, sec)
 							for hg_sec in has_hg_sec_group:
 								face_amount += self.get_sum_grouping_amount(pg, sec, month, year, hg_sec_group=hg_sec)
 
@@ -6179,15 +6373,11 @@ class FinancialReport(Document):
 								(group_type not in ("Current Tax Liabilities", "Income Tax Assets") and face_amount != 0)):
 								amount += face_amount
 				else:
-					gl_accounts = []
-					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-						gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type, "primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+					gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 					amount = get_grouped_gl_amount(gl_accounts, year, month)
 
 			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-					gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type,"primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 				amount = get_grouped_gl_amount(gl_accounts, year, month)
 
 			# Reverse if required
@@ -6202,7 +6392,7 @@ class FinancialReport(Document):
 
 		# --- Main loop ---
 		data = []
-		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		cls_month = self._closing_month
 
 		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
 		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
@@ -6246,39 +6436,16 @@ class FinancialReport(Document):
 
 	def get_yearly_profit_and_loss_data(self, template_name, fetch_for_other_equity=False):
 		"""Optimized: Get monthly P&L data with current month, previous month, FTM, and previous year amounts"""
+		self._init_report_caches()
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
-		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		cls_month = self._closing_month
 
 		amount_cache = {}
-		group_mapping_cache = {}
-		fr_particular_cache = {}
-		fr_section_cache = {}
-		standalone_group_cache = {}
 
-		def get_fr_section(name):
-			if name not in fr_section_cache:
-				fr_section_cache[name] = frappe.get_doc("FR Section", name)
-			return fr_section_cache[name]
-
-		def get_fr_particular(name):
-			if name not in fr_particular_cache:
-				fr_particular_cache[name] = frappe.get_doc("FR Particular", name)
-			return fr_particular_cache[name]
-
-		def get_standalone_group(name):
-			if name not in standalone_group_cache:
-				standalone_group_cache[name] = frappe.get_value(
-					"Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True
-				)
-			return standalone_group_cache[name]
-
-		def get_secondary_groups(primary_group):
-			"""Cached retrieval of secondary groups"""
-			if primary_group not in group_mapping_cache:
-				group_mapping_cache[primary_group] = sorted(set(
-					g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
-				))
-			return group_mapping_cache[primary_group]
+		get_fr_section = self._get_cached_fr_section
+		get_fr_particular = self._get_cached_fr_particular
+		get_standalone_group = self._get_cached_standalone_group
+		get_secondary_groups = self._get_cached_secondary_groups
 
 		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
 			"""
@@ -6365,26 +6532,17 @@ class FinancialReport(Document):
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.get_sum_grouping_amount(pg, sec, month, year)
-							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+							has_hg_sec_group = self._get_cached_hg_sec_groups(pg, sec)
 							for hg_sec in has_hg_sec_group:
 								face_amount += self.get_sum_grouping_amount(pg, sec, month, year, hg_sec_group=hg_sec)
 							if group_type == "Other Income":
-								face_amount = face_amount if face_amount < 0 else 0 
+								face_amount = face_amount if face_amount < 0 else 0
 							if group_type == "Other Expense":
-								face_amount = face_amount if face_amount > 0 else 0 
+								face_amount = face_amount if face_amount > 0 else 0
 							if (group_type == "Other Income" and face_amount < 0) or (group_type == "Other Expense" and face_amount > 0) or (group_type not in ("Other Income", "Other Expense") and face_amount != 0):
 								amount += face_amount
 				else:
-					gl_accounts = []
-					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-						gl_accounts.extend(
-							frappe.get_list("GL Group Mapping", {
-								"company": self.company,
-								"report_type": self.report_type,
-								"primary_group": g.primary_group,
-								"secondary_group": g.secondary_group
-							}, pluck='gl_account')
-						)
+					gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 					if gl_accounts:
 						placeholders = ','.join(['%s'] * len(gl_accounts))
 						erp_type = self.get_erp_type()
@@ -6402,16 +6560,7 @@ class FinancialReport(Document):
 							params = [self.company, year, month] + gl_accounts
 							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
 			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-					gl_accounts.extend(
-						frappe.get_list("GL Group Mapping", {
-							"company": self.company,
-							"report_type": self.report_type,
-							"primary_group": g.primary_group,
-							"secondary_group": g.secondary_group
-						}, pluck='gl_account')
-					)
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 				if gl_accounts:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
 					erp_type = self.get_erp_type()
@@ -6438,7 +6587,7 @@ class FinancialReport(Document):
 			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
 			return amount_cache[cache_key]
 
-		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+		default_currency = self._default_currency
 		current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
 		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate') if self.currency != default_currency else 1
 
@@ -6536,6 +6685,7 @@ class FinancialReport(Document):
 	
 	def get_yearly_cash_flow_data(self, template_name):
 		"""Get monthly cash flow data with current month, previous month, and FTM amounts"""
+		self._init_report_caches()
 		cash_flow_doc = frappe.get_doc("Cash Flow Template", template_name)
 		amount_cache = {}
 
@@ -6544,7 +6694,7 @@ class FinancialReport(Document):
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
-			fr_particular = frappe.get_doc("FR Particular", particular_name)
+			fr_particular = self._get_cached_fr_particular(particular_name)
 			if getattr(fr_particular, "is_total", 1):
 				amount = 0
 				for p in getattr(fr_particular, "particulars", []):
@@ -6552,10 +6702,7 @@ class FinancialReport(Document):
 					amount += calc_amount_for_particular_monthly(child_name, month, year)
 				amount = amount * 100000
 			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping'):
-					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					gl_accounts.extend(gl_account)
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 
 				if len(gl_accounts) == 0:
 					amount = 0
@@ -6874,32 +7021,60 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_bs_particular_data(self, id, field):
+		# Use cached parsed data if available
+		if getattr(self, '_caches_initialized', False):
+			if self._bs_table_data_parsed is None:
+				data = self.get('financial_report_details', {'section_type': "Balance Sheet"})
+				if not data:
+					self._bs_table_data_parsed = {}
+				else:
+					table_data_str = data[0].table_data or "[]"
+					try:
+						table_data = json.loads(table_data_str)
+					except (json.JSONDecodeError, TypeError):
+						table_data = []
+					self._bs_table_data_parsed = {row.get("id"): row for row in table_data if row.get("id")}
+			row = self._bs_table_data_parsed.get(id)
+			return row.get(field) if row else 0
+
 		data = self.get('financial_report_details', {'section_type': "Balance Sheet"})
 		if not data:
 			return 0
-
 		table_data_str = data[0].table_data or "[]"
 		try:
 			table_data = json.loads(table_data_str)
 		except (json.JSONDecodeError, TypeError):
 			table_data = []
-
 		for row in table_data:
 			if row.get("id") == id:
 				return row.get(field)
 		return 0
 
 	def get_pl_particular_data(self, id, field):
+		# Use cached parsed data if available
+		if getattr(self, '_caches_initialized', False):
+			if self._pl_table_data_parsed is None:
+				data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
+				if not data:
+					self._pl_table_data_parsed = {}
+				else:
+					table_data_str = data[0].table_data or "[]"
+					try:
+						table_data = json.loads(table_data_str)
+					except (json.JSONDecodeError, TypeError):
+						table_data = []
+					self._pl_table_data_parsed = {row.get("id"): row for row in table_data if row.get("id")}
+			row = self._pl_table_data_parsed.get(id)
+			return row.get(field) if row else 0
+
 		data = self.get('financial_report_details', {'section_type': "Profit & Loss"})
 		if not data:
 			return 0
-
 		table_data_str = data[0].table_data or "[]"
 		try:
 			table_data = json.loads(table_data_str)
 		except (json.JSONDecodeError, TypeError):
 			table_data = []
-
 		for row in table_data:
 			if row.get("id") == id:
 				return row.get(field)
@@ -7354,8 +7529,11 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def get_monthly_consolidation_note_data(self, primary_group):
+		self._init_report_caches()
 		data = []
-		show_reversed_value, group_type = frappe.get_value("Standalone Group", primary_group, ["show_reversed_value", "group_type"])
+		group_info = self._get_cached_standalone_group(primary_group)
+		show_reversed_value = group_info.show_reversed_value
+		group_type = group_info.group_type
 		def format_amount(val):
 			return round(flt(-val if show_reversed_value and val < 0 else val or 0), self.show_decimal_value)
 
@@ -7382,9 +7560,10 @@ class FinancialReport(Document):
 			else:
 				secondary_consolidation_groups = secondary_groups
 
-			report_type = frappe.get_value("Standalone Group", primary_group, 'report_type')
-			default_currency = frappe.get_value("Company", self.company, 'default_currency')
-			cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+			sg_info = self._get_cached_standalone_group(primary_group)
+			report_type = sg_info.report_type if sg_info else None
+			default_currency = self._default_currency
+			cls_month = self._closing_month
 			if default_currency != self.currency:
 				if report_type == "Balance Sheet":
 					field_name = 'closing_rate'
@@ -7397,14 +7576,14 @@ class FinancialReport(Document):
 
 			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, field_name) if field_name else 1
 			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, field_name) if field_name else 1
-			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, field_name) if field_name else 1 
-			
+			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, field_name) if field_name else 1
+
 			for sec in secondary_consolidation_groups:
 				cm = self.get_sum_grouping_amount(primary_group, sec, self.current_month, self.fiscal_year) * current_fx
 				pm = self.get_sum_grouping_amount(primary_group, sec, self.previous_month, self.fiscal_year) * previous_fx
 				ftm = round(cm - pm, self.show_decimal_value)
 				py = self.get_sum_grouping_amount(primary_group, sec, cls_month, self.previous_fiscal_year) * prev_year_fx
-				has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": primary_group, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+				has_hg_sec_group = self._get_cached_hg_sec_groups(primary_group, sec)
 
 				if group_type in ("Other Income", "Other Expense"):
 					if group_type == "Other Income":
@@ -7738,39 +7917,16 @@ class FinancialReport(Document):
 	@frappe.whitelist()
 	def get_monthly_profit_and_loss_data(self, template_name, fetch_for_other_equity=False):
 		"""Optimized: Get monthly P&L data with current month, previous month, FTM, and previous year amounts"""
+		self._init_report_caches()
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
-		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		cls_month = self._closing_month
 
 		amount_cache = {}
-		group_mapping_cache = {}
-		fr_particular_cache = {}
-		fr_section_cache = {}
-		standalone_group_cache = {}
 
-		def get_fr_section(name):
-			if name not in fr_section_cache:
-				fr_section_cache[name] = frappe.get_doc("FR Section", name)
-			return fr_section_cache[name]
-
-		def get_fr_particular(name):
-			if name not in fr_particular_cache:
-				fr_particular_cache[name] = frappe.get_doc("FR Particular", name)
-			return fr_particular_cache[name]
-
-		def get_standalone_group(name):
-			if name not in standalone_group_cache:
-				standalone_group_cache[name] = frappe.get_value(
-					"Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True
-				)
-			return standalone_group_cache[name]
-
-		def get_secondary_groups(primary_group):
-			"""Cached retrieval of secondary groups"""
-			if primary_group not in group_mapping_cache:
-				group_mapping_cache[primary_group] = sorted(set(
-					g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
-				))
-			return group_mapping_cache[primary_group]
+		get_fr_section = self._get_cached_fr_section
+		get_fr_particular = self._get_cached_fr_particular
+		get_standalone_group = self._get_cached_standalone_group
+		get_secondary_groups = self._get_cached_secondary_groups
 
 		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
 			"""
@@ -7817,27 +7973,18 @@ class FinancialReport(Document):
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.get_sum_grouping_amount(pg, sec, month, year)
-							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+							has_hg_sec_group = self._get_cached_hg_sec_groups(pg, sec)
 							for hg_sec in has_hg_sec_group:
 								face_amount += self.get_sum_grouping_amount(pg, sec, month, year, hg_sec_group=hg_sec)
 							if group_type == "Other Income":
-								face_amount = face_amount if face_amount < 0 else 0 
+								face_amount = face_amount if face_amount < 0 else 0
 							if group_type == "Other Expense":
-								face_amount = face_amount if face_amount > 0 else 0 
+								face_amount = face_amount if face_amount > 0 else 0
 							if (group_type == "Other Income" and face_amount < 0) or (group_type == "Other Expense" and face_amount > 0) or (group_type not in ("Other Income", "Other Expense") and face_amount != 0):
 								amount += face_amount
 					amount = amount * fx_rate
 				else:
-					gl_accounts = []
-					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-						gl_accounts.extend(
-							frappe.get_list("GL Group Mapping", {
-								"company": self.company,
-								"report_type": self.report_type,
-								"primary_group": g.primary_group,
-								"secondary_group": g.secondary_group
-							}, pluck='gl_account')
-						)
+					gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 					if gl_accounts:
 						placeholders = ','.join(['%s'] * len(gl_accounts))
 						erp_type = self.get_erp_type()
@@ -7854,19 +8001,10 @@ class FinancialReport(Document):
 							"""
 							params = [self.company, year, month] + gl_accounts
 							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
-						
+
 			elif fr_particular.type == "Deferred Tax" and default_currency != self.currency:
 				cls_month, prev_year = self.get_previous_year_cls_month(year)
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-					gl_accounts.extend(
-						frappe.get_list("GL Group Mapping", {
-							"company": self.company,
-							"report_type": self.report_type,
-							"primary_group": g.primary_group,
-							"secondary_group": g.secondary_group
-						}, pluck='gl_account')
-					)
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 				if gl_accounts:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
 					query = f"""
@@ -7882,16 +8020,7 @@ class FinancialReport(Document):
 				else:
 					amount = 0
 			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-					gl_accounts.extend(
-						frappe.get_list("GL Group Mapping", {
-							"company": self.company,
-							"report_type": self.report_type,
-							"primary_group": g.primary_group,
-							"secondary_group": g.secondary_group
-						}, pluck='gl_account')
-					)
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 				if gl_accounts:
 					placeholders = ','.join(['%s'] * len(gl_accounts))
 					erp_type = self.get_erp_type()
@@ -7915,7 +8044,7 @@ class FinancialReport(Document):
 			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
 			return amount_cache[cache_key]
 
-		default_currency = frappe.get_value("Company", self.company, 'default_currency')
+		default_currency = self._default_currency
 		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
 		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
 		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate') if self.currency != default_currency else 1
@@ -7960,31 +8089,15 @@ class FinancialReport(Document):
 
 	def get_monthly_balance_sheet_data(self, template_name, for_other_equity=False, account=None):
 		"""Get monthly balance sheet data with current month, previous month, and FTM amounts"""
+		self._init_report_caches()
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
-		amount_cache, group_mapping_cache, standalone_group_cache, fr_section_cache, fr_particular_cache = {}, {}, {}, {}, {}
-		default_currency = frappe.get_value("Company", self.company, "default_currency")
+		amount_cache = {}
+		default_currency = self._default_currency
 
-		def get_fr_particular(name):
-			if name not in fr_particular_cache:
-				fr_particular_cache[name] = frappe.get_doc("FR Particular", name)
-			return fr_particular_cache[name]
-
-		def get_fr_section(name):
-			if name not in fr_section_cache:
-				fr_section_cache[name] = frappe.get_doc("FR Section", name)
-			return fr_section_cache[name]
-
-		def get_standalone_group(name):
-			if name not in standalone_group_cache:
-				standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
-			return standalone_group_cache[name]
-
-		def get_secondary_groups(primary_group):
-			if primary_group not in group_mapping_cache:
-				group_mapping_cache[primary_group] = sorted(set(
-					g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
-				))
-			return group_mapping_cache[primary_group]
+		get_fr_particular = self._get_cached_fr_particular
+		get_fr_section = self._get_cached_fr_section
+		get_standalone_group = self._get_cached_standalone_group
+		get_secondary_groups = self._get_cached_secondary_groups
 
 		def get_grouped_gl_amount(gl_accounts, year, month=None):
 			if not gl_accounts:
@@ -8030,7 +8143,7 @@ class FinancialReport(Document):
 				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
 
 			elif fr_particular.fetch_from_schedule:
-				note_type = frappe.get_value("FR Section", fr_particular.schedule, 'note_type')
+				note_type = get_fr_section(fr_particular.schedule).note_type if fr_particular.schedule else None
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'ftm_total' if is_current else 'net_increase_total'
 					amount = self.get_monthly_finished_goods_and_wip(note_type, total=True, field=field)
@@ -8042,7 +8155,7 @@ class FinancialReport(Document):
 					amount = self.get_monthly_other_equity_note_data(note_type, total=True, field=field)
 				elif note_type == "Borrowings (Non-current)":
 					field = 'total_current_month_amt' if is_current else 'total_previous_year'
-					primary_group = frappe.get_value("FR Section", fr_particular.schedule, 'primary_consolidation_group')
+					primary_group = get_fr_section(fr_particular.schedule).primary_consolidation_group
 					amount = self.get_monthly_borrowing_non_current_note_data(note_type, primary_group, total=True, field=field)
 				elif note_type == "Investments (Non-current)":
 					field = 'total_current' if is_current else 'total_previous_year'
@@ -8057,7 +8170,7 @@ class FinancialReport(Document):
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.get_sum_grouping_amount(pg, sec, month, year)
-							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+							has_hg_sec_group = self._get_cached_hg_sec_groups(pg, sec)
 							for hg_sec in has_hg_sec_group:
 								face_amount += self.get_sum_grouping_amount(pg, sec, month, year, hg_sec_group=hg_sec)
 
@@ -8065,14 +8178,10 @@ class FinancialReport(Document):
 								(group_type not in ("Current Tax Liabilities", "Income Tax Assets") and face_amount != 0)):
 								amount += face_amount
 				else:
-					gl_accounts = []
-					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-						gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type, "primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+					gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 					amount = get_grouped_gl_amount(gl_accounts, year, month)
 			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-					gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type,"primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 				amount = get_grouped_gl_amount(gl_accounts, year, month)
 
 			# Reverse if required
@@ -8088,7 +8197,7 @@ class FinancialReport(Document):
 
 		# --- Main loop ---
 		data = []
-		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		cls_month = self._closing_month
 
 		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
 		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
@@ -8137,6 +8246,7 @@ class FinancialReport(Document):
 
 	def get_monthly_cash_flow_data(self, template_name):
 		"""Get monthly cash flow data with current month, previous month, and FTM amounts"""
+		self._init_report_caches()
 		cash_flow_doc = frappe.get_doc("Cash Flow Template", template_name)
 		amount_cache = {}
 
@@ -8145,7 +8255,7 @@ class FinancialReport(Document):
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
-			fr_particular = frappe.get_doc("FR Particular", particular_name)
+			fr_particular = self._get_cached_fr_particular(particular_name)
 			if getattr(fr_particular, "is_total", 1):
 				amount = 0
 				for p in getattr(fr_particular, "particulars", []):
@@ -8153,10 +8263,7 @@ class FinancialReport(Document):
 					amount += calc_amount_for_particular_monthly(child_name, month, year)
 				amount = amount * 100000
 			else:
-				gl_accounts = []
-				for g in fr_particular.get('primary_and_secondary_group_mapping'):
-					gl_account = frappe.get_list("GL Group Mapping", {"company": self.company,"report_type": self.report_type, 'primary_group': g.primary_group, 'secondary_group': g.secondary_group}, pluck = 'gl_account')
-					gl_accounts.extend(gl_account)
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 
 				if len(gl_accounts) == 0:
 					amount = 0

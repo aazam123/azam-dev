@@ -14,7 +14,9 @@
   "lft",
   "rgt",
   "old_parent",
-  "parent_company_tree"
+  "parent_company_tree",
+  "section_break_hyzr",
+  "company_hierarchy_relation"
  ],
  "fields": [
   {
@@ -75,13 +77,23 @@
   {
    "fieldname": "column_break_jrxo",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_hyzr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "company_hierarchy_relation",
+   "fieldtype": "Table",
+   "label": "Company Hierarchy Relation",
+   "options": "Company Hierarchy Relation"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2026-03-09 09:08:56.113173",
+ "modified": "2026-03-09 09:46:46.760964",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Company Hierarchy",
