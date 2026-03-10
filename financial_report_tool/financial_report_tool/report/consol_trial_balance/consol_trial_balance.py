@@ -54,6 +54,13 @@ def get_columns():
             "width": 100,
         },
         {
+            "label": _("Exchange Rate"),
+            "fieldname": "exchange_rate",
+            "fieldtype": "Float",
+            "precision": 3,
+            "width": 140
+        },
+        {
             "label": _("Primary Group"),
             "fieldname": "primary_group",
             "fieldtype": "Link",
@@ -159,6 +166,7 @@ def get_data(filters):
             else:
                 rate = rate_doc.average_rate or 0
 
+        row.exchange_rate = rate
         row.amount = row.amount * rate
 
     return data
