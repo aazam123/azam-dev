@@ -2635,6 +2635,8 @@ class FinancialReport(Document):
 
 		# (c) Deferred Tax Assets (Net)
 		def render_dta_table(rows):
+			if not rows:
+				return ""
 			total = [sum(col) for col in zip(*[r[1:] for r in rows])]
 			table = f"""
 			<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff;">
