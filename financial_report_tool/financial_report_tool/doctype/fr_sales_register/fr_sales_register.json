@@ -37,6 +37,7 @@
   "bill_to_city",
   "bill_to_gstn_no",
   "bill_to_country",
+  "bill_to_region",
   "document_status",
   "column_break_hfeb",
   "accounting_document_excise",
@@ -833,12 +834,17 @@
   {
    "fieldname": "column_break_slri",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bill_to_region",
+   "fieldtype": "Data",
+   "label": "Bill To Region"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-10 12:54:14.603699",
+ "modified": "2026-03-10 14:57:57.293775",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Sales Register",
