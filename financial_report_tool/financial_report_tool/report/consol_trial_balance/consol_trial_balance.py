@@ -41,11 +41,17 @@ def get_columns():
             "width": 430
         },
         {
-            "label": _("Amount"),
+            "label": _("Amount (In INR)"),
             "fieldname": "amount",
             "fieldtype": "Currency",
             "width": 200,
             "options": "INR"
+        },
+        {
+            "label": _("Company Currency"),
+            "fieldname": "currency",
+            "fieldtype": "Data",
+            "width": 100,
         },
         {
             "label": _("Primary Group"),
@@ -98,7 +104,8 @@ def get_data(filters):
             SUM(t.uploaded_amount) AS amount,
             t.month AS month,
             t.fiscal_year AS fiscal_year,
-            t.company AS company
+            t.company AS company,
+            t.currency
         FROM `tabFR Trial Balance Entry` t
         INNER JOIN `tabGL Group Mapping` gm
             ON t.gl_account = gm.gl_account
@@ -145,13 +152,10 @@ def get_data(filters):
         )
 
         if not rate_doc:
-            frappe.throw(
-                _("Exchange rate not found for {0} to INR for {1} {2}")
-                .format(company_currency, row.month, row.fiscal_year)
-            )
+            rate = 0
 
         if row.report_type == "Balance Sheet":
-            rate = rate_doc.closing_rate
+            rate = rate_doc.closing_rate 
         else:
             rate = rate_doc.average_rate
 
