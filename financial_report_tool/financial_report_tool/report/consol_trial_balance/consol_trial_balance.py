@@ -153,11 +153,11 @@ def get_data(filters):
 
         if not rate_doc:
             rate = 0
-
-        if row.report_type == "Balance Sheet":
-            rate = rate_doc.closing_rate 
         else:
-            rate = rate_doc.average_rate
+            if row.report_type == "Balance Sheet":
+                rate = rate_doc.closing_rate or 0
+            else:
+                rate = rate_doc.average_rate or 0
 
         row.amount = row.amount * rate
 
