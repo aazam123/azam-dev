@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "creation": "2026-03-02 12:32:49.351436",
  "doctype": "DocType",
@@ -882,7 +883,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-02 12:51:07.113829",
+ "modified": "2026-03-10 12:54:35.010174",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Purchase Register",
