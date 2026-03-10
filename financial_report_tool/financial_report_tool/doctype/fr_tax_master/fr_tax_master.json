@@ -7,8 +7,10 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
+  "currency_type",
   "column_break_srdz",
   "fiscal_year",
+  "currency",
   "column_break_dljl",
   "profit_before_tax",
   "difference_due_to_section",
@@ -40,8 +42,7 @@
   {
    "fieldname": "profit_before_tax",
    "fieldtype": "Percent",
-   "label": "Profit Before Tax",
-   "reqd": 1
+   "label": "Profit Before Tax"
   },
   {
    "fieldname": "difference_due_to_section",
@@ -52,12 +53,24 @@
    "fieldname": "difference_due_to",
    "fieldtype": "Table",
    "options": "FR Difference Due"
+  },
+  {
+   "default": "Default",
+   "fieldname": "currency_type",
+   "fieldtype": "Select",
+   "label": "Currency Type",
+   "options": "\nDefault\nIndian"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Data",
+   "label": "Currency"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-05 16:22:56.289392",
+ "modified": "2026-03-09 11:52:20.193125",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Tax Master",
