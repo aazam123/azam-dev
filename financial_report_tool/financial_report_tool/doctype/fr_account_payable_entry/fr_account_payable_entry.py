@@ -87,7 +87,8 @@ class FRAccountPayableEntry(Document):
 			self.nature = "Clearing Document"
 		elif self.document_type == "EE":
 			self.nature = "Employee"
-			self.set_employee_grouping()
+			if not self.grouping:
+				self.set_employee_grouping()
 		elif self.document_type in ("KR", "RE", "MB"):
 			self.nature = "Invoicing Document"
 		elif self.document_type in ("KZ", "FP", "KG", "MP"):
