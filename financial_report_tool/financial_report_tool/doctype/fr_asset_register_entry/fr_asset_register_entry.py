@@ -31,7 +31,7 @@ class FRAssetRegisterEntry(Document):
 		self.calculate_days_in_current_year()
 		self.set_starting_book_value()
 		self.calculation()
-	
+		
 	# 1️⃣ Calculate total days used in current fiscal year
 	@frappe.whitelist()
 	def calculate_days_in_current_year(self):
