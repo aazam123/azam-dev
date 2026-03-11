@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{company}-{fiscal_year}-{###}",
+ "creation": "2026-03-11 11:01:35.209125",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "column_break_oojg",
+  "fiscal_year",
+  "section_break_ffvz",
+  "where_control_exists",
+  "section_break_qgch",
+  "fetch_companies_for_related_parties",
+  "names_of_replated"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "column_break_oojg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "section_break_ffvz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "where_control_exists",
+   "fieldtype": "Table",
+   "label": "Where Control Exists",
+   "options": "FR RPT Entry Details"
+  },
+  {
+   "fieldname": "section_break_qgch",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "names_of_replated",
+   "fieldtype": "Table",
+   "label": "Names of related parties and description of relationship, where transactions have taken place",
+   "options": "FR RPT Entry Details"
+  },
+  {
+   "fieldname": "fetch_companies_for_related_parties",
+   "fieldtype": "Button",
+   "label": "Fetch Companies for Related Parties"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-11 11:56:02.676808",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR RPT Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
