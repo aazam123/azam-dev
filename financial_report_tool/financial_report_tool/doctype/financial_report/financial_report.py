@@ -3181,15 +3181,17 @@ class FinancialReport(Document):
 					<th style="border:1px solid #000; padding:6px; font-weight:bold; color: #4472C4; background-color:{color};">Total</th>
 				</tr>
 			"""
-			for r in rows:
+			for i, r in enumerate(rows):
 				row_total = r[1] + r[2] + r[3]
+				border_top = "border-top:1px solid #000;" if i == 0 else "border-top:none;"
+
 				table += f"""
 				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{r[0]}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(r[1])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(r[2])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(r[3])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(row_total)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; {border_top} border-bottom:none; padding:6px;">{r[0]}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; {border_top} border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(r[1])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; {border_top} border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(r[2])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; {border_top} border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(r[3])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; {border_top} border-bottom:none; padding:6px; text-align:right; background-color:{color};">{fmt(row_total)}</td>
 				</tr>
 				"""
 			table += f"""
@@ -3564,13 +3566,43 @@ class FinancialReport(Document):
 	
 
 	def get_yearly_related_party_disclosure_note_data(self, section_description=""):
-		section_description = re.sub(
-			r'(<th[^>]*>\s*Sr\s*No\.?\s*</th>)',
-			r'<th style="width:5%;">Sr No</th>',
-			section_description,
-			flags=re.IGNORECASE
-		)
-		return section_description
+		fr_rpt_entry = frappe.db.exists("FR RPT Entry", {'company': self.company, 'fiscal_year': self.fiscal_year})
+		if not fr_rpt_entry:
+			return section_description.replace("{{note_table}}", "")
+
+		fr_rpt_entry_doc = frappe.get_doc("FR RPT Entry", fr_rpt_entry)
+
+		def build_table(rows, header):
+			if not rows:
+				return ""
+			row_html = ""
+			for idx, row in enumerate(rows, 1):
+				row_html += f"""<tr>
+					<td style="border:1px solid black; text-align:center;">{idx}</td>
+					<td style="border:1px solid black;">{row.company or ""}</td>
+					<td style="border:1px solid black;">{row.relation or ""}</td>
+				</tr>"""
+				
+			return f'''
+			<div>
+			<p style="margin-top: -70px; color: #4472C4;"><b>{header}</b></p>
+			<table style="width:100%; border-collapse:collapse; margin-top: -25px">
+				<thead>
+					<tr style="background-color:#E8F5E8;">
+						<th style="border:1px solid black; width:8%; text-align:center;">Sr. No.</th>
+						<th style="border:1px solid black; width:46%;">Company</th>
+						<th style="border:1px solid black; width:46%;">Relation</th>
+					</tr>
+				</thead>
+				<tbody>{row_html}</tbody>
+			</table>
+			</div>'''
+
+		table_a = build_table(fr_rpt_entry_doc.where_control_exists, "i. Where Control Exists")
+		table_b = build_table(fr_rpt_entry_doc.names_of_replated, "ii. Names of related parties and description of relationship, where transactions have taken place")
+
+		note_table = table_a + table_b
+		return section_description.replace("{{note_table}}", note_table)
 
 	def get_yearly_contingent_liabilities_note_data(self, section_description=""):
 		# Get dynamic date labels

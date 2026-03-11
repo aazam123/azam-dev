@@ -62,7 +62,9 @@
   "section_break_yvva",
   "text",
   "column_break_gqfu",
-  "remark"
+  "remark",
+  "column_break_neog",
+  "grouping_remark"
  ],
  "fields": [
   {
@@ -363,12 +365,21 @@
    "fieldtype": "Select",
    "label": "RPT",
    "options": "\nYes\nNo"
+  },
+  {
+   "fieldname": "column_break_neog",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "grouping_remark",
+   "fieldtype": "Small Text",
+   "label": "Grouping Remark"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-24 10:56:51.145132",
+ "modified": "2026-03-11 10:35:59.449176",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",
