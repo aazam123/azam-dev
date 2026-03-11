@@ -21,7 +21,7 @@ def execute(filters=None):
 def validate_filters(filters):
     if not filters.get("fiscal_year"):
         frappe.throw(_("Fiscal Year is required"))
-    if not filters.get("month"):
+    if filters.get("report_type") == "Consol Monthly" and not filters.get("month"):
         frappe.throw(_("Month is required"))
 
 
@@ -121,8 +121,7 @@ def get_data(filters):
             ON t.gl_account = acc.name
             AND t.company = acc.company
         WHERE t.fiscal_year = %(fiscal_year)s
-            AND t.month = %(month)s
-            AND gm.report_type = "Consol"
+            AND gm.report_type = %(report_type)s
             {conditions}
         GROUP BY
             acc.report_type,
@@ -173,6 +172,9 @@ def get_data(filters):
 
 def get_conditions(filters):
     conditions = []
+    if filters.get("report_type") == "Consol Monthly":
+        if filters.get("month"):
+            conditions.append("AND t.month = %(month)s")
 
     # Handle MultiSelect filters - convert list to tuple for IN clause
     primary_group = filters.get("primary_group")

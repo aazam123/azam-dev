@@ -4,6 +4,14 @@
 frappe.query_reports["Consol Trial Balance"] = {
     "filters": [
         {
+            fieldname: "report_type",
+            label: __("Report Type"),
+            fieldtype: "Select",
+            options: "Consol Monthly\nConsol Yearly",
+            reqd: 1,
+            default: "Consol Monthly"
+        },
+        {
             "fieldname": "fiscal_year",
             "label": __("Fiscal Year"),
             "fieldtype": "Link",
@@ -57,6 +65,26 @@ frappe.query_reports["Consol Trial Balance"] = {
     },
 
     onload(report) {
+        const report_type_filter = report.get_filter("report_type");
+    const month_filter = report.get_filter("month");
+
+    report_type_filter.$input.on("change", function () {
+
+        let report_type = report.get_values().report_type;
+
+        if (report_type === "Consol Monthly") {
+            month_filter.df.reqd = 1;
+            month_filter.toggle(true);
+        } 
+        else {
+            month_filter.df.reqd = 0;
+            month_filter.set_value("");
+            month_filter.toggle(false);
+        }
+
+        month_filter.refresh();
+    });
+
         report.page.add_inner_button(__("Download Excel"), function() {
             let filters = report.get_values();
             frappe.call({
