@@ -38,7 +38,6 @@
   "bill_to_gstn_no",
   "bill_to_country",
   "bill_to_region",
-  "document_status",
   "column_break_hfeb",
   "accounting_document_excise",
   "account_document",
@@ -58,9 +57,10 @@
   "material_group_description",
   "material_type_description",
   "material",
-  "rpt",
   "column_break_itun",
   "description",
+  "document_status",
+  "rpt",
   "section_break_hmtd",
   "sales_unit",
   "exchange_rate_account",
@@ -365,7 +365,7 @@
   },
   {
    "fieldname": "description",
-   "fieldtype": "Long Text",
+   "fieldtype": "Small Text",
    "label": "Description"
   },
   {
@@ -561,7 +561,7 @@
   },
   {
    "fieldname": "ref_invoice_date",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "label": "Ref Invoice Date"
   },
   {
@@ -844,7 +844,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-11 14:27:08.484946",
+ "modified": "2026-03-11 15:23:50.251030",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Sales Register",

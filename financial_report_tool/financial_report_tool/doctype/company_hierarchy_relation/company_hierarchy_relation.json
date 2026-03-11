@@ -13,9 +13,10 @@
  "fields": [
   {
    "fieldname": "company",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Company"
+   "label": "Company",
+   "options": "Company"
   },
   {
    "fieldname": "column_break_fhwf",
@@ -23,16 +24,17 @@
   },
   {
    "fieldname": "relation",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Relation"
+   "label": "Relation",
+   "options": "\nUltimate Holding Company\nHolding Company\nSubsidiary Company\nFellow Subsidiary of Holding Company\nFellow Subsidiary\nKey Managerial Personnel"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-11 11:37:30.930347",
+ "modified": "2026-03-11 15:35:55.294658",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Company Hierarchy Relation",
