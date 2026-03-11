@@ -1,6 +1,5 @@
 {
  "actions": [],
- "allow_import": 1,
  "allow_rename": 1,
  "autoname": "Sales-.#####",
  "creation": "2026-02-25 20:52:45.313132",
@@ -37,7 +36,6 @@
   "bill_to_city",
   "bill_to_gstn_no",
   "bill_to_country",
-  "bill_to_region",
   "document_status",
   "column_break_hfeb",
   "accounting_document_excise",
@@ -561,7 +559,7 @@
   },
   {
    "fieldname": "ref_invoice_date",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "label": "Ref Invoice Date"
   },
   {
@@ -834,17 +832,12 @@
   {
    "fieldname": "column_break_slri",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "bill_to_region",
-   "fieldtype": "Data",
-   "label": "Bill To Region"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-10 14:57:57.293775",
+ "modified": "2026-03-11 10:27:11.785573",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Sales Register",
