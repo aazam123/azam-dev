@@ -614,14 +614,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -5536,7 +5536,7 @@ class FinancialReport(Document):
 						row["previous_year"] = round((row.get("previous_year") or 0) - for_exc_add_prev,self.show_decimal_value)
 
 		data[0].table_data = json.dumps(table_data)
-		_, data[0].section_description = self.render_monthly_profit_and_loss(data[0].section, table_data)
+		_, data[0].section_description = self.render_yearly_profit_and_loss(data[0].section, table_data)
 
 	def get_yearly_other_equity_note_data(self, current_year, previous_year, section_description="", total=False, field=None):
 		"""Generate yearly Other Equity note table"""
@@ -5632,7 +5632,8 @@ class FinancialReport(Document):
 
 			("Total", grand_cur, grand_prev_year, True),
 		]
-		self.update_yearly_foreign_exchange_in_profit_loss(for_exc_add_cur, for_exc_add_prev)
+		if for_exc_add_cur or for_exc_add_prev:
+			self.update_yearly_foreign_exchange_in_profit_loss(for_exc_add_cur, for_exc_add_prev)
 
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; background-color:#fff;">
@@ -6779,10 +6780,11 @@ class FinancialReport(Document):
 
 		return grouped_data
 
-	def render_yearly_profit_and_loss(self, template_name):
+	def render_yearly_profit_and_loss(self, template_name, data=[]):
 		"""Render yearly profit and loss with note-style UI"""
 		current_month_end, previous_fiscal_year_end_label = self.get_yearly_dates()
-		data = self.get_yearly_profit_and_loss_data(template_name)
+		if not data:
+			data = self.get_yearly_profit_and_loss_data(template_name)
 
 		html = f"""
 		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">

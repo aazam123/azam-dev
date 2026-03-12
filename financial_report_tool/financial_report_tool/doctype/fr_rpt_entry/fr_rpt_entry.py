@@ -153,7 +153,7 @@ def calculate_rpt_transactions(company, fiscal_year, fr_rpt_entry_name=None):
 	if customer_to_company:
 		customer_codes = list(customer_to_company.keys())
 		sales_rows = frappe.db.sql("""
-			SELECT bill_to, fiscal_year, SUM(IFNULL(base_amount, 0)) as total_amount
+			SELECT bill_to, fiscal_year, SUM(IFNULL(base_amount, 0)) / 100000 as total_amount
 			FROM `tabFR Sales Register`
 			WHERE company = %s AND fiscal_year IN %s AND bill_to IN %s
 			GROUP BY bill_to, fiscal_year
@@ -161,7 +161,6 @@ def calculate_rpt_transactions(company, fiscal_year, fr_rpt_entry_name=None):
 		for row in sales_rows:
 			cust_name = customer_to_company.get(row.bill_to, row.bill_to)
 			relation = _find_relation_for_party(cust_name, company_relation_map)
-			frappe.msgprint(f"{relation}, {cust_name}, {row}")
 			if relation:
 				yk = "cy" if row.fiscal_year == fiscal_year else "py"
 				results_map[relation]["Sale of Goods"][cust_name][yk] += row.total_amount or 0
@@ -170,7 +169,7 @@ def calculate_rpt_transactions(company, fiscal_year, fr_rpt_entry_name=None):
 	if supplier_to_company:
 		supplier_codes = list(supplier_to_company.keys())
 		purchase_rows = frappe.db.sql("""
-			SELECT invoicing_party, fiscal_year, SUM(IFNULL(base_amount, 0)) as total_amount
+			SELECT invoicing_party, fiscal_year, SUM(IFNULL(base_amount, 0)) / 100000 as total_amount
 			FROM `tabFR Purchase Register`
 			WHERE company = %s AND fiscal_year IN %s AND invoicing_party IN %s
 			GROUP BY invoicing_party, fiscal_year
@@ -198,7 +197,7 @@ def calculate_rpt_transactions(company, fiscal_year, fr_rpt_entry_name=None):
 	for fy_name, end_date in fy_end_dates.items():
 		inv_rows = frappe.db.sql("""
 			SELECT company as invested_company,
-				SUM(IFNULL(investment_value, 0)) as total_amount
+				SUM(IFNULL(investment_value, 0)) / 100000 as total_amount
 			FROM `tabFR Investment Entry`
 			WHERE holding_company = %s AND company IN %s
 			AND posting_date <= %s
@@ -214,7 +213,7 @@ def calculate_rpt_transactions(company, fiscal_year, fr_rpt_entry_name=None):
 	if customer_to_company:
 		ar_rows = frappe.db.sql("""
 			SELECT customer, fiscal_year,
-				SUM(IFNULL(amount_in_lc, 0)) as total_amount
+				SUM(IFNULL(amount_in_lc, 0)) / 100000 as total_amount
 			FROM `tabFR Account Receivable Entry`
 			WHERE company = %s AND fiscal_year IN %s
 			AND report_type = 'Yearly'
@@ -232,7 +231,7 @@ def calculate_rpt_transactions(company, fiscal_year, fr_rpt_entry_name=None):
 	if supplier_to_company:
 		ap_rows = frappe.db.sql("""
 			SELECT supplier, fiscal_year,
-				SUM(IFNULL(amount_in_lc, 0)) as total_amount
+				SUM(IFNULL(amount_in_lc, 0)) / 100000 as total_amount
 			FROM `tabFR Account Payable Entry`
 			WHERE company = %s AND fiscal_year IN %s
 			AND report_type = 'Yearly'
