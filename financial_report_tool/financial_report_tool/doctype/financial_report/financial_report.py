@@ -961,11 +961,11 @@ class FinancialReport(Document):
 				"closing_value": curr_acc_closing_value
 			}
 
-		# Helper function to format values - 0 show karse
+		# Helper function to format values in lacs (÷100000)
 		def fmt(val):
 			if val is None:
 				return "0.00"
-			return f"{val:,.2f}"
+			return f"{val / 100000:,.2f}"
 
 		# Get values for each asset class
 		def get_val(data_dict, asset, key):
@@ -1418,11 +1418,11 @@ class FinancialReport(Document):
 				"closing_value": curr_acc_closing_value
 			}
 
-		# Helper function to format values - 0 show karse
+		# Helper function to format values in lacs (÷100000)
 		def fmt(val):
 			if val is None:
 				return "0.00"
-			return f"{val:,.2f}"
+			return f"{val / 100000:,.2f}"
 
 		# Get values for each asset class
 		def get_val(data_dict, asset, key):
@@ -1662,9 +1662,9 @@ class FinancialReport(Document):
 		previous_year_ending_date_display = frappe.utils.getdate(self.previous_year_ending_date).strftime("%d %B %Y")
 		current_year_ending_date_display = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-		
+
 		def fmt(val):
-			return "{:,.2f}".format(val) if val else "0.00"
+			return "{:,.2f}".format(val / 100000) if val else "0.00"
 
 		def get_cwip_values_for_date(current_fy):
 			"""Calculate CWIP values for Projects in progress based on ending date"""
@@ -1767,9 +1767,9 @@ class FinancialReport(Document):
 		pre_py_pip_total = pre_py_pip_less_1 + pre_py_pip_1_to_2 + pre_py_pip_2_to_3 + pre_py_pip_more_3
 
 		if field == "curr_pre_total":
-			return cy_pip_total - py_pip_total
+			return (cy_pip_total - py_pip_total) / 100000
 		elif field == "prev_pre_total":
-			return py_pip_total - pre_py_pip_total
+			return (py_pip_total - pre_py_pip_total) / 100000
 
 		html = f'''
 			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto; margin-top: -30px;">
@@ -1991,11 +1991,11 @@ class FinancialReport(Document):
 				"closing_value": curr_acc_closing_value
 			}
 
-		# Helper function to format values - 0 show karse
+		# Helper function to format values in lacs (÷100000)
 		def fmt(val):
 			if val is None:
 				return "0.00"
-			return f"{val:,.2f}"
+			return f"{val / 100000:,.2f}"
 
 		# Get values for each asset class
 		def get_val(data_dict, asset, key):
@@ -2195,7 +2195,7 @@ class FinancialReport(Document):
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 
 		def fmt(val):
-			return "{:,.2f}".format(val) if val else "0.00"
+			return "{:,.2f}".format(val / 100000) if val else "0.00"
 
 		def get_iaud_values_for_date(current_fy):
 			"""Calculate Intangible Assets Under Development values for Projects in progress based on ending date"""
@@ -2288,9 +2288,9 @@ class FinancialReport(Document):
 		pre_py_pip_less_1, pre_py_pip_1_to_2, pre_py_pip_2_to_3, pre_py_pip_more_3 = get_iaud_values_for_date(pre_year)
 		pre_py_pip_total = pre_py_pip_less_1 + pre_py_pip_1_to_2 + pre_py_pip_2_to_3 + pre_py_pip_more_3
 		if field == "curr_total":
-			return cy_pip_total - py_pip_total
+			return (cy_pip_total - py_pip_total) / 100000
 		elif field == "prev_total":
-			return py_pip_total - pre_py_pip_total
+			return (py_pip_total - pre_py_pip_total) / 100000
 
 		html = f'''
 			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto; margin-top: 30px;">
