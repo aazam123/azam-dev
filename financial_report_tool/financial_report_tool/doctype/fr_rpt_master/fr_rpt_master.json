@@ -9,11 +9,9 @@
   "company",
   "internal_customer_section",
   "internal_customer_list",
-  "column_break_qked",
   "related_customer_list",
   "related_customer_section",
   "internal_supplier",
-  "column_break_lmqw",
   "related_party_supplier"
  ],
  "fields": [
@@ -47,18 +45,10 @@
    "options": "FR RPT Related Customer"
   },
   {
-   "fieldname": "column_break_qked",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "internal_supplier",
    "fieldtype": "Table",
    "label": "Internal Supplier",
    "options": "FR RPT Internal Supplier"
-  },
-  {
-   "fieldname": "column_break_lmqw",
-   "fieldtype": "Column Break"
   },
   {
    "fieldname": "related_party_supplier",
@@ -70,7 +60,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-05 11:00:08.119681",
+ "modified": "2026-03-12 09:42:34.000279",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR RPT Master",

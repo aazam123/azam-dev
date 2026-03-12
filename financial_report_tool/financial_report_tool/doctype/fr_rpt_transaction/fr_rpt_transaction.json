@@ -1,0 +1,92 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-11 17:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "relation_type",
+  "entry_type",
+  "column_break_1",
+  "transaction_category",
+  "description",
+  "company_name",
+  "column_break_2",
+  "current_year_amount",
+  "previous_year_amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "relation_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Relation Type",
+   "options": "\nUltimate Holding Company\nHolding Company\nSubsidiary\nFellow Subsidiary of Holding Company\nFellow Subsidiary\nKey Managerial Personnel",
+   "reqd": 1
+  },
+  {
+   "fieldname": "entry_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Entry Type",
+   "options": "\nTransaction\nBalance Outstanding",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transaction_category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Transaction Category",
+   "options": "\nReceivable\nPayable\nSale of Goods\nPurchase of Goods\nPurchase of Assets\nRent Received\nRent Paid\nShared Services Charges\nReimbursement of Expenses\nDebit Note towards Expiry of Goods\nGuarantees Given\nGuarantees Extinguished\nGuarantee Expenses\nInvestment in Subsidiaries\nInterest on Preference Shares\nLicense Fees\nGratuity Liabilities Transferred\nRemuneration and Perquisites\nReceipt of Lease Liability\nPayment of Lease Liability\nOther",
+   "reqd": 1
+  },
+  {
+   "description": "Auto-filled from Transaction Category. Override for custom descriptions.",
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "company_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Company Name"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "current_year_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Current Year Amount"
+  },
+  {
+   "fieldname": "previous_year_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Previous Year Amount"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-12 08:25:30.853889",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR RPT Transaction",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

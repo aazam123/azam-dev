@@ -3571,6 +3571,14 @@ class FinancialReport(Document):
 			return section_description.replace("{{note_table}}", "")
 
 		fr_rpt_entry_doc = frappe.get_doc("FR RPT Entry", fr_rpt_entry)
+		current_year_label, previous_year_label = self.get_yearly_dates()
+		cy_label = current_year_label.replace("Year Ended ", "") if current_year_label else ""
+		py_label = previous_year_label.replace("Year Ended ", "") if previous_year_label else ""
+
+		def fmt(val):
+			if val in (None, 0, 0.0):
+				return "-"
+			return f"{val:,.0f}"
 
 		def build_table(rows, header):
 			if not rows:
@@ -3582,7 +3590,7 @@ class FinancialReport(Document):
 					<td style="border:1px solid black;">{row.company or ""}</td>
 					<td style="border:1px solid black;">{row.relation or ""}</td>
 				</tr>"""
-				
+
 			return f'''
 			<div>
 			<p style="margin-top: -70px; color: #4472C4;"><b>{header}</b></p>
@@ -3601,7 +3609,119 @@ class FinancialReport(Document):
 		table_a = build_table(fr_rpt_entry_doc.where_control_exists, "i. Where Control Exists")
 		table_b = build_table(fr_rpt_entry_doc.names_of_replated, "ii. Names of related parties and description of relationship, where transactions have taken place")
 
-		note_table = table_a + table_b
+		# ---- Table iii: Transactions and Balances Outstanding ----
+		table_c = ""
+		transactions = fr_rpt_entry_doc.get("rpt_transactions", [])
+		if transactions:
+			relation_order = [
+				"Ultimate Holding Company",
+				"Holding Company",
+				"Subsidiary",
+				"Fellow Subsidiary of Holding Company",
+				"Fellow Subsidiary",
+				"Key Managerial Personnel",
+			]
+
+			# Group rows by relation_type, preserving input order within each group
+			from collections import OrderedDict
+			grouped = OrderedDict()
+			for rel in relation_order:
+				grouped[rel] = []
+			for row in transactions:
+				rt = row.relation_type
+				if rt not in grouped:
+					grouped[rt] = []
+				grouped[rt].append(row)
+
+			# Build one sub-table per relation type
+			all_relation_tables = ""
+			for relation_type, rows in grouped.items():
+				if not rows:
+					continue
+
+				# Separate transactions and balances
+				txn_rows = [r for r in rows if r.entry_type == "Transaction"]
+				bal_rows = [r for r in rows if r.entry_type == "Balance Outstanding"]
+
+				# Build rows HTML
+				body_html = ""
+
+				# Transaction rows
+				current_sno = 0
+				current_desc = None
+				for row in txn_rows:
+					if row.description != current_desc:
+						current_sno += 1
+						current_desc = row.description
+
+					if row.company_name:
+						# Sub-row (company-level detail) — indented, no S.No.
+						body_html += f"""<tr>
+							<td style="border:1px solid black;"></td>
+							<td style="border:1px solid black; padding-left:30px;">{row.company_name}</td>
+							<td style="border:1px solid black; text-align:right; background-color:#E8F5E8;">{fmt(row.current_year_amount)}</td>
+							<td style="border:1px solid black; text-align:right;">{fmt(row.previous_year_amount)}</td>
+						</tr>"""
+					else:
+						# Main transaction row
+						body_html += f"""<tr>
+							<td style="border:1px solid black; text-align:center;">{current_sno}</td>
+							<td style="border:1px solid black;">{row.description}</td>
+							<td style="border:1px solid black; text-align:right; background-color:#E8F5E8;">{fmt(row.current_year_amount)}</td>
+							<td style="border:1px solid black; text-align:right;">{fmt(row.previous_year_amount)}</td>
+						</tr>"""
+
+				# Balances Outstanding header
+				if bal_rows:
+					body_html += f"""<tr style="background-color:#E8F5E8;">
+						<td style="border:1px solid black;"></td>
+						<td style="border:1px solid black;" colspan="3"><b>Balances Outstanding</b></td>
+					</tr>"""
+
+					bal_sno = 0
+					bal_desc = None
+					for row in bal_rows:
+						if row.description != bal_desc:
+							bal_sno += 1
+							bal_desc = row.description
+
+						if row.company_name:
+							body_html += f"""<tr>
+								<td style="border:1px solid black;"></td>
+								<td style="border:1px solid black; padding-left:30px;">{row.company_name}</td>
+								<td style="border:1px solid black; text-align:right; background-color:#E8F5E8;">{fmt(row.current_year_amount)}</td>
+								<td style="border:1px solid black; text-align:right;">{fmt(row.previous_year_amount)}</td>
+							</tr>"""
+						else:
+							body_html += f"""<tr>
+								<td style="border:1px solid black; text-align:center;">{bal_sno}</td>
+								<td style="border:1px solid black;">{row.description}</td>
+								<td style="border:1px solid black; text-align:right; background-color:#E8F5E8;">{fmt(row.current_year_amount)}</td>
+								<td style="border:1px solid black; text-align:right;">{fmt(row.previous_year_amount)}</td>
+							</tr>"""
+
+				relation_label = f"Transactions with {relation_type}"
+				all_relation_tables += f'''
+				<table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+					<thead>
+						<tr style="background-color:#E8F5E8;">
+							<th style="border:1px solid black; width:8%; text-align:center;">S.No.</th>
+							<th style="border:1px solid black; width:52%;">{relation_label}</th>
+							<th style="border:1px solid black; width:20%; text-align:center; background-color:#E8F5E8;">{cy_label}<br>(\u20b9 in lacs)</th>
+							<th style="border:1px solid black; width:20%; text-align:center;">{py_label}<br>(\u20b9 in lacs)</th>
+						</tr>
+					</thead>
+					<tbody>{body_html}</tbody>
+				</table>'''
+
+			if all_relation_tables:
+				table_c = f'''
+				<div>
+				<p style="color: #4472C4;"><b>iii. Transactions and balances outstanding with Related Parties</b></p>
+				{all_relation_tables}
+				</div>'''
+
+		note_table = table_a + table_b + table_c
 		return section_description.replace("{{note_table}}", note_table)
 
 	def get_yearly_contingent_liabilities_note_data(self, section_description=""):
