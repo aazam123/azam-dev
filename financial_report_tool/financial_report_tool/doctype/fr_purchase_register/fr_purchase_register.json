@@ -145,15 +145,21 @@
   "section_break_spqe",
   "social_welfare_per",
   "social_welfare_sc",
+  "ff_dest",
+  "ff_misc",
   "column_break_skoa",
   "health_cess_per",
   "health_cess",
+  "clear_fwd",
+  "cnc",
   "column_break_ivol",
   "asset_code",
   "assessable_value",
+  "purchase_amount",
   "column_break_nmqk",
   "assessable_value_boe",
-  "valueigst"
+  "valueigst",
+  "check"
  ],
  "fields": [
   {
@@ -878,12 +884,43 @@
   {
    "fieldname": "column_break_nmqk",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ff_dest",
+   "fieldtype": "Float",
+   "label": "F&F Dest"
+  },
+  {
+   "fieldname": "ff_misc",
+   "fieldtype": "Float",
+   "label": "F&F Misc"
+  },
+  {
+   "fieldname": "clear_fwd",
+   "fieldtype": "Float",
+   "label": "Clear & Fwd."
+  },
+  {
+   "fieldname": "cnc",
+   "fieldtype": "Select",
+   "label": "C/NC",
+   "options": "\nC\nNC"
+  },
+  {
+   "fieldname": "purchase_amount",
+   "fieldtype": "Float",
+   "label": "Purchase amount"
+  },
+  {
+   "fieldname": "check",
+   "fieldtype": "Float",
+   "label": "Check"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-10 12:54:35.010174",
+ "modified": "2026-03-13 11:39:52.052942",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Purchase Register",
