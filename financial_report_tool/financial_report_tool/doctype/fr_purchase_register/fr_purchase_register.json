@@ -203,7 +203,8 @@
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
    "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "purchase_order",
@@ -920,7 +921,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-13 11:39:52.052942",
+ "modified": "2026-03-13 14:36:34.128090",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Purchase Register",

@@ -28,7 +28,6 @@ class FRAccountPayableEntry(Document):
 			frappe.throw(f"Reconciliation account not found for account number {self.account_no} in company {self.company}")
 
 		self.ap = "Payable" if self.amount_in_lc < 0 else "Advance"
-
 		if self.ap == "Advance":
 			if self.special_gl_ind:
 				sp_gl_grouping = frappe.get_all("Special GL Indicator Grouping", {"parent": self.company, "special_gl_indicator": self.special_gl_ind}, ["nature", "e_ne", "currency", "grouping"])
@@ -39,6 +38,7 @@ class FRAccountPayableEntry(Document):
 							self.grouping = grouping
 							self.grouping_remark = f"Advance + Special GL Ind '{self.special_gl_ind}' (no nature filter) → {grouping}"
 						else:
+							# frappe.throw(f"{self.ap}, {self.special_gl_ind}, {sp_grouping}")
 							if currency:
 								if e_ne == 'Not Equals' and self.currency != currency and self.ap == nature:
 									self.grouping = grouping

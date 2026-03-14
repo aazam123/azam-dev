@@ -841,6 +841,7 @@ class FinancialReport(Document):
 				'FR Asset Register Entry',
 				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
+					'company': self.company,
 					'asset_class': asset,
 					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
 				},
@@ -852,6 +853,7 @@ class FinancialReport(Document):
 				'FR Asset Register Entry',
 				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
+					'company': self.company,
 					'asset_class': asset,
 					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
 				},
@@ -1301,6 +1303,7 @@ class FinancialReport(Document):
 				'FR Asset Register Entry',
 				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
+					'company': self.company,
 					'asset_class': asset,
 					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
 				},
@@ -1312,6 +1315,7 @@ class FinancialReport(Document):
 				'FR Asset Register Entry',
 				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
+					'company': self.company,
 					'asset_class': asset,
 					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
 				},
@@ -1702,8 +1706,9 @@ class FinancialReport(Document):
 					WHERE sap_ebv > 0
 					AND sap_transaction_acq_value >= 0
 					AND asset_class = 'CWIP'
+					AND company = %s
 					AND fiscal_year = %s
-				""", (fiscal_year,), as_dict=True)
+				""", (self.company, fiscal_year), as_dict=True)
 				total_acq = result[0].total_acq_value or 0 if result else 0
 				total_ebv = result[0].total_ebv or 0 if result else 0
 				return total_acq, total_ebv
@@ -1874,6 +1879,7 @@ class FinancialReport(Document):
 				'FR Asset Register Entry',
 				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
+					'company': self.company,
 					'asset_class': asset,
 					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
 				},
@@ -1885,6 +1891,7 @@ class FinancialReport(Document):
 				'FR Asset Register Entry',
 				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
+					'company': self.company,
 					'asset_class': asset,
 					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
 				},
@@ -2224,8 +2231,9 @@ class FinancialReport(Document):
 					WHERE sap_ebv > 0
 					AND sap_transaction_acq_value >= 0
 					AND asset_class = 'CWIP Intangible Asse'
+					AND company = %s
 					AND fiscal_year = %s
-				""", (fiscal_year,), as_dict=True)
+				""", (self.company, fiscal_year), as_dict=True)
 				total_acq = result[0].total_acq_value or 0 if result else 0
 				total_ebv = result[0].total_ebv or 0 if result else 0
 				return total_acq, total_ebv
