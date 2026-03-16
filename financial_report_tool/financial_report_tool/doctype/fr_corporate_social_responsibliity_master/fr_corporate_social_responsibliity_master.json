@@ -20,7 +20,11 @@
   "nature_of_csr_activities",
   "details_of_related_party_transactions",
   "column_break_wwmv",
-  "small_text_vucn"
+  "small_text_vucn",
+  "section_break_pxbp",
+  "column_break_wbir",
+  "calculation_details",
+  "calculation_details_data"
  ],
  "fields": [
   {
@@ -54,6 +58,12 @@
    "label": "Month",
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
    "reqd": 1
+  },
+  {
+   "fieldname": "calculation_details",
+   "fieldtype": "HTML",
+   "label": "Details",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_kuhd",
@@ -102,12 +112,27 @@
    "description": "Where a provision is made with respect to a liability incurred by entering into a contractual obligation, the movements in the provision during the year shall be shown separately",
    "fieldname": "small_text_vucn",
    "fieldtype": "Small Text"
+  },
+  {
+   "fieldname": "section_break_pxbp",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_wbir",
+   "fieldtype": "Column Break",
+   "read_only": 1
+  },
+  {
+   "fieldname": "calculation_details_data",
+   "fieldtype": "Long Text",
+   "hidden": 1,
+   "label": "Calculation Details Data"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-08 12:49:58.685635",
+ "modified": "2026-03-16 18:07:58.276583",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Corporate Social Responsibliity Master",
