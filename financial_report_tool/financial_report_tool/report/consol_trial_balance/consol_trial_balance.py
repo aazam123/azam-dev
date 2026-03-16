@@ -41,11 +41,11 @@ def get_columns():
             "width": 430
         },
         {
-            "label": _("Amount (In INR)"),
-            "fieldname": "amount",
+            "label": _("Amount"),
+            "fieldname": "amount_df_currency",
             "fieldtype": "Currency",
             "width": 200,
-            "options": "INR"
+            "options": "Company:company:default_currency"
         },
         {
             "label": _("Company Currency"),
@@ -59,6 +59,13 @@ def get_columns():
             "fieldtype": "Float",
             "precision": 3,
             "width": 140
+        },
+        {
+            "label": _("Amount (In INR)"),
+            "fieldname": "amount",
+            "fieldtype": "Currency",
+            "width": 200,
+            "options": "INR"
         },
         {
             "label": _("Primary Group"),
@@ -135,14 +142,27 @@ def get_data(filters):
             t.company
     """.format(conditions=conditions), filters, as_dict=True)
 
+    logger = frappe.logger("currency_conversion", allow_site=True)
+
     for row in data:
 
         company_currency = frappe.get_value(
             "Company", row.company, "default_currency"
         )
 
-        # If already INR skip conversion
+        original_amount = row.amount
+        row.amount_df_currency = original_amount
+
+        # If company currency already INR
         if company_currency == "INR":
+            row.exchange_rate = 1
+            row.amount = original_amount
+
+            logger.warning(
+                f"{row.company} | {row.gl_account} | INR | "
+                f"{original_amount} | 1 | {original_amount}"
+            )
+
             continue
 
         rate_doc = frappe.db.get_value(
@@ -165,8 +185,44 @@ def get_data(filters):
             else:
                 rate = rate_doc.average_rate or 0
 
+        converted_amount = original_amount * rate
+
         row.exchange_rate = rate
-        row.amount = row.amount * rate
+        row.amount = converted_amount
+
+        logger.warning(
+            f"{row.company} | {row.gl_account} | {company_currency} | "
+            f"{original_amount} | {rate} | {converted_amount}"
+        )
+
+    # ------------------------------
+    # Calculate CTA Difference
+    # ------------------------------
+
+    total_converted = sum(d.amount for d in data)
+
+    # If difference exists add CTA row
+    if abs(total_converted) > 0.5:
+
+        data.append({
+            "account_number": "",
+            "gl_account": "Foreign Currency Translation Reserve",
+            "primary_group": "Equity",
+            "secondary_group": "",
+            "higher_secondary_group": "",
+            "report_type": "Balance Sheet",
+            "amount_df_currency": "",
+            "exchange_rate": "",
+            "amount": -total_converted,
+            "month": "",
+            "fiscal_year": filters.get("fiscal_year"),
+            "company": "Consolidated",
+            "currency": "INR"
+        })
+
+        logger.warning(
+            f"CTA Adjustment Added | Difference: {total_converted}"
+        )
 
     return data
 

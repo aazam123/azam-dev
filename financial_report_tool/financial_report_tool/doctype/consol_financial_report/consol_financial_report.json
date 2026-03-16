@@ -1,0 +1,176 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "CFRP-.####",
+ "creation": "2026-03-12 11:37:19.290933",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "fiscal_year",
+  "current_year_start_date",
+  "current_year_ending_date",
+  "current_month",
+  "approved_on",
+  "column_break_nyhx",
+  "financial_report_template",
+  "previous_fiscal_year",
+  "previous_year_start_date",
+  "previous_year_ending_date",
+  "previous_month",
+  "approved_by",
+  "column_break_ujyu",
+  "report_type",
+  "show_decimal_value",
+  "currency",
+  "section_break_nrwe",
+  "foreign_exchange_rate",
+  "financial_report_details"
+ ],
+ "fields": [
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Current Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ujyu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "financial_report_template",
+   "fieldtype": "Link",
+   "label": "Financial Report Template",
+   "options": "Financial Report Template"
+  },
+  {
+   "fieldname": "section_break_nrwe",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "financial_report_details",
+   "fieldtype": "Table",
+   "label": "Financial Report Details",
+   "options": "Financial Report Details"
+  },
+  {
+   "fetch_from": "fiscal_year.year_end_date",
+   "fieldname": "current_year_ending_date",
+   "fieldtype": "Date",
+   "label": "Current Year Ending Date"
+  },
+  {
+   "fetch_from": "previous_fiscal_year.year_end_date",
+   "fieldname": "previous_year_ending_date",
+   "fieldtype": "Date",
+   "label": "Previous Year Ending Date"
+  },
+  {
+   "fieldname": "previous_fiscal_year",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Previous Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_nyhx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval: doc.report_type == \"Consol Monthly\";",
+   "fieldname": "current_month",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Current Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "depends_on": "eval: doc.report_type == \"Consol Monthly\";",
+   "fieldname": "previous_month",
+   "fieldtype": "Select",
+   "label": "Previous Month",
+   "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fetch_from": "financial_report_template.report_type",
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "label": "Report Type",
+   "options": "\nConsol Monthly\nConsol Yearly"
+  },
+  {
+   "fieldname": "foreign_exchange_rate",
+   "fieldtype": "Small Text",
+   "label": "Foreign Exchange Rate",
+   "read_only": 1
+  },
+  {
+   "default": "3",
+   "fieldname": "show_decimal_value",
+   "fieldtype": "Int",
+   "label": "Show Decimal Value"
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Data",
+   "label": "Approved By",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "fiscal_year.year_start_date",
+   "fieldname": "current_year_start_date",
+   "fieldtype": "Date",
+   "label": "Current Year Start Date"
+  },
+  {
+   "fetch_from": "previous_fiscal_year.year_start_date",
+   "fieldname": "previous_year_start_date",
+   "fieldtype": "Date",
+   "label": "Previous Year Start Date"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-16 17:51:12.425146",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Consol Financial Report",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
