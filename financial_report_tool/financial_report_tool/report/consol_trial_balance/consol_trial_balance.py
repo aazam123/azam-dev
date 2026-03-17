@@ -7,7 +7,6 @@ import frappe
 from frappe import _
 from frappe.utils.xlsxutils import make_xlsx
 
-
 def execute(filters=None):
     if not filters:
         filters = {}
@@ -17,13 +16,11 @@ def execute(filters=None):
     data = get_data(filters)
     return columns, data
 
-
 def validate_filters(filters):
     if not filters.get("fiscal_year"):
         frappe.throw(_("Fiscal Year is required"))
     if filters.get("report_type") == "Consol Monthly" and not filters.get("month"):
         frappe.throw(_("Month is required"))
-
 
 def get_columns():
     return [
@@ -103,7 +100,6 @@ def get_columns():
         }
     ]
 
-
 def get_data(filters):
     conditions = get_conditions(filters)
 
@@ -142,40 +138,116 @@ def get_data(filters):
             t.company
     """.format(conditions=conditions), filters, as_dict=True)
 
-    logger = frappe.logger("currency_conversion", allow_site=True)
+    companies = list(set(d.company for d in data))
+    company_currency_map = {
+        c.name: c.default_currency
+        for c in frappe.get_all(
+            "Company",
+            filters={"name": ["in", companies]},
+            fields=["name", "default_currency"]
+        )
+    }
+
+    inv_filters = {}
+
+    # Monthly filter
+    if filters.get("report_type") == "Consol Monthly" and filters.get("month"):
+        inv_filters["month"] = filters.get("month")
+
+    # Fiscal year filter (April → March)
+    if filters.get("fiscal_year"):
+        fy = filters.get("fiscal_year")
+        year_start, year_end = fy.split("-")
+        inv_filters["posting_date"] = [
+            "between",
+            [f"{year_start}-04-01", f"{year_end}-03-31"]
+        ]
+
+    inv_data = frappe.get_all(
+        "FR Investment Entry",
+        filters=inv_filters,
+        fields=[
+            "holding_company",
+            "company",
+            "investment_value_fc",
+            "exchanges_rate",
+            "default_currency"
+        ]
+    )
+
+    fx_map = {}
+    fx_data = frappe.get_all(
+        "FR Foreign Exchange Rate",
+        fields=[
+            "from_currency",
+            "to_currency",
+            "fiscal_year",
+            "month",
+            "closing_rate",
+            "average_rate"
+        ]
+    )
+
+    for fx in fx_data:
+        key = (fx.from_currency, fx.to_currency, fx.fiscal_year, fx.month)
+        fx_map[key] = fx
+
+    new_rows = []
 
     for row in data:
 
-        company_currency = frappe.get_value(
-            "Company", row.company, "default_currency"
-        )
+        company_currency = company_currency_map.get(row.company)
+
+        # ----------------------------------------
+        # Non Current Investments
+        # ----------------------------------------
+        if row.primary_group == "Non Current Investments":
+
+            original_amount = row.amount
+            row.amount_df_currency = original_amount
+            row.exchange_rate = 0
+            row.amount = 0
+
+            for inv in inv_data:
+
+                # Match only same holding company
+                if inv.holding_company != row.company:
+                    continue
+
+                fc_value = inv.investment_value_fc or 0
+                rate = inv.exchanges_rate or 0
+                inv_currency = inv.default_currency or company_currency
+
+                converted_amount = fc_value * rate
+
+                new_rows.append(frappe._dict({
+                    "account_number": "",
+                    "gl_account": f"Investment - {inv.company}",
+                    "primary_group": row.primary_group,
+                    "secondary_group": row.secondary_group,
+                    "higher_secondary_group": row.higher_secondary_group,
+                    "report_type": row.report_type,
+                    "amount_df_currency": "",
+                    "exchange_rate": rate,
+                    "amount": converted_amount,
+                    "month": row.month,
+                    "fiscal_year": row.fiscal_year,
+                    "company": row.company,
+                    "currency": inv_currency
+                }))
+
+            continue
 
         original_amount = row.amount
         row.amount_df_currency = original_amount
 
-        # If company currency already INR
         if company_currency == "INR":
             row.exchange_rate = 1
             row.amount = original_amount
-
-            logger.warning(
-                f"{row.company} | {row.gl_account} | INR | "
-                f"{original_amount} | 1 | {original_amount}"
-            )
-
             continue
 
-        rate_doc = frappe.db.get_value(
-            "FR Foreign Exchange Rate",
-            {
-                "from_currency": company_currency,
-                "to_currency": "INR",
-                "fiscal_year": row.fiscal_year,
-                "month": row.month
-            },
-            ["closing_rate", "average_rate"],
-            as_dict=True
-        )
+        key = (company_currency, "INR", row.fiscal_year, row.month)
+        rate_doc = fx_map.get(key)
 
         if not rate_doc:
             rate = 0
@@ -190,20 +262,13 @@ def get_data(filters):
         row.exchange_rate = rate
         row.amount = converted_amount
 
-        logger.warning(
-            f"{row.company} | {row.gl_account} | {company_currency} | "
-            f"{original_amount} | {rate} | {converted_amount}"
-        )
-
-    # ------------------------------
-    # Calculate CTA Difference
-    # ------------------------------
-
+    data.extend(new_rows)
+    # ----------------------------------------
+    # CTA Calculation
+    # ----------------------------------------
     total_converted = sum(d.amount for d in data)
 
-    # If difference exists add CTA row
     if abs(total_converted) > 0.5:
-
         data.append({
             "account_number": "",
             "gl_account": "Foreign Currency Translation Reserve",
@@ -219,10 +284,6 @@ def get_data(filters):
             "company": "Consolidated",
             "currency": "INR"
         })
-
-        logger.warning(
-            f"CTA Adjustment Added | Difference: {total_converted}"
-        )
 
     return data
 
