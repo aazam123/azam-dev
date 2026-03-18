@@ -2865,7 +2865,7 @@ class FinancialReport(Document):
 
 		pre_fair_value = frappe.db.exists("FR Fair Value Measurements", {"company": self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month})
 		if pre_fair_value:
-			prev_fv_doc = frappe.get_doc("FR Fair Value Measurement", pre_fair_value)
+			prev_fv_doc = frappe.get_doc("FR Fair Value Measurements", pre_fair_value)
 			pre_tpl_investment = prev_fv_doc.tpl_investment or 0
 			pre_oci_investment = prev_fv_doc.oci_investment or 0
 			pre_tpl_trade_receivable = prev_fv_doc.tpl_trade_receivable or 0
