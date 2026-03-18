@@ -614,14 +614,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -1026,8 +1026,9 @@ class FinancialReport(Document):
 		cy_net = {asset: (cy_closing.get(asset, 0) or 0) - (cy_acc_closing.get(asset, 0) or 0) for asset in asset_classes}
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
+		# <div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; transform: rotate(-90deg); transform-origin: top left; position: relative; top: 701px; width: 750px;">
 		html = f'''
-		<div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; transform: rotate(-90deg); transform-origin: top left; position: relative; top: 701px; width: 750px;">
+		<div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always;">
 			<table style="margin-top: -20px; margin-left: -10px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
 			<thead>
 				<tr style="color: #4472C4;">
@@ -2542,24 +2543,33 @@ class FinancialReport(Document):
 		pre_pbt = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'),'previous_year') or 0
 
 		# Fetch tax rate from FR Tax Master
-		cur_tax_master = frappe.get_value("FR Tax Master", {"company": self.company, "fiscal_year": self.fiscal_year}, 'name')
-		pre_tax_master = frappe.get_value("FR Tax Master", {"company": self.company, "fiscal_year": self.previous_fiscal_year}, 'name')
-		cur_rate = frappe.db.get_value("FR Tax Master", cur_tax_master, "profit_before_tax") or 0 if cur_tax_master else 0
-		pre_rate = frappe.db.get_value("FR Tax Master", pre_tax_master, "profit_before_tax") or 0 if pre_tax_master else 0
+		cur_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.fiscal_year})
+		pre_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.previous_fiscal_year})
+		if cur_tax_master:
+			cur_tax_master_doc = frappe.get_doc("FR Tax Master", cur_tax_master)
+			cur_rate = cur_tax_master_doc.profit_before_tax
+			cur_diff_items = cur_tax_master_doc.difference_due_to
+		else:
+			cur_rate = 0
+			cur_diff_items = []
 
-		# Fetch difference_due_to child table items
-		cur_diff_items = frappe.get_all("Difference Due", filters={"parent": cur_tax_master}, fields=["particulars", "percentage", "value"], order_by="idx") if cur_tax_master else []
-		pre_diff_items = frappe.get_all("Difference Due", filters={"parent": pre_tax_master}, fields=["particulars", "percentage", "value"], order_by="idx") if pre_tax_master else []
+		if pre_tax_master:
+			pre_tax_master_doc = frappe.get_doc("FR Tax Master", pre_tax_master)
+			pre_rate = pre_tax_master_doc.profit_before_tax
+			pre_diff_items = pre_tax_master_doc.difference_due_to
+		else:
+			pre_rate = 0
+			pre_diff_items = []
 
 		# Build lookup for previous items by particulars
-		pre_diff_map = {d["particulars"]: d for d in pre_diff_items}
+		pre_diff_map = {d.particulars: d for d in pre_diff_items}
 
 		cur_tax_at_rate = round(cur_pbt * cur_rate / 100)
 		pre_tax_at_rate = round(pre_pbt * pre_rate / 100)
 
 		# Calculate total tax (tax_at_rate + sum of all difference values)
-		cur_diff_total = sum(flt(d["value"]) for d in cur_diff_items)
-		pre_diff_total = sum(flt(d["value"]) for d in pre_diff_items)
+		cur_diff_total = sum(flt(d.value) for d in cur_diff_items)
+		pre_diff_total = sum(flt(d.value) for d in pre_diff_items)
 		cur_tax = cur_tax_at_rate + cur_diff_total
 		pre_tax = pre_tax_at_rate + pre_diff_total
 		cur_tax_pct = round(cur_tax / cur_pbt * 100, 2) if cur_pbt else 0
@@ -2599,7 +2609,7 @@ class FinancialReport(Document):
 				</tr>
 		"""
 		# Dynamic difference_due_to rows from FR Tax Master child table
-		all_particulars = list(dict.fromkeys([d["particulars"] for d in cur_diff_items] + [d["particulars"] for d in pre_diff_items]))
+		all_particulars = list(dict.fromkeys([d.particulars for d in cur_diff_items] + [d.particulars for d in pre_diff_items]))
 		html += f"""
 				<tr>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; font-weight: bold;">Difference due to :</td>
@@ -2610,12 +2620,14 @@ class FinancialReport(Document):
 				</tr>
 				"""
 		for particular in all_particulars:
-			cur_d = next((d for d in cur_diff_items if d["particulars"] == particular), {})
-			pre_d = pre_diff_map.get(particular, {})
-			cur_pct = f'{flt(cur_d.get("percentage", 0)):.2f}%' if cur_d else ""
-			pre_pct = f'{flt(pre_d.get("percentage", 0)):.2f}%' if pre_d else ""
-			cur_val = flt(cur_d.get("value", 0))
-			pre_val = flt(pre_d.get("value", 0))
+			cur_d = next((d for d in cur_diff_items if d.particulars == particular), None)
+			pre_d = pre_diff_map.get(particular)
+
+			cur_pct = f'{flt(cur_d.percentage):.2f}%' if cur_d else ""
+			pre_pct = f'{flt(pre_d.percentage):.2f}%' if pre_d else ""
+
+			cur_val = flt(cur_d.value) if cur_d else 0
+			pre_val = flt(pre_d.value) if pre_d else 0
 			html += f"""
 				<tr>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{particular}</td>
@@ -5842,149 +5854,171 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 
 		ageing_keys = ["Not Due", "0-6 Months", "6-12 Months", "1-2 Years", "2-3 Years", "More Than 3 Years"]
-		undisputed_good = {k: 0 for k in ageing_keys}
-		undisputed_doubtful = {k: 0 for k in ageing_keys}
-		disputed_good = {k: 0 for k in ageing_keys}
-		disputed_doubtful = {k: 0 for k in ageing_keys}
+		def process_ageing(entries):
+			undisputed_good = {k: 0 for k in ageing_keys}
+			undisputed_doubtful = {k: 0 for k in ageing_keys}
+			disputed_good = {k: 0 for k in ageing_keys}
+			disputed_doubtful = {k: 0 for k in ageing_keys}
 
-		cur_entries = frappe.get_all("FR Account Receivable Entry",
-			filters={'company': self.company, 'fiscal_year': self.fiscal_year, 'report_type': 'Yearly'},
-			fields=['ageing', 'legal', 'provision_percentage', 'provision_amount', 'amount_in_lc'],
-			limit_page_length=0
-		)
+			for entry in entries:
+				if not entry.ageing or entry.ageing not in ageing_keys:
+					continue
 
-		for entry in cur_entries:
-			if not entry.ageing or entry.ageing not in ageing_keys:
-				continue
-			amount = flt(entry.amount_in_lc)
-			provision_pct = flt(entry.provision_percentage)
-			provision_amt = flt(entry.provision_amount)
+				amount = flt(entry.amount_in_lc)
+				provision_pct = flt(entry.provision_percentage)
+				provision_amt = flt(entry.provision_amount)
 
-			if entry.legal == "Yes":
-				if provision_pct:
-					disputed_good[entry.ageing] += amount - provision_amt
-					disputed_doubtful[entry.ageing] += provision_amt
+				if entry.legal == "Yes":
+					if provision_pct:
+						disputed_good[entry.ageing] += amount - provision_amt
+						disputed_doubtful[entry.ageing] += provision_amt
+					else:
+						disputed_good[entry.ageing] += amount
 				else:
-					disputed_good[entry.ageing] += amount
-			else:
-				if provision_pct:
-					undisputed_good[entry.ageing] += amount - provision_amt
-					undisputed_doubtful[entry.ageing] += provision_amt
-				else:
-					undisputed_good[entry.ageing] += amount
+					if provision_pct:
+						undisputed_good[entry.ageing] += amount - provision_amt
+						undisputed_doubtful[entry.ageing] += provision_amt
+					else:
+						undisputed_good[entry.ageing] += amount
+
+			return [
+				{"label": "Undisputed Trade Receivables", "is_header": 1},
+				{"label": "Considered Good", "data": undisputed_good},
+				{"label": "Considered Doubtful", "data": undisputed_doubtful},
+
+				{"label": "Disputed Trade Receivables", "is_header": 1},
+				{"label": "Considered Good", "data": disputed_good},
+				{"label": "Considered Doubtful", "data": disputed_doubtful},
+			]
+
+
 
 		def fmt_ageing_val(val):
-			val = round(val/100000, self.show_decimal_value)
+			val = round(val / 100000, self.show_decimal_value)
 			return frappe.utils.fmt_money(val, self.show_decimal_value) if val else "-"
 
-		ageing_rows = []
-		for label, data in [
-			("Undisputed trade receivables \u2013 considered good", undisputed_good),
-			("Undisputed trade receivables \u2013 considered doubtful", undisputed_doubtful),
-			("Disputed trade receivables \u2013 considered good", disputed_good),
-			("Disputed trade receivables \u2013 considered doubtful", disputed_doubtful),
-		]:
-			vals = [data[k] for k in ageing_keys]
-			row_total = sum(vals)
-			ageing_rows.append((label,) + tuple(fmt_ageing_val(v) for v in vals) + (fmt_ageing_val(row_total),))
 
-		for label, not_due, lt6m, m6_1y, y1_2, y2_3, mt3, total in ageing_rows:
-			html += f"""
-			<tr style="line-height:1.4;line-width">
-				<td style="border:1px solid #222; padding:2px 5px; text-align:left;">{label}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{not_due}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{lt6m}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{m6_1y}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y1_2}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y2_3}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{mt3}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{total}</td>
-			</tr>
-			"""
+		def build_rows(ageing_data):
+			rows = []
+			for label, data in ageing_data:
+				vals = [data[k] for k in ageing_keys]
+				total = sum(vals)
 
-		html += "</tbody></table>"
+				rows.append((
+					label,
+					*[fmt_ageing_val(v) for v in vals],
+					fmt_ageing_val(total)
+				))
+			return rows
 
-		#previous year
-		html += f"""
-		<p style="text-align:left;"><b>Ageing for trade & other receivables outstanding as at {previous_year_end_date}</b></p>
-		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
-			<thead>
+
+		def render_table(rows):
+			html = ""
+
+			for row in rows:
+				if row.get("is_header"):
+					html += f"""
+					<tr><td colspan="8" style="border:1px solid #222; padding:6px; font-weight:bold; background:#f2f2f2;">{row['label']}</td></tr>
+					"""
+					continue
+
+				# 🔹 NORMAL ROW
+				data = row.get("data", {})
+				vals = [data.get(k, 0) for k in ageing_keys]
+				total = sum(vals)
+
+				formatted_vals = [fmt_ageing_val(v) for v in vals]
+				total_fmt = fmt_ageing_val(total)
+				html += f"""
 				<tr>
-					<th rowspan="2" style="border:1px solid #222; width:28%; padding:4px 5px; text-align:center;">Particulars</th>
-					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Not Due</th>
-					<th colspan="5" style="border:1px solid #222; padding:4px 5px; text-align:center; ">Outstanding for following periods from due date of payment as on {previous_year_end_date}</th>
-					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Total</th>
+					<td style="border:1px solid #222; padding:4px;">{row['label']}</td>
+					<td style="border:1px solid #222; text-align:right;">{formatted_vals[0]}</td>
+					<td style="border:1px solid #222; text-align:right;">{formatted_vals[1]}</td>
+					<td style="border:1px solid #222; text-align:right;">{formatted_vals[2]}</td>
+					<td style="border:1px solid #222; text-align:right;">{formatted_vals[3]}</td>
+					<td style="border:1px solid #222; text-align:right;">{formatted_vals[4]}</td>
+					<td style="border:1px solid #222; text-align:right;">{formatted_vals[5]}</td>
+					<td style="border:1px solid #222; text-align:right; font-weight:bold;">{total_fmt}</td>
 				</tr>
-				<tr>
-					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">Less than 6 Month</th>
-					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">6 Month - 1 Year</th>
-					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">1 Year - 2 Year</th>
-					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">2 Year - 3 Year</th>
-					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">More than 3 Year</th>
-				</tr>
-			</thead>
-			<tbody>
-		"""
+				"""
+			return html
 
-		prev_undisputed_good = {k: 0 for k in ageing_keys}
-		prev_undisputed_doubtful = {k: 0 for k in ageing_keys}
-		prev_disputed_good = {k: 0 for k in ageing_keys}
-		prev_disputed_doubtful = {k: 0 for k in ageing_keys}
-
-		prev_entries = frappe.get_all("FR Account Receivable Entry",
-			filters={'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'report_type': 'Yearly'},
+		cur_entries = frappe.get_all(
+			"FR Account Receivable Entry",
+			filters={'company': self.company,'fiscal_year': self.fiscal_year,'report_type': 'Yearly'},
 			fields=['ageing', 'legal', 'provision_percentage', 'provision_amount', 'amount_in_lc'],
 			limit_page_length=0
 		)
 
-		for entry in prev_entries:
-			if not entry.ageing or entry.ageing not in ageing_keys:
-				continue
-			amount = flt(entry.amount_in_lc)
-			provision_pct = flt(entry.provision_percentage)
-			provision_amt = flt(entry.provision_amount)
+		cur_data = process_ageing(cur_entries)
+		cur_rows = build_rows(cur_data)
 
-			if entry.legal == "Yes":
-				if provision_pct:
-					prev_disputed_good[entry.ageing] += amount - provision_amt
-					prev_disputed_doubtful[entry.ageing] += provision_amt
-				else:
-					prev_disputed_good[entry.ageing] += amount
-			else:
-				if provision_pct:
-					prev_undisputed_good[entry.ageing] += amount - provision_amt
-					prev_undisputed_doubtful[entry.ageing] += provision_amt
-				else:
-					prev_undisputed_good[entry.ageing] += amount
+		html = f"""
+		<p><b>Ageing for trade & other receivables outstanding as at {current_year_end_date}</b></p>
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+		<thead>
+		<tr>
+		<th rowspan="2" style="border:1px solid #222;">Particulars</th>
+		<th rowspan="2" style="border:1px solid #222;">Not Due</th>
+		<th colspan="5" style="border:1px solid #222;">Outstanding as on {current_year_end_date}</th>
+		<th rowspan="2" style="border:1px solid #222;">Total</th>
+		</tr>
+		<tr>
+		<th style="border:1px solid #222;">0-6M</th>
+		<th style="border:1px solid #222;">6M-1Y</th>
+		<th style="border:1px solid #222;">1Y-2Y</th>
+		<th style="border:1px solid #222;">2Y-3Y</th>
+		<th style="border:1px solid #222;">&gt; 3Y</th>
+		</tr>
+		</thead>
+		<tbody>
+		{render_table(cur_rows)}
+		</tbody>
+		</table>
+		"""
 
-		ageing_rows = []
-		for label, data in [
-			("Undisputed trade receivables \u2013 considered good", prev_undisputed_good),
-			("Undisputed trade receivables \u2013 considered doubtful", prev_undisputed_doubtful),
-			("Disputed trade receivables \u2013 considered good", prev_disputed_good),
-			("Disputed trade receivables \u2013 considered doubtful", prev_disputed_doubtful),
-		]:
-			vals = [data[k] for k in ageing_keys]
-			row_total = sum(vals)
-			ageing_rows.append((label,) + tuple(fmt_ageing_val(v) for v in vals) + (fmt_ageing_val(row_total),))
 
-		for label, not_due, lt6m, m6_1y, y1_2, y2_3, mt3, total in ageing_rows:
-			html += f"""
-			<tr style="line-height:1.4;">
-				<td style="border:1px solid #222; padding:2px 5px; text-align:left;">{label}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{not_due}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{lt6m}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{m6_1y}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y1_2}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{y2_3}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{mt3}</td>
-				<td style="border:1px solid #222; padding:2px 5px; text-align:right;">{total}</td>
-			</tr>
-			"""
+		# ================= PREVIOUS YEAR =================
 
-		html += "</tbody></table>"
+		prev_entries = frappe.get_all(
+			"FR Account Receivable Entry",
+			filters={
+				'company': self.company,
+				'fiscal_year': self.previous_fiscal_year,
+				'report_type': 'Yearly'
+			},
+			fields=['ageing', 'legal', 'provision_percentage', 'provision_amount', 'amount_in_lc'],
+			limit_page_length=0
+		)
+
+		prev_data = process_ageing(prev_entries)
+		prev_rows = build_rows(prev_data)
+
+		html += f"""
+		<p><b>Ageing for trade & other receivables outstanding as at {previous_year_end_date}</b></p>
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+		<thead>
+		<tr>
+		<th rowspan="2" style="border:1px solid #222;">Particulars</th>
+		<th rowspan="2" style="border:1px solid #222;">Not Due</th>
+		<th colspan="5" style="border:1px solid #222;">Outstanding as on {previous_year_end_date}</th>
+		<th rowspan="2" style="border:1px solid #222;">Total</th>
+		</tr>
+		<tr>
+		<th style="border:1px solid #222;">&lt; 6M</th>
+		<th style="border:1px solid #222;">6M-1Y</th>
+		<th style="border:1px solid #222;">1Y-2Y</th>
+		<th style="border:1px solid #222;">2Y-3Y</th>
+		<th style="border:1px solid #222;">&gt; 3Y</th>
+		</tr>
+		</thead>
+		<tbody>
+		{render_table(prev_rows)}
+		</tbody>
+		</table>
+		"""
+
 		return section_description.replace("{{note_table}}", html)
-	
 	def get_yearly_trade_payable_note_data(self, section_description=""):
 		"""Get yearly trade and other receivables note data"""
 		month_end_label, prev_fy_label = self.get_yearly_dates()
