@@ -1027,9 +1027,10 @@ class FinancialReport(Document):
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
 		# <div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; transform: rotate(-90deg); transform-origin: top left; position: relative; top: 701px; width: 750px;">
+		# <div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; overflow-x: auto; width: 100%">
 		html = f'''
-		<div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always;">
-			<table style="margin-top: -20px; margin-left: -10px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
+		<div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; transform-origin: top left; position: relative; top: -30px; width: 1200px;">
+			<table style="margin-bottom: -90px; margin-top: -20px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
 			<thead>
 				<tr style="color: #4472C4;">
 					<th style="border: 1px solid black; border-bottom:1px solid black; width: 21%;">Particulars</th>
@@ -5891,30 +5892,12 @@ class FinancialReport(Document):
 				{"label": "Considered Doubtful", "data": disputed_doubtful},
 			]
 
-
-
 		def fmt_ageing_val(val):
 			val = round(val / 100000, self.show_decimal_value)
 			return frappe.utils.fmt_money(val, self.show_decimal_value) if val else "-"
 
-
-		def build_rows(ageing_data):
-			rows = []
-			for label, data in ageing_data:
-				vals = [data[k] for k in ageing_keys]
-				total = sum(vals)
-
-				rows.append((
-					label,
-					*[fmt_ageing_val(v) for v in vals],
-					fmt_ageing_val(total)
-				))
-			return rows
-
-
 		def render_table(rows):
 			html = ""
-
 			for row in rows:
 				if row.get("is_header"):
 					html += f"""
@@ -5922,7 +5905,6 @@ class FinancialReport(Document):
 					"""
 					continue
 
-				# 🔹 NORMAL ROW
 				data = row.get("data", {})
 				vals = [data.get(k, 0) for k in ageing_keys]
 				total = sum(vals)
@@ -5931,7 +5913,7 @@ class FinancialReport(Document):
 				total_fmt = fmt_ageing_val(total)
 				html += f"""
 				<tr>
-					<td style="border:1px solid #222; padding:4px;">{row['label']}</td>
+					<td style="border:1px solid #222; padding:4px 5px; padding-left:15px;">{row['label']}</td>
 					<td style="border:1px solid #222; text-align:right;">{formatted_vals[0]}</td>
 					<td style="border:1px solid #222; text-align:right;">{formatted_vals[1]}</td>
 					<td style="border:1px solid #222; text-align:right;">{formatted_vals[2]}</td>
@@ -5945,17 +5927,18 @@ class FinancialReport(Document):
 
 		cur_entries = frappe.get_all(
 			"FR Account Receivable Entry",
-			filters={'company': self.company,'fiscal_year': self.fiscal_year,'report_type': 'Yearly'},
+			filters={
+				'company': self.company,'fiscal_year': self.fiscal_year,'report_type': 'Yearly'
+			},
 			fields=['ageing', 'legal', 'provision_percentage', 'provision_amount', 'amount_in_lc'],
 			limit_page_length=0
 		)
 
 		cur_data = process_ageing(cur_entries)
-		cur_rows = build_rows(cur_data)
 
-		html = f"""
-		<p><b>Ageing for trade & other receivables outstanding as at {current_year_end_date}</b></p>
-		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+		html += f"""
+		<p style="margin-top: -15px"><b>Ageing for trade & other receivables outstanding as at {current_year_end_date}</b></p>
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; margin-top: -30px">
 		<thead>
 		<tr>
 		<th rowspan="2" style="border:1px solid #222;">Particulars</th>
@@ -5972,14 +5955,12 @@ class FinancialReport(Document):
 		</tr>
 		</thead>
 		<tbody>
-		{render_table(cur_rows)}
+		{render_table(cur_data)}
 		</tbody>
 		</table>
 		"""
 
-
 		# ================= PREVIOUS YEAR =================
-
 		prev_entries = frappe.get_all(
 			"FR Account Receivable Entry",
 			filters={
@@ -5992,11 +5973,10 @@ class FinancialReport(Document):
 		)
 
 		prev_data = process_ageing(prev_entries)
-		prev_rows = build_rows(prev_data)
 
 		html += f"""
-		<p><b>Ageing for trade & other receivables outstanding as at {previous_year_end_date}</b></p>
-		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+		<p style="margin-top: -15px"><b>Ageing for trade & other receivables outstanding as at {previous_year_end_date}</b></p>
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; margin-top: -30px">
 		<thead>
 		<tr>
 		<th rowspan="2" style="border:1px solid #222;">Particulars</th>
@@ -6013,7 +5993,7 @@ class FinancialReport(Document):
 		</tr>
 		</thead>
 		<tbody>
-		{render_table(prev_rows)}
+		{render_table(prev_data)}
 		</tbody>
 		</table>
 		"""
@@ -6073,16 +6053,15 @@ class FinancialReport(Document):
 
 		html += "</tbody></table>"
 
-		#current year
 		html += f"""
-		<p style="text-align:left; padding:2px 5px; border:none;"><b><u style="color:#00008B;">Ageing for trade payables outstanding as at {month_end_label}</u></b></p>
-		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
+		<p style="margin-top: -20px">Ageing for trade payables outstanding as at {month_end_label}</b></p>
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; margin-top: -20px">
 			<thead>
 				<tr style="color: #00008B;">
-					<th rowspan="2" style="border:1px solid #222; width:28%; padding:4px 5px; text-align:center;">Particulars</th>
-					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Not Due</th>
+					<th rowspan="2" style="border:1px solid #222; width:15%; padding:4px 5px; text-align:center;">Particulars</th>
+					<th rowspan="2" style="border:1px solid #222; width:12%; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Not Due</th>
 					<th colspan="4" style="border:1px solid #222; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Outstanding for following periods from due date of payment</th>
-					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Total</th>
+					<th rowspan="2" style="border:1px solid #222; width:15%; padding:4px 5px; text-align:center; background-color:#D5F5D5 !important;">Total</th>
 				</tr>
 				<tr>
 					<th style="border:1px solid #222; padding:4px 5px; text-align:center;background-color: #D5F5D5 !important;">Less than 1 Year</th>
@@ -6165,14 +6144,14 @@ class FinancialReport(Document):
 
 		#previous year
 		html += f"""
-		<p style="text-align:left; padding:2px 5px; border:none;"><b><u style="color:#00008B;">Ageing for trade payables outstanding as at {prev_fy_label}</u></b></p>
-		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
+		<p style="margin-top: -20px">Ageing for trade payables outstanding as at {prev_fy_label}</b></p>
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; margin-top: -20px">
 			<thead>
 				<tr style="color: #00008B;">
-					<th rowspan="2" style="border:1px solid #222; width:28%; padding:4px 5px; text-align:center;">Particulars</th>
-					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Not Due</th>
+					<th rowspan="2" style="border:1px solid #222; width:15%; padding:4px 5px; text-align:center;">Particulars</th>
+					<th rowspan="2" style="border:1px solid #222; width:12%; padding:4px 5px; text-align:center;">Not Due</th>
 					<th colspan="4" style="border:1px solid #222; padding:4px 5px; text-align:center; ">Outstanding for following periods from due date of payment</th>
-					<th rowspan="2" style="border:1px solid #222; width:8%; padding:4px 5px; text-align:center;">Total</th>
+					<th rowspan="2" style="border:1px solid #222; width:15%; padding:4px 5px; text-align:center;">Total</th>
 				</tr>
 				<tr>
 					<th style="border:1px solid #222; padding:4px 5px; text-align:center;">Less than 1 Year</th>
