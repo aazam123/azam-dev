@@ -16,6 +16,7 @@
   "old_parent",
   "parent_company_tree",
   "section_break_cufg",
+  "fetch_all_companies",
   "company_hierarchy_relation"
  ],
  "fields": [
@@ -89,13 +90,18 @@
    "fieldtype": "Table",
    "label": "Company Hierarchy Relation",
    "options": "Company Hierarchy Relation"
+  },
+  {
+   "fieldname": "fetch_all_companies",
+   "fieldtype": "Button",
+   "label": "Fetch All Companies"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2026-03-11 11:42:22.551556",
+ "modified": "2026-03-11 16:34:50.720525",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Company Hierarchy",

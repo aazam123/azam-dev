@@ -13,7 +13,10 @@
   "where_control_exists",
   "section_break_qgch",
   "fetch_companies_for_related_parties",
-  "names_of_replated"
+  "names_of_replated",
+  "section_break_txn",
+  "calculate_transactions",
+  "rpt_transactions"
  ],
  "fields": [
   {
@@ -52,18 +55,34 @@
    "fieldname": "names_of_replated",
    "fieldtype": "Table",
    "label": "Names of related parties and description of relationship, where transactions have taken place",
-   "options": "FR RPT Entry Details"
+   "options": "Company Hierarchy Relation"
   },
   {
    "fieldname": "fetch_companies_for_related_parties",
    "fieldtype": "Button",
    "label": "Fetch Companies for Related Parties"
+  },
+  {
+   "fieldname": "section_break_txn",
+   "fieldtype": "Section Break",
+   "label": "Transactions and Balances Outstanding with Related Parties"
+  },
+  {
+   "fieldname": "calculate_transactions",
+   "fieldtype": "Button",
+   "label": "Calculate Transactions"
+  },
+  {
+   "fieldname": "rpt_transactions",
+   "fieldtype": "Table",
+   "label": "RPT Transactions",
+   "options": "FR RPT Transaction"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-11 11:56:02.676808",
+ "modified": "2026-03-11 15:36:10.228685",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR RPT Entry",

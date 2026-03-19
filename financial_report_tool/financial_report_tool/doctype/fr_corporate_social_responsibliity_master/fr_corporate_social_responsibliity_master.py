@@ -19,10 +19,75 @@ class FRCorporateSocialResponsibliityMaster(Document):
 		total_profit = first_year_profit + second_year_profit + third_year_profit
 		average_profit = round(((total_profit / 3)/100)*2, 3)
 
-		self.shortfall_at_the_beginning_of_the_year = frappe.get_value("FR Corporate Social Responsibliity Master", {'company': self.company, 'fiscal_year':second_year, 'month': month}, 'shortfall_at_the_end_of_the_year') or 0
+		self.shortfall_at_the_beginning_of_the_year = frappe.get_value("FR Corporate Social Responsibliity Master", {'company': self.company, 'fiscal_year':second_year, 'month': self.month}, 'shortfall_at_the_end_of_the_year') or 0
 		self.amount_required_to_be_spent_by_the_company_during_the_year = average_profit
 		self.amount_of_expenditure_incurred = self.get_sum_grouping_amount("Other expenses", "Corporate Social Responsibility Expenditure", self.month, self.fiscal_year)
 		self.shortfall_at_the_end_of_the_year = 0 if (self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year) < 0 else self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
+
+		self.calculation_details_data = self._build_calculation_html(
+			first_year, second_year, third_year,
+			first_year_profit, second_year_profit, third_year_profit,
+			total_profit, average_profit,
+		)
+
+	def _build_calculation_html(self, fy1, fy2, fy3, p1, p2, p3, total_profit, average_profit):
+		diff = self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
+
+		return f"""
+		<style>
+			.csr-calc table {{ width:100%; border-collapse:collapse; font-size:13px; border:2px solid #000; }}
+			.csr-calc th, .csr-calc td {{ border:1px solid #000; padding:6px 10px; text-align:left; }}
+			.csr-calc th {{ background:var(--subtle-fg); font-weight:600; }}
+			.csr-calc .val {{ text-align:right; font-family:monospace; }}
+			.csr-calc .formula {{ color:var(--text-muted); font-size:12px; font-style:italic; margin:0 0 8px 0; }}
+			.csr-calc .result {{ font-weight:700; background:var(--highlight-color, #fffde8); }}
+			.csr-calc h6 {{ margin:8px 0 4px 0; }}
+		</style>
+		<div class="csr-calc">
+
+		<h6>Step 1: Three-Year Profit (from P&amp;L)</h6>
+		<table>
+			<tr><th>Fiscal Year</th><th class="val">Profit (in Lakhs)</th></tr>
+			<tr><td>{fy1 or "N/A"} (Current Year)</td><td class="val">{flt(p1, 3)}</td></tr>
+			<tr><td>{fy2 or "N/A"} (Previous Year)</td><td class="val">{flt(p2, 3)}</td></tr>
+			<tr><td>{fy3 or "N/A"} (Year Before Previous)</td><td class="val">{flt(p3, 3)}</td></tr>
+			<tr class="result"><td>Total Profit</td><td class="val">{flt(total_profit, 3)}</td></tr>
+		</table>
+		<p class="formula">Total Profit = {flt(p1, 3)} + {flt(p2, 3)} + {flt(p3, 3)} = {flt(total_profit, 3)}</p>
+
+		<h6>Step 2: Amount Required to be Spent (2% of 3-Year Average)</h6>
+		<table>
+			<tr><th>Description</th><th class="val">Value</th></tr>
+			<tr><td>3-Year Average Profit</td><td class="val">{flt(total_profit / 3, 3)}</td></tr>
+			<tr class="result"><td>2% of Average = Amount Required</td><td class="val">{flt(average_profit, 3)}</td></tr>
+		</table>
+		<p class="formula">Amount Required = (Total Profit / 3) / 100 &times; 2 = ({flt(total_profit, 3)} / 3) / 100 &times; 2 = {flt(average_profit, 3)}</p>
+
+		<h6>Step 3: Shortfall at Beginning of Year</h6>
+		<table>
+			<tr><th>Description</th><th class="val">Value</th></tr>
+			<tr><td>Picked from previous year ({fy2 or "N/A"}) &rarr; Shortfall at End of Year</td>
+				<td class="val">{flt(self.shortfall_at_the_beginning_of_the_year, 3)}</td></tr>
+		</table>
+
+		<h6>Step 4: Expenditure Incurred</h6>
+		<table>
+			<tr><th>Description</th><th class="val">Value</th></tr>
+			<tr><td>GL Group: Other Expenses &rarr; Corporate Social Responsibility Expenditure</td>
+				<td class="val">{flt(self.amount_of_expenditure_incurred, 3)}</td></tr>
+		</table>
+
+		<h6>Step 5: Shortfall at End of Year</h6>
+		<table>
+			<tr><th>Description</th><th class="val">Value</th></tr>
+			<tr><td>Expenditure Incurred &minus; Amount Required</td><td class="val">{flt(diff, 3)}</td></tr>
+			<tr class="result"><td>Shortfall at End of Year = max(0, above)</td>
+				<td class="val">{flt(self.shortfall_at_the_end_of_the_year, 3)}</td></tr>
+		</table>
+		<p class="formula">If (Expenditure &minus; Required) &lt; 0 &rArr; 0, else (Expenditure &minus; Required) = {flt(diff, 3)} &rArr; {flt(self.shortfall_at_the_end_of_the_year, 3)}</p>
+
+		</div>
+		"""
 
 	def get_previous_fiscal_year(self, year):
 		month = frappe.get_single_value("FR Financial Settings", "closing_month")
