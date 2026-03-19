@@ -460,7 +460,7 @@ class ConsolFinancialReport(Document):
 			self._sum_grouping_cache[cache_key] = result
 		return result
 
-	def get_sum_grouping_amount_yearly(company, self, company, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
+	def get_sum_grouping_amount_yearly(company, self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
 		if getattr(self, '_caches_initialized', False):
 			cache_key = ("sum_grouping_yearly", primary_group, group, month, year, is_ftm, str(hg_sec_group))
 			if cache_key in self._sum_grouping_cache:
@@ -8301,7 +8301,21 @@ class ConsolFinancialReport(Document):
 
 				if default_currency != self.currency and particular_type == "Equity Share Capital":
 					_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
-					previous_month_amount += current_month_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0))/100000, self.show_decimal_value)
+					current_month_amount = round(
+                        flt(
+                            frappe.get_value(
+                                "FR Equity Entry",
+                                {
+                                    "company": company,
+                                    "type": "Issued",
+                                    "date": ["<=", current_month_date]
+                                },
+                                "SUM(investment_inr)"
+                            ) or 0
+                        ) / 100000,
+                        self.show_decimal_value
+                    )
+					previous_month_amount += current_month_amount
 					previous_year_amount += round((frappe.get_value("FR Equity Entry", {"company": company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)")/100000 or 0), self.show_decimal_value)
 				else:
 					current_month_amount += calc_amount_for_particular_monthly(company, row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
