@@ -199,7 +199,7 @@ async function generateFinancialReport(frm) {
     }
 
     const progress_dialog = new frappe.ui.Dialog({
-        title: "Generating Financial Report",
+        title: "Generating Consol Financial Report",
         size: 'large',
         fields: [
             {
