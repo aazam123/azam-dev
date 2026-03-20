@@ -18,12 +18,12 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
 def do_generate_report(docname):
-	doc = frappe.get_doc("Financial Report", docname)
-	frappe.publish_progress(5, title="Initializing report generation...")
+	doc = frappe.get_doc("Consol Financial Report", docname)
+	frappe.publish_progress(5, title="Initializing consol report generation...")
 	doc._generate_report_internal()
 	frappe.publish_progress(100, title="Report generated successfully!")
 
-	frappe.msgprint(f"✅ Financial Report {docname} generated successfully.")
+	frappe.msgprint(f"✅ Consol Financial Report {docname} generated successfully.")
 	frappe.db.commit()
 
 class ConsolFinancialReport(Document):
@@ -81,11 +81,15 @@ class ConsolFinancialReport(Document):
 
 		self._caches_initialized = True
 
-	def _get_cached_companies(self, name):
-		"""Instance-level cached FR Particular doc fetch."""
-		if name not in self._companies:
-			self._companies[name] = frappe.get_doc("Company", name)
-		return self._companies[name]
+	def _get_cached_companies(self):
+		if not hasattr(self, "_companies"):
+			self._companies = {}
+		company_names = frappe.get_all("Company", pluck="name")
+		for name in company_names:
+			if name not in self._companies:
+				self._companies[name] = frappe.get_doc("Company", name)
+
+		return list(self._companies.values())
 
 	def _get_cached_fr_particular(self, name):
 		"""Instance-level cached FR Particular doc fetch."""
@@ -144,11 +148,13 @@ class ConsolFinancialReport(Document):
 	def before_save(self):
 		self.update_consolidation_note_numbers()
 		companies = self._get_cached_companies()
+		foreign_exchange_rate = ""
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
 				i.section_name = frappe.get_value("FR Section", i.section, 'section_type_name')
 		
-		for company in companies:
+		for company_doc in companies:
+			default_currency = company_doc.default_currency
 			cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 			current_cls_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate')
 			previous_cls_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate')
@@ -460,7 +466,7 @@ class ConsolFinancialReport(Document):
 			self._sum_grouping_cache[cache_key] = result
 		return result
 
-	def get_sum_grouping_amount_yearly(company, self, company, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
+	def get_sum_grouping_amount_yearly(company, self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
 		if getattr(self, '_caches_initialized', False):
 			cache_key = ("sum_grouping_yearly", primary_group, group, month, year, is_ftm, str(hg_sec_group))
 			if cache_key in self._sum_grouping_cache:
@@ -523,14 +529,16 @@ class ConsolFinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
+		print("calling gen report .......")
 		# doc._generate_report_internal()
 		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+			"financial_report_tool.financial_report_tool.doctype.consol_financial_report.consol_financial_report.do_generate_report",
 			docname=doc.name,
 			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
+			job_name=f"Generate Consol Financial Report - {doc.name}",
 			timeout=600                   
 		)
+		print("calling gen report 1 .......")
 
 		return {
 			"success": True,
@@ -539,13 +547,19 @@ class ConsolFinancialReport(Document):
 		}
 
 	def _generate_report_internal(self):
+		print("calling generate internal report")
 		self._init_report_caches()
-		if self.report_type == "Monthly":
+		if self.report_type == "Consol Monthly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
 					i.table_data, i.section_description = self.render_monthly_balance_sheet(i.section)
 				if i.section_type == "Profit & Loss":
 					i.table_data, i.section_description = self.render_monthly_profit_and_loss(i.section)
+		if self.report_type == "Monthly":
+			for i in self.financial_report_details:
+				if i.section_type == "Balance Sheet":
+					i.table_data, i.section_description = self.render_monthly_balance_sheet(i.section)
+				
 				if i.section_type == "Cash Flow":
 					i.table_data, i.section_description = self.render_monthly_cash_flow(i.section)
 				if i.section_type == "Equity":
@@ -7301,7 +7315,7 @@ class ConsolFinancialReport(Document):
 			# higher secondary group breakdown
 			hg_list = frappe.get_all(
 				"GL Group Mapping",
-				{"company": self.company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
+				{"company": company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
 				pluck="higher_secondary_group", distinct=True
 			)
 
@@ -7338,7 +7352,7 @@ class ConsolFinancialReport(Document):
 
 			hg_list = frappe.get_all(
 				"GL Group Mapping",
-				{"company": self.company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
+				{"company": company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
 				pluck="higher_secondary_group", distinct=True
 			)
 			for hg in hg_list:
@@ -8006,19 +8020,15 @@ class ConsolFinancialReport(Document):
 		self._init_report_caches()
 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
 		cls_month = self._closing_month
-
 		amount_cache = {}
-
+		companies = frappe.get_all("Company", pluck="name")
 		get_fr_section = self._get_cached_fr_section
 		get_fr_particular = self._get_cached_fr_particular
 		get_standalone_group = self._get_cached_standalone_group
 		get_secondary_groups = self._get_cached_secondary_groups
 
-		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
-			"""
-			Calculate amount for a particular in base currency, then apply FX conversion only for non-total nodes.
-			"""
-			cache_key = (particular_name, month, year, is_current, is_yearly, fx_rate)
+		def calc_amount(company, particular_name, month, year,default_currency, is_current=False, is_yearly=False, fx_rate=1):
+			cache_key = (company, particular_name, month, year, is_current, is_yearly, fx_rate, default_currency)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
@@ -8027,8 +8037,7 @@ class ConsolFinancialReport(Document):
 
 			if fr_particular.is_total:
 				for idx, p in enumerate(fr_particular.particulars or []):
-					child_key = (p.particular, month, year, is_current, is_yearly, fx_rate)
-					child_amount = amount_cache.get(child_key, 0)
+					child_amount = calc_amount(company, p.particular, month, year,default_currency, is_current, is_yearly, fx_rate)
 					if fr_particular.to_subtract:
 						amount = (child_amount if idx == 0 and amount == 0 else amount - child_amount)
 					else:
@@ -8041,10 +8050,10 @@ class ConsolFinancialReport(Document):
 					amount = self.get_monthly_finished_goods_and_wip(company, note_type, get_face=True, total=True, field=field)
 				elif note_type == "Cost of Materials Consumed":
 					field = 'cost_consumed_current' if is_current else ('prev_year_cost_consumed' if is_yearly else 'cost_consumed_previous')
-					amount = self.get_monthly_cost_of_material_consumed(note_type, total=True, field=field)
+					amount = self.get_monthly_cost_of_material_consumed(company, note_type, total=True, field=field)
 				elif note_type == "Purchases of Stock in Trade":
 					field = 'purchases_current' if is_current else ('prev_year_purchases' if is_yearly else 'purchases_previous')
-					amount = self.get_monthly_purchases_of_stock_in_trade(note_type, total=True, field=field)
+					amount = self.get_monthly_purchases_of_stock_in_trade(company, note_type, total=True, field=field)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
@@ -8079,14 +8088,14 @@ class ConsolFinancialReport(Document):
 							if start_date:
 								query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 								params = [company, start_date, end_date] + gl_accounts
-								amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
+								amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000)
 						else:
 							query = f"""
 								SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 								WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 							"""
 							params = [company, year, month] + gl_accounts
-							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
+							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000)
 
 			elif fr_particular.type == "Deferred Tax" and default_currency != self.currency:
 				cls_month, prev_year = self.get_previous_year_cls_month(year)
@@ -8102,7 +8111,7 @@ class ConsolFinancialReport(Document):
 
 					prev_params = [company, prev_year, cls_month] + gl_accounts
 					prev_amount = (frappe.db.sql(query, prev_params)[0][0] or 0)
-					amount = ((cur_amount - prev_amount) / 100000) * fx_rate
+					amount = ((cur_amount - prev_amount) / 100000)
 				else:
 					amount = 0
 			else:
@@ -8115,36 +8124,38 @@ class ConsolFinancialReport(Document):
 						if start_date:
 							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 							params = [company, start_date, end_date] + gl_accounts
-							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
+							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000)
 					else:
 						query = f"""
 							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 						"""
 						params = [company, year, month] + gl_accounts
-						amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
-
+						amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) 
+			
 			if fr_particular.show_reversed_value:
 				amount = -amount
 
 			amount_cache[cache_key] = flt(round(amount, self.show_decimal_value))
 			return amount_cache[cache_key]
 
-		default_currency = self._default_currency
-		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
-		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
-		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate') if self.currency != default_currency else 1
-
 		grouped_data = []
 		for row in profit_and_loss_doc.profit_and_loss_template_details:
+			current_month_amount, previous_month_amount, previous_year_amount = 0, 0, 0
 			if not row.account:
 				continue
 
-			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx)
-			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx)
-			previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
-			ftm_amount = round((current_month_amount - previous_month_amount), self.show_decimal_value)
+			for company in companies:
+				default_currency = frappe.get_value("Company", company, 'default_currency')
+				current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
+				previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate') if self.currency != default_currency else 1
+				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate') if self.currency != default_currency else 1
 
+				current_month_amount += calc_amount(company, row.account, self.current_month, self.fiscal_year,default_currency, is_current=True, fx_rate=current_fx)
+				previous_month_amount += calc_amount(company, row.account, self.previous_month, self.fiscal_year,default_currency, fx_rate=previous_fx)
+				previous_year_amount += calc_amount(company, row.account, cls_month, self.previous_fiscal_year, default_currency, is_yearly=True, fx_rate=prev_year_fx)
+
+			ftm_amount = round((current_month_amount - previous_month_amount), self.show_decimal_value)
 			fr_particular = get_fr_particular(row.account)
 			schedule = getattr(fr_particular, "schedule", "")
 			note_no = self.get_note_number_for_schedule(schedule) if schedule else ""
@@ -8165,11 +8176,17 @@ class ConsolFinancialReport(Document):
 	
 		if fetch_for_other_equity:
 			account = profit_and_loss_doc.profit_and_loss_template_details[-1].account
-			return (
-				calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx),
-				calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year, fx_rate=previous_fx),
-				calc_amount_for_particular_monthly(account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
-			)
+			total_current, total_prev, total_prev_year = 0, 0, 0
+			for company in companies:
+				default_currency = frappe.get_value("Company", company, 'default_currency')
+				current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate') if default_currency != self.currency else 1
+				previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate') if default_currency != self.currency else 1
+				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate') if default_currency != self.currency else 1
+
+				total_current += calc_amount(company, account, self.current_month, self.fiscal_year,default_currency, is_current=True, fx_rate=current_fx)
+				total_prev += calc_amount(company, account, self.previous_month, self.fiscal_year,default_currency, fx_rate=previous_fx)
+				total_prev_year += calc_amount(company, account, cls_month, self.previous_fiscal_year,default_currency, is_yearly=True, fx_rate=prev_year_fx)
+			return (total_current, total_prev, total_prev_year)
 
 		return grouped_data
 
@@ -8178,7 +8195,7 @@ class ConsolFinancialReport(Document):
 		self._init_report_caches()
 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
 		amount_cache = {}
-		companies = self._get_cached_companies
+		companies = frappe.get_all("Company", pluck="name")
 
 		get_fr_particular = self._get_cached_fr_particular
 		get_fr_section = self._get_cached_fr_section
@@ -8213,8 +8230,8 @@ class ConsolFinancialReport(Document):
 					params.append(month)
 			return (frappe.db.sql(query, params)[0][0] or 0) / 100000
 
-		def calc_amount_for_particular_monthly(company, particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
-			cache_key = (particular_name, month, year, fx_rate)
+		def calc_amount_for_particular_monthly(company, particular_name, month, year,default_currency, is_current=False, is_yearly=False, fx_rate=1, convert=True):
+			cache_key = (company, particular_name, month, year, fx_rate)
 			if cache_key in amount_cache:
 				return amount_cache[cache_key]
 
@@ -8238,7 +8255,8 @@ class ConsolFinancialReport(Document):
 					amount = self.get_monthly_cost_of_material_consumed(company, note_type, total=True, field=field)
 				elif note_type == "Other Equity" and not for_other_equity and not account:
 					field = 'grand_total_current' if is_current else 'grand_total_prev_year'
-					amount = self.get_monthly_other_equity_note_data(company, note_type, total=True, field=field)
+					amount = 0
+					# amount = self.get_monthly_other_equity_note_data(company, note_type, total=True, field=field)
 				elif note_type == "Borrowings (Non-current)":
 					field = 'total_current_month_amt' if is_current else 'total_previous_year'
 					primary_group = get_fr_section(fr_particular.schedule).primary_consolidation_group
@@ -8294,19 +8312,44 @@ class ConsolFinancialReport(Document):
 			particular_type = getattr(fr_particular, "particular_type", "")
 
 			for company in companies:
-				default_currency = frappe.get_value("Company", company, 'currency')
+				default_currency = frappe.get_value("Company", company, 'default_currency')
 				current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
 				previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
 				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
 
 				if default_currency != self.currency and particular_type == "Equity Share Capital":
 					_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
-					previous_month_amount += current_month_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0))/100000, self.show_decimal_value)
-					previous_year_amount += round((frappe.get_value("FR Equity Entry", {"company": company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)")/100000 or 0), self.show_decimal_value)
+					current_value = frappe.get_value(
+		                "FR Equity Entry",
+		                {
+		                	"company": company,
+		                	"type": "Issued",
+		                	"date": ["<=", current_month_date]
+		                },
+		                "SUM(investment_inr)"
+	                )
+					current_month_amount += round(
+		                flt(current_value or 0) / 100000,
+		                self.show_decimal_value
+	                )
+					previous_month_amount += current_month_amount
+					prev_year_value = frappe.get_value(
+		                "FR Equity Entry",
+		                {
+		                	"company": company,
+		                	"type": "Issued",
+		                	"date": ["<=", self.previous_year_ending_date]
+		                },
+		                "SUM(investment_inr)"
+	                )
+					previous_year_amount += round(
+		                flt(prev_year_value or 0) / 100000,
+		                self.show_decimal_value
+	                )
 				else:
-					current_month_amount += calc_amount_for_particular_monthly(company, row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
-					previous_month_amount += calc_amount_for_particular_monthly(company, row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx) or 0
-					previous_year_amount += calc_amount_for_particular_monthly(company, row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx) or 0
+					current_month_amount += calc_amount_for_particular_monthly(company, row.account, self.current_month, self.fiscal_year, default_currency, is_current=True, fx_rate=current_fx) or 0
+					previous_month_amount += calc_amount_for_particular_monthly(company, row.account, self.previous_month, self.fiscal_year, default_currency, fx_rate=previous_fx) or 0
+					previous_year_amount += calc_amount_for_particular_monthly(company, row.account, cls_month, self.previous_fiscal_year, default_currency, is_yearly=True, fx_rate=prev_year_fx) or 0
 
 			ftm_amount = current_month_amount - previous_month_amount
 			schedule = getattr(fr_particular, "schedule", "")
