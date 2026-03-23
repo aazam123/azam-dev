@@ -3764,27 +3764,36 @@ class FinancialReport(Document):
 			cur_contingent_doc = frappe.get_doc("FR Contingent Liabilities", cur_contingent)
 			cur_bank_guarantees = cur_contingent_doc.bank_guarantees
 			cur_company_imported = cur_contingent_doc.company_imported
+			cur_company_imported_label = cur_contingent_doc.company_imported_label
 			cur_claim_against = cur_contingent_doc.claim_against
+			cur_disputed_custom = cur_contingent_doc.disputed_custom_duty_matters
 		else:
 			cur_bank_guarantees = 0
 			cur_company_imported = 0
+			cur_company_imported_label = ""
 			cur_claim_against = "-"
+			cur_disputed_custom = 0
 
 		prev_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
 		if prev_contingent:
 			prev_contingent_doc = frappe.get_doc("FR Contingent Liabilities", prev_contingent)
 			pre_bank_guarantees = prev_contingent_doc.bank_guarantees
 			pre_company_imported = prev_contingent_doc.company_imported
+			pre_company_imported_label = prev_contingent_doc.company_imported_label
 			pre_claim_against = prev_contingent_doc.claim_against
+			pre_disputed_custom = prev_contingent_doc.disputed_custom_duty_matters
 		else:
 			pre_bank_guarantees = 0
 			pre_company_imported = 0
+			pre_company_imported_label = ""
 			pre_claim_against = "-"
+			pre_disputed_custom = 0
 
 		data = [
 			("a) Bank guarantees given to excise authorities and other institutions", cur_bank_guarantees, pre_bank_guarantees),
-			("b) The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme, of the Government of India, against which the company is committed to make exports of ₹ 397 Lacs (P.Y. ₹ 3,061 Lacs) within prescribed time period. In case the company does not export it would be liable to pay customs duty.", cur_company_imported, pre_company_imported),
-			("c) Claims against the company not acknowledged as debt, Amount indeterminate (Refer Note (ii) below), Amount indeterminate (Refer Note (ii) below)", cur_claim_against, pre_claim_against),
+			(f"b) Disputed Custom duty matters", cur_disputed_custom, pre_disputed_custom),
+			(f"c) {cur_company_imported_label}", cur_company_imported, pre_company_imported),
+			("d) Claims against the company not acknowledged as debt, Amount indeterminate (Refer Note (ii) below), Amount indeterminate (Refer Note (ii) below)", cur_claim_against, pre_claim_against),
 		]
 
 		total_curr = cur_bank_guarantees + cur_company_imported
