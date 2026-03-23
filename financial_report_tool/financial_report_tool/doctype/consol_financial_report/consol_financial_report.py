@@ -7647,7 +7647,7 @@ class ConsolFinancialReport(Document):
 			primary_groups = [primary_group]
 		cls_month = self._closing_month
 		for primary_group in primary_groups:
-			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group], "company": self.company, "report_type": self.report_type}, pluck="secondary_group")
+			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group], "report_type": self.report_type}, pluck="secondary_group")
 			secondary_groups = sorted(set(filter(None, secondary_groups)))
 			custom_order = frappe.db.get_value("Schedule Reorder",{"primary_group": primary_group},"name")
 			if custom_order:
