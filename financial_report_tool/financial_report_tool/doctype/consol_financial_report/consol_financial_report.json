@@ -104,7 +104,7 @@
   },
   {
    "fieldname": "foreign_exchange_rate",
-   "fieldtype": "Small Text",
+   "fieldtype": "Long Text",
    "label": "Foreign Exchange Rate",
    "read_only": 1
   },
@@ -148,7 +148,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-16 17:51:12.425146",
+ "modified": "2026-03-20 17:40:33.197488",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Consol Financial Report",
