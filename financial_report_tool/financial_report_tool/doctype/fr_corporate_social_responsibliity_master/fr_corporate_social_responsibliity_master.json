@@ -12,6 +12,7 @@
   "column_break_wvyf",
   "month",
   "section_break_kuhd",
+  "allow_manually_input",
   "shortfall_at_the_beginning_of_the_year",
   "amount_required_to_be_spent_by_the_company_during_the_year",
   "amount_of_expenditure_incurred",
@@ -127,12 +128,18 @@
    "fieldtype": "Long Text",
    "hidden": 1,
    "label": "Calculation Details Data"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_manually_input",
+   "fieldtype": "Check",
+   "label": "Allow Manually Input"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-16 18:07:58.276583",
+ "modified": "2026-03-23 11:49:38.069273",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Corporate Social Responsibliity Master",

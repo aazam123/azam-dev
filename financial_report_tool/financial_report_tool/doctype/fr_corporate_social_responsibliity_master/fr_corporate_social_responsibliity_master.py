@@ -7,28 +7,70 @@ from frappe.utils import flt
 
 class FRCorporateSocialResponsibliityMaster(Document):
 	def before_save(self):
-		template = frappe.get_doc("Balance Sheet Template", "Balance Sheet")
-		first_year = self.fiscal_year
-		_, second_year = self.get_previous_fiscal_year(first_year)
-		_, third_year = self.get_previous_fiscal_year(second_year) if second_year else (None, None)
+		if not self.allow_manually_input:
+			template = frappe.get_doc("Balance Sheet Template", "Balance Sheet")
+			first_year = self.fiscal_year
+			_, second_year = self.get_previous_fiscal_year(first_year)
+			_, third_year = self.get_previous_fiscal_year(second_year) if second_year else (None, None)
 
-		first_year_profit = self.get_yearly_profit_and_loss_data(template, first_year, self.month)
-		second_year_profit = self.get_yearly_profit_and_loss_data(template, second_year, self.month) if second_year else 0
-		third_year_profit = self.get_yearly_profit_and_loss_data(template, third_year, self.month) if third_year else 0
+			first_year_profit = self.get_yearly_profit_and_loss_data(template, first_year, self.month)
+			second_year_profit = self.get_yearly_profit_and_loss_data(template, second_year, self.month) if second_year else 0
+			third_year_profit = self.get_yearly_profit_and_loss_data(template, third_year, self.month) if third_year else 0
 
-		total_profit = first_year_profit + second_year_profit + third_year_profit
-		average_profit = round(((total_profit / 3)/100)*2, 3)
+			total_profit = first_year_profit + second_year_profit + third_year_profit
+			average_profit = round(((total_profit / 3)/100)*2, 3)
 
-		self.shortfall_at_the_beginning_of_the_year = frappe.get_value("FR Corporate Social Responsibliity Master", {'company': self.company, 'fiscal_year':second_year, 'month': self.month}, 'shortfall_at_the_end_of_the_year') or 0
-		self.amount_required_to_be_spent_by_the_company_during_the_year = average_profit
-		self.amount_of_expenditure_incurred = self.get_sum_grouping_amount("Other expenses", "Corporate Social Responsibility Expenditure", self.month, self.fiscal_year)
-		self.shortfall_at_the_end_of_the_year = 0 if (self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year) < 0 else self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
+			self.shortfall_at_the_beginning_of_the_year = frappe.get_value("FR Corporate Social Responsibliity Master", {'company': self.company, 'fiscal_year':second_year, 'month': self.month}, 'shortfall_at_the_end_of_the_year') or 0
+			self.amount_required_to_be_spent_by_the_company_during_the_year = average_profit
+			self.amount_of_expenditure_incurred = self.get_sum_grouping_amount("Other expenses", "Corporate Social Responsibility Expenditure", self.month, self.fiscal_year)
+			self.shortfall_at_the_end_of_the_year = 0 if (self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year) < 0 else self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
 
-		self.calculation_details_data = self._build_calculation_html(
-			first_year, second_year, third_year,
-			first_year_profit, second_year_profit, third_year_profit,
-			total_profit, average_profit,
-		)
+			self.calculation_details_data = self._build_calculation_html(
+				first_year, second_year, third_year,
+				first_year_profit, second_year_profit, third_year_profit,
+				total_profit, average_profit,
+			)
+		else:
+			required_fields = [
+				"amount_required_to_be_spent_by_the_company_during_the_year", "amount_of_expenditure_incurred"
+			]
+
+			for field in required_fields:
+				if not self.get(field):
+					frappe.throw(f"{field.replace('_', ' ').title()} is required when manual input is enabled")
+
+			# ✅ Calculate shortfall based on manual input
+			diff = flt(self.amount_of_expenditure_incurred) - flt(self.amount_required_to_be_spent_by_the_company_during_the_year)
+
+			self.shortfall_at_the_end_of_the_year = 0 if diff < 0 else diff
+
+			# ✅ Keep beginning shortfall (if not filled, fetch previous year)
+			if not self.shortfall_at_the_beginning_of_the_year:
+				_, prev_year = self.get_previous_fiscal_year(self.fiscal_year)
+				self.shortfall_at_the_beginning_of_the_year = frappe.get_value(
+					"FR Corporate Social Responsibliity Master",
+					{
+						"company": self.company,
+						"fiscal_year": prev_year,
+						"month": self.month
+					},
+					"shortfall_at_the_end_of_the_year"
+				) or 0
+
+			# ✅ Generate simple manual calculation view
+			self.calculation_details_data = f"""
+			<div class="csr-calc">
+				<h6>Manual CSR Calculation</h6>
+				<table>
+					<tr><th>Description</th><th>Value</th></tr>
+					<tr><td>Shortfall at Beginning</td><td>{flt(self.shortfall_at_the_beginning_of_the_year, 3)}</td></tr>
+					<tr><td>Amount Required</td><td>{flt(self.amount_required_to_be_spent_by_the_company_during_the_year, 3)}</td></tr>
+					<tr><td>Expenditure Incurred</td><td>{flt(self.amount_of_expenditure_incurred, 3)}</td></tr>
+					<tr><td>Shortfall at End</td><td>{flt(self.shortfall_at_the_end_of_the_year, 3)}</td></tr>
+				</table>
+				<p><i>Note: Values are manually entered by user.</i></p>
+			</div>
+			"""
 
 	def _build_calculation_html(self, fy1, fy2, fy3, p1, p2, p3, total_profit, average_profit):
 		diff = self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
