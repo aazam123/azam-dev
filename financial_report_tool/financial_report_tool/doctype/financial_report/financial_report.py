@@ -6662,49 +6662,9 @@ class FinancialReport(Document):
 				elif note_type == "Cost of Materials Consumed":
 					field = 'cost_consumed_current' if is_current else ('prev_year_cost_consumed' if is_yearly else 'cost_consumed_previous')
 					amount = self.get_yearly_cost_of_material_consumed(note_type, total=True, field=field)
-
-			elif fr_particular.schedule and fr_particular.is_purchase_of_stock_in_trade:
-				if default_currency != "INR":
-					cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-					opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
-					closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.fiscal_year)
-
-					if is_current:
-						amount = (
-							self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, year)
-							- self.get_yearly_finished_goods_and_wip(total=True, field='net_increase_total')
-							+ (closing_stock_current - opening_stock)
-						)
-
-					elif is_yearly:
-						closing_stock_pre_previous = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", pre_year)
-						prev_year_closing_stock = self.sum_group_amt("Inventories", "Raw Materials and Packing Material", self.previous_fiscal_year)
-
-						closing_wip_pre_previous = (
-							self.sum_group_amt("Inventories", "Work in Progress", pre_year)
-							+ self.sum_group_amt("Inventories", "Finished Goods", pre_year)
-							+ self.sum_group_amt("Inventories", "Stock In Trade", pre_year)
-						)
-
-						prev_year_closing_wip = (
-							self.sum_group_amt("Inventories", "Work in Progress", self.previous_fiscal_year)
-							+ self.sum_group_amt("Inventories", "Finished Goods", self.previous_fiscal_year)
-							+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
-						)
-
-						amount = (
-							self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
-							+ (prev_year_closing_wip - closing_wip_pre_previous)
-							+ (prev_year_closing_stock - closing_stock_pre_previous)
-						)
-					else:
-						amount = (
-							self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
-							+ (prev_year_closing_wip - closing_wip_pre_previous)
-							+ (prev_year_closing_stock - closing_stock_pre_previous)
-						)
-				else:
-					amount = self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", year)
+				elif note_type = "Purchases of Stock in Trade"
+					field = 'purchases_current' if is_current else "prev_year_purchases"
+					amount = self.get_yearly_purchases_of_stock_in_trade(note_type, total=True, field=field)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
