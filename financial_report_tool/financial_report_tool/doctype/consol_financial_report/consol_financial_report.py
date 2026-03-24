@@ -148,7 +148,19 @@ class ConsolFinancialReport(Document):
 	def before_save(self):
 		self.update_consolidation_note_numbers()
 		companies = self._get_cached_companies()
-		foreign_exchange_rate = ""
+		foreign_exchange_rate = f"""
+            <table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:-35px 0;">
+                <thead>
+                    <tr style="border-bottom:2px solid #222;">
+                        <th style="border:1px solid #ddd; padding:4px;">Default Currency</th>
+                        <th style="border:1px solid #ddd; padding:4px;">Month</th>
+                        <th style="border:1px solid #ddd; padding:4px;">Year</th>
+                        <th style="border:1px solid #ddd; padding:4px;">Closing Rate</th>
+                        <th style="border:1px solid #ddd; padding:4px;">Average Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
 				i.section_name = frappe.get_value("FR Section", i.section, 'section_type_name')
@@ -166,37 +178,34 @@ class ConsolFinancialReport(Document):
 
 			# Build HTML table
 			foreign_exchange_rate += f"""
-				<table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:-35px 0;">
-					<thead>
-						<tr style = "border-bottom:2px solid #222;">
-							<th style="border:1px solid #ddd; padding:4px;">Month</th>
-							<th style="border:1px solid #ddd; padding:4px;">Year</th>
-							<th style="border:1px solid #ddd; padding:4px;">Closing Rate</th>
-							<th style="border:1px solid #ddd; padding:4px;">Average Rate</th>
-						</tr>
-					</thead>
-					<tbody>
+				
 						<tr>
+						    <td style="border:1px solid #ddd; padding:4px;"><b>{default_currency}</b></td>
 							<td style="border:1px solid #ddd; padding:4px;"><b>{self.current_month}</b></td>
 							<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
 							<td style="border:1px solid #ddd; padding:4px;">{current_cls_fx or "-"}</td>
 							<td style="border:1px solid #ddd; padding:4px;">{current_avg_fx or "-"}</td>
 						</tr>
 						<tr>
+						    <td style="border:1px solid #ddd; padding:4px;"><b></b></td>
 							<td style="border:1px solid #ddd; padding:4px;"><b>{self.previous_month}</b></td>
 							<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
 							<td style="border:1px solid #ddd; padding:4px;">{previous_cls_fx or "-"}</td>
 							<td style="border:1px solid #ddd; padding:4px;">{previous_avg_fx or "-"}</td>
 						</tr>
 						<tr>
+						    <td style="border:1px solid #ddd; padding:4px;"><b></b></td>
 							<td style="border:1px solid #ddd; padding:4px;"><b>{cls_month}</b></td>
 							<td style="border:1px solid #ddd; padding:4px;">{self.previous_fiscal_year}</td>
 							<td style="border:1px solid #ddd; padding:4px;">{previous_year_cls_fx or "-"}</td>
 							<td style="border:1px solid #ddd; padding:4px;">{previous_year_avg_fx or "-"}</td>
 						</tr>
-					</tbody>
-				</table>
+					
 			"""
+		foreign_exchange_rate += """
+            </tbody>
+            </table>
+        """
 		self.foreign_exchange_rate = foreign_exchange_rate
 
 	def fetch_equity_data(self, holding_company, company, date_filter):
