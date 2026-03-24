@@ -5264,8 +5264,8 @@ class FinancialReport(Document):
 		prev_year_opening = p_fg + p_wip + p_sit
 		prev_prev_total = pp_fg + pp_wip + pp_sit
 
-		net_increase = cur_total - prev_year_opening
-		prev_year_net = prev_total - prev_prev_total
+		net_increase = prev_year_opening - cur_total
+		prev_year_net = prev_prev_total - prev_total
 
 		add("", prev_year_opening, prev_prev_total)
 		add("Net increase", net_increase, prev_year_net, st=True)
@@ -5306,7 +5306,7 @@ class FinancialReport(Document):
 		data = []
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
-		
+
 		if default_currency != "INR":
 			opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
 			closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.fiscal_year)
