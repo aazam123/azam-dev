@@ -740,6 +740,8 @@ class FinancialReport(Document):
 						i.section_description = self.get_yearly_finished_goods_and_wip(total=False, field=None, section_description=section_description)
 					elif note_type == "Cost of Materials Consumed":
 						i.section_description = self.get_yearly_cost_of_material_consumed(section_description, total=False, field=None)
+					if note_type == "Purchases of Stock-in-Trade":
+						i.section_description = self.get_yearly_purchases_of_stock_in_trade(section_description)
 					elif note_type == "Current Tax":
 						i.section_description = self.get_yearly_current_tax_note_data(section_description)
 					elif note_type == "Capital Management":
