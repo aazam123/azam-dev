@@ -5363,8 +5363,8 @@ class FinancialReport(Document):
 		closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.fiscal_year)
 
 		# --- Purchases & SIT ---
-		curr_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.current_month, self.fiscal_year)
-		prev_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_month, self.fiscal_year)
+		curr_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, self.fiscal_year)
+		prev_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, self.fiscal_year)
 
 		purchases_current = (
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", cls_month, self.fiscal_year)
