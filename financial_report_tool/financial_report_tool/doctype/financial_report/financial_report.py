@@ -614,14 +614,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -713,7 +713,7 @@ class FinancialReport(Document):
 					if fetch_data_from_trial_balance == 1:
 						data = self.get_yearly_consolidation_note_data(primary_group)
 						i.section_description = self.yearly_table_for_note_template(data, section_description)
-
+					frappe.msgprint(f"{note_type}")
 					if note_type == "Property, plant and equipment":
 						i.section_description = self.get_yearly_property_plant_and_equipment_data(section_description)
 					elif note_type == "Other intangible assets":
@@ -740,7 +740,7 @@ class FinancialReport(Document):
 						i.section_description = self.get_yearly_finished_goods_and_wip(total=False, field=None, section_description=section_description)
 					elif note_type == "Cost of Materials Consumed":
 						i.section_description = self.get_yearly_cost_of_material_consumed(section_description, total=False, field=None)
-					if note_type == "Purchases of Stock-in-Trade":
+					if note_type == "Purchases of Stock in Trade":
 						i.section_description = self.get_yearly_purchases_of_stock_in_trade(section_description)
 					elif note_type == "Current Tax":
 						i.section_description = self.get_yearly_current_tax_note_data(section_description)
@@ -5302,7 +5302,8 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	@frappe.whitelist()
-	def get_yearly_purchases_of_stock_in_trade(self, section_description, total, field=None):
+	def get_yearly_purchases_of_stock_in_trade(self, section_description, total=False, field=None):
+		data = []
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
 		opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
@@ -5341,8 +5342,8 @@ class FinancialReport(Document):
 			if field == "purchases_current": return purchases_current
 			if field == "prev_year_purchases": return prev_year_purchases
 
-		data.append({"account": account, "current_month_amount": purchases_current, "previous_year": prev_year_purchases, "indent": indent, "is_bold": 0})
-		table_data = self.monthly_table_for_note_template_1(data)
+		data.append({"account": "Purchases of Stock in Trade", "current_year": round(purchases_current, self.show_decimal_value), "previous_year": round(prev_year_purchases, self.show_decimal_value)})
+		table_data = self.yearly_table_for_note_template(data, section_description)
 		return section_description.replace("{{note_table}}", table_data)
 
 
@@ -6662,7 +6663,7 @@ class FinancialReport(Document):
 				elif note_type == "Cost of Materials Consumed":
 					field = 'cost_consumed_current' if is_current else ('prev_year_cost_consumed' if is_yearly else 'cost_consumed_previous')
 					amount = self.get_yearly_cost_of_material_consumed(note_type, total=True, field=field)
-				elif note_type = "Purchases of Stock in Trade"
+				elif note_type == "Purchases of Stock in Trade":
 					field = 'purchases_current' if is_current else "prev_year_purchases"
 					amount = self.get_yearly_purchases_of_stock_in_trade(note_type, total=True, field=field)
 
