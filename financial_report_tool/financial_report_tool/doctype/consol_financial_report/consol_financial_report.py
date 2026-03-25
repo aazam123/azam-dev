@@ -529,7 +529,6 @@ class ConsolFinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		print("calling gen report .......")
 		# doc._generate_report_internal()
 		frappe.enqueue(
 			"financial_report_tool.financial_report_tool.doctype.consol_financial_report.consol_financial_report.do_generate_report",
@@ -538,7 +537,6 @@ class ConsolFinancialReport(Document):
 			job_name=f"Generate Consol Financial Report - {doc.name}",
 			timeout=600                   
 		)
-		print("calling gen report 1 .......")
 
 		return {
 			"success": True,
@@ -575,12 +573,13 @@ class ConsolFinancialReport(Document):
 								data = sorted(data, key=lambda x: x["current_month_amount"], reverse=bool(show_descending_order))
 						i.section_description = self.monthly_table_for_note_template_1(data)
 
-					if note_type == "Trade & Other receivables":
-						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
+					# if note_type == "Trade & Other receivables":
+					# 	i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
+					if note_type == "Other Equity":
+						i.section_description = self.get_console_monthly_other_equity_note_data(section_description)
 						
 		if self.report_type == "Monthly":
 			for i in self.financial_report_details:
-					
 					if note_type == "Trade & Other receivables":
 						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
 					if note_type == "Equity Share Capital":
@@ -711,6 +710,100 @@ class ConsolFinancialReport(Document):
 
 		self.save(ignore_permissions=True)
 		frappe.db.commit()
+
+	def get_console_monthly_other_equity_note_data(self, section_description):
+		all_companies = frappe.get_all("Company", pluck="name")
+		# Initialize totals
+		totals = {
+			"sp": {"current": 0, "previous": 0, "previous_year": 0},
+			"forex": {
+				"opening": {"current": 0, "previous": 0, "previous_year": 0},
+				"addition": {"current": 0, "previous": 0, "previous_year": 0},
+				"closing": {"current": 0, "previous": 0, "previous_year": 0},
+			},
+			"retained": {
+				"opening": {"current": 0, "previous": 0, "previous_year": 0},
+				"net": {"current": 0, "previous": 0, "previous_year": 0},
+				"oci": {"current": 0, "previous": 0, "previous_year": 0},
+				"closing": {"current": 0, "previous": 0, "previous_year": 0},
+			},
+			"cc": {
+				"opening": {"current": 0, "previous": 0, "previous_year": 0},
+				"addition": {"current": 0, "previous": 0, "previous_year": 0},
+				"closing": {"current": 0, "previous": 0, "previous_year": 0},
+			},
+			"total": {"current": 0, "previous": 0, "previous_year": 0},
+		}
+
+		# Aggregate
+		for company in all_companies:
+			d = self.get_monthly_other_equity_note_data(company, section_description, 0)
+
+			for key in totals:
+				if isinstance(totals[key], dict):
+					for sub in totals[key]:
+						if isinstance(totals[key][sub], dict):
+							for k in totals[key][sub]:
+								totals[key][sub][k] += d[key][sub][k]
+						else:
+							totals[key][sub] += d[key][sub]
+
+		# Map into table
+		data = [
+			("Securities premium account", "", "", "", True),
+			("Balance as at the beginning of the year", totals["sp"]["previous_year"], totals["sp"]["previous"], totals["sp"]["previous_year"], False),
+			("Addition: During the year on issue of equity shares", 0, 0, 0, False),
+			("Balance as at the end of the year", totals["sp"]["current"], totals["sp"]["previous"], totals["sp"]["previous_year"], True),
+
+			("Surplus in Foreign Exchange Reserves", "", "", "", True),
+			("Balance as at the beginning of the year", totals["forex"]["opening"]["current"], totals["forex"]["opening"]["previous"], totals["forex"]["opening"]["previous_year"], False),
+			("Addition during the year", totals["forex"]["addition"]["current"], totals["forex"]["addition"]["previous"], totals["forex"]["addition"]["previous_year"], False),
+			("Balance as at the end of the year", totals["forex"]["closing"]["current"], totals["forex"]["closing"]["previous"], totals["forex"]["closing"]["previous_year"], True),
+
+			("Retained earnings", "", "", "", True),
+			("Balance as at the beginning of the year", totals["retained"]["opening"]["current"], totals["retained"]["opening"]["previous"], totals["retained"]["opening"]["previous_year"], False),
+			("Net Profit for the year", totals["retained"]["net"]["current"], totals["retained"]["net"]["previous"], totals["retained"]["net"]["previous_year"], False),
+			("Other comprehensive income", totals["retained"]["oci"]["current"], totals["retained"]["oci"]["previous"], totals["retained"]["oci"]["previous_year"], False),
+			("Balance as at the end of the year", totals["retained"]["closing"]["current"], totals["retained"]["closing"]["previous"], totals["retained"]["closing"]["previous_year"], True),
+
+			("Capital Contribution", "", "", "", True),
+			("Balance as at the beginning of the year", totals["cc"]["opening"]["current"], totals["cc"]["opening"]["previous"], totals["cc"]["opening"]["previous_year"], False),
+			("Add: Equity contribution on financial guarantee taken", totals["cc"]["addition"]["current"], totals["cc"]["addition"]["previous"], totals["cc"]["addition"]["previous_year"], False),
+			("Balance as at the end of the year", totals["cc"]["closing"]["current"], totals["cc"]["closing"]["previous"], totals["cc"]["closing"]["previous_year"], True),
+
+			("Total", totals["total"]["current"], totals["total"]["previous"], totals["total"]["previous_year"], True),
+		]
+		html = f'''
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
+			<thead>
+				<tr style="border-bottom:2px solid #222; background-color:#fff;">
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:40%; padding:6px 8px; background-color:#fff; text-align:left;"><b>Particulars</b></th>
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{month_end_label}</b></th>
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{previous_fiscal_year_end_label}</b></th>
+				</tr>
+			</thead>
+			<tbody>
+		'''
+
+		for i, (particulars, amt_month, amt_current_fy, amt_previous_fy, is_bold) in enumerate(data):
+			bold = "font-weight: bold;" if is_bold else ""
+			# Only vertical borders for regular rows, full borders for bold/total rows
+			if is_bold:
+				border = "border-top:1px solid #222; border-bottom:1px solid #222;"
+			else:
+				border = "border-top:none; border-bottom:none;"
+
+			html += f'''<tr style='background-color:#fff;'>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:left; background-color:#fff; {bold}'>{particulars}</td>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#E8F5E8; {bold}'>{amt_month}</td>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {bold}'>{amt_current_fy}</td>
+				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {bold}'>{amt_previous_fy}</td>
+			</tr>'''
+
+		html += "</tbody></table>"
+		return section_description.replace("{{note_table}}", html)
+
 
 	def get_yearly_property_plant_and_equipment_data(self, section_description=""):
 		# Convert to date objects if they are strings
@@ -8253,23 +8346,27 @@ class ConsolFinancialReport(Document):
 
 			elif fr_particular.fetch_from_schedule:
 				note_type = get_fr_section(fr_particular.schedule).note_type if fr_particular.schedule else None
-				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-					field = 'ftm_total' if is_current else 'net_increase_total'
-					amount = self.get_monthly_finished_goods_and_wip(company, note_type, total=True, field=field)
-				elif note_type == "Cost of Materials Consumed":
-					field = 'cost_consumed_previous' if is_current else 'cost_consumed_current'
-					amount = self.get_monthly_cost_of_material_consumed(company, note_type, total=True, field=field)
-				elif note_type == "Other Equity" and not for_other_equity and not account:
+				if note_type == "Other Equity" and not for_other_equity and not account:
 					field = 'grand_total_current' if is_current else 'grand_total_prev_year'
+					amount = self.get_monthly_other_equity_note_data(company, note_type, total=True, field=field)
+				else:
 					amount = 0
-					# amount = self.get_monthly_other_equity_note_data(company, note_type, total=True, field=field)
-				elif note_type == "Borrowings (Non-current)":
-					field = 'total_current_month_amt' if is_current else 'total_previous_year'
-					primary_group = get_fr_section(fr_particular.schedule).primary_consolidation_group
-					amount = self.get_monthly_borrowing_non_current_note_data(company, note_type, primary_group, total=True, field=field)
-				elif note_type == "Investments (Non-current)":
-					field = 'total_current' if is_current else 'total_previous_year'
-					amount = self.get_monthly_investment_non_current_note_data(company, note_type, total=True, field=field)
+				# if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
+				# 	field = 'ftm_total' if is_current else 'net_increase_total'
+				# 	amount = self.get_monthly_finished_goods_and_wip(company, note_type, total=True, field=field)
+				# elif note_type == "Cost of Materials Consumed":
+				# 	field = 'cost_consumed_previous' if is_current else 'cost_consumed_current'
+				# 	amount = self.get_monthly_cost_of_material_consumed(company, note_type, total=True, field=field)
+				# elif note_type == "Other Equity" and not for_other_equity and not account:
+				# 	field = 'grand_total_current' if is_current else 'grand_total_prev_year'
+				# 	amount = self.get_monthly_other_equity_note_data(company, note_type, total=True, field=field)
+				# elif note_type == "Borrowings (Non-current)":
+				# 	field = 'total_current_month_amt' if is_current else 'total_previous_year'
+				# 	primary_group = get_fr_section(fr_particular.schedule).primary_consolidation_group
+				# 	amount = self.get_monthly_borrowing_non_current_note_data(company, note_type, primary_group, total=True, field=field)
+				# elif note_type == "Investments (Non-current)":
+				# 	field = 'total_current' if is_current else 'total_previous_year'
+				# 	amount = self.get_monthly_investment_non_current_note_data(company, note_type, total=True, field=field)
 
 			elif fr_particular.schedule:
 				fr_section = get_fr_section(fr_particular.schedule)
@@ -8745,62 +8842,54 @@ class ConsolFinancialReport(Document):
 			else:
 				return 0
 
-		data = [
-			("Securities premium account", "", "", "", True),
-			("Balance as at the beginning of the year", sp_previous_year, sp_previous_year, sp_previous_year, False),
-			("Addition: During the year on issue of equity shares", 0, 0, 0, False),
-			("Balance as at the end of the year", sp_previous_year, sp_previous_year, sp_previous_year, True),
+		# self.update_forgein_exchange_reserves_in_other_equity_data(curr_add_for_exc_res, prev_add_for_exc_res, add_for_exc_previous_year)
+		# self.update_other_equity(grand_total_current, grand_total_previous, grand_total_prev_year)
 
-			("Surplus in Foreign Exchange Reserves", "", "", "", True),
-			("Balance as at the beginning of the year", prev_year_for_exc_res_tot, prev_year_for_exc_res_tot, for_exc_previous_year, False),
-			("Addition during the year", curr_add_for_exc_res, prev_add_for_exc_res, add_for_exc_previous_year, False),
-			("Balance as at the end of the year", curr_for_exc_res_tot, prev_for_exc_res_tot, prev_year_for_exc_res_tot, True),
-
-			("Retained earnings", "", "", "", True),
-			("Balance as at the beginning of the year", bal_current_mnt, bal_previous_mnt, bal_previous_year, False),
-			("Net Profit for the year", net_current_mnt, net_previous_mnt, net_previous_year, False),
-			("Other comprehensive income", oci_current_mnt, oci_previous_mnt, oci_previous_year, False),
-			("Balance as at the end of the year", retained_tot_current, retained_tot_prev, retained_tot_prev_year, True),
-
-			("Capital Contribution", "", "", "", True),
-			("Balance as at the beginning of the year", cc_opening_current, cc_opening_previous, cc_opening_previous_year, False),
-			("Add: Equity contribution on financial guarantee taken", cc_add_current, cc_add_previous, cc_add_previous_year, False),
-			("Balance as at the end of the year", cc_closing_current, cc_closing_previous, cc_closing_previous_year, True),
-			("Total", grand_total_current, grand_total_previous, grand_total_prev_year, True),
-		]
-
-		self.update_forgein_exchange_reserves_in_other_equity_data(curr_add_for_exc_res, prev_add_for_exc_res, add_for_exc_previous_year)
-		self.update_other_equity(grand_total_current, grand_total_previous, grand_total_prev_year)
-		html = f'''
-		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
-			<thead>
-				<tr style="border-bottom:2px solid #222; background-color:#fff;">
-					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:40%; padding:6px 8px; background-color:#fff; text-align:left;"><b>Particulars</b></th>
-					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{month_end_label}</b></th>
-					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{current_fiscal_year_end_label}</b></th>
-					<th style="border-left:1px solid #222; color: #4472C4; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:6px 8px; background-color:#fff; text-align:center;"><b>{previous_fiscal_year_end_label}</b></th>
-				</tr>
-			</thead>
-			<tbody>
-		'''
-
-		for i, (particulars, amt_month, amt_current_fy, amt_previous_fy, is_bold) in enumerate(data):
-			bold = "font-weight: bold;" if is_bold else ""
-			# Only vertical borders for regular rows, full borders for bold/total rows
-			if is_bold:
-				border = "border-top:1px solid #222; border-bottom:1px solid #222;"
-			else:
-				border = "border-top:none; border-bottom:none;"
-
-			html += f'''<tr style='background-color:#fff;'>
-				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:left; background-color:#fff; {bold}'>{particulars}</td>
-				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#E8F5E8; {bold}'>{amt_month}</td>
-				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {bold}'>{amt_current_fy}</td>
-				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {bold}'>{amt_previous_fy}</td>
-			</tr>'''
-
-		html += "</tbody></table>"
-		return section_description.replace("{{note_table}}", html)
+		return {
+			"sp": {
+				"current": sp_current_month, "previous": sp_current_fy, "previous_year": sp_previous_year,
+			},
+			"forex": {
+				"opening": {
+					"current": prev_year_for_exc_res, "previous": prev_year_for_exc_res, "previous_year": prev_year_for_exc_res,
+				},
+				"addition": {
+					"current": curr_add_for_exc_res, "previous": prev_add_for_exc_res, "previous_year": add_for_exc_previous_year,
+				},
+				"closing": {
+					"current": curr_for_exc_res_tot, "previous": prev_for_exc_res_tot, "previous_year": prev_year_for_exc_res,
+				},
+			},
+			"retained": {
+				"opening": {
+					"current": bal_current_mnt, "previous": bal_previous_mnt, "previous_year": bal_previous_year,
+				},
+				"net": {
+					"current": net_current_mnt, "previous": net_previous_mnt, "previous_year": net_previous_year,
+				},
+				"oci": {
+					"current": oci_current_mnt, "previous": oci_previous_mnt, "previous_year": oci_previous_year,
+				},
+				"closing": {
+					"current": retained_tot_current, "previous": retained_tot_prev, "previous_year": retained_tot_prev_year,
+				},
+			},
+			"cc": {
+				"opening": {
+					"current": cc_opening_current, "previous": cc_opening_previous, "previous_year": cc_opening_previous_year,
+				},
+				"addition": {
+					"current": cc_add_current, "previous": cc_add_previous, "previous_year": cc_add_previous_year,
+				},
+				"closing": {
+					"current": cc_closing_current, "previous": cc_closing_previous, "previous_year": cc_closing_previous_year,
+				},
+			},
+			"total": {
+				"current": grand_total_current, "previous": grand_total_previous, "previous_year": grand_total_prev_year,
+			}
+		}
+		
 
 	def get_monthly_equity_share_capital_note_data(self, company, section_description):
 		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
