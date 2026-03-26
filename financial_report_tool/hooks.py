@@ -251,7 +251,7 @@ doctype_js = {"Account" : "public/js/account.js"}
 fixtures = [
     {
         "dt": "Print Format",
-        "filters": [["name", "in", ["Financial Report"]]]
+        "filters": [["name", "in", ["Financial Report", "Console Financial Report"]]]
     },
     {
         "dt": "Workspace",

@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2026-03-26 12:00:00.000000",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-03-26 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "import-console-trial-balance",
+ "owner": "Administrator",
+ "page_name": "import-console-trial-balance",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Import Console Trial Balance"
+}

@@ -7,12 +7,12 @@
  "field_order": [
   "closing_month_section",
   "closing_month",
-  "column_break_hwwa",
   "sap_threshold_amount",
-  "column_break_ibet",
+  "column_break_hwwa",
   "erp_type",
-  "column_break_ectp",
   "print_format",
+  "console_details_section",
+  "console_tb_threshold_amount",
   "set_previous_fiscal_year_section",
   "previous_fiscal_year",
   "schedule_settings_tab",
@@ -57,8 +57,9 @@
    "label": "SAP Threshold Amount"
   },
   {
-   "fieldname": "column_break_ibet",
-   "fieldtype": "Column Break"
+   "fieldname": "console_tb_threshold_amount",
+   "fieldtype": "Float",
+   "label": "Console TB Threshold Amount"
   },
   {
    "fieldname": "user_name",
@@ -110,23 +111,24 @@
    "reqd": 1
   },
   {
-   "fieldname": "column_break_ectp",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "print_format",
    "fieldtype": "Link",
    "label": "Print Format",
    "link_filters": "[[\"Print Format\",\"doc_type\",\"=\",\"Financial Report\"]]",
    "options": "Print Format",
    "reqd": 1
+  },
+  {
+   "fieldname": "console_details_section",
+   "fieldtype": "Section Break",
+   "label": "Console Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-02-25 14:31:09.446204",
+ "modified": "2026-03-26 13:52:49.626987",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Settings",

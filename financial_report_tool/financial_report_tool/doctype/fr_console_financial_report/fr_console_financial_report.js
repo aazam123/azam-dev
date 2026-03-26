@@ -1,7 +1,7 @@
 // Copyright (c) 2025, Hybrowlabs Pvt Ltd and contributors
 // For license information, please see license.txt
 
-frappe.ui.form.on("Consol Financial Report", {
+frappe.ui.form.on("FR Console Financial Report", {
     setup(frm){
         if (frm.grid) {
             const originalAddRow = frm.grid.add_row;
@@ -40,26 +40,9 @@ frappe.ui.form.on("Consol Financial Report", {
 	},
     refresh(frm) {
         if (!frm.is_new()) {
-            // frm.add_custom_button("Show Report", function () {
-            //     frappe.db.get_single_value("FR Financial Settings", "print_format")
-            //         .then(print_format => {
-            //             if (!print_format) {
-            //                 frappe.throw(__("Please set Print Format in Financial Settings"));
-            //             }
-
-            //             const print_url = frappe.urllib.get_full_url(
-            //                 `/printview?doctype=${encodeURIComponent("Financial Report")}` +
-            //                 `&name=${encodeURIComponent(frm.doc.name)}` +
-            //                 `&format=${encodeURIComponent(print_format)}` +
-            //                 `&no_letterhead=0`
-            //             );
-
-            //             window.open(print_url, "_blank");
-            //         });
-            // });
             frm.add_custom_button("Show Report", function () {
-                const print_format = "Consol FR";
-                const print_url = `/printview?doctype=Consol Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;
+                const print_format = "Console Financial Report";
+                const print_url = `/printview?doctype=FR Console Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;
                 window.open(print_url, '_blank');
             });
 
@@ -199,7 +182,7 @@ async function generateFinancialReport(frm) {
     }
 
     const progress_dialog = new frappe.ui.Dialog({
-        title: "Generating Consol Financial Report",
+        title: "Generating FR Console Financial Report",
         size: 'large',
         fields: [
             {

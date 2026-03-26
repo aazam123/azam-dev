@@ -151,7 +151,7 @@
  "modified": "2026-03-25 10:53:53.799109",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
- "name": "Consol Financial Report",
+ "name": "FR Console Financial Report",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
