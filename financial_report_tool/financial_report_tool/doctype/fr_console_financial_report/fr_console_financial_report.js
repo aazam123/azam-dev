@@ -261,7 +261,6 @@ function exportToPDF(frm) {
             if (r && r.exc) {
                 frappe.msgprint("Error exporting to PDF: " + r.exc, "Error");
             } else if (r && r.message) {
-                // Create a link to download the file
                 const link = document.createElement('a');
                 link.href = r.message.file_url;
                 link.download = r.message.file_name;
