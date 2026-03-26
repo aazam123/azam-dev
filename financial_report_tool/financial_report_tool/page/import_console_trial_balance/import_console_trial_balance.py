@@ -7,19 +7,48 @@ from frappe import _
 
 @frappe.whitelist()
 def get_companies_with_tb(fiscal_year, month):
-    """Get all companies that have FR Trial Balance Entry for the given fiscal year and month."""
+    """Get companies that have FR Trial Balance Entry but NOT already imported to FR Console Trial Balance.
+    Also skips companies whose total uploaded_amount exceeds the threshold.
+    """
     if not fiscal_year or not month:
         return []
+
+    threshold = frappe.db.get_single_value("FR Financial Settings", "console_tb_threshold_amount") or 0
 
     companies = frappe.db.sql("""
         SELECT DISTINCT tbe.company, c.default_currency
         FROM `tabFR Trial Balance Entry` tbe
         LEFT JOIN `tabCompany` c ON c.name = tbe.company
         WHERE tbe.fiscal_year = %s AND tbe.month = %s
+          AND tbe.company NOT IN (
+              SELECT DISTINCT ctb.company
+              FROM `tabFR Console Trial Balance` ctb
+              WHERE ctb.fiscal_year = %s AND ctb.month = %s
+          )
         ORDER BY tbe.company
-    """, (fiscal_year, month), as_dict=True)
+    """, (fiscal_year, month, fiscal_year, month), as_dict=True)
 
-    return companies
+    if not threshold:
+        return companies
+
+    # Filter out companies exceeding threshold
+    result = []
+    for c in companies:
+        total = frappe.db.sql("""
+            SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+            WHERE fiscal_year = %s AND month = %s AND company = %s
+        """, (fiscal_year, month, c.company))[0][0] or 0
+        if abs(total) <= threshold:
+            result.append(c)
+        else:
+            result.append({
+                "company": c.company,
+                "default_currency": c.default_currency,
+                "skipped": True,
+                "skip_reason": _("Total Amount {0} exceeds threshold {1}").format(total, threshold)
+            })
+
+    return result
 
 
 @frappe.whitelist()

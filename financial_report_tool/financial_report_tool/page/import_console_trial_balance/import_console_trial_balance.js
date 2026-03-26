@@ -38,10 +38,6 @@ frappe.pages['import-console-trial-balance'].on_page_load = function(wrapper) {
         fetch_companies(page);
     }, 'octicon octicon-search');
 
-    page.set_secondary_action(__('Import'), function() {
-        import_selected(page);
-    });
-
     // --- Main Container ---
     page.main_container = $('<div class="import-ctb-container"></div>').appendTo(page.body);
 
@@ -73,6 +69,7 @@ function get_filter_values(page) {
 
 function clear_results(page) {
     page.main_container.find('.companies-section').remove();
+    page.main_container.find('.import-action-section').remove();
     page.main_container.find('.preview-section').remove();
 }
 
@@ -93,8 +90,9 @@ function fetch_companies(page) {
             if (!r.message || r.message.length === 0) {
                 page.main_container.html(`
                     <div class="empty-state">
-                        <h4>No Trial Balance Entries Found</h4>
-                        <p>No FR Trial Balance Entry exists for <b>${fiscal_year}</b> - <b>${month}</b>.</p>
+                        <h4>No Companies Available</h4>
+                        <p>No pending FR Trial Balance Entry exists for <b>${fiscal_year}</b> - <b>${month}</b>.<br>
+                        All companies may already be imported.</p>
                     </div>
                 `);
                 return;
@@ -105,16 +103,20 @@ function fetch_companies(page) {
 }
 
 function render_company_list(page, companies, fiscal_year, month) {
+    // Separate eligible and skipped companies
+    const eligible = companies.filter(c => !c.skipped);
+    const skipped = companies.filter(c => c.skipped);
+
     let html = `
         <div class="companies-section">
             <div class="section-header">
-            <label class="select-all-label">
-                <input type="checkbox" id="select-all-companies" checked> Select All
-            </label>
-            <h5>Companies with Trial Balance Entries (${fiscal_year} - ${month})</h5>
-            <div class="action-bar">
-                <button class="btn btn-primary btn-sm btn-validate">Validate</button>
-            </div>
+                <label class="select-all-label">
+                    <input type="checkbox" id="select-all-companies" checked> Select All
+                </label>
+                <h5>Companies with Trial Balance Entries (${fiscal_year} - ${month})</h5>
+                <div class="action-bar">
+                    <button class="btn btn-primary btn-sm btn-validate">Validate</button>
+                </div>
             </div>
             <table class="table table-bordered company-table">
                 <thead>
@@ -127,7 +129,7 @@ function render_company_list(page, companies, fiscal_year, month) {
                 </thead>
                 <tbody>`;
 
-    companies.forEach(function(c) {
+    eligible.forEach(function(c) {
         html += `
                     <tr>
                         <td class="text-center">
@@ -141,17 +143,33 @@ function render_company_list(page, companies, fiscal_year, month) {
                     </tr>`;
     });
 
+    // Show skipped companies (threshold exceeded) as disabled rows
+    skipped.forEach(function(c) {
+        html += `
+                    <tr class="skipped-row">
+                        <td class="text-center">
+                            <input type="checkbox" disabled>
+                        </td>
+                        <td class="text-muted">${c.company}</td>
+                        <td class="text-muted">${c.default_currency || '-'}</td>
+                        <td>
+                            <span class="text-warning"><i class="fa fa-exclamation-triangle"></i> ${c.skip_reason}</span>
+                        </td>
+                    </tr>`;
+    });
+
     html += `
                 </tbody>
             </table>
-        </div>`;
+        </div>
+        <div class="import-action-section"></div>`;
 
     page.main_container.html(html);
 
-    // Select All toggle
+    // Select All toggle (only affects eligible checkboxes)
     page.main_container.find('#select-all-companies').on('change', function() {
         const checked = $(this).prop('checked');
-        page.main_container.find('.company-check').prop('checked', checked);
+        page.main_container.find('.company-check:not(:disabled)').prop('checked', checked);
     });
 
     // Validate button
@@ -184,8 +202,9 @@ function validate_companies(page) {
         );
     });
 
-    // Remove old preview
+    // Remove old preview and import action
     page.main_container.find('.preview-section').remove();
+    page.main_container.find('.import-action-section').html('');
 
     frappe.call({
         method: 'financial_report_tool.financial_report_tool.page.import_console_trial_balance.import_console_trial_balance.validate_before_import',
@@ -215,35 +234,42 @@ function validate_companies(page) {
                 }
             });
 
-            // Update action bar
-            const action_bar = page.main_container.find('.action-bar');
-            action_bar.html('');
+            // Show import button below the company table
+            const import_section = page.main_container.find('.import-action-section');
+            import_section.html('');
 
             if (valid_companies.length > 0) {
-                action_bar.html(`
-                    <span class="validation-summary text-muted mr-3">
-                        ${valid_companies.length} of ${r.message.length} companies ready for import
-                    </span>
-                    <button class="btn btn-success btn-sm btn-import">
-                        <i class="fa fa-download"></i> Import Selected
-                    </button>
+                import_section.html(`
+                    <div class="import-bar">
+                        <span class="validation-summary text-muted">
+                            ${valid_companies.length} of ${r.message.length} companies ready for import
+                        </span>
+                        <button class="btn btn-success btn-sm btn-import">
+                            <i class="fa fa-download"></i> Import Selected
+                        </button>
+                    </div>
                 `);
 
-                action_bar.find('.btn-import').on('click', function() {
+                import_section.find('.btn-import').on('click', function() {
                     import_selected(page);
                 });
 
-                // Fetch and show preview table for valid companies
+                // Fetch and show preview table below
                 fetch_preview_data(page, fiscal_year, month, valid_companies);
             } else {
-                action_bar.html('<span class="text-danger">No companies are eligible for import.</span>');
+                import_section.html(`
+                    <div class="import-bar">
+                        <span class="text-danger">No companies are eligible for import.</span>
+                    </div>
+                `);
             }
         }
     });
 }
 
 function fetch_preview_data(page, fiscal_year, month, companies) {
-    // Show loading for preview
+    // Show loading for preview after import section
+    page.main_container.find('.preview-section').remove();
     page.main_container.append(`
         <div class="preview-section">
             <div class="text-center p-4">
@@ -318,13 +344,13 @@ function render_preview_table(page, rows) {
     const html = `
         <div class="preview-section">
             <div class="section-header" style="margin-top: 20px;">
-            <div class="preview-filter-bar">
-                <label>Company:</label>
-                <select class="form-control input-sm preview-company-filter">
-                ${company_options}
-                </select>
-            </div>
-            <h5>Preview (${filtered_rows.length} entries)</h5>
+                <div class="preview-filter-bar">
+                    <label>Company:</label>
+                    <select class="form-control input-sm preview-company-filter">
+                        ${company_options}
+                    </select>
+                </div>
+                <h5>Preview (${filtered_rows.length} entries)</h5>
             </div>
             <div class="preview-table-wrapper">
                 <table class="table table-bordered preview-table">
@@ -440,7 +466,7 @@ function add_page_styles() {
         }
         .import-ctb-container .company-table {
             background: var(--card-bg);
-            margin-bottom: 15px;
+            margin-bottom: 0;
         }
         .import-ctb-container .company-table thead th,
         .import-ctb-container .preview-table thead th {
@@ -452,12 +478,25 @@ function add_page_styles() {
         .import-ctb-container .company-table td {
             vertical-align: middle;
         }
+        .import-ctb-container .skipped-row {
+            background: var(--bg-light-yellow, #fffde7);
+        }
         .import-ctb-container .action-bar {
             display: flex;
             align-items: center;
             justify-content: flex-end;
             gap: 10px;
-            padding: 10px 0;
+        }
+        .import-ctb-container .import-action-section {
+            margin-top: 0;
+        }
+        .import-ctb-container .import-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 12px 0;
+            border-top: 1px solid var(--border-color);
         }
         .import-ctb-container .validation-summary {
             font-size: 13px;
