@@ -614,14 +614,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
-		frappe.enqueue(
-			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
-		)
+		doc._generate_report_internal()
+		# frappe.enqueue(
+		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+		# 	docname=doc.name,
+		# 	queue='long',                 
+		# 	job_name=f"Generate Financial Report - {doc.name}",
+		# 	timeout=600                   
+		# )
 
 		return {
 			"success": True,
@@ -713,7 +713,6 @@ class FinancialReport(Document):
 					if fetch_data_from_trial_balance == 1:
 						data = self.get_yearly_consolidation_note_data(primary_group)
 						i.section_description = self.yearly_table_for_note_template(data, section_description)
-					frappe.msgprint(f"{note_type}")
 					if note_type == "Property, plant and equipment":
 						i.section_description = self.get_yearly_property_plant_and_equipment_data(section_description)
 					elif note_type == "Other intangible assets":
@@ -6587,8 +6586,8 @@ class FinancialReport(Document):
 		data = []
 		cls_month = self._closing_month
 
-		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
-		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		previous_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
 		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
 
 		for row in balance_sheet_doc.balance_sheet_template_details:
@@ -6603,7 +6602,7 @@ class FinancialReport(Document):
 				investment_value = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
 				current_month_amount = previous_year_amount = investment_value
 			else:
-				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
+				current_month_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
 				previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx) or 0
 
 			schedule = getattr(fr_particular, "schedule", "")
