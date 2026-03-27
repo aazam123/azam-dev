@@ -614,14 +614,14 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		doc._generate_report_internal()
-		# frappe.enqueue(
-		# 	"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-		# 	docname=doc.name,
-		# 	queue='long',                 
-		# 	job_name=f"Generate Financial Report - {doc.name}",
-		# 	timeout=600                   
-		# )
+		# doc._generate_report_internal()
+		frappe.enqueue(
+			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+			docname=doc.name,
+			queue='long',                 
+			job_name=f"Generate Financial Report - {doc.name}",
+			timeout=600                   
+		)
 
 		return {
 			"success": True,
