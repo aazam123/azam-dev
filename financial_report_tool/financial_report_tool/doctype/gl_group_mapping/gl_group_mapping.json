@@ -21,7 +21,7 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Report Type",
-   "options": "\nMonthly\nYearly\nMIS\nConsole Monthly\nConsole Monthly",
+   "options": "\nMonthly\nYearly\nConsole Monthly\nConsole Yearly\nMIS",
    "reqd": 1
   },
   {
@@ -73,7 +73,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-11 11:23:55.992159",
+ "modified": "2026-03-27 17:59:46.286391",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "GL Group Mapping",
@@ -94,7 +94,6 @@
   }
  ],
  "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
