@@ -263,7 +263,7 @@ fixtures = [
     },
     {
         "dt": "Workflow",
-        "filters": [["name", "in", ["Financial Report Workflow"]]]
+        "filters": [["name", "in", ["Financial Report Workflow", "Console Financial Report Workflow"]]]
     },
     {
         "dt": "Custom DocPerm",

@@ -28,14 +28,14 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Report Type",
-   "options": "\nMonthly\nYearly\nConsole Monthly\nConsol Yearly\nMIS",
+   "options": "\nMonthly\nYearly\nConsole Monthly\nConsole Yearly\nMIS",
    "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-16 14:40:54.054586",
+ "modified": "2026-03-27 17:58:15.953556",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Template",
@@ -56,7 +56,6 @@
   }
  ],
  "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

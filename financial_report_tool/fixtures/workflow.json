@@ -2,6 +2,68 @@
  {
   "docstatus": 0,
   "doctype": "Workflow",
+  "document_type": "FR Console Financial Report",
+  "is_active": 1,
+  "modified": "2026-03-27 17:55:07.460238",
+  "name": "Console Financial Report Workflow",
+  "override_status": 0,
+  "send_email_alert": 0,
+  "states": [
+   {
+    "allow_edit": "Financial Report User",
+    "avoid_status_override": 0,
+    "doc_status": "0",
+    "is_optional_state": 0,
+    "message": null,
+    "next_action_email_template": null,
+    "parent": "Console Financial Report Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 1,
+    "state": "Pending",
+    "update_field": null,
+    "update_value": null,
+    "workflow_builder_id": null
+   },
+   {
+    "allow_edit": "Finance Manager",
+    "avoid_status_override": 0,
+    "doc_status": "0",
+    "is_optional_state": 0,
+    "message": null,
+    "next_action_email_template": null,
+    "parent": "Console Financial Report Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 1,
+    "state": "Approved",
+    "update_field": null,
+    "update_value": null,
+    "workflow_builder_id": null
+   }
+  ],
+  "transitions": [
+   {
+    "action": "Approve",
+    "allow_self_approval": 1,
+    "allowed": "Finance Manager",
+    "condition": null,
+    "next_state": "Approved",
+    "parent": "Console Financial Report Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "send_email_to_creator": 0,
+    "state": "Pending",
+    "workflow_builder_id": null
+   }
+  ],
+  "workflow_data": null,
+  "workflow_name": "Console Financial Report Workflow",
+  "workflow_state_field": "workflow_state"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow",
   "document_type": "Financial Report",
   "is_active": 1,
   "modified": "2025-12-10 10:43:46.802601",
