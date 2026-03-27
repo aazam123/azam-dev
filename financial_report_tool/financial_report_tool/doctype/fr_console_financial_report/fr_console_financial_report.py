@@ -232,16 +232,59 @@ class FRConsoleFinancialReport(Document):
 
 	def before_save(self):
 		self.update_consolidation_note_numbers()
-
-		# Update section names
+		companies = self._get_cached_companies()
+		foreign_exchange_rate = ""
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
 				i.section_name = frappe.get_value("FR Section", i.section, 'section_type_name')
+		
+		for company_doc in companies:
+			default_currency = company_doc.default_currency
+			cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+			current_cls_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate')
+			previous_cls_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate')
+			previous_year_cls_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'closing_rate')
+			
+			current_avg_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate')
+			previous_avg_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate')
+			previous_year_avg_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
 
-		# Consolidated report is always in INR — no FX rate table needed
-		self.foreign_exchange_rate = ""
+			# Build HTML table
+			foreign_exchange_rate += f"""
+				<table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:-35px 0;">
+					<thead>
+						<tr style = "border-bottom:2px solid #222;">
+							<th style="border:1px solid #ddd; padding:4px;">Month</th>
+							<th style="border:1px solid #ddd; padding:4px;">Year</th>
+							<th style="border:1px solid #ddd; padding:4px;">Closing Rate</th>
+							<th style="border:1px solid #ddd; padding:4px;">Average Rate</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td style="border:1px solid #ddd; padding:4px;"><b>{self.current_month}</b></td>
+							<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
+							<td style="border:1px solid #ddd; padding:4px;">{current_cls_fx or "-"}</td>
+							<td style="border:1px solid #ddd; padding:4px;">{current_avg_fx or "-"}</td>
+						</tr>
+						<tr>
+							<td style="border:1px solid #ddd; padding:4px;"><b>{self.previous_month}</b></td>
+							<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
+							<td style="border:1px solid #ddd; padding:4px;">{previous_cls_fx or "-"}</td>
+							<td style="border:1px solid #ddd; padding:4px;">{previous_avg_fx or "-"}</td>
+						</tr>
+						<tr>
+							<td style="border:1px solid #ddd; padding:4px;"><b>{cls_month}</b></td>
+							<td style="border:1px solid #ddd; padding:4px;">{self.previous_fiscal_year}</td>
+							<td style="border:1px solid #ddd; padding:4px;">{previous_year_cls_fx or "-"}</td>
+							<td style="border:1px solid #ddd; padding:4px;">{previous_year_avg_fx or "-"}</td>
+						</tr>
+					</tbody>
+				</table>
+			"""
+		self.foreign_exchange_rate = foreign_exchange_rate
 
-	def fetch_equity_data(self, company, date_filter):
+	def fetch_equity_data(self, holding_company, company, date_filter):
 		return frappe.get_all(
 			"FR Investment Entry",
 			filters={"company": company, "category": "Equity Shares", "capital_type": "Issued Capital", "posting_date": date_filter},
@@ -605,18 +648,21 @@ class FRConsoleFinancialReport(Document):
 								data = sorted(data, key=lambda x: x["current_month_amount"], reverse=bool(show_descending_order))
 						i.section_description = self.monthly_table_for_note_template_1(data)
 
-					if note_type == "Investments (Non-current)":
-						i.section_description = self.get_monthly_investment_non_current_note_data(section_description)
 					if note_type == "Trade & Other receivables":
 						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
-					if note_type == "Equity Share Capital":
-						i.section_description = self.get_monthly_equity_share_capital_note_data(section_description)
+						
+		if self.report_type == "Monthly":
+			for i in self.financial_report_details:
+					
+					if note_type == "Trade & Other receivables":
+						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
+					
 					if note_type == "Other Equity":
 						i.section_description = self.get_monthly_other_equity_note_data(section_description)
 					if note_type == "Borrowings (Non-current)":
 						i.section_description = self.get_monthly_borrowing_non_current_note_data(section_description, primary_group)
 					if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-						i.section_description = self.get_monthly_finished_goods_and_wip(section_description, total=False, field=None)
+						i.section_description = self.get_monthly_finished_goods_and_wip(company, section_description, total=False, field=None)
 					if note_type == "Cost of Materials Consumed":
 						i.section_description = self.get_monthly_cost_of_material_consumed(section_description, total=False, field=None)
 					if note_type == "Purchases of Stock-in-Trade":
@@ -7415,7 +7461,7 @@ class FRConsoleFinancialReport(Document):
 		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
 
-	def get_monthly_cost_of_material_consumed(self, section_description, total, field=None):
+	def get_monthly_cost_of_material_consumed(self, company, section_description, total, field=None):
 		rows = []
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		default_currency = "INR"
@@ -7560,14 +7606,142 @@ class FRConsoleFinancialReport(Document):
 		
 		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
+	
+	def get_monthly_cost_of_material_consumed_consolidated(self, section_description, total=False, field=None):
+		cache = self._get_cached_material_consumed_data()
+		companies = self._get_cached_companies()
+
+		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+
+		# --- totals ---
+		total_current = 0
+		total_previous = 0
+		total_ftm = 0
+		total_prev_year = 0
+
+		opening_stock_total = 0
+		purchases_current_total = 0
+		purchases_previous_total = 0
+		closing_stock_current_total = 0
+		closing_stock_previous_total = 0
+		prev_year_purchases_total = 0
+		closing_stock_pre_previous_total = 0
+
+		for company_doc in companies:
+			company = company_doc.name
+
+			data = cache.get(company, {})
+
+			total_current += data.get("current", 0)
+			total_previous += data.get("previous", 0)
+			total_ftm += data.get("ftm", 0)
+			total_prev_year += data.get("prev_year", 0)
+
+			# --- stock (lightweight, no heavy recalculation) ---
+			cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+
+			opening_stock = self.get_sum_grouping_amount(company, "Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
+			closing_stock_current = self.get_sum_grouping_amount(company, "Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
+			closing_stock_previous = self.get_sum_grouping_amount(company, "Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
+
+			opening_stock_total += opening_stock or 0
+			closing_stock_current_total += closing_stock_current or 0
+			closing_stock_previous_total += closing_stock_previous or 0
+
+			# derive purchases safely
+			purchases_current_total += (opening_stock + data.get("current", 0) - closing_stock_current)
+			purchases_previous_total += (opening_stock + data.get("previous", 0) - closing_stock_previous)
+
+			prev_year_purchases_total += data.get("prev_year", 0)
+			closing_stock_pre_previous_total += opening_stock or 0
+
+		# --- FTM ---
+		ftm_purchases = purchases_current_total - purchases_previous_total
+		ftm_closing_stock = closing_stock_current_total - closing_stock_previous_total
+
+		if total:
+			if field == 'cost_consumed_current':
+				return total_current
+			elif field == 'cost_consumed_previous':
+				return total_previous
+			elif field == 'ftm_cost_consumed':
+				return total_ftm
+			elif field == 'prev_year_cost_consumed':
+				return total_prev_year
+			else:
+				return 0
+
+		rows = [
+			{"particulars": "Opening Stock","current_month_amt": opening_stock_total,"previous_month_amt": opening_stock_total,"ftm_amt": 0,"previous_year_amt": closing_stock_pre_previous_total,"is_subtotal": False},
+			{"particulars": "Add: purchases & other related costs","current_month_amt": purchases_current_total,"previous_month_amt": purchases_previous_total,"ftm_amt": ftm_purchases,"previous_year_amt": prev_year_purchases_total,"is_subtotal": False},
+			{"particulars": "Less: closing stock","current_month_amt": closing_stock_current_total,"previous_month_amt": closing_stock_previous_total,"ftm_amt": ftm_closing_stock,"previous_year_amt": opening_stock_total,"is_subtotal": False},
+			{"particulars": "Cost of Materials Consumed","current_month_amt": total_current,"previous_month_amt": total_previous,"ftm_amt": total_ftm,"previous_year_amt": total_prev_year,"is_subtotal": True}
+		]
+
+		# --- SAME HTML (unchanged) ---
+		html = f'''
+		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+			<thead>
+				<tr style="border-bottom:2px solid #222;">
+					<th style="border:1px solid #222; color: #4472C4; text-align:left; width:40%; padding:6px 8px;"><b>Particulars</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px; background-color:#e8f5e8;"><b>{month_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>FTM</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{current_fiscal_year_end_label}</b></th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center; padding:6px 8px;"><b>{previous_fiscal_year_end_label}</b></th>
+				</tr>
+			</thead>
+			<tbody>
+		'''
+
+		for row in rows:
+			current_month_amt_str = round(row['current_month_amt'], self.show_decimal_value) if row['current_month_amt'] else "-"
+			ftm_amt_str = round(row['ftm_amt'], self.show_decimal_value) if row['ftm_amt'] else "-"
+			previous_month_amt_str = round(row['previous_month_amt'], self.show_decimal_value) if row['previous_month_amt'] else "-"
+			previous_year_amt = round(row['previous_year_amt'], self.show_decimal_value) if row['previous_year_amt'] else "-"
+
+			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
+			border_style = "border:1px solid #222;" if row["is_subtotal"] else "border:1px solid #222; border-top:none; border-bottom:none;"
+
+			html += f'''
+				<tr>
+					<td style="{border_style} text-align:left; padding:6px 8px; {bold_style}">{row['particulars']}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style} background-color:#e8f5e8;">{current_month_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{ftm_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_month_amt_str}</td>
+					<td style="{border_style} text-align:right; padding:6px 8px; {bold_style}">{previous_year_amt}</td>
+				</tr>
+			'''
+
+		html += "</tbody></table>"
+
+		return section_description.replace("{{note_table}}", html)
+	
+	def _get_cached_purchases_sit_data(self):
+		if hasattr(self, "_purchases_sit_cache"):
+			return self._purchases_sit_cache
+
+		self._purchases_sit_cache = {}
+
+		companies = self._get_cached_companies()
+
+		for company_doc in companies:
+			company = company_doc.name
+
+			self._purchases_sit_cache[company] = {
+				"current": self.get_monthly_purchases_of_stock_in_trade(company, "", True, "purchases_current") or 0,
+				"previous": self.get_monthly_purchases_of_stock_in_trade(company, "", True, "purchases_previous") or 0,
+				"prev_year": self.get_monthly_purchases_of_stock_in_trade(company, "", True, "prev_year_purchases") or 0,
+			}
+
+		return self._purchases_sit_cache	
 
 	@frappe.whitelist()
 	def get_monthly_purchases_of_stock_in_trade(self, section_description, total, field=None):
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-		default_currency = "INR"
-		opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
-		closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
-		closing_stock_previous = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
+		default_currency = frappe.get_value("Company", company, 'default_currency')
+		opening_stock = self.get_sum_grouping_amount(company, "Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
+		closing_stock_current = self.get_sum_grouping_amount(company, "Inventories", "Raw Materials and Packing Material", self.current_month, self.fiscal_year)
+		closing_stock_previous = self.get_sum_grouping_amount(company, "Inventories", "Raw Materials and Packing Material", self.previous_month, self.fiscal_year)
 
 		if default_currency != "INR":
 			purchases_current = (
@@ -7619,6 +7793,55 @@ class FRConsoleFinancialReport(Document):
 			"ftm_amount": (purchases_current - purchases_previous), "previous_year": prev_year_purchases, "indent": indent, "is_bold": 0
 		})
 		table_data = self.monthly_table_for_note_template_1(data)
+		return section_description.replace("{{note_table}}", table_data)
+	
+	def get_monthly_purchases_of_stock_in_trade_consolidated(self, section_description, total=False, field=None):
+		cache = self._get_cached_purchases_sit_data()
+		companies = self._get_cached_companies()
+
+		# --- totals ---
+		total_current = 0
+		total_previous = 0
+		total_prev_year = 0
+
+		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+
+		data = []
+		account = "Purchases of Stock in Trade"
+		indent = 0
+
+		for company_doc in companies:
+			company = company_doc.name
+			company_data = cache.get(company, {})
+
+			total_current += company_data.get("current", 0)
+			total_previous += company_data.get("previous", 0)
+			total_prev_year += company_data.get("prev_year", 0)
+
+		# --- TOTAL MODE (IMPORTANT like standalone) ---
+		if total:
+			if field == "purchases_current":
+				return total_current
+			elif field == "purchases_previous":
+				return total_previous
+			elif field == "prev_year_purchases":
+				return total_prev_year
+			else:
+				return 0
+
+		# --- NORMAL TABLE ---
+		data.append({
+			"account": account,
+			"current_month_amount": total_current,
+			"previous_month_amount": total_previous,
+			"ftm_amount": (total_current - total_previous),
+			"previous_year": total_prev_year,
+			"indent": indent,
+			"is_bold": 0
+		})
+
+		table_data = self.monthly_table_for_note_template_1(data)
+
 		return section_description.replace("{{note_table}}", table_data)
 
 	@frappe.whitelist()
@@ -8735,17 +8958,18 @@ class FRConsoleFinancialReport(Document):
 	def get_monthly_equity_share_capital_note_data(self, section_description):
 		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
 		month_end_label, prev_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+
 		current_date = month_end_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_fiscal_year_end_label.replace("Year Ended ", "").replace("/", "-")
 
-		company_currency = "INR"
+		company_currency = frappe.get_value("Company", company, "default_currency")
 		currency = self.currency if self.currency != company_currency else company_currency
 
-		headers = ["Particulars",f"As at {current_date}", "",f"As at {previous_date}", ""]
-		sub_headers = ["","No. of shares", f"{currency} in Lacs","No. of shares", f"{currency} in Lacs"]
+		headers = ["Particulars", f"As at {current_date}", "", f"As at {previous_date}", ""]
+		sub_headers = ["", "No. of shares", f"{self.currency} in Lacs", "No. of shares", f"{self.currency} in Lacs"]
 
 		def get_equity_data(entry_type, date, amt_field):
-			data = frappe.db.get_values("FR Equity Entry", {"type": entry_type, "date": ["<=", date]}, ["sum(no_of_shares) as shares", f"sum({amt_field}) as amount", "face_value"], as_dict=True)
+			data = frappe.db.get_values("FR Equity Entry", {"company": company, "type": entry_type, "date": ["<=", date]}, ["sum(no_of_shares) as shares", f"sum({amt_field}) as amount", "face_value"], as_dict=True)
 			row = data[0] if data else {}
 			return (row.get("face_value") or "-",row.get("shares") or 0, round(row.get("amount")/100000, self.show_decimal_value or 0))
 
@@ -8759,12 +8983,12 @@ class FRConsoleFinancialReport(Document):
 		rows = [
 			["Equity Share Capital", "", "", "", ""],
 			["Authorised", "", "", "", ""],
-			[f"Equity Shares of {face_value} each",curr_auth_shares, curr_auth_amt,pre_auth_shares, pre_auth_amt],
+			[f"Equity Shares of {face_value} each", curr_auth_shares, curr_auth_amt, pre_auth_shares, pre_auth_amt],
 			["Issued, Subscribed and Fully Paid", "", "", "", ""],
-			[f"Equity Shares of {face_value} each",curr_issue_shares, curr_issue_amt,pre_issue_shares, pre_issue_amt],
-			["Total", curr_issue_shares, curr_issue_amt,pre_issue_shares, pre_issue_amt],
+			[f"Equity Shares of {face_value} each", curr_issue_shares, curr_issue_amt, pre_issue_shares, pre_issue_amt],
+			["Total", curr_issue_shares, curr_issue_amt, pre_issue_shares, pre_issue_amt],
 		]
-
+	
 		html = """<table style="width:100%; border-collapse:collapse; font-size:13px;">
 		<thead>"""
 
@@ -8783,6 +9007,7 @@ class FRConsoleFinancialReport(Document):
 		html += "</tr>"
 
 		html += "</thead><tbody>"
+
 
 		for row in rows:
 			is_section = row[0] and all(not c for c in row[1:])
