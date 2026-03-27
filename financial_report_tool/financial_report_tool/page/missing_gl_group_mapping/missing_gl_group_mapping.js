@@ -28,7 +28,7 @@ frappe.pages['missing-gl-group-mapping'].on_page_load = function(wrapper) {
         label: 'Report Type',
         fieldname: 'report_type',
         fieldtype: 'Select',
-        options: '\nMonthly\nYearly\nMIS\nConsole Monthly\nConsol Yearly',
+        options: '\nMonthly\nYearly\nMIS\nConsole Monthly\nConsole Yearly',
         reqd: 1,
         change() {
             const company = page.fields_dict.company.get_value();

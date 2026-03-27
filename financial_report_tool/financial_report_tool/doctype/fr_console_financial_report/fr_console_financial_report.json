@@ -100,7 +100,7 @@
    "fieldname": "report_type",
    "fieldtype": "Select",
    "label": "Report Type",
-   "options": "\nConsole Monthly\nConsol Yearly"
+   "options": "\nConsole Monthly\nConsole Yearly"
   },
   {
    "fieldname": "foreign_exchange_rate",

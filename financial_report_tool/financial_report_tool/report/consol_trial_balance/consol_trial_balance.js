@@ -7,7 +7,7 @@ frappe.query_reports["Consol Trial Balance"] = {
             fieldname: "report_type",
             label: __("Report Type"),
             fieldtype: "Select",
-            options: "Console Monthly\nConsol Yearly",
+            options: "Console Monthly\nConsole Monthly",
             reqd: 1,
             default: "Console Monthly"
         },

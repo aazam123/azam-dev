@@ -11,7 +11,7 @@ def get_missing_gl_accounts(company, report_type):
         return {"data": [], "primary_groups": [], "secondary_groups": []}
 
     # Determine source table based on report type
-    if report_type in ("Console Monthly", "Consol Yearly"):
+    if report_type in ("Console Monthly", "Console Yearly"):
         source_doctype = "FR Console Trial Balance"
     else:
         source_doctype = "FR Trial Balance Entry"

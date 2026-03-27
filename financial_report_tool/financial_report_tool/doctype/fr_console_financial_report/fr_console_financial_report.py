@@ -548,7 +548,7 @@ class FRConsoleFinancialReport(Document):
 			if cache_key in self._sum_grouping_cache:
 				return self._sum_grouping_cache[cache_key]
 
-		filters = {"report_type": "Consol Yearly", "primary_group": primary_group, "secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
+		filters = {"report_type": "Console Yearly", "primary_group": primary_group, "secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts:
 			result = 0
@@ -648,25 +648,22 @@ class FRConsoleFinancialReport(Document):
 								data = sorted(data, key=lambda x: x["current_month_amount"], reverse=bool(show_descending_order))
 						i.section_description = self.monthly_table_for_note_template_1(data)
 
+					if note_type == "Investments (Non-current)":
+						i.section_description = self.get_monthly_investment_non_current_note_data(section_description)
 					if note_type == "Trade & Other receivables":
 						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
-						
-		if self.report_type == "Monthly":
-			for i in self.financial_report_details:
-					
-					if note_type == "Trade & Other receivables":
-						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
-					
+					if note_type == "Equity Share Capital":
+						i.section_description = self.get_monthly_equity_share_capital_note_data(section_description)
 					if note_type == "Other Equity":
 						i.section_description = self.get_monthly_other_equity_note_data(section_description)
 					if note_type == "Borrowings (Non-current)":
 						i.section_description = self.get_monthly_borrowing_non_current_note_data(section_description, primary_group)
 					if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
-						i.section_description = self.get_monthly_finished_goods_and_wip(company, section_description, total=False, field=None)
+						i.section_description = self.get_monthly_finished_goods_and_wip(section_description, total=False, field=None)
 					if note_type == "Cost of Materials Consumed":
-						i.section_description = self.get_monthly_cost_of_material_consumed(section_description, total=False, field=None)
+						i.section_description = self.get_monthly_cost_of_material_consumed_consolidated(section_description, total=False, field=None)
 					if note_type == "Purchases of Stock-in-Trade":
-						i.section_description = self.get_monthly_purchases_of_stock_in_trade(section_description)
+						i.section_description = self.get_monthly_purchases_of_stock_in_trade_consolidated(section_description)
 
 					context = {}
 					try:
@@ -685,7 +682,7 @@ class FRConsoleFinancialReport(Document):
 								else f'<div id="{note_id}" class="note-anchor"></div>'
 							)
 
-		elif self.report_type == "Consol Yearly":
+		elif self.report_type == "Console Yearly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
 					i.table_data, i.section_description = self.render_yearly_balance_sheet(i.section)
@@ -706,7 +703,6 @@ class FRConsoleFinancialReport(Document):
 					if fetch_data_from_trial_balance == 1:
 						data = self.get_yearly_consolidation_note_data(primary_group)
 						i.section_description = self.yearly_table_for_note_template(data, section_description)
-					frappe.msgprint(f"{note_type}")
 					if note_type == "Property, plant and equipment":
 						i.section_description = self.get_yearly_property_plant_and_equipment_data(section_description)
 					elif note_type == "Other intangible assets":

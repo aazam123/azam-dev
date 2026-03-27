@@ -21,7 +21,7 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Report Type",
-   "options": "\nMonthly\nYearly\nMIS\nConsole Monthly\nConsol Yearly",
+   "options": "\nMonthly\nYearly\nMIS\nConsole Monthly\nConsole Monthly",
    "reqd": 1
   },
   {
