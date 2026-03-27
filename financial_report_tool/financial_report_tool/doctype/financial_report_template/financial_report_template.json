@@ -28,7 +28,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Report Type",
-   "options": "\nMonthly\nYearly\nConsol Monthly\nConsol Yearly\nMIS",
+   "options": "\nMonthly\nYearly\nConsole Monthly\nConsol Yearly\nMIS",
    "reqd": 1
   }
  ],

@@ -28,7 +28,7 @@ frappe.pages['missing-gl-group-mapping'].on_page_load = function(wrapper) {
         label: 'Report Type',
         fieldname: 'report_type',
         fieldtype: 'Select',
-        options: '\nMonthly\nYearly\nMIS',
+        options: '\nMonthly\nYearly\nMIS\nConsole Monthly\nConsol Yearly',
         reqd: 1,
         change() {
             const company = page.fields_dict.company.get_value();
@@ -582,11 +582,6 @@ function init_link_fields(page, idx) {
             change: function() {
                 const val = this.get_value();
                 page.gl_data[idx].primary_group = val;
-                // Clear secondary when primary changes
-                if (page.gl_data[idx]._secondary_field) {
-                    page.gl_data[idx]._secondary_field.set_value([]);
-                    page.gl_data[idx].secondary_group = [];
-                }
                 update_filled_count(page);
             }
         },

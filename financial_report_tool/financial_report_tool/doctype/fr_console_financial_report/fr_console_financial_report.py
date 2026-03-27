@@ -578,7 +578,7 @@ class FRConsoleFinancialReport(Document):
 
 	def _generate_report_internal(self):
 		self._init_report_caches()
-		if self.report_type == "Consol Monthly":
+		if self.report_type == "Console Monthly":
 			for i in self.financial_report_details:
 				if i.section_type == "Balance Sheet":
 					i.table_data, i.section_description = self.render_monthly_balance_sheet(i.section)

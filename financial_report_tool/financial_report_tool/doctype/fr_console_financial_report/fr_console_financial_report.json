@@ -80,7 +80,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval: doc.report_type == \"Consol Monthly\";",
+   "depends_on": "eval: doc.report_type == \"Console Monthly\";",
    "fieldname": "current_month",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -89,7 +89,7 @@
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
   },
   {
-   "depends_on": "eval: doc.report_type == \"Consol Monthly\";",
+   "depends_on": "eval: doc.report_type == \"Console Monthly\";",
    "fieldname": "previous_month",
    "fieldtype": "Select",
    "label": "Previous Month",
@@ -100,7 +100,7 @@
    "fieldname": "report_type",
    "fieldtype": "Select",
    "label": "Report Type",
-   "options": "\nConsol Monthly\nConsol Yearly"
+   "options": "\nConsole Monthly\nConsol Yearly"
   },
   {
    "fieldname": "foreign_exchange_rate",

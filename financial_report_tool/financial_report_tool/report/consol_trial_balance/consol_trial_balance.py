@@ -19,7 +19,7 @@ def execute(filters=None):
 def validate_filters(filters):
     if not filters.get("fiscal_year"):
         frappe.throw(_("Fiscal Year is required"))
-    if filters.get("report_type") == "Consol Monthly" and not filters.get("month"):
+    if filters.get("report_type") == "Console Monthly" and not filters.get("month"):
         frappe.throw(_("Month is required"))
 
 def get_columns():
@@ -156,7 +156,7 @@ def get_data(filters):
     # ----------------------------------------
     inv_filters = {}
 
-    if filters.get("report_type") == "Consol Monthly" and filters.get("month"):
+    if filters.get("report_type") == "Console Monthly" and filters.get("month"):
         inv_filters["month"] = filters.get("month")
 
     if filters.get("fiscal_year"):
@@ -314,7 +314,7 @@ def get_data(filters):
 
 def get_conditions(filters):
     conditions = []
-    if filters.get("report_type") == "Consol Monthly":
+    if filters.get("report_type") == "Console Monthly":
         if filters.get("month"):
             conditions.append("AND t.month = %(month)s")
 

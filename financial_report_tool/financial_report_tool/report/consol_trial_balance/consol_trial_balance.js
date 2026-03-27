@@ -7,9 +7,9 @@ frappe.query_reports["Consol Trial Balance"] = {
             fieldname: "report_type",
             label: __("Report Type"),
             fieldtype: "Select",
-            options: "Consol Monthly\nConsol Yearly",
+            options: "Console Monthly\nConsol Yearly",
             reqd: 1,
-            default: "Consol Monthly"
+            default: "Console Monthly"
         },
         {
             "fieldname": "fiscal_year",
@@ -72,7 +72,7 @@ frappe.query_reports["Consol Trial Balance"] = {
 
         let report_type = report.get_values().report_type;
 
-        if (report_type === "Consol Monthly") {
+        if (report_type === "Console Monthly") {
             month_filter.df.reqd = 1;
             month_filter.toggle(true);
         } 
