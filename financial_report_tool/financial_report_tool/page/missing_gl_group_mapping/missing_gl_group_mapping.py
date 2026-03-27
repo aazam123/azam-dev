@@ -10,9 +10,15 @@ def get_missing_gl_accounts(company, report_type):
     if not company:
         return {"data": [], "primary_groups": [], "secondary_groups": []}
 
-    # Get all GL accounts from Trial Balance Entry
+    # Determine source table based on report type
+    if report_type in ("Console Monthly", "Consol Yearly"):
+        source_doctype = "FR Console Trial Balance"
+    else:
+        source_doctype = "FR Trial Balance Entry"
+
+    # Get all GL accounts from the appropriate Trial Balance
     trial_gls = frappe.get_all(
-        "FR Trial Balance Entry",
+        source_doctype,
         filters={"company": company},
         pluck="gl_account",
         distinct=True
@@ -53,6 +59,15 @@ def get_missing_gl_accounts(company, report_type):
             data.append({
                 "gl_account": account.name,
                 "account_number": account.account_number or "",
+                "primary_group": "",
+                "secondary_group": "",
+                "higher_secondary_group": "",
+            })
+        else:
+            # For Console TB entries where GL account may not exist as an Account doc
+            data.append({
+                "gl_account": gl,
+                "account_number": "",
                 "primary_group": "",
                 "secondary_group": "",
                 "higher_secondary_group": "",

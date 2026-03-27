@@ -13,8 +13,11 @@
   "month",
   "section_break_rmzw",
   "bank_guarantees",
-  "company_imported",
-  "claim_against"
+  "disputed_custom_duty_matters",
+  "claim_against",
+  "column_break_btxe",
+  "company_imported_label",
+  "company_imported"
  ],
  "fields": [
   {
@@ -47,7 +50,6 @@
    "label": "Bank guarantees given to excise authorities and other institutions"
   },
   {
-   "description": "b) The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme, of the Government of India, against which the company is committed to make exports of \u20b9 X Lacs (P.Y. \u20b9 Y Lacs)  within prescribed time period. In case the company  does not export then it would be liable to pay customs duty.",
    "fieldname": "company_imported",
    "fieldtype": "Float",
    "label": "The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme"
@@ -62,12 +64,26 @@
    "fieldtype": "Select",
    "label": "Month",
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
+  },
+  {
+   "fieldname": "disputed_custom_duty_matters",
+   "fieldtype": "Float",
+   "label": "Disputed Custom duty matters"
+  },
+  {
+   "fieldname": "column_break_btxe",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company_imported_label",
+   "fieldtype": "Small Text",
+   "label": "The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme Label"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-27 15:32:48.524033",
+ "modified": "2026-03-23 14:00:11.205885",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Contingent Liabilities",

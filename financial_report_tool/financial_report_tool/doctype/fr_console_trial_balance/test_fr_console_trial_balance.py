@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestConsolFinancialReport(FrappeTestCase):
+class TestFRConsoleTrialBalance(FrappeTestCase):
 	pass
