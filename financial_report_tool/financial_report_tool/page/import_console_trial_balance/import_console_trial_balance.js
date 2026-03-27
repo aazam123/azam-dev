@@ -33,6 +33,16 @@ frappe.pages['import-console-trial-balance'].on_page_load = function(wrapper) {
         }
     });
 
+    page.add_field({
+        label: 'Currency',
+        fieldname: 'currency',
+        fieldtype: 'Link',
+        options: 'Currency',
+        change() {
+            clear_results(page);
+        }
+    });
+
     // --- Actions ---
     page.set_primary_action(__('Fetch Companies'), function() {
         fetch_companies(page);
@@ -63,7 +73,8 @@ frappe.pages['import-console-trial-balance'].on_page_load = function(wrapper) {
 function get_filter_values(page) {
     return {
         fiscal_year: page.fields_dict.fiscal_year.get_value(),
-        month: page.fields_dict.month.get_value()
+        month: page.fields_dict.month.get_value(),
+        currency: page.fields_dict.currency.get_value()
     };
 }
 
@@ -74,7 +85,7 @@ function clear_results(page) {
 }
 
 function fetch_companies(page) {
-    const { fiscal_year, month } = get_filter_values(page);
+    const { fiscal_year, month, currency } = get_filter_values(page);
 
     if (!fiscal_year || !month) {
         frappe.msgprint(__('Please select Fiscal Year and Month.'));
@@ -85,7 +96,7 @@ function fetch_companies(page) {
 
     frappe.call({
         method: 'financial_report_tool.financial_report_tool.page.import_console_trial_balance.import_console_trial_balance.get_companies_with_tb',
-        args: { fiscal_year, month },
+        args: { fiscal_year, month, currency },
         callback: function(r) {
             if (!r.message || r.message.length === 0) {
                 page.main_container.html(`

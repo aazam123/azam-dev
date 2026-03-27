@@ -6,14 +6,21 @@ from frappe import _
 
 
 @frappe.whitelist()
-def get_companies_with_tb(fiscal_year, month):
+def get_companies_with_tb(fiscal_year, month, currency=None):
     """Get companies that have FR Trial Balance Entry but NOT already imported to FR Console Trial Balance.
     Also skips companies whose total uploaded_amount exceeds the threshold.
+    Optionally filters by company default_currency.
     """
     if not fiscal_year or not month:
         return []
 
     threshold = frappe.db.get_single_value("FR Financial Settings", "console_tb_threshold_amount") or 0
+
+    currency_filter = ""
+    params = [fiscal_year, month, fiscal_year, month]
+    if currency:
+        currency_filter = "AND c.default_currency = %s"
+        params.append(currency)
 
     companies = frappe.db.sql("""
         SELECT DISTINCT tbe.company, c.default_currency
@@ -25,8 +32,9 @@ def get_companies_with_tb(fiscal_year, month):
               FROM `tabFR Console Trial Balance` ctb
               WHERE ctb.fiscal_year = %s AND ctb.month = %s
           )
+          {currency_filter}
         ORDER BY tbe.company
-    """, (fiscal_year, month, fiscal_year, month), as_dict=True)
+    """.format(currency_filter=currency_filter), params, as_dict=True)
 
     if not threshold:
         return companies
