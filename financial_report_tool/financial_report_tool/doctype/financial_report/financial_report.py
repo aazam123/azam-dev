@@ -802,16 +802,28 @@ class FinancialReport(Document):
 		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
 		current_year_starting_date = curr_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%d %B %Y")
 
-		# Asset classes mapping: DB name -> column order in table
-		asset_classes = [
-			"Building",
-			"Plant & Machinery",
-			"Furniture & Fixtures",
-			"Vehicle",
-			"Office Equipment",
-			"Computer & Hardware",
-			"Leasehold Improvement"
-		]
+		# Fetch asset classes dynamically from FR Asset Group Master
+		asset_group_name = "Property Plant and Equipment"
+		asset_group_masters = frappe.get_all(
+			"FR Asset Group Master",
+			filters={"asset_group": asset_group_name},
+			fields=["name", "asset_class"],
+			order_by="creation asc"
+		)
+		# asset_classes = header names (from asset_class field of each master record)
+		# asset_class_filters = dict mapping header name -> list of child asset_class values (for DB filter)
+		asset_classes = []
+		asset_class_filters = {}
+		for master in asset_group_masters:
+			header = master.asset_class
+			asset_classes.append(header)
+			child_rows = frappe.get_all(
+				"FR Asset Class",
+				filters={"parent": master.name, "parenttype": "FR Asset Group Master"},
+				fields=["asset_class"],
+				order_by="idx asc"
+			)
+			asset_class_filters[header] = [row.asset_class for row in child_rows]
 
 		# Define years
 		previous_year = {
@@ -837,13 +849,17 @@ class FinancialReport(Document):
 		}
 
 		for asset in asset_classes:
+			# Get child asset class values for this header
+			child_values = asset_class_filters.get(asset, [])
+
 			# Fetch data for previous year
 			prev_data = frappe.db.get_all(
 				'FR Asset Register Entry',
-				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
+				fields=['name', 'sap_transaction_acq_value', 'sap_tran_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
 					'company': self.company,
-					'asset_class': asset,
+					'asset_group': asset_group_name,
+					'asset_class': ['in', child_values],
 					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -852,10 +868,11 @@ class FinancialReport(Document):
 			# Fetch data for current year
 			curr_data = frappe.db.get_all(
 				'FR Asset Register Entry',
-				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
+				fields=['name', 'sap_transaction_acq_value', 'sap_tran_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
 					'company': self.company,
-					'asset_class': asset,
+					'asset_group': asset_group_name,
+					'asset_class': ['in', child_values],
 					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -866,19 +883,14 @@ class FinancialReport(Document):
 			prev_positive = 0.0
 			prev_negative = 0.0
 
-			# Find first entry with sap_cav as opening value
+			# Opening value = sum(sap_cav)
 			for entry in prev_data:
-				if entry.sap_cav:
-					prev_opening_value = float(entry.sap_cav)
-					break
+				prev_opening_value += float(entry.sap_cav) if entry.sap_cav else 0.0
 
-			# Sum all transactions
+			# Additions = sum(sap_transaction_acq_value)
 			for entry in prev_data:
-				value = float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
-				if value > 0:
-					prev_positive += value
-				elif value < 0:
-					prev_negative += value
+				prev_positive += float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
+				prev_negative += float(entry.sap_tran_acq_value) if entry.sap_tran_acq_value else 0.0
 
 			prev_closing_value = prev_opening_value + prev_positive + prev_negative
 
@@ -894,12 +906,10 @@ class FinancialReport(Document):
 			curr_positive = 0.0
 			curr_negative = 0.0
 
+			# Additions = sum(sap_transaction_acq_value)
 			for entry in curr_data:
-				value = float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
-				if value > 0:
-					curr_positive += value
-				elif value < 0:
-					curr_negative += value
+				curr_positive += float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
+				curr_negative += float(entry.sap_tran_acq_value) if entry.sap_tran_acq_value else 0.0
 
 			curr_closing_value = curr_opening_value + curr_positive + curr_negative
 
@@ -915,23 +925,16 @@ class FinancialReport(Document):
 			prev_acc_positive = 0.0
 			prev_acc_negative = 0.0
 
-			# Find first entry with sap_acc_dep as opening value
+			# Opening = sum(sap_acc_dep)
 			for entry in prev_data:
-				if entry.sap_acc_dep:
-					prev_acc_opening_value = abs(float(entry.sap_acc_dep))
-					break
+				prev_acc_opening_value += float(entry.sap_acc_dep) if entry.sap_acc_dep else 0.0
 
+			# For the year = sum(sap_plan_dep), Disposals = sum(sap_tran_accu_dep)
 			for entry in prev_data:
-				value = float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
-				if value > 0:
-					prev_acc_negative += value
-				elif value < 0:
-					prev_acc_positive += abs(value)
+				prev_acc_positive += float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
+				prev_acc_negative += float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
 
-				plan_value = float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
-				prev_acc_positive += abs(plan_value)
-
-			prev_acc_closing_value = prev_acc_opening_value + prev_acc_positive - prev_acc_negative
+			prev_acc_closing_value = prev_acc_opening_value + prev_acc_positive + prev_acc_negative
 
 			result["previous_year_acc_dep"][asset] = {
 				"opening_value": prev_acc_opening_value,
@@ -945,17 +948,12 @@ class FinancialReport(Document):
 			curr_acc_positive = 0.0
 			curr_acc_negative = 0.0
 
+			# For the year = sum(sap_plan_dep), Disposals = sum(sap_tran_accu_dep)
 			for entry in curr_data:
-				value = float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
-				if value > 0:
-					curr_acc_negative += value
-				elif value < 0:
-					curr_acc_positive += abs(value)
+				curr_acc_positive += float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
+				curr_acc_negative += float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
 
-				plan_value = float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
-				curr_acc_positive += abs(plan_value)
-
-			curr_acc_closing_value = curr_acc_opening_value + curr_acc_positive - curr_acc_negative
+			curr_acc_closing_value = curr_acc_opening_value + curr_acc_positive + curr_acc_negative
 
 			result["current_year_acc_dep"][asset] = {
 				"opening_value": curr_acc_opening_value,
@@ -1027,233 +1025,126 @@ class FinancialReport(Document):
 		cy_net = {asset: (cy_closing.get(asset, 0) or 0) - (cy_acc_closing.get(asset, 0) or 0) for asset in asset_classes}
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
-		# <div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; transform: rotate(-90deg); transform-origin: top left; position: relative; top: 701px; width: 750px;">
-		# <div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; overflow-x: auto; width: 100%">
+		# Dynamic HTML table generation
+		num_cols = len(asset_classes)
+		col_width = round((100 - 21 - 8) / num_cols, 1) if num_cols else 10
+
+		# Helper to generate data cells for a row
+		def data_cells(data_dict, total_val, style, bold=False):
+			cells = ""
+			for asset in asset_classes:
+				val = fmt(data_dict.get(asset))
+				content = f"<b>{val}</b>" if bold else val
+				cells += f'<td style="{style}">{content}</td>'
+			total_content = f"<b>{fmt(total_val)}</b>" if bold else fmt(total_val)
+			cells += f'<td style="background-color: #E8F5E8; {style}">{total_content}</td>'
+			return cells
+
+		def empty_cells(style):
+			cells = ""
+			for _ in asset_classes:
+				cells += f'<td style="{style}"></td>'
+			cells += f'<td style="background-color: #E8F5E8; {style}"></td>'
+			return cells
+
+		s_mid = "border-right:1px solid black;border-top:none;border-bottom:none;"
+		s_top = "border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"
+		s_bot = "border-right:1px solid black;border-top:none;border-bottom:1px solid black;"
+		s_full = "border:1px solid black;"
+		s_sec_top = "border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"
+		s_no_bot = "border-right:1px solid black;border-bottom:none;"
+
+		# Header columns
+		header_cols = ""
+		for asset in asset_classes:
+			header_cols += f'<th style="border: 1px solid black; border-bottom:1px solid black; width: {col_width}%;">{asset}</th>'
+		header_cols += f'<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 8%;">Total</th>'
+
 		html = f'''
 		<div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; transform-origin: top left; position: relative; top: -30px; width: 1200px;">
 			<table style="margin-bottom: -90px; margin-top: -20px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
 			<thead>
 				<tr style="color: #4472C4;">
 					<th style="border: 1px solid black; border-bottom:1px solid black; width: 21%;">Particulars</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 9%;">Building</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 10%;">Plant & Machinery</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 10%;">Furniture and Fitting</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 8%;">Vehicle</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 11%;">Office Equipment</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 10%;">Computer</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 12%;">Leasehold Improvement</th>
-					<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 8%;">Total</th>
+					{header_cols}
 				</tr>
 			</thead>
 			<tbody>
 				<tr>
 					<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"><b>I. Gross carrying amount<b></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="background-color: #E8F5E8; border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
+					{empty_cells(s_sec_top)}
 				</tr>
 				<tr>
 					<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Building"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Plant & Machinery"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Furniture & Fixtures"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Vehicle"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Office Equipment"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Computer & Hardware"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Leasehold Improvement"))}</td>
-					<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening_total)}</td>
+					{data_cells(py_opening, py_opening_total, s_top)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Additions</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Leasehold Improvement"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions_total)}</td>
+					{data_cells(py_additions, py_additions_total, s_mid)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Leasehold Improvement"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals_total)}</td>
+					{data_cells(py_disposals, py_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
-					<td style="border:1px solid black;"><b>As at {previous_year_ending_date}<b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Building"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Plant & Machinery"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Furniture & Fixtures"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Vehicle"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Office Equipment"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Computer & Hardware"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Leasehold Improvement"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing_total)}</b></td>
+					<td style="{s_full}"><b>As at {previous_year_ending_date}<b></td>
+					{data_cells(py_closing, py_closing_total, s_full, bold=True)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Additions</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Leasehold Improvement"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions_total)}</td>
+					{data_cells(cy_additions, cy_additions_total, s_no_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Leasehold Improvement"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals_total)}</td>
+					{data_cells(cy_disposals, cy_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
-					<td style="border:1px solid black;"><b>As at {current_year_ending_date}<b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Building"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Plant & Machinery"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Furniture & Fixtures"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Vehicle"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Office Equipment"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Computer & Hardware"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Leasehold Improvement"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing_total)}</b></td>
+					<td style="{s_full}"><b>As at {current_year_ending_date}<b></td>
+					{data_cells(cy_closing, cy_closing_total, s_full, bold=True)}
 				</tr>
 				<tr>
 					<td style="border-left: 1px solid black;border-right: 1px solid black; border-bottom: none;"><b>II.  Accumulated depreciation<b></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="background-color: #E8F5E8; border-right: 1px solid black; border-bottom: none;"></td>
+					{empty_cells("border-right: 1px solid black; border-bottom: none;")}
 				</tr>
 				<tr>
 					<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Building"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Plant & Machinery"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Furniture & Fixtures"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Vehicle"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Office Equipment"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Computer & Hardware"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Leasehold Improvement"))}</td>
-					<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening_total)}</td>
+					{data_cells(py_acc_opening, py_acc_opening_total, s_top)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Year Ended {previous_year_ending_date}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Leasehold Improvement"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year_total)}</td>
+					{data_cells(py_acc_for_year, py_acc_for_year_total, s_mid)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Leasehold Improvement"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals_total)}</td>
+					{data_cells(py_acc_disposals, py_acc_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
-					<td style="border:1px solid black;"><b>Upto {previous_year_ending_date}<b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Building"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Plant & Machinery"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Furniture & Fixtures"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Vehicle"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Office Equipment"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Computer & Hardware"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Leasehold Improvement"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing_total)}</b></td>
+					<td style="{s_full}"><b>Upto {previous_year_ending_date}<b></td>
+					{data_cells(py_acc_closing, py_acc_closing_total, s_full, bold=True)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Year Ended {current_year_ending_date} </td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Leasehold Improvement"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year_total)}</td>
+					{data_cells(cy_acc_for_year, cy_acc_for_year_total, s_no_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
-					<td style="background-color: #E8F5E8; border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black; background-color: #E8F5E8;">Disposals#</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Building"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Plant & Machinery"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Furniture & Fixtures"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Vehicle"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Office Equipment"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Computer & Hardware"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Leasehold Improvement"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals_total)}</td>
+					<td style="background-color: #E8F5E8; border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals#</td>
+					{data_cells(cy_acc_disposals, cy_acc_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
-					<td style="border:1px solid black;"><b>Upto {current_year_ending_date}<b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Building"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Plant & Machinery"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Furniture & Fixtures"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Vehicle"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Office Equipment"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Computer & Hardware"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Leasehold Improvement"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing_total)}</b></td>
+					<td style="{s_full}"><b>Upto {current_year_ending_date}<b></td>
+					{data_cells(cy_acc_closing, cy_acc_closing_total, s_full, bold=True)}
 				</tr>
 				<tr>
-					<td style="border:1px solid black;"><b>III.  Net carrying amount<b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b></b></td>
+					<td style="{s_full}"><b>III.  Net carrying amount<b></td>
+					{empty_cells(s_full)}
 				</tr>
 				<tr>
-					<td style="border:1px solid black;"><b>As at {previous_year_ending_date}<b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Building"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Plant & Machinery"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Furniture & Fixtures"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Vehicle"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Office Equipment"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Computer & Hardware"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Leasehold Improvement"))}</b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b>{fmt(py_net_total)}</b></td>
+					<td style="{s_full}"><b>As at {previous_year_ending_date}<b></td>
+					{data_cells(py_net, py_net_total, s_full, bold=True)}
 				</tr>
 				<tr style="background-color: #E8F5E8">
-					<td style="border:1px solid black;"><b>As at {current_year_ending_date}<b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Building"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Plant & Machinery"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Furniture & Fixtures"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Vehicle"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Office Equipment"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Computer & Hardware"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Leasehold Improvement"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net_total)}</b></td>
+					<td style="{s_full}"><b>As at {current_year_ending_date}<b></td>
+					{data_cells(cy_net, cy_net_total, s_full, bold=True)}
 				</tr>
 			</tbody>
 		</table>
@@ -1265,17 +1156,31 @@ class FinancialReport(Document):
 		# Convert to date objects if they are strings
 		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
 		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
-
+		
 		previous_year_ending_date = prev_year_end_date.strftime("%d %B %Y")
 		previous_year_starting_date = prev_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%d %B %Y")
 		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
 
-		# Intangible Asset classes
-		asset_classes = [
-			"Trademark",
-			"Software",
-			"Product Development"
-		]
+		# Fetch asset classes dynamically from FR Asset Group Master
+		asset_group_name = "Other Intangible Assets"
+		asset_group_masters = frappe.get_all(
+			"FR Asset Group Master",
+			filters={"asset_group": asset_group_name},
+			fields=["name", "asset_class"],
+			order_by="creation asc"
+		)
+		asset_classes = []
+		asset_class_filters = {}
+		for master in asset_group_masters:
+			header = master.asset_class
+			asset_classes.append(header)
+			child_rows = frappe.get_all(
+				"FR Asset Class",
+				filters={"parent": master.name, "parenttype": "FR Asset Group Master"},
+				fields=["asset_class"],
+				order_by="idx asc"
+			)
+			asset_class_filters[header] = [row.asset_class for row in child_rows]
 
 		# Define years
 		previous_year = {
@@ -1301,13 +1206,17 @@ class FinancialReport(Document):
 		}
 
 		for asset in asset_classes:
+			# Get child asset class values for this header
+			child_values = asset_class_filters.get(asset, [])
+
 			# Fetch data for previous year
 			prev_data = frappe.db.get_all(
 				'FR Asset Register Entry',
-				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
+				fields=['name', 'sap_transaction_acq_value', 'sap_tran_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
 					'company': self.company,
-					'asset_class': asset,
+					'asset_group': asset_group_name,
+					'asset_class': ['in', child_values],
 					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -1316,10 +1225,11 @@ class FinancialReport(Document):
 			# Fetch data for current year
 			curr_data = frappe.db.get_all(
 				'FR Asset Register Entry',
-				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
+				fields=['name', 'sap_transaction_acq_value', 'sap_tran_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
 				filters={
 					'company': self.company,
-					'asset_class': asset,
+					'asset_group': asset_group_name,
+					'asset_class': ['in', child_values],
 					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -1330,17 +1240,14 @@ class FinancialReport(Document):
 			prev_positive = 0.0
 			prev_negative = 0.0
 
+			# Opening value = sum(sap_cav)
 			for entry in prev_data:
-				if entry.sap_cav:
-					prev_opening_value = float(entry.sap_cav)
-					break
+				prev_opening_value += float(entry.sap_cav) if entry.sap_cav else 0.0
 
+			# Additions = sum(sap_transaction_acq_value), Disposals = sum(sap_tran_acq_value)
 			for entry in prev_data:
-				value = float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
-				if value > 0:
-					prev_positive += value
-				elif value < 0:
-					prev_negative += value
+				prev_positive += float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
+				prev_negative += float(entry.sap_tran_acq_value) if entry.sap_tran_acq_value else 0.0
 
 			prev_closing_value = prev_opening_value + prev_positive + prev_negative
 
@@ -1356,12 +1263,10 @@ class FinancialReport(Document):
 			curr_positive = 0.0
 			curr_negative = 0.0
 
+			# Additions = sum(sap_transaction_acq_value), Disposals = sum(sap_tran_acq_value)
 			for entry in curr_data:
-				value = float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
-				if value > 0:
-					curr_positive += value
-				elif value < 0:
-					curr_negative += value
+				curr_positive += float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
+				curr_negative += float(entry.sap_tran_acq_value) if entry.sap_tran_acq_value else 0.0
 
 			curr_closing_value = curr_opening_value + curr_positive + curr_negative
 
@@ -1377,22 +1282,16 @@ class FinancialReport(Document):
 			prev_acc_positive = 0.0
 			prev_acc_negative = 0.0
 
+			# Opening = sum(sap_acc_dep)
 			for entry in prev_data:
-				if entry.sap_acc_dep:
-					prev_acc_opening_value = abs(float(entry.sap_acc_dep))
-					break
+				prev_acc_opening_value += float(entry.sap_acc_dep) if entry.sap_acc_dep else 0.0
 
+			# For the year = sum(sap_plan_dep), Disposals = sum(sap_tran_accu_dep)
 			for entry in prev_data:
-				value = float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
-				if value > 0:
-					prev_acc_negative += value
-				elif value < 0:
-					prev_acc_positive += abs(value)
+				prev_acc_positive += float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
+				prev_acc_negative += float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
 
-				plan_value = float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
-				prev_acc_positive += abs(plan_value)
-
-			prev_acc_closing_value = prev_acc_opening_value + prev_acc_positive - prev_acc_negative
+			prev_acc_closing_value = prev_acc_opening_value + prev_acc_positive + prev_acc_negative
 
 			result["previous_year_acc_dep"][asset] = {
 				"opening_value": prev_acc_opening_value,
@@ -1406,17 +1305,12 @@ class FinancialReport(Document):
 			curr_acc_positive = 0.0
 			curr_acc_negative = 0.0
 
+			# For the year = sum(sap_plan_dep), Disposals = sum(sap_tran_accu_dep)
 			for entry in curr_data:
-				value = float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
-				if value > 0:
-					curr_acc_negative += value
-				elif value < 0:
-					curr_acc_positive += abs(value)
+				curr_acc_positive += float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
+				curr_acc_negative += float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
 
-				plan_value = float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
-				curr_acc_positive += abs(plan_value)
-
-			curr_acc_closing_value = curr_acc_opening_value + curr_acc_positive - curr_acc_negative
+			curr_acc_closing_value = curr_acc_opening_value + curr_acc_positive + curr_acc_negative
 
 			result["current_year_acc_dep"][asset] = {
 				"opening_value": curr_acc_opening_value,
@@ -1496,172 +1390,128 @@ class FinancialReport(Document):
 			return fmt(cy_additions_total)
 		elif field == "prev_addition":
 			return fmt(py_additions_total)
+		# Dynamic HTML table generation
+		num_cols = len(asset_classes)
+		col_width = round((100 - 30 - 10) / num_cols, 1) if num_cols else 20
+
+		# Helper to generate data cells for a row
+		def data_cells(data_dict, total_val, style, bold=False):
+			cells = ""
+			for asset in asset_classes:
+				val = fmt(data_dict.get(asset))
+				content = f"<b>{val}</b>" if bold else val
+				cells += f'<td style="{style}">{content}</td>'
+			total_content = f"<b>{fmt(total_val)}</b>" if bold else fmt(total_val)
+			cells += f'<td style="background-color: #E8F5E8; {style}">{total_content}</td>'
+			return cells
+
+		def empty_cells(style):
+			cells = ""
+			for _ in asset_classes:
+				cells += f'<td style="{style}"></td>'
+			cells += f'<td style="background-color: #E8F5E8; {style}"></td>'
+			return cells
+
+		s_mid = "border-right:1px solid black;border-top:none;border-bottom:none;"
+		s_top = "border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"
+		s_bot = "border-right:1px solid black;border-top:none;border-bottom:1px solid black;"
+		s_full = "border:1px solid black;"
+		s_sec_top = "border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"
+		s_no_bot = "border-right:1px solid black;border-bottom:none;"
+
+		# Header columns
+		header_cols = ""
+		for asset in asset_classes:
+			header_cols += f'<th style="border: 1px solid black; border-bottom:1px solid black; width: {col_width}%;">{asset}</th>'
+		header_cols += f'<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 10%;">Total</th>'
+
 		html = f'''
 		<table style="margin-top: -10px; margin-bottom: -30px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
 			<thead>
 				<tr style="color: #4472C4;">
-					<th style="width: 40%; border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 20%;">Trade Mark & Product Registration (Internally Generated)</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 20%;">Software (Acquired)</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black; width: 20%;">Designs & Developments (Internally Generated)</th>
-					<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 20%;">Total</th>
+					<th style="width: 30%; border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
+					{header_cols}
 				</tr>
 			</thead>
 			<tbody>
 				<tr>
 					<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"><b>I. Gross carrying amount</b></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="background-color: #E8F5E8; border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
+					{empty_cells(s_sec_top)}
 				</tr>
 				<tr>
 					<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Software"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening_total)}</td>
-					
+					{data_cells(py_opening, py_opening_total, s_top)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Additions</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions_total)}</td>
-					
+					{data_cells(py_additions, py_additions_total, s_mid)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals_total)}</td>
-					
+					{data_cells(py_disposals, py_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>As at {previous_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Trade Mark & Product Registration"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Software"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Designs & Developments"))}</b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b>{fmt(py_closing_total)}</b></td>
-					
+					<td style="{s_full}"><b>As at {previous_year_ending_date}</b></td>
+					{data_cells(py_closing, py_closing_total, s_full, bold=True)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Additions</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-bottom:none;">{fmt(cy_additions_total)}</td>
-					
+					{data_cells(cy_additions, cy_additions_total, s_no_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals, transfer and adjustments</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals_total)}</td>
-					
+					{data_cells(cy_disposals, cy_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>As at {current_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Trade Mark & Product Registration"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Software"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Designs & Developments"))}</b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b>{fmt(cy_closing_total)}</b></td>
-					
+					<td style="{s_full}"><b>As at {current_year_ending_date}</b></td>
+					{data_cells(cy_closing, cy_closing_total, s_full, bold=True)}
 				</tr>
 				<tr>
 					<td style="border-left: 1px solid black;border-right: 1px solid black; border-bottom: none;"><b>II.  Accumulated amortisation</b></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="background-color: #E8F5E8; border-right: 1px solid black; border-bottom: none;"></td>
-					
+					{empty_cells("border-right: 1px solid black; border-bottom: none;")}
 				</tr>
 				<tr>
 					<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Software"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening_total)}</td>
-					
+					{data_cells(py_acc_opening, py_acc_opening_total, s_top)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Year Ended {previous_year_ending_date}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year_total)}</td>
-					
+					{data_cells(py_acc_for_year, py_acc_for_year_total, s_mid)}
 				</tr>
 				<tr>
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals_total)}</td>
-					
+					{data_cells(py_acc_disposals, py_acc_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>Upto {previous_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Trade Mark & Product Registration"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Software"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Designs & Developments"))}</b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b>{fmt(py_acc_closing_total)}</b></td>
-					
+					<td style="{s_full}"><b>Upto {previous_year_ending_date}</b></td>
+					{data_cells(py_acc_closing, py_acc_closing_total, s_full, bold=True)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Year Ended {current_year_ending_date}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year_total)}</td>
-					
+					{data_cells(cy_acc_for_year, cy_acc_for_year_total, s_no_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
 					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals and adjustments</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Trade Mark & Product Registration"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Software"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Designs & Developments"))}</td>
-					<td style="background-color: #E8F5E8; border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals_total)}</td>
-					
+					{data_cells(cy_acc_disposals, cy_acc_disposals_total, s_bot)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>Upto {current_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Trade Mark & Product Registration"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Software"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Designs & Developments"))}</b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b>{fmt(cy_acc_closing_total)}</b></td>
-					
+					<td style="{s_full}"><b>Upto {current_year_ending_date}</b></td>
+					{data_cells(cy_acc_closing, cy_acc_closing_total, s_full, bold=True)}
 				</tr>
 				<tr>
-					<td style="border:1px solid black;"><b>III.  Net carrying amount</b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b></b></td>
-					
+					<td style="{s_full}"><b>III.  Net carrying amount</b></td>
+					{empty_cells(s_full)}
 				</tr>
 				<tr>
-					<td style="border:1px solid black;"><b>As at {previous_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Trade Mark & Product Registration"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Software"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Designs & Developments"))}</b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b>{fmt(py_net_total)}</b></td>
-					
+					<td style="{s_full}"><b>As at {previous_year_ending_date}</b></td>
+					{data_cells(py_net, py_net_total, s_full, bold=True)}
 				</tr>
 				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>As at {current_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Trade Mark & Product Registration"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Software"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Designs & Developments"))}</b></td>
-					<td style="background-color: #E8F5E8; border:1px solid black;"><b>{fmt(cy_net_total)}</b></td>
-					
+					<td style="{s_full}"><b>As at {current_year_ending_date}</b></td>
+					{data_cells(cy_net, cy_net_total, s_full, bold=True)}
 				</tr>
 			</tbody>
 		</table>
-
 		'''
 		return section_description.replace("{{note_table}}", html)
 
