@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{asset_group}-{asset_class}",
+ "creation": "2026-03-27 16:45:21.145075",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "asset_group",
+  "column_break_aezk",
+  "asset_class",
+  "section_break_lpmr",
+  "child_asset_class"
+ ],
+ "fields": [
+  {
+   "fieldname": "asset_group",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Asset Group",
+   "options": "\nProperty Plant and Equipment\nCapital Work In Progress\nOther Intangible Assets\nIntangible Assets Under Development",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_lpmr",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "child_asset_class",
+   "fieldtype": "Table",
+   "options": "FR Asset Class"
+  },
+  {
+   "fieldname": "column_break_aezk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "asset_class",
+   "fieldtype": "Data",
+   "label": "Asset Class",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-27 23:59:40.258966",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Asset Group Master",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
