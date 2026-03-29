@@ -8858,45 +8858,61 @@ class FRConsoleFinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_monthly_investment_non_current_note_data(self, section_description, total=False, field=None):
+		# Dates
 		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
 		_, previous_month_date = self.get_month_date_range(self.previous_month, self.fiscal_year)
 
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+
+		prev_fs_year_end_date = self.previous_year_ending_date
+
 		total_current = total_previous = total_previous_year = 0
-		prev_fs_year_start_date, prev_fs_year_end_date = self.previous_year_start_date, self.previous_year_ending_date
-		curr_fs_year_start_date, curr_fs_year_end_date = self.current_year_start_date, self.current_year_ending_date
 
 		data = [{
 			"particulars": "Investment in equity Instruments of subsidiaries measured at Cost (Unquoted, Fully paid Up)",
-			"face_value": "", "shares_current": "", "amount_current": "","shares_previous": "", "amount_previous": "","shares_previous_year": "", "amount_previous_year": "","bold": 1
+			"face_value": "",
+			"shares_current": "",
+			"amount_current": "",
+			"shares_previous": "",
+			"amount_previous": "",
+			"shares_previous_year": "",
+			"amount_previous_year": "",
+			"bold": 1
 		}]
 
 		all_companies = set(frappe.get_list("FR Investment Entry", pluck="company"))
+
 		for company in all_companies:
+			# Fetch data snapshots
 			e_previous_year = self.fetch_equity_data(company, ["<=", prev_fs_year_end_date])
-			e_current_fy_end = self.fetch_equity_data(company, ["<=", previous_month_date])
+			e_previous_month = self.fetch_equity_data(company, ["<=", previous_month_date])
 			e_current_month = self.fetch_equity_data(company, ["<=", current_month_date])
 
 			e_previous_year = e_previous_year[0] if e_previous_year else {}
-			e_current_fy_end = e_current_fy_end[0] if e_current_fy_end else {}
+			e_previous_month = e_previous_month[0] if e_previous_month else {}
 			e_current_month = e_current_month[0] if e_current_month else {}
 
-			default_currency = frappe.get_value("Company", company, "default_currency")
+			company_currency = frappe.get_value("Company", company, "default_currency")
 
-			face_value = f"{e_current_month.get('face_value', 0)} {default_currency}"
+			# Face value
+			face_value = f"{e_current_month.get('face_value', 0)} {company_currency}"
+
+			# Shares
 			shares_current = e_current_month.get("no_of_shares", 0) or 0
-			shares_previous = e_current_fy_end.get("no_of_shares", 0) or 0
+			shares_previous = e_previous_month.get("no_of_shares", 0) or 0
 			shares_previous_year = e_previous_year.get("no_of_shares", 0) or 0
 
-			if self.currency != "INR":
-				amount_current = e_current_month.get("investment_value_fc", 0) or 0
-				amount_previous = e_current_fy_end.get("investment_value_fc", 0) or 0
-				amount_previous_year = e_previous_year.get("investment_value_fc", 0) or 0
-			else:
-				amount_current = e_current_month.get("investment_value", 0) or 0
-				amount_previous = e_current_fy_end.get("investment_value", 0) or 0
-				amount_previous_year = e_previous_year.get("investment_value", 0) or 0
+			# ✅ Always use stored INR value (already FX adjusted)
+			raw_current = e_current_month.get("investment_value", 0) or 0
+			raw_previous = e_previous_month.get("investment_value", 0) or 0
+			raw_previous_year = e_previous_year.get("investment_value", 0) or 0
 
+			# ✅ Apply rounding (important for consistency)
+			amount_current = round(raw_current, self.show_decimal_value)
+			amount_previous = round(raw_previous, self.show_decimal_value)
+			amount_previous_year = round(raw_previous_year, self.show_decimal_value)
+
+			# Totals
 			total_current += amount_current
 			total_previous += amount_previous
 			total_previous_year += amount_previous_year
@@ -8913,42 +8929,44 @@ class FRConsoleFinancialReport(Document):
 				"bold": 0
 			})
 
+		# Return totals if required
 		if total:
 			if field == "total_current":
 				return total_current
 			if field == "total_previous_year":
 				return total_previous_year
 
+		# Total row
 		data.append({
 			"particulars": "Total of Equity Instruments Measured at cost",
 			"face_value": "",
 			"shares_current": "",
-			"amount_current": f"{total_current:,.0f}",
+			"amount_current": f"{total_current:,.{self.show_decimal_value}f}",
 			"shares_previous": "",
-			"amount_previous": f"{total_previous:,.0f}",
+			"amount_previous": f"{total_previous:,.{self.show_decimal_value}f}",
 			"shares_previous_year": "",
-			"amount_previous_year": f"{total_previous_year:,.0f}",
+			"amount_previous_year": f"{total_previous_year:,.{self.show_decimal_value}f}",
 			"bold": 1
 		})
-		
-		# HTML table
+
+		# HTML table (UNCHANGED)
 		table = f'''
 		<table style="width:100%; border-collapse:collapse; font-size:12px; margin-top:-25pt; border:1px solid #000; background-color:#fff;">
 			<thead>
 				<tr style="border-bottom:2px solid #222; background-color:#fff;">
-					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:25%; text-align:left; padding:6px 8px; background-color:#fff;"><b>Particulars</b></th>
-					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:10%; text-align:center; background-color:#fff;"><b>Face Value</b></th>
-					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{month_end_label}</b></th>
-					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{current_fiscal_year_end_label}</b></th>
-					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;"><b>{previous_fiscal_year_end_label}</b></th>
+					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:25%; text-align:left; padding:6px 8px;"><b>Particulars</b></th>
+					<th rowspan="2" style="border:1px solid #222; color: #4472C4; width:10%; text-align:center;"><b>Face Value</b></th>
+					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center;"><b>{month_end_label}</b></th>
+					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center;"><b>{current_fiscal_year_end_label}</b></th>
+					<th colspan="2" style="border:1px solid #222; color: #4472C4; text-align:center;"><b>{previous_fiscal_year_end_label}</b></th>
 				</tr>
-				<tr style="background-color:#fff;">
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">No. of Shares</th>
-					<th style="border:1px solid #222; color: #4472C4; text-align:center; background-color:#fff;">(₹ in lacs)</th>
+				<tr>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center;">No. of Shares</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center;">(₹ in lacs)</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center;">No. of Shares</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center;">(₹ in lacs)</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center;">No. of Shares</th>
+					<th style="border:1px solid #222; color: #4472C4; text-align:center;">(₹ in lacs)</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -8958,20 +8976,21 @@ class FRConsoleFinancialReport(Document):
 			bold = "font-weight: bold;" if row["bold"] else ""
 
 			table += f'''
-			<tr style="background-color:#fff;">
-				<td style="border:1px solid #222; padding:6px 8px; text-align:left; background-color:#fff; {bold}">{row["particulars"]}</td>
-				<td style="border:1px solid #222; text-align:center; background-color:#fff;">{row["face_value"]}</td>
-				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["shares_current"]}</td>
-				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["amount_current"]}</td>
-				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["shares_previous"]}</td>
-				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["amount_previous"]}</td>
-				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["shares_previous_year"]}</td>
-				<td style="border:1px solid #222; text-align:right; background-color:#fff;">{row["amount_previous_year"]}</td>
+			<tr>
+				<td style="border:1px solid #222; padding:6px 8px; text-align:left; {bold}">{row["particulars"]}</td>
+				<td style="border:1px solid #222; text-align:center;">{row["face_value"]}</td>
+				<td style="border:1px solid #222; text-align:right;">{row["shares_current"]}</td>
+				<td style="border:1px solid #222; text-align:right;">{row["amount_current"]}</td>
+				<td style="border:1px solid #222; text-align:right;">{row["shares_previous"]}</td>
+				<td style="border:1px solid #222; text-align:right;">{row["amount_previous"]}</td>
+				<td style="border:1px solid #222; text-align:right;">{row["shares_previous_year"]}</td>
+				<td style="border:1px solid #222; text-align:right;">{row["amount_previous_year"]}</td>
 			</tr>
 			'''
 
 		table += "</tbody></table>"
-		return section_description.replace("{{note_type}}", table)
+
+		return section_description.replace("{{note_table}}", table)
 
 	@frappe.whitelist()
 	def export_to_excel(self):
