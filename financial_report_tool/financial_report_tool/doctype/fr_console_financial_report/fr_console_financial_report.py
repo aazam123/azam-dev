@@ -712,7 +712,7 @@ class FRConsoleFinancialReport(Document):
 						i.section_description = self.get_monthly_finished_goods_and_wip(section_description, total=False, field=None)
 					if note_type == "Cost of Materials Consumed":
 						i.section_description = self.get_monthly_cost_of_material_consumed(section_description, total=False, field=None)
-					if note_type == "Purchases of Stock-in-Trade":
+					if note_type == "Purchases of Stock in Trade":
 						i.section_description = self.get_monthly_purchases_of_stock_in_trade(section_description)
 
 					context = {}
