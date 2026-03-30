@@ -105,18 +105,14 @@ def get_data(filters):
 
     data = frappe.db.sql("""
         SELECT
+            t.month, t.currency, t.company, t.amount as amount_df_currency, t.exchange_rate, t.fiscal_year, t.gl_account,
             acc.report_type AS report_type,
-            t.gl_account AS gl_account,
             acc.account_number AS account_number,
             gm.primary_group AS primary_group,
             gm.secondary_group AS secondary_group,
             gm.higher_secondary_group AS higher_secondary_group,
-            SUM(t.uploaded_amount) AS amount,
-            t.month AS month,
-            t.fiscal_year AS fiscal_year,
-            t.company AS company,
-            t.currency
-        FROM `tabFR Trial Balance Entry` t
+            SUM(t.amount_inr) AS amount
+        FROM `tabFR Console Trial Balance` t
         INNER JOIN `tabGL Group Mapping` gm
             ON t.gl_account = gm.gl_account
             AND t.company = gm.company
@@ -138,22 +134,6 @@ def get_data(filters):
             t.company
     """.format(conditions=conditions), filters, as_dict=True)
 
-    # ----------------------------------------
-    # Company Currency Map
-    # ----------------------------------------
-    companies = list(set(d.company for d in data))
-    company_currency_map = {
-        c.name: c.default_currency
-        for c in frappe.get_all(
-            "Company",
-            filters={"name": ["in", companies]},
-            fields=["name", "default_currency"]
-        )
-    }
-
-    # ----------------------------------------
-    # Investment Filters
-    # ----------------------------------------
     inv_filters = {}
 
     if filters.get("report_type") == "Console Monthly" and filters.get("month"):
@@ -167,124 +147,17 @@ def get_data(filters):
             [f"{year_start}-04-01", f"{year_end}-03-31"]
         ]
 
-    inv_data = frappe.get_all(
-        "FR Investment Entry",
-        filters=inv_filters,
-        fields=[
-            "holding_company",
-            "company",
-            "investment_value_fc",
-            "exchanges_rate",
-            "default_currency"
-        ]
-    )
-
-    # ----------------------------------------
-    # FX Map
-    # ----------------------------------------
-    fx_map = {}
-    fx_data = frappe.get_all(
-        "FR Foreign Exchange Rate",
-        fields=[
-            "from_currency",
-            "to_currency",
-            "fiscal_year",
-            "month",
-            "closing_rate",
-            "average_rate"
-        ]
-    )
-
-    for fx in fx_data:
-        key = (fx.from_currency, fx.to_currency, fx.fiscal_year, fx.month)
-        fx_map[key] = fx
+    # inv_data = frappe.get_all(
+    #     "FR Investment Entry",
+    #     filters=inv_filters,
+    #     fields=[
+    #         "holding_company",
+    #         "company",
+    #         "investment_value"
+    #     ]
+    # )
 
     new_rows = []
-
-    # ----------------------------------------
-    # Track companies for investment processing
-    # ----------------------------------------
-    investment_companies = set()
-
-    # ----------------------------------------
-    # MAIN LOOP
-    # ----------------------------------------
-    for row in data:
-
-        company_currency = company_currency_map.get(row.company)
-
-        # ----------------------------------------
-        # Non Current Investments (FIXED)
-        # ----------------------------------------
-        if row.primary_group == "Non Current Investments":
-
-            investment_companies.add(row.company)
-
-            original_amount = row.amount
-            row.amount_df_currency = original_amount
-            row.exchange_rate = 0
-            row.amount = 0
-
-            continue
-
-        # ----------------------------------------
-        # Normal Conversion
-        # ----------------------------------------
-        original_amount = row.amount
-        row.amount_df_currency = original_amount
-
-        if company_currency == "INR":
-            row.exchange_rate = 1
-            row.amount = original_amount
-            continue
-
-        key = (company_currency, "INR", row.fiscal_year, row.month)
-        rate_doc = fx_map.get(key)
-
-        if not rate_doc:
-            rate = 0
-        else:
-            if row.report_type == "Balance Sheet":
-                rate = rate_doc.closing_rate or 0
-            else:
-                rate = rate_doc.average_rate or 0
-
-        row.exchange_rate = rate
-        row.amount = original_amount * rate
-
-    # ----------------------------------------
-    # ✅ ADD INVESTMENT ROWS (ONLY ONCE PER COMPANY)
-    # ----------------------------------------
-    for company in investment_companies:
-
-        company_currency = company_currency_map.get(company)
-
-        for inv in inv_data:
-
-            if inv.holding_company != company:
-                continue
-
-            fc_value = inv.investment_value_fc or 0
-            rate = inv.exchanges_rate or 0
-            inv_currency = inv.default_currency or company_currency
-
-            converted_amount = fc_value * rate
-
-            new_rows.append(frappe._dict({
-                "account_number": "",
-                "gl_account": f"Investment - {inv.company}",
-                "primary_group": "Non Current Investments",
-                "secondary_group": "Investment",
-                "higher_secondary_group": "",
-                "report_type": filters.get("report_type"),
-                "amount_df_currency": "",
-                "exchange_rate": rate,
-                "amount": converted_amount,
-                "month": filters.get("month"),
-                "fiscal_year": filters.get("fiscal_year"),
-                "company": company,
-                "currency": inv_currency
-            }))
 
     data.extend(new_rows)
 
