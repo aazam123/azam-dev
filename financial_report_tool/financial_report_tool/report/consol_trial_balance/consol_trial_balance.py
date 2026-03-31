@@ -59,7 +59,7 @@ def get_columns():
         },
         {
             "label": _("Amount (In INR)"),
-            "fieldname": "amount",
+            "fieldname": "amount_inr",
             "fieldtype": "Currency",
             "width": 200,
             "options": "INR"
@@ -105,13 +105,13 @@ def get_data(filters):
 
     data = frappe.db.sql("""
         SELECT
-            t.month, t.currency, t.company, t.amount as amount_df_currency, t.exchange_rate, t.fiscal_year, t.gl_account,
+            t.month, t.currency, t.company, SUM(t.amount) as amount_df_currency, t.exchange_rate, t.fiscal_year, t.gl_account,
             acc.report_type AS report_type,
             acc.account_number AS account_number,
             gm.primary_group AS primary_group,
             gm.secondary_group AS secondary_group,
             gm.higher_secondary_group AS higher_secondary_group,
-            SUM(t.amount_inr) AS amount
+            SUM(t.amount_inr) AS amount_inr
         FROM `tabFR Console Trial Balance` t
         INNER JOIN `tabGL Group Mapping` gm
             ON t.gl_account = gm.gl_account
@@ -134,18 +134,18 @@ def get_data(filters):
             t.company
     """.format(conditions=conditions), filters, as_dict=True)
 
-    inv_filters = {}
+    # inv_filters = {}
 
-    if filters.get("report_type") == "Console Monthly" and filters.get("month"):
-        inv_filters["month"] = filters.get("month")
+    # if filters.get("report_type") == "Console Monthly" and filters.get("month"):
+    #     inv_filters["month"] = filters.get("month")
 
-    if filters.get("fiscal_year"):
-        fy = filters.get("fiscal_year")
-        year_start, year_end = fy.split("-")
-        inv_filters["posting_date"] = [
-            "between",
-            [f"{year_start}-04-01", f"{year_end}-03-31"]
-        ]
+    # if filters.get("fiscal_year"):
+    #     fy = filters.get("fiscal_year")
+    #     year_start, year_end = fy.split("-")
+    #     inv_filters["posting_date"] = [
+    #         "between",
+    #         [f"{year_start}-04-01", f"{year_end}-03-31"]
+    #     ]
 
     # inv_data = frappe.get_all(
     #     "FR Investment Entry",
@@ -157,14 +157,14 @@ def get_data(filters):
     #     ]
     # )
 
-    new_rows = []
+    # new_rows = []
 
-    data.extend(new_rows)
+    # data.extend(new_rows)
 
     # ----------------------------------------
     # CTA Calculation
     # ----------------------------------------
-    total_converted = sum(d.amount for d in data)
+    total_converted = sum(d.amount_inr for d in data)
 
     if abs(total_converted) > 0.5:
         data.append({
@@ -176,7 +176,7 @@ def get_data(filters):
             "report_type": "Balance Sheet",
             "amount_df_currency": "",
             "exchange_rate": "",
-            "amount": -total_converted,
+            "amount_inr": -total_converted,
             "month": "",
             "fiscal_year": filters.get("fiscal_year"),
             "company": "Consolidated",
