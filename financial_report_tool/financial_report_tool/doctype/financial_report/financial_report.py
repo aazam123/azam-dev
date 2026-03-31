@@ -802,28 +802,27 @@ class FinancialReport(Document):
 		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
 		current_year_starting_date = curr_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%d %B %Y")
 
-		# Fetch asset classes dynamically from FR Asset Group Master
+		# Fetch asset classes dynamically from FR Asset Group (tree structure)
 		asset_group_name = "Property Plant and Equipment"
-		asset_group_masters = frappe.get_all(
-			"FR Asset Group Master",
-			filters={"asset_group": asset_group_name},
-			fields=["name", "asset_class"],
-			order_by="creation asc"
+		direct_children = frappe.get_all(
+			"FR Asset Group",
+			filters={"parent_fr_asset_group": asset_group_name},
+			fields=["asset_group", "is_group", "lft", "rgt"],
+			order_by="lft asc"
 		)
-		# asset_classes = header names (from asset_class field of each master record)
-		# asset_class_filters = dict mapping header name -> list of child asset_class values (for DB filter)
-		asset_classes = []
+		asset_classes = [row.asset_group for row in direct_children]
 		asset_class_filters = {}
-		for master in asset_group_masters:
-			header = master.asset_class
-			asset_classes.append(header)
-			child_rows = frappe.get_all(
-				"FR Asset Class",
-				filters={"parent": master.name, "parenttype": "FR Asset Group Master"},
-				fields=["asset_class"],
-				order_by="idx asc"
-			)
-			asset_class_filters[header] = [row.asset_class for row in child_rows]
+		for child in direct_children:
+			if child.is_group:
+				# Get all leaf descendants + include group name itself
+				leaves = frappe.get_all(
+					"FR Asset Group",
+					filters={"lft": [">", child.lft], "rgt": ["<", child.rgt], "is_group": 0},
+					fields=["asset_group"]
+				)
+				asset_class_filters[child.asset_group] = [child.asset_group] + [l.asset_group for l in leaves]
+			else:
+				asset_class_filters[child.asset_group] = [child.asset_group]
 
 		# Define years
 		previous_year = {
@@ -849,8 +848,8 @@ class FinancialReport(Document):
 		}
 
 		for asset in asset_classes:
-			# Get child asset class values for this header
-			child_values = asset_class_filters.get(asset, [])
+			# Get filter values: leaf descendants for groups, or self for leaf nodes
+			filter_values = asset_class_filters.get(asset, [asset])
 
 			# Fetch data for previous year
 			prev_data = frappe.db.get_all(
@@ -859,7 +858,7 @@ class FinancialReport(Document):
 				filters={
 					'company': self.company,
 					'asset_group': asset_group_name,
-					'asset_class': ['in', child_values],
+					'asset_class': ['in', filter_values],
 					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -872,7 +871,7 @@ class FinancialReport(Document):
 				filters={
 					'company': self.company,
 					'asset_group': asset_group_name,
-					'asset_class': ['in', child_values],
+					'asset_class': ['in', filter_values],
 					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -1161,26 +1160,27 @@ class FinancialReport(Document):
 		previous_year_starting_date = prev_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%d %B %Y")
 		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
 
-		# Fetch asset classes dynamically from FR Asset Group Master
+		# Fetch asset classes dynamically from FR Asset Group (tree structure)
 		asset_group_name = "Other Intangible Assets"
-		asset_group_masters = frappe.get_all(
-			"FR Asset Group Master",
-			filters={"asset_group": asset_group_name},
-			fields=["name", "asset_class"],
-			order_by="creation asc"
+		direct_children = frappe.get_all(
+			"FR Asset Group",
+			filters={"parent_fr_asset_group": asset_group_name},
+			fields=["asset_group", "is_group", "lft", "rgt"],
+			order_by="lft asc"
 		)
-		asset_classes = []
+		asset_classes = [row.asset_group for row in direct_children]
 		asset_class_filters = {}
-		for master in asset_group_masters:
-			header = master.asset_class
-			asset_classes.append(header)
-			child_rows = frappe.get_all(
-				"FR Asset Class",
-				filters={"parent": master.name, "parenttype": "FR Asset Group Master"},
-				fields=["asset_class"],
-				order_by="idx asc"
-			)
-			asset_class_filters[header] = [row.asset_class for row in child_rows]
+		for child in direct_children:
+			if child.is_group:
+				# Get all leaf descendants + include group name itself
+				leaves = frappe.get_all(
+					"FR Asset Group",
+					filters={"lft": [">", child.lft], "rgt": ["<", child.rgt], "is_group": 0},
+					fields=["asset_group"]
+				)
+				asset_class_filters[child.asset_group] = [child.asset_group] + [l.asset_group for l in leaves]
+			else:
+				asset_class_filters[child.asset_group] = [child.asset_group]
 
 		# Define years
 		previous_year = {
@@ -1206,8 +1206,8 @@ class FinancialReport(Document):
 		}
 
 		for asset in asset_classes:
-			# Get child asset class values for this header
-			child_values = asset_class_filters.get(asset, [])
+			# Get filter values: leaf descendants for groups, or self for leaf nodes
+			filter_values = asset_class_filters.get(asset, [asset])
 
 			# Fetch data for previous year
 			prev_data = frappe.db.get_all(
@@ -1216,7 +1216,7 @@ class FinancialReport(Document):
 				filters={
 					'company': self.company,
 					'asset_group': asset_group_name,
-					'asset_class': ['in', child_values],
+					'asset_class': ['in', filter_values],
 					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -1229,7 +1229,7 @@ class FinancialReport(Document):
 				filters={
 					'company': self.company,
 					'asset_group': asset_group_name,
-					'asset_class': ['in', child_values],
+					'asset_class': ['in', filter_values],
 					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
 				},
 				order_by='ordinary_depreciation_start_date asc'
@@ -1520,6 +1520,24 @@ class FinancialReport(Document):
 		current_year_ending_date_display = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 
+		# Fetch asset classes dynamically from FR Asset Group (tree structure)
+		cwip_group_name = "Capital Work In Progress"
+		cwip_children = frappe.get_all(
+			"FR Asset Group",
+			filters={"parent_fr_asset_group": cwip_group_name, "is_group": 0},
+			fields=["asset_group"],
+			order_by="lft asc"
+		)
+		cwip_child_values = [row.asset_group for row in cwip_children]
+
+		# Build IN clause for SQL
+		if cwip_child_values:
+			placeholders = ", ".join(["%s"] * len(cwip_child_values))
+			asset_class_condition = f"AND asset_class IN ({placeholders})"
+		else:
+			asset_class_condition = "AND 1=0"
+			cwip_child_values = []
+
 		def fmt(val):
 			return "{:,.2f}".format(val / 100000) if val else "0.00"
 
@@ -1551,17 +1569,17 @@ class FinancialReport(Document):
 				"""Get CWIP totals for a fiscal year"""
 				if not fiscal_year:
 					return 0, 0
-				result = frappe.db.sql("""
+				result = frappe.db.sql(f"""
 					SELECT
 						SUM(sap_transaction_acq_value) AS total_acq_value,
 						SUM(sap_ebv) AS total_ebv
 					FROM `tabFR Asset Register Entry`
 					WHERE sap_ebv > 0
 					AND sap_transaction_acq_value >= 0
-					AND asset_class = 'CWIP'
+					{asset_class_condition}
 					AND company = %s
 					AND fiscal_year = %s
-				""", (self.company, fiscal_year), as_dict=True)
+				""", (*cwip_child_values, self.company, fiscal_year), as_dict=True)
 				total_acq = result[0].total_acq_value or 0 if result else 0
 				total_ebv = result[0].total_ebv or 0 if result else 0
 				return total_acq, total_ebv
@@ -2054,6 +2072,24 @@ class FinancialReport(Document):
 		current_year_ending_date_display = curr_year_end_date.strftime("%d %B %Y")
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 
+		# Fetch asset classes dynamically from FR Asset Group (tree structure)
+		iaud_group_name = "Intangible Assets Under Development"
+		iaud_children = frappe.get_all(
+			"FR Asset Group",
+			filters={"parent_fr_asset_group": iaud_group_name, "is_group": 0},
+			fields=["asset_group"],
+			order_by="lft asc"
+		)
+		iaud_child_values = [row.asset_group for row in iaud_children]
+
+		# Build IN clause for SQL
+		if iaud_child_values:
+			placeholders = ", ".join(["%s"] * len(iaud_child_values))
+			iaud_asset_class_condition = f"AND asset_class IN ({placeholders})"
+		else:
+			iaud_asset_class_condition = "AND 1=0"
+			iaud_child_values = []
+
 		def fmt(val):
 			return "{:,.2f}".format(val / 100000) if val else "0.00"
 
@@ -2076,17 +2112,17 @@ class FinancialReport(Document):
 				"""Get Intangible Assets Under Development totals for a fiscal year"""
 				if not fiscal_year:
 					return 0, 0
-				result = frappe.db.sql("""
+				result = frappe.db.sql(f"""
 					SELECT
 						SUM(sap_transaction_acq_value) AS total_acq_value,
 						SUM(sap_ebv) AS total_ebv
 					FROM `tabFR Asset Register Entry`
 					WHERE sap_ebv > 0
 					AND sap_transaction_acq_value >= 0
-					AND asset_class = 'CWIP Intangible Asse'
+					{iaud_asset_class_condition}
 					AND company = %s
 					AND fiscal_year = %s
-				""", (self.company, fiscal_year), as_dict=True)
+				""", (*iaud_child_values, self.company, fiscal_year), as_dict=True)
 				total_acq = result[0].total_acq_value or 0 if result else 0
 				total_ebv = result[0].total_ebv or 0 if result else 0
 				return total_acq, total_ebv
