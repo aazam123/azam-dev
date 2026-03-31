@@ -819,7 +819,6 @@ class FRConsoleFinancialReport(Document):
 					except Exception as e:
 						frappe.throw(str(i.section_description))
 
-					# Anchor ID for PDF navigation
 					if i.note_no and i.section_name:
 						note_id = self.generate_note_id(i.note_no, i.section_name)
 						if note_id:
@@ -2922,7 +2921,7 @@ class FRConsoleFinancialReport(Document):
 			pre_tpl_financial_lib_non_curr = prev_fv_doc.tpl_financial_lib_non_curr or 0
 			pre_oci_financial_lib_non_curr = prev_fv_doc.oci_financial_lib_non_curr or 0
 
-			pre_forward_contract = fv_doc.forward_contract or 0
+			pre_forward_contract = prev_fv_doc.forward_contract or 0
 		else:
 			pre_tpl_investment, pre_oci_investment, pre_tpl_trade_receivable, pre_oci_trade_receivable, pre_tpl_loan, pre_oci_loan, pre_tpl_fini_assets, pre_oci_fini_assets, pre_tpl_cach, pre_oci_cach, pre_tpl_bank_cash, pre_oci_bank_cash = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 			pre_tpl_borrowing, pre_oci_borrowing, pre_tpl_lease_lib, pre_oci_lease_lib, pre_tpl_trade_pay, pre_oci_trade_pay, pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -3294,10 +3293,10 @@ class FRConsoleFinancialReport(Document):
 		]
 		currency_trade_rec = set(frappe.get_all("FR Account Receivable Entry", {'fiscal_year': ["in", self.fiscal_year, self.previous_fiscal_year], 'special_gl_ind': ["!=", "D"]}, pluck='currency')) or []
 		for c in currency_trade_rec:
-			result_current = frappe.get_value("FR Account Receivable Entry",{'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			result_current = frappe.get_value("FR Account Receivable Entry",{'nature': 'Receivable', 'currency': c, 'fiscal_year': self.fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_current = (result_current[0] if isinstance(result_current, tuple) else result_current) or 0
 			inr_current = (result_current[1] if isinstance(result_current, tuple) else 0) or 0
-			result_previous = frappe.get_value("FR Account Receivable Entry",{'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			result_previous = frappe.get_value("FR Account Receivable Entry",{'nature': 'Receivable', 'currency': c, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
 			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
 			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
@@ -3315,10 +3314,10 @@ class FRConsoleFinancialReport(Document):
 
 		deposit_currency_trade_rec = set(frappe.get_all("FR Account Receivable Entry", {'fiscal_year': ["in", [self.fiscal_year, self.previous_fiscal_year]], 'special_gl_ind': "D"}, pluck='currency')) or []
 		for c in deposit_currency_trade_rec:
-			result_current = frappe.get_value("FR Account Receivable Entry",{'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.fiscal_year, 'special_gl_ind': "D"},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			result_current = frappe.get_value("FR Account Receivable Entry",{'nature': 'Receivable', 'currency': c, 'fiscal_year': self.fiscal_year, 'special_gl_ind': "D"},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_current = (result_current[0] if isinstance(result_current, tuple) else result_current) or 0
 			inr_current = (result_current[1] if isinstance(result_current, tuple) else 0) or 0
-			result_previous = frappe.get_value("FR Account Receivable Entry",{'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': "D"},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			result_previous = frappe.get_value("FR Account Receivable Entry",{'nature': 'Receivable', 'currency': c,  'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': "D"},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
 			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
 			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
