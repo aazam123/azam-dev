@@ -1,16 +1,21 @@
 {
  "actions": [],
+ "autoname": "field:asset_group",
  "creation": "2026-03-30 14:42:41.377027",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "section_break_dwqt",
   "lft",
-  "rgt",
   "is_group",
   "asset_group",
+  "parent_fr_asset_group",
+  "column_break_whmf",
+  "rgt",
+  "asset_group_type",
   "old_parent",
-  "parent_fr_asset_group"
+  "section_break_idxa",
+  "companies"
  ],
  "fields": [
   {
@@ -59,16 +64,38 @@
    "label": "Asset Group",
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "column_break_whmf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "asset_group_type",
+   "fieldtype": "Select",
+   "label": "Asset Group Type",
+   "options": "\nProperty Plant and Equipment\nIntangible Assets Under Development\nCapital Work In Progress\nOther Intangible Assets",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_idxa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "companies",
+   "fieldtype": "Table",
+   "label": "Companies",
+   "options": "FR Asset Group Detail"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2026-03-31 10:41:52.880617",
+ "modified": "2026-03-31 16:59:25.744516",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Group",
+ "naming_rule": "By fieldname",
  "nsm_parent_field": "parent_fr_asset_group",
  "owner": "Administrator",
  "permissions": [
