@@ -793,6 +793,11 @@ class FinancialReport(Document):
 		frappe.db.commit()
 
 	def _get_asset_classes_by_type(self, asset_group_type):
+		"""
+		Helper: Fetch asset classes from FR Asset Group filtered by asset_group_type and company.
+		Returns (asset_classes list, asset_class_filters dict)
+		"""
+		# Get all FR Asset Group records matching the type and company
 		all_groups = frappe.get_all(
 			"FR Asset Group",
 			filters={"asset_group_type": asset_group_type},
@@ -800,8 +805,10 @@ class FinancialReport(Document):
 			order_by="lft asc"
 		)
 
+		# Collect all asset_group names for this type (used to filter FR Asset Register Entry)
 		all_group_names = [g.asset_group for g in all_groups]
 
+		# Filter by company using the companies child table
 		company_filtered = []
 		for grp in all_groups:
 			linked_companies = frappe.get_all(
@@ -809,14 +816,17 @@ class FinancialReport(Document):
 				filters={"parent": grp.asset_group},
 				pluck="company"
 			)
+			# If no companies linked, include for all; else match self.company
 			if not linked_companies or self.company in linked_companies:
 				company_filtered.append(grp)
 
 		if not company_filtered:
-			return [], {}, []
+			return [], {}
 
+		# All group names that belong to this type (for asset_group filter in FR Asset Register Entry)
 		valid_asset_groups = [g.asset_group for g in company_filtered]
 
+		# Separate root-level groups (those whose parent is not in our filtered set)
 		filtered_names = {g.asset_group for g in company_filtered}
 		direct_children = [
 			g for g in company_filtered
@@ -828,6 +838,7 @@ class FinancialReport(Document):
 
 		for child in direct_children:
 			if child.is_group:
+				# Get all leaf descendants within the filtered set
 				leaves = [
 					g for g in company_filtered
 					if g.lft > child.lft and g.rgt < child.rgt and not g.is_group
@@ -838,7 +849,8 @@ class FinancialReport(Document):
 			else:
 				asset_class_filters[child.asset_group] = [child.asset_group]
 
-		return asset_classes, asset_class_filters, valid_asset_groups  # 3 values
+		return asset_classes, asset_class_filters, valid_asset_groups
+
 
 	def get_yearly_property_plant_and_equipment_data(self, section_description=""):
 		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
@@ -1679,6 +1691,7 @@ class FinancialReport(Document):
 			</table>
 		'''
 		return html
+
 	def get_yearly_right_of_use_assets(self, section_description=""):
 		# Convert to date objects if they are strings
 		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
