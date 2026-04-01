@@ -170,7 +170,7 @@ def get_preview_data(fiscal_year, month, companies):
             "month": month,
             "company": ["in", companies]
         },
-        fields=["company", "gl_account", "report_type", "currency", "amount"],
+        fields=["company", "gl_account", "report_type", "currency", "uploaded_amount"],
         order_by="company, gl_account"
     )
 
@@ -184,7 +184,7 @@ def get_preview_data(fiscal_year, month, companies):
         else:
             exchange_rate = rates["average_rate"]
 
-        amount = entry.amount or 0
+        amount = entry.uploaded_amount or 0
         amount_inr = amount * exchange_rate
 
         rows.append({
@@ -254,11 +254,11 @@ def import_console_trial_balance(fiscal_year, month, companies):
                 "month": month,
                 "company": company
             },
-            fields=["gl_account", "report_type", "currency", "amount", "date"]
+            fields=["gl_account", "report_type", "currency", "uploaded_amount", "date"]
         )
 
         for entry in tb_entries:
-            amount = entry.amount or 0
+            amount = entry.uploaded_amount or 0
 
             # Balance Sheet → closing_rate, Profit and Loss → average_rate
             if entry.report_type == "Balance Sheet":
