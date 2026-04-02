@@ -433,16 +433,16 @@
   },
   {
    "fieldname": "asset_group",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Asset Group",
-   "options": "\nProperty Plant and Equipment\nCapital Work In Progress\nOther Intangible Assets\nIntangible Assets Under Development",
+   "options": "FR Asset Group",
    "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-27 16:53:04.144063",
+ "modified": "2026-04-01 20:03:47.788048",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",
