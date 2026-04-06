@@ -683,7 +683,6 @@ class FinancialReport(Document):
 					except Exception as e:
 						frappe.throw(str(i.section_description))
 
-					# Anchor ID for PDF navigation
 					if i.note_no and i.section_name:
 						note_id = self.generate_note_id(i.note_no, i.section_name)
 						if note_id:
@@ -1294,7 +1293,7 @@ class FinancialReport(Document):
 			f'<th style="border: 1px solid black; border-bottom:1px solid black; width: {col_width}%;">{asset}</th>'
 			for asset in asset_classes
 		)
-		header_cols += f'<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 10%;">Total</th>'
+		header_cols += f'<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 20%;">Total</th>'
 
 		html = f'''
 		<table style="margin-top: -10px; margin-bottom: -30px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
@@ -5197,7 +5196,7 @@ class FinancialReport(Document):
 			ind_as_description = frappe.get_value("Standalone Group", secondary_group, 'ind_as_description')
 			html_particulars = f"<b>{secondary_group}</b><br>{ind_as_description or ''}"
 			
-			current_month_amt = self.get_sum_grouping_amount(primary_group, secondary_group, self.current_month, self.fiscal_year)
+			current_month_amt = self.get_sum_grouping_amount(primary_group, secondary_group, cls_month, self.fiscal_year)
 			previous_year = self.get_sum_grouping_amount(primary_group, secondary_group, cls_month, self.previous_fiscal_year)
 
 			if current_month_amt < 0:
