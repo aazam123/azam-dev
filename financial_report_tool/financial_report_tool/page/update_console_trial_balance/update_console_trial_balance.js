@@ -1,5 +1,4 @@
 frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
-	add_update_page_styles();
 
 	// wrap content
 	let main_container = $('<div class="update-ctb-container"></div>').appendTo(wrapper);
@@ -258,56 +257,4 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 function format_number(num) {
     if (num == null) return '0.00';
     return parseFloat(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function add_update_page_styles() {
-	if (document.getElementById('update-ctb-styles')) return;
-
-	const style = document.createElement('style');
-	style.id = 'update-ctb-styles';
-	style.innerHTML = `
-		.update-ctb-container {
-			padding: 15px;
-		}
-
-		.update-ctb-container .table-wrapper {
-			max-height: 500px;
-			overflow-y: auto;
-			border: 1px solid var(--border-color);
-			border-radius: 4px;
-		}
-
-		.update-ctb-container table {
-			margin-bottom: 0;
-			background: var(--card-bg);
-		}
-
-		.update-ctb-container thead th {
-			background: var(--subtle-fg);
-			font-size: 12px;
-			text-transform: uppercase;
-			font-weight: 600;
-			position: sticky;
-			top: 0;
-			z-index: 1;
-		}
-
-		.update-ctb-container td {
-			font-size: 13px;
-			padding: 6px 10px;
-			vertical-align: middle;
-		}
-
-		.update-ctb-container .section-header {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			margin-bottom: 10px;
-		}
-
-		.update-ctb-container .section-header h5 {
-			margin: 0;
-		}
-	`;
-	document.head.appendChild(style);
 }
