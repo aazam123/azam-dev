@@ -127,60 +127,48 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 		});
 	});
 
-	let datatable = null;
-
 	function render_datatable(wrapper, data) {
 
 		table_data = data;
 
-		// remove old table
-		$(wrapper).find('.table-container').remove();
-
 		let container = $('<div class="table-container" style="margin-top:20px;"></div>').appendTo(wrapper);
 
-		// prepare columns
-		const columns = [
-			{ name: "Name", id: "name", editable: false, width: 150 },
-			{ name: "GL Account", id: "gl_account", editable: false, width: 300 },
-			{ name: "Currency", id: "currency", editable: false, width: 40 },
-			{ name: "Amount", id: "amount", editable: false, width: 120 },
-			{ name: "Exchange Rate", id: "exchange_rate", editable: false, width: 100 },
-			{ name: "Amount (INR)", id: "amount_inr", editable: false, width: 150 },
-			{
-				name: "Report Type",
-				id: "report_type",
-				editable: false,
-				width: 180,
-				format: (value) => {
-					return `<select class="report-type">
-						<option ${value === "Profit and Loss" ? "selected" : ""}>Profit and Loss</option>
-						<option ${value === "Balance Sheet" ? "selected" : ""}>Balance Sheet</option>
-					</select>`;
-				}
-			}
-		];
+		let html = `
+			<table class="table table-bordered">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>GL Account</th>
+						<th>Currency</th>
+						<th>Amount</th>
+						<th>Exchange Rate</th>
+						<th>Amount (INR)</th>
+						<th>Report Type</th>
+					</tr>
+				</thead>
+				<tbody>
+		`;
 
-		// prepare rows
-		const rows = data.map(row => {
-			return [
-				row.name,
-				row.gl_account,
-				row.currency,
-				row.amount,
-				row.exchange_rate,
-				row.amount_inr,
-				row.report_type
-			];
+		data.forEach(row => {
+			html += `
+				<tr>
+					<td>${row.name}</td>
+					<td>${row.gl_account || ''}</td>
+					<td>${row.currency || ''}</td>
+					<td>${row.amount || 0}</td>
+					<td>${row.exchange_rate || 0}</td>
+					<td>${row.amount_inr || 0}</td>
+					<td>
+						<select class="report-type">
+							<option ${row.report_type === "Profit and Loss" ? "selected" : ""}>Profit and Loss</option>
+							<option ${row.report_type === "Balance Sheet" ? "selected" : ""}>Balance Sheet</option>
+						</select>
+					</td>
+				</tr>
+			`;
 		});
 
-		// create datatable
-		datatable = new frappe.DataTable(container[0], {
-			columns: columns,
-			data: rows,
-			layout: "fluid",
-			serialNoColumn: false,
-			checkboxColumn: false,
-			noDataMessage: "No records found"
-		});
+		html += `</tbody></table>`;
+		container.append(html);
 	}
 };
