@@ -29,12 +29,15 @@ def update_entries(fiscal_year, month, company, update_closing, update_average, 
     update_closing = int(update_closing)
     update_average = int(update_average)
 
-    if not update_closing and not update_average:
-        frappe.throw("Please select at least one option")
-
     updated_rows = frappe.parse_json(updated_rows) if updated_rows else []
 
-    # 🔹 Step 1: Update report_type changes only
+    # ❗ Validation
+    if not update_closing and not update_average and not updated_rows:
+        frappe.throw("Please select at least one option")
+
+    # 🔹 Step 1: Update report_type & track changed rows
+    changed_names = set()
+
     for row in updated_rows:
         frappe.db.set_value(
             "FR Console Trial Balance",
@@ -42,8 +45,9 @@ def update_entries(fiscal_year, month, company, update_closing, update_average, 
             "report_type",
             row["report_type"]
         )
+        changed_names.add(row["name"])
 
-    # 🔹 Step 2: Fetch updated entries
+    # 🔹 Step 2: Fetch all entries
     entries = frappe.get_all(
         "FR Console Trial Balance",
         filters={
@@ -59,13 +63,25 @@ def update_entries(fiscal_year, month, company, update_closing, update_average, 
 
         exchange_rate = None
 
-        if update_closing and row.report_type == "Profit and Loss":
-            exchange_rate = get_closing_rate(row.currency, month, fiscal_year)
+        # ✅ CASE 1: Report type changed → ALWAYS recalculate
+        if row.name in changed_names:
 
-        elif update_average and row.report_type == "Balance Sheet":
-            exchange_rate = get_average_rate(row.currency, month, fiscal_year)
+            if row.report_type == "Profit and Loss":
+                exchange_rate = get_closing_rate(row.currency, month, fiscal_year)
 
-        if exchange_rate:
+            elif row.report_type == "Balance Sheet":
+                exchange_rate = get_average_rate(row.currency, month, fiscal_year)
+
+        # ✅ CASE 2: Bulk update via checkbox
+        else:
+            if update_closing and row.report_type == "Profit and Loss":
+                exchange_rate = get_closing_rate(row.currency, month, fiscal_year)
+
+            elif update_average and row.report_type == "Balance Sheet":
+                exchange_rate = get_average_rate(row.currency, month, fiscal_year)
+
+        # 🔹 Apply update
+        if exchange_rate is not None:
             amount_inr = (row.amount or 0) * exchange_rate
 
             frappe.db.set_value(
@@ -80,7 +96,6 @@ def update_entries(fiscal_year, month, company, update_closing, update_average, 
     frappe.db.commit()
 
     return "Success"
-
 
 def get_closing_rate(currency, month, fiscal_year):
 

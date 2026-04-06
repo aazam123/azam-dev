@@ -1,4 +1,8 @@
 frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
+	add_update_page_styles();
+
+	// wrap content
+	let main_container = $('<div class="update-ctb-container"></div>').appendTo(wrapper);
 
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -95,12 +99,16 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 
 		let updated_rows = [];
 
-		$('.table-container tbody tr').each(function(index) {
-			let report_type = $(this).find('.report-type').val();
+		$('.table-container tbody tr').each(function() {
 
-			if (report_type !== table_data[index].report_type) {
+			let row_name = $(this).data('name');
+			let report_type = $(this).find('.report-type').val();
+		
+			let original_row = table_data.find(r => r.name === row_name);
+		
+			if (original_row && report_type !== original_row.report_type) {
 				updated_rows.push({
-					name: table_data[index].name,
+					name: row_name,
 					report_type: report_type
 				});
 			}
@@ -130,36 +138,33 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 	function render_datatable(wrapper, data) {
 
 		table_data = data;
-
-		let container = $('<div class="table-container" style="margin-top:20px;"></div>').appendTo(wrapper);
-
-		let html = `
-			<table class="table table-bordered">
-				<thead>
-					<tr>
-						<th>Name</th>
-						<th>GL Account</th>
-						<th>Currency</th>
-						<th>Amount</th>
-						<th>Exchange Rate</th>
-						<th>Amount (INR)</th>
-						<th>Report Type</th>
-					</tr>
-				</thead>
-				<tbody>
-		`;
-
-		data.forEach(row => {
-			html += `
-				<tr>
+	
+		let total_dc = 0;
+		let total_inr = 0;
+	
+		$(wrapper).find('.table-container').remove();
+	
+		let tbody = '';
+	
+		data.forEach(function(row, idx) {
+	
+			let amount = parseFloat(row.amount) || 0;
+			let amount_inr = parseFloat(row.amount_inr) || 0;
+	
+			total_dc += amount;
+			total_inr += amount_inr;
+	
+			tbody += `
+				<tr data-name="${row.name}">
+					<td class="text-right">${idx + 1}</td>
 					<td>${row.name}</td>
 					<td>${row.gl_account || ''}</td>
 					<td>${row.currency || ''}</td>
-					<td>${row.amount || 0}</td>
-					<td>${row.exchange_rate || 0}</td>
-					<td>${row.amount_inr || 0}</td>
+					<td class="text-right">${row.exchange_rate || 0}</td>
+					<td class="text-right">${format_number(amount)}</td>
+					<td class="text-right">${format_number(amount_inr)}</td>
 					<td>
-						<select class="report-type">
+						<select class="report-type form-control input-sm">
 							<option ${row.report_type === "Profit and Loss" ? "selected" : ""}>Profit and Loss</option>
 							<option ${row.report_type === "Balance Sheet" ? "selected" : ""}>Balance Sheet</option>
 						</select>
@@ -167,8 +172,142 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 				</tr>
 			`;
 		});
-
-		html += `</tbody></table>`;
-		container.append(html);
+	
+		let html = `
+			<div class="table-container" style="margin: 80px;">
+	
+				<div class="section-header">
+					<h5>Trial Balance Entries (${data.length})</h5>
+	
+					<input type="text" class="form-control input-sm global-search" 
+						placeholder="Search..." style="width: 220px;">
+				</div>
+	
+				<div class="table-wrapper">
+					<table class="table table-bordered preview-table">
+						<thead>
+							<tr>
+								<th>#</th>
+								<th>Name</th>
+								<th>GL Account</th>
+								<th>Currency</th>
+								<th class="text-right">Exchange Rate</th>
+								<th class="text-right">Amount (DC)</th>
+								<th class="text-right">Amount (INR)</th>
+								<th>Report Type</th>
+							</tr>
+						</thead>
+	
+						<tbody>
+							${tbody}
+						</tbody>
+	
+						<tfoot>
+							<tr class="total-row">
+								<td colspan="5" class="text-right"><b>Total</b></td>
+								<td class="text-right total-dc"><b>${format_number(total_dc)}</b></td>
+								<td class="text-right total-inr"><b>${format_number(total_inr)}</b></td>
+								<td></td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		`;
+	
+		$(wrapper).append(html);
+	
+		// 🔥 GLOBAL SEARCH ONLY
+		function apply_search() {
+	
+			let search_val = $('.global-search').val().toLowerCase();
+	
+			let visible_dc = 0;
+			let visible_inr = 0;
+	
+			$('.table-container tbody tr').each(function() {
+	
+				let row = $(this);
+				let text = row.text().toLowerCase();
+	
+				if (!search_val || text.includes(search_val)) {
+	
+					row.show();
+	
+					let dc = parseFloat(row.find('td:eq(5)').text().replace(/,/g, '')) || 0;
+					let inr = parseFloat(row.find('td:eq(6)').text().replace(/,/g, '')) || 0;
+	
+					visible_dc += dc;
+					visible_inr += inr;
+	
+				} else {
+					row.hide();
+				}
+			});
+	
+			// ✅ update totals dynamically
+			$('.total-dc').html(`<b>${format_number(visible_dc)}</b>`);
+			$('.total-inr').html(`<b>${format_number(visible_inr)}</b>`);
+		}
+	
+		// 🔹 Bind search
+		$('.global-search').on('input', apply_search);
 	}
 };
+
+function format_number(num) {
+    if (num == null) return '0.00';
+    return parseFloat(num).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function add_update_page_styles() {
+	if (document.getElementById('update-ctb-styles')) return;
+
+	const style = document.createElement('style');
+	style.id = 'update-ctb-styles';
+	style.innerHTML = `
+		.update-ctb-container {
+			padding: 15px;
+		}
+
+		.update-ctb-container .table-wrapper {
+			max-height: 500px;
+			overflow-y: auto;
+			border: 1px solid var(--border-color);
+			border-radius: 4px;
+		}
+
+		.update-ctb-container table {
+			margin-bottom: 0;
+			background: var(--card-bg);
+		}
+
+		.update-ctb-container thead th {
+			background: var(--subtle-fg);
+			font-size: 12px;
+			text-transform: uppercase;
+			font-weight: 600;
+			position: sticky;
+			top: 0;
+			z-index: 1;
+		}
+
+		.update-ctb-container td {
+			font-size: 13px;
+			padding: 6px 10px;
+			vertical-align: middle;
+		}
+
+		.update-ctb-container .section-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+
+		.update-ctb-container .section-header h5 {
+			margin: 0;
+		}
+	`;
+	document.head.appendChild(style);
+}
