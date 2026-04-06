@@ -1,0 +1,19 @@
+{
+ "content": null,
+ "creation": "2026-04-03 15:12:22.737559",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-04-03 16:14:25.771711",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "update-console-trial-balance",
+ "owner": "Administrator",
+ "page_name": "update-console-trial-balance",
+ "roles": [],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Update Console Trial Balance"
+}
