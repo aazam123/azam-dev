@@ -66,18 +66,18 @@ def update_entries(fiscal_year, month, company, update_closing, update_average, 
         # ✅ CASE 1: Report type changed → ALWAYS recalculate
         if row.name in changed_names:
 
-            if row.report_type == "Profit and Loss":
+            if row.report_type == "Balance Sheet":
                 exchange_rate = get_closing_rate(row.currency, month, fiscal_year)
 
-            elif row.report_type == "Balance Sheet":
+            elif row.report_type == "Profit and Loss":
                 exchange_rate = get_average_rate(row.currency, month, fiscal_year)
 
         # ✅ CASE 2: Bulk update via checkbox
         else:
-            if update_closing and row.report_type == "Profit and Loss":
+            if update_closing and row.report_type == "Balance Sheet":
                 exchange_rate = get_closing_rate(row.currency, month, fiscal_year)
 
-            elif update_average and row.report_type == "Balance Sheet":
+            elif update_average and row.report_type == "Profit and Loss":
                 exchange_rate = get_average_rate(row.currency, month, fiscal_year)
 
         # 🔹 Apply update

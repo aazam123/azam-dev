@@ -1,8 +1,5 @@
 frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 
-	// wrap content
-	let main_container = $('<div class="update-ctb-container"></div>').appendTo(wrapper);
-
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: 'Update Console Trial Balance',
@@ -77,13 +74,13 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 	});
 
 	const closing_rate = page.add_field({
-		label: 'Update Closing Rate (P&L)',
+		label: 'Update Closing Rate (BS)',
 		fieldname: 'update_closing',
 		fieldtype: 'Check'
 	});
 
 	const avg_rate = page.add_field({
-		label: 'Update Average Rate (BS)',
+		label: 'Update Average Rate (P&L)',
 		fieldname: 'update_average',
 		fieldtype: 'Check'
 	});
