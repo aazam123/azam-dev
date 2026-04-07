@@ -23,7 +23,6 @@
   "current_month",
   "previous_month",
   "section_break_nrwe",
-  "foreign_exchange_rate",
   "financial_report_details"
  ],
  "fields": [
@@ -103,12 +102,6 @@
    "options": "\nConsole Monthly\nConsole Yearly"
   },
   {
-   "fieldname": "foreign_exchange_rate",
-   "fieldtype": "Long Text",
-   "label": "Foreign Exchange Rate",
-   "read_only": 1
-  },
-  {
    "default": "3",
    "fieldname": "show_decimal_value",
    "fieldtype": "Int",
@@ -148,7 +141,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-25 10:53:53.799109",
+ "modified": "2026-04-07 18:02:39.389147",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Console Financial Report",
