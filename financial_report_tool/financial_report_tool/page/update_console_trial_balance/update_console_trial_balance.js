@@ -13,18 +13,43 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 	function fetch_and_render() {
 
 		clearTimeout(debounce_timeout);
-
+	
 		debounce_timeout = setTimeout(() => {
-
+	
 			const fy = fiscal_year.get_value();
 			const m = month.get_value();
 			const comp = company.get_value();
-
+	
 			// remove old table
 			$(wrapper).find('.table-container').remove();
-
+	
 			if (!fy || !m || !comp) return;
-
+	
+			// 🔹 Get exchange preview
+			frappe.call({
+				method: 'financial_report_tool.financial_report_tool.page.update_console_trial_balance.update_console_trial_balance.get_exchange_preview',
+				args: {
+					company: comp,
+					month: m,
+					fiscal_year: fy
+				},
+				callback: function(res) {
+			
+					if (!res.message) return;
+			
+					let data = res.message;
+			
+					$('#closing_rate_display').html(
+						`Rate: <b>${format_number(data.closing_rate)}</b> (${data.currency} → INR)`
+					);
+			
+					$('#avg_rate_display').html(
+						`Rate: <b>${format_number(data.average_rate)}</b> (${data.currency} → INR)`
+					);
+				}
+			});
+	
+			// 🔹 Existing call
 			frappe.call({
 				method: 'financial_report_tool.financial_report_tool.page.update_console_trial_balance.update_console_trial_balance.get_entries',
 				args: {
@@ -41,11 +66,19 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 					}
 				}
 			});
-
+	
 		}, 400);
 	}
 
-	// 🔹 Fields
+	const company = page.add_field({
+		label: 'Company',
+		fieldname: 'company',
+		fieldtype: 'Link',
+		options: 'Company',
+		reqd: 1,
+		change: fetch_and_render
+	});
+
 	const fiscal_year = page.add_field({
 		label: 'Fiscal Year',
 		fieldname: 'fiscal_year',
@@ -64,26 +97,29 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 		change: fetch_and_render
 	});
 
-	const company = page.add_field({
-		label: 'Company',
-		fieldname: 'company',
-		fieldtype: 'Link',
-		options: 'Company',
-		reqd: 1,
-		change: fetch_and_render
-	});
+		let rate_section = $(`
+		<div class="rate-section" style="margin-left: 10px; display: flex; gap: 40px; align-items: flex-start;">
+			
+			<div class="rate-block">
+				<label>
+					<input type="checkbox" id="update_closing_chk"> 
+					Update Closing Rate (BS)
+				</label>
+				<div id="closing_rate_display" class="text-muted small" style="margin-left: 22px; margin-top: 4px;"></div>
+			</div>
 
-	const closing_rate = page.add_field({
-		label: 'Update Closing Rate (BS)',
-		fieldname: 'update_closing',
-		fieldtype: 'Check'
-	});
+			<div class="rate-block">
+				<label>
+					<input type="checkbox" id="update_avg_chk"> 
+					Update Average Rate (P&L)
+				</label>
+				<div id="avg_rate_display" class="text-muted small" style="margin-left: 22px; margin-top: 4px;"></div>
+			</div>
 
-	const avg_rate = page.add_field({
-		label: 'Update Average Rate (P&L)',
-		fieldname: 'update_average',
-		fieldtype: 'Check'
-	});
+		</div>
+		`);
+		
+		$(month.wrapper).after(rate_section);
 
 	// 🔹 Update Button
 	page.set_primary_action('Update', () => {
@@ -116,8 +152,8 @@ frappe.pages['update-console-trial-balance'].on_page_load = function(wrapper) {
 				fiscal_year: fiscal_year.get_value(),
 				month: month.get_value(),
 				company: company.get_value(),
-				update_closing: closing_rate.get_value(),
-				update_average: avg_rate.get_value(),
+				update_closing: $('#update_closing_chk').is(':checked') ? 1 : 0,
+				update_average: $('#update_avg_chk').is(':checked') ? 1 : 0,
 				updated_rows: updated_rows
 			},
 			freeze: true,
