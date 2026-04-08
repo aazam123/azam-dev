@@ -517,7 +517,7 @@ class FinancialReport(Document):
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
 					result = (frappe.db.sql(query, [self.company, fy_start, fy_end]+gl_accounts)[0][0] or 0) / 100000
 			else:
-				query = f"SELECT SUM(upload_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
+				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
 				result = (frappe.db.sql(query, [self.company, year]+gl_accounts)[0][0] or 0) / 100000
 
 		if getattr(self, '_caches_initialized', False):
@@ -544,7 +544,7 @@ class FinancialReport(Document):
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
 					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
 			else:
-				query = f"SELECT SUM(upload_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
 				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 		if getattr(self, '_caches_initialized', False):
@@ -571,7 +571,7 @@ class FinancialReport(Document):
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
 					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
 			else:
-				query = f"SELECT SUM(upload_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
 				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 		if getattr(self, '_caches_initialized', False):
