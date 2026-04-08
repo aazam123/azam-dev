@@ -164,24 +164,24 @@ def get_data(filters):
     # ----------------------------------------
     # CTA Calculation
     # ----------------------------------------
-    total_converted = sum(d.amount_inr for d in data)
+    # total_converted = sum(d.amount_inr for d in data)
 
-    if abs(total_converted) > 0.5:
-        data.append({
-            "account_number": "",
-            "gl_account": "Foreign Currency Translation Reserve",
-            "primary_group": "Equity",
-            "secondary_group": "",
-            "higher_secondary_group": "",
-            "report_type": "Balance Sheet",
-            "amount_df_currency": "",
-            "exchange_rate": "",
-            "amount_inr": -total_converted,
-            "month": "",
-            "fiscal_year": filters.get("fiscal_year"),
-            "company": "Consolidated",
-            "currency": "INR"
-        })
+    # if abs(total_converted) > 0.5:
+    #     data.append({
+    #         "account_number": "",
+    #         "gl_account": "Foreign Currency Translation Reserve",
+    #         "primary_group": "Equity",
+    #         "secondary_group": "",
+    #         "higher_secondary_group": "",
+    #         "report_type": "Balance Sheet",
+    #         "amount_df_currency": "",
+    #         "exchange_rate": "",
+    #         "amount_inr": -total_converted,
+    #         "month": "",
+    #         "fiscal_year": filters.get("fiscal_year"),
+    #         "company": "Consolidated",
+    #         "currency": "INR"
+    #     })
 
     return data
 

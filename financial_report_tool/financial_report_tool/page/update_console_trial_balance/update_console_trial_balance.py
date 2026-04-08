@@ -129,3 +129,43 @@ def get_average_rate(currency, month, fiscal_year):
         },
         "average_rate"
     ) or 1
+
+@frappe.whitelist()
+def get_exchange_preview(company, month, fiscal_year):
+
+    currency = frappe.db.get_value("Company", company, "default_currency")
+
+    if currency == "INR":
+        return {
+            "currency": currency,
+            "closing_rate": 1,
+            "average_rate": 1
+        }
+
+    closing = frappe.db.get_value(
+        "FR Foreign Exchange Rate",
+        {
+            "from_currency": currency,
+            "to_currency": "INR",
+            "month": month,
+            "fiscal_year": fiscal_year
+        },
+        "closing_rate"
+    ) or 1
+
+    average = frappe.db.get_value(
+        "FR Foreign Exchange Rate",
+        {
+            "from_currency": currency,
+            "to_currency": "INR",
+            "month": month,
+            "fiscal_year": fiscal_year
+        },
+        "average_rate"
+    ) or 1
+
+    return {
+        "currency": currency,
+        "closing_rate": closing,
+        "average_rate": average
+    }
