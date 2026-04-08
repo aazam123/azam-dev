@@ -108,8 +108,8 @@ frappe.query_reports["Consol Trial Balance"] = {
             }
 
             let filters = report.get_values();
-            if (!filters.company || !filters.report_type) {
-                frappe.msgprint(__("Company and Report Type filters are required."));
+            if (!filters.report_type) {
+                frappe.msgprint(__("Report Type filter are required."));
                 return;
             }
 
@@ -145,13 +145,15 @@ frappe.query_reports["Consol Trial Balance"] = {
                         return;
                     }
 
-                    let gl_accounts = checked_items.map(row => row.gl_account);
+                    let items = checked_items.map(row => ({
+                        gl_account: row.gl_account,
+                        company: row.company
+                    }));
 
                     frappe.call({
                         method: "financial_report_tool.api.bulk_update_gl_group_mappings",
                         args: {
-                            gl_accounts: gl_accounts,
-                            company: filters.company,
+                            items: items,
                             report_type: filters.report_type,
                             primary_group: values.primary_group || "",
                             secondary_group: values.secondary_group || "",

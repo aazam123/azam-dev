@@ -50,40 +50,52 @@ def create_gl_group_mapping(gl_account, company, report_type, primary_group, sec
 
 	return {"success": True, "name": doc.name, "created": True}
 
+import json
 
 @frappe.whitelist()
-def bulk_update_gl_group_mappings(gl_accounts, company, report_type, primary_group=None, secondary_group=None, higher_secondary_group=None):
-	"""Bulk update GL Group Mapping entries for multiple GL accounts"""
-	import json
-	if isinstance(gl_accounts, str):
-		gl_accounts = json.loads(gl_accounts)
+def bulk_update_gl_group_mappings(items, report_type, primary_group=None, secondary_group=None, higher_secondary_group=None):
+    if isinstance(items, str):
+        items = json.loads(items)
 
-	updated = []
-	errors = []
+    updated = []
+    errors = []
 
-	for gl_account in gl_accounts:
-		try:
-			existing = frappe.db.exists("GL Group Mapping", {
-				"gl_account": gl_account,
-				"company": company,
-				"report_type": report_type,
-			})
+    for item in items:
+        try:
+            gl_account = item.get("gl_account")
+            company = item.get("company")
 
-			if not existing:
-				errors.append({"gl_account": gl_account, "error": "No existing mapping found"})
-				continue
+            if not gl_account or not company:
+                continue
 
-			doc = frappe.get_doc("GL Group Mapping", existing)
-			if primary_group:
-				doc.primary_group = primary_group
-			if secondary_group:
-				doc.secondary_group = secondary_group
-			if higher_secondary_group is not None:
-				doc.higher_secondary_group = higher_secondary_group or ""
-			doc.save()
-			updated.append(gl_account)
-		except Exception as e:
-			errors.append({"gl_account": gl_account, "error": str(e)})
+            filters = {
+                "gl_account": gl_account,
+                "company": company,
+                "report_type": report_type
+            }
 
-	frappe.db.commit()
-	return {"updated": updated, "errors": errors}
+            update_values = {}
+
+            if primary_group:
+                update_values["primary_group"] = primary_group
+            if secondary_group:
+                update_values["secondary_group"] = secondary_group
+            if higher_secondary_group:
+                update_values["higher_secondary_group"] = higher_secondary_group
+
+            if update_values:
+                frappe.db.set_value("GL Group Mapping", filters, update_values)
+                updated.append(gl_account)
+
+        except Exception as e:
+            errors.append({
+                "gl_account": item.get("gl_account"),
+                "error": str(e)
+            })
+
+    frappe.db.commit()
+
+    return {
+        "updated": updated,
+        "errors": errors
+    }
