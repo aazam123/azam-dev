@@ -5296,7 +5296,7 @@ class FinancialReport(Document):
 		month_end_label, prev_fy_label = self.get_yearly_dates()
 		pnl_template = self.get("financial_report_details", {"section_type": "Profit & Loss"})[0].section
 		bs_template = self.get("financial_report_details", {"section_type": "Balance Sheet"})[0].section
-		net_cur, net_prev, net_prev_year = self.get_monthly_profit_and_loss_data(pnl_template, fetch_for_other_equity=True)
+		net_cur, net_prev_year = self.get_yearly_profit_and_loss_data(pnl_template, fetch_for_other_equity=True)
 		default_currency = frappe.get_value("Company", self.company, "default_currency")
 		cur_tot_asset = prev_tot_asset = cur_cur_liab = prev_cur_liab = cur_ncur_liab = prev_ncur_liab = cur_eq_share = prev_eq_share = 0
 
@@ -6485,8 +6485,7 @@ class FinancialReport(Document):
 		if fetch_for_other_equity:
 			account = profit_and_loss_doc.profit_and_loss_template_details[-1].account
 			return (
-				calc_amount_for_particular_monthly(account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx),
-				calc_amount_for_particular_monthly(account, self.previous_month, self.fiscal_year, fx_rate=previous_fx),
+				calc_amount_for_particular_monthly(account, cls_month, self.fiscal_year, is_current=True, fx_rate=current_fx),
 				calc_amount_for_particular_monthly(account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
 			)
 
