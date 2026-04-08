@@ -5344,7 +5344,7 @@ class FinancialReport(Document):
 			for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
 			for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
 			for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
-
+			add_sp_prev_year = add_sp_cur = add_sp_prev = 0
 		
 		sp_open = round(sp_prev_year + add_sp_prev_year, self.show_decimal_value)
 		sp_cur = round(sp_open + add_sp_cur, self.show_decimal_value)
