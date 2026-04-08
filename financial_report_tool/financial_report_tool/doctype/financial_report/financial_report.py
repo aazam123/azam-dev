@@ -5316,14 +5316,13 @@ class FinancialReport(Document):
 		else:
 			sp_prev_year = abs(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Share Premium", cls_month, previous_year), self.show_decimal_value))
 			bal_prev_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, previous_year), self.show_decimal_value)
-			add_sp_prev_year = add_sp_cur = add_sp_prev = 0
+			add_sp_prev_year = add_sp_cur = 0
 
 		oci_prev_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, previous_year), self.show_decimal_value)
 		retained_prev_year = round(bal_prev_year + net_prev_year + oci_prev_year, self.show_decimal_value)
 
 		oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, current_year), self.show_decimal_value)
 		retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
-		retained_prev = round(retained_prev_year + net_prev, self.show_decimal_value)
 
 		cc_open_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value)
 		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) - cc_open_prev
@@ -5333,18 +5332,17 @@ class FinancialReport(Document):
 		cc_close_cur = round(cc_close_prev + cc_add_cur, self.show_decimal_value)
 		add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
 		add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
-		add_sp_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
 		
 		for_exc_open = for_exc_add_prev = for_exc_add_cur = 0
 		if default_currency != self.currency:
 			for_exc_open = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
 			for_exc_add_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year), self.show_decimal_value)
-			for_exc_add_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev - (sp_prev_year), self.show_decimal_value)
+			for_exc_add_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - (sp_prev_year), self.show_decimal_value)
 		else:
 			for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
 			for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
 			for_exc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, current_year), self.show_decimal_value)
-			add_sp_prev_year = add_sp_cur = add_sp_prev = 0
+			add_sp_prev_year = add_sp_cur = 0
 		
 		sp_open = round(sp_prev_year + add_sp_prev_year, self.show_decimal_value)
 		sp_cur = round(sp_open + add_sp_cur, self.show_decimal_value)
