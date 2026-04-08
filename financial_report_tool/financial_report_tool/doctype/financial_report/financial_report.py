@@ -517,7 +517,7 @@ class FinancialReport(Document):
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
 					result = (frappe.db.sql(query, [self.company, fy_start, fy_end]+gl_accounts)[0][0] or 0) / 100000
 			else:
-				query = f"SELECT SUM(amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
+				query = f"SELECT SUM(upload_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
 				result = (frappe.db.sql(query, [self.company, year]+gl_accounts)[0][0] or 0) / 100000
 
 		if getattr(self, '_caches_initialized', False):
@@ -544,8 +544,7 @@ class FinancialReport(Document):
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
 					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
 			else:
-				field = "amount" if is_ftm else "uploaded_amount"
-				query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+				query = f"SELECT SUM(upload_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
 				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 		if getattr(self, '_caches_initialized', False):
@@ -572,8 +571,7 @@ class FinancialReport(Document):
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
 					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
 			else:
-				field = "amount" if is_ftm else "uploaded_amount"
-				query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
+				query = f"SELECT SUM(upload_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
 				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
 
 		if getattr(self, '_caches_initialized', False):
@@ -5078,7 +5076,6 @@ class FinancialReport(Document):
 
 		# --- Purchases & SIT ---
 		curr_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, self.fiscal_year)
-		prev_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, self.fiscal_year)
 
 		purchases_current = (
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", cls_month, self.fiscal_year)
@@ -5103,12 +5100,12 @@ class FinancialReport(Document):
 			+ self.sum_group_amt("Inventories", "Stock In Trade", self.previous_fiscal_year)
 		)
 
-		# pre_purchase_sit = 0 if default_currency != "INR" else self.sum_group_amt("Purchases of Stock in Trade", "Purchases of Stock in Trade", self.previous_fiscal_year)
+		pre_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, self.previous_fiscal_year)
 		prev_year_purchases = (
 			self.sum_group_amt("Material consumed", "Cost of Goods Sold", self.previous_fiscal_year)
 			+ (0 if default_currency != "INR" else (prev_year_closing_wip - closing_wip_pre_previous))
 			+ (prev_year_closing_stock - closing_stock_pre_previous)
-			# - pre_purchase_sit
+			- pre_purchase_sit
 		)
 
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
