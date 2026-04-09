@@ -5081,7 +5081,6 @@ class FinancialReport(Document):
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", cls_month, self.fiscal_year)
 			- (0 if default_currency != "INR" else self.get_yearly_finished_goods_and_wip(total=True, field='net_increase_total'))
 			+ (closing_stock_current - opening_stock)
-			+ curr_month_purchase_sit
 		)
 
 		# --- Cost of Materials Consumed ---
@@ -5105,7 +5104,6 @@ class FinancialReport(Document):
 			self.sum_group_amt("Material consumed", "Cost of Goods Sold", self.previous_fiscal_year)
 			+ (0 if default_currency != "INR" else (prev_year_closing_wip - closing_wip_pre_previous))
 			+ (prev_year_closing_stock - closing_stock_pre_previous)
-			+ pre_purchase_sit
 		)
 
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
