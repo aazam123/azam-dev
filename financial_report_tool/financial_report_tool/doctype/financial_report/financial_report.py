@@ -5319,7 +5319,7 @@ class FinancialReport(Document):
 		oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, current_year), self.show_decimal_value)
 		retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
 
-		cc_open_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value)
+		cc_open_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value)
 		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) - cc_open_prev
 		cc_close_prev = round(cc_open_prev + cc_add_prev, self.show_decimal_value)
 
