@@ -497,33 +497,6 @@ class FinancialReport(Document):
 			self._month_date_range_cache[(month, fiscal_year)] = result
 		return result
 
-	# def get_sum_grouping_amount(self, primary_group, group, year, hg_sec_group=""):
-	# 	if getattr(self, '_caches_initialized', False):
-	# 		cache_key = ("get_sum_grouping_amount", primary_group, group, year, hg_sec_group)
-	# 		if cache_key in self._sum_group_amt_cache:
-	# 			return self._sum_group_amt_cache[cache_key]
-
-	# 	filters = {"company": self.company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
-	# 	gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
-	# 	if not gl_accounts:
-	# 		result = 0
-	# 	else:
-	# 		erp_type = self.get_erp_type()
-	# 		if erp_type == "ERPNext":
-	# 			fy_start, fy_end = self.get_fiscal_year_dates(year)
-	# 			if not fy_start:
-	# 				result = 0
-	# 			else:
-	# 				query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
-	# 				result = (frappe.db.sql(query, [self.company, fy_start, fy_end]+gl_accounts)[0][0] or 0) / 100000
-	# 		else:
-	# 			query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))})"
-	# 			result = (frappe.db.sql(query, [self.company, year]+gl_accounts)[0][0] or 0) / 100000
-
-	# 	if getattr(self, '_caches_initialized', False):
-	# 		self._sum_group_amt_cache[cache_key] = result
-	# 	return result
-
 	def get_sum_grouping_amount(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
 		if getattr(self, '_caches_initialized', False):
 			cache_key = ("sum_grouping", primary_group, group, month, year, is_ftm, hg_sec_group)
@@ -5323,7 +5296,7 @@ class FinancialReport(Document):
 		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
 		cc_close_prev = round(cc_open_prev + cc_add_prev, self.show_decimal_value)
 
-		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) - cc_close_prev
+		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) + cc_close_prev
 		cc_close_cur = round(cc_close_prev + cc_add_cur, self.show_decimal_value)
 		add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
 		add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
