@@ -2,7 +2,6 @@ import frappe
 
 @frappe.whitelist()
 def create_gl_group_mapping(gl_account, company, report_type, primary_group, secondary_group, higher_secondary_group=None, update_existing=0):
-	"""Create GL Group Mapping entry with duplicate check"""
 
 	# Check for duplicate entry
 	filters = {

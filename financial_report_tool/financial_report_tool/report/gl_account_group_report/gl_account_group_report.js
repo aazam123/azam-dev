@@ -138,14 +138,16 @@ frappe.query_reports["GL Account Group Report"] = {
                         frappe.msgprint(__("Please set at least one group field to update."));
                         return;
                     }
-
-                    let gl_accounts = checked_items.map(row => row.gl_account);
+                    
+                    let items = checked_items.map(row => ({
+                        gl_account: row.gl_account,
+                        company: filters.company
+                    }));
 
                     frappe.call({
                         method: "financial_report_tool.api.bulk_update_gl_group_mappings",
                         args: {
-                            gl_accounts: gl_accounts,
-                            company: filters.company,
+                            items: JSON.stringify(items),
                             report_type: filters.report_type,
                             primary_group: values.primary_group || "",
                             secondary_group: values.secondary_group || "",
