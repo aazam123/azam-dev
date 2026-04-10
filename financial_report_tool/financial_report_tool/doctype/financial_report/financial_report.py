@@ -2844,7 +2844,7 @@ class FinancialReport(Document):
 		"""
 		hg_sec_groups = frappe.get_all("GL Group Mapping", filters={"company": self.company, "report_type": "Yearly", "primary_group": "Borrowings (Current)", "secondary_group": "Borrowings (Current) - Current Maturities of non-current Borrowings"}, pluck="higher_secondary_group") 
 		non_current_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Borrowings (Current) - Current Maturities of non-current Borrowings", cls_month, self.fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
-		curr_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) - non_current_borrowing
+		curr_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) - non_current_borrowing
 		current_year_end = frappe.utils.getdate(self.current_year_ending_date)
 		one_year_from_end = current_year_end + timedelta(days=365)
 		three_years_from_end = current_year_end + timedelta(days=1095)
@@ -2852,12 +2852,12 @@ class FinancialReport(Document):
 		repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [current_year_end, one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
 		repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [one_year_from_end + timedelta(days=1), three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
 		repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ 100000
-		lease = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'less_than_one_year') or 0
-		lease_one_to_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'one_to_three_years') or 0
-		lease_more_than_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'more_than_three_years') or 0
-		cur_trade_pay = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
-		cur_financial_lib_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
-		cur_financial_lib_non_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		lease = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'less_than_one_year') or 0) / 100000
+		lease_one_to_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'one_to_three_years') or 0) / 100000
+		lease_more_than_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'more_than_three_years') or 0) / 100000
+		cur_trade_pay = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
+		cur_financial_lib_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
+		cur_financial_lib_non_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
 
 		c1_curr = [
 			("Non current borrowings (including current maturities)", repaymnet_less_than_one, repayment_one_three, repayment_more_than_three),
@@ -2875,13 +2875,13 @@ class FinancialReport(Document):
 		pre_repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [prev_year_end, pre_one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
 		pre_repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [pre_one_year_from_end + timedelta(days=1), pre_three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
 		pre_repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', pre_three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ 100000
-		pre_lease = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'less_than_one_year') or 0
-		pre_lease_one_to_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'one_to_three_years') or 0
-		pre_lease_more_than_three = frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'more_than_three_years') or 0
-		pre_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) - pre_non_current_borrowing
-		pre_trade_pay = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
-		pre_financial_lib_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
-		pre_financial_lib_non_curr = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pre_lease = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'less_than_one_year') or 0) / 100000
+		pre_lease_one_to_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'one_to_three_years') or 0) / 100000
+		pre_lease_more_than_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'more_than_three_years') or 0) / 100000
+		pre_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) - pre_non_current_borrowing
+		pre_trade_pay = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
+		pre_financial_lib_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
+		pre_financial_lib_non_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
 		
 		c1_prev = [
 			("Non current borrowings (including current maturities)", pre_repaymnet_less_than_one, pre_repayment_one_three, pre_repayment_more_than_three),
