@@ -2861,7 +2861,7 @@ class FinancialReport(Document):
 
 		c1_curr = [
 			("Non current borrowings (including current maturities)", repaymnet_less_than_one, repayment_one_three, repayment_more_than_three),
-			("Lease liabilities (Refer Note No. 37)", lease, lease_one_to_three, lease_more_than_three),
+			("Lease liabilities", lease, lease_one_to_three, lease_more_than_three),
 			("Current borrowings", curr_borrowing, 0, 0),
 			("Trade payables", cur_trade_pay, 0, 0),
 			("Other financial liabilities - Current", cur_financial_lib_curr, 0, 0),
