@@ -2842,9 +2842,8 @@ class FinancialReport(Document):
 			</tr>
 		</table>
 		"""
-		hg_sec_groups = frappe.get_all("GL Group Mapping", filters={"company": self.company, "report_type": "Yearly", "primary_group": "Borrowings (Current)", "secondary_group": "Borrowings (Current) - Current Maturities of non-current Borrowings"}, pluck="higher_secondary_group") 
-		non_current_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Borrowings (Current) - Current Maturities of non-current Borrowings", cls_month, self.fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
-		curr_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) - non_current_borrowing
+		hg_sec_groups = frappe.get_all("GL Group Mapping", filters={"company": self.company, "report_type": "Yearly", "primary_group": "Borrowings (Current)", "secondary_group": "Secured Loans from Banks"}, pluck="higher_secondary_group") 
+		curr_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Secured Loans from Banks", cls_month, self.fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
 		current_year_end = frappe.utils.getdate(self.current_year_ending_date)
 		one_year_from_end = current_year_end + timedelta(days=365)
 		three_years_from_end = current_year_end + timedelta(days=1095)
@@ -2868,7 +2867,7 @@ class FinancialReport(Document):
 			("Other financial liabilities - Non-current", 0, cur_financial_lib_non_curr, 0),
 		]
 
-		pre_non_current_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Borrowings (Current) - Current Maturities of non-current Borrowings", cls_month, self.previous_fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
+		pre_borrowing = round((self.get_sum_grouping_amount_yearly("Borrowings (Current)", "Secured Loans from Banks", cls_month, self.previous_fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
 		prev_year_end = frappe.utils.getdate(self.previous_year_ending_date)
 		pre_one_year_from_end = prev_year_end + timedelta(days=365)
 		pre_three_years_from_end = prev_year_end + timedelta(days=1095)
@@ -2878,7 +2877,6 @@ class FinancialReport(Document):
 		pre_lease = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'less_than_one_year') or 0) / 100000
 		pre_lease_one_to_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'one_to_three_years') or 0) / 100000
 		pre_lease_more_than_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'more_than_three_years') or 0) / 100000
-		pre_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) - pre_non_current_borrowing
 		pre_trade_pay = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
 		pre_financial_lib_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
 		pre_financial_lib_non_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
