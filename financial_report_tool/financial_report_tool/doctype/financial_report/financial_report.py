@@ -2623,10 +2623,10 @@ class FinancialReport(Document):
 			("Bank balances other than Cash & Cash Equivalents", cur_tpl_bank_cash, cur_oci_bank_cash, ((cur_tpl_bank_cash + cur_oci_bank_cash) - bs_cur_bank), pre_tpl_bank_cash, pre_oci_bank_cash, ((pre_tpl_bank_cash + pre_oci_bank_cash) - bs_pre_bank)),
 		]
 
-		pl_cur_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
-		pl_pre_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0)
-		pl_cur_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
-		pl_pre_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'previous_year') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year') or 0)
+		pl_cur_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
+		pl_pre_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0)
+		pl_cur_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		pl_pre_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'previous_year') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year') or 0)
 		pl_cur_trade_payable = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
 		pl_pre_trade_payable = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
 		pl_cur_financial_lib_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
@@ -2635,11 +2635,11 @@ class FinancialReport(Document):
 		pl_pre_financial_lib_non_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
 		
 		financial_liabilities = [
-			("Borrowings", cur_tpl_borrowing, cur_oci_borrowing, ((cur_tpl_borrowing + cur_oci_borrowing) - pl_cur_borrowing), pre_tpl_borrowing, pre_oci_borrowing, ((pre_tpl_borrowing + pre_oci_borrowing) - pl_pre_borrowing)),
-			("Lease liabilities", cur_tpl_lease_lib, cur_oci_lease_lib, ((cur_tpl_lease_lib + cur_oci_lease_lib) - pl_cur_lease_lib), pre_tpl_lease_lib, pre_oci_lease_lib, ((pre_tpl_lease_lib + pre_oci_lease_lib) - pl_pre_lease_lib)),
-			("Trade payables", cur_tpl_trade_pay, cur_oci_trade_pay, ((cur_tpl_trade_pay + cur_oci_trade_pay) - pl_cur_trade_payable), pre_tpl_trade_pay, pre_oci_trade_pay, ((pre_tpl_trade_pay + pre_oci_trade_pay) - pl_pre_trade_payable)),
-			("Other financial liabilities - Current", cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, ((cur_tpl_financial_lib_curr + cur_oci_financial_lib_curr) - pl_cur_financial_lib_curr), pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, ((pre_tpl_financial_lib_curr + pre_oci_financial_lib_curr) - pl_pre_financial_lib_curr)),
-			("Other financial liabilities - Non-current", cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr, ((cur_tpl_financial_lib_non_curr + cur_oci_financial_lib_non_curr) - pl_cur_financial_lib_non_curr), pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr, ((pre_tpl_financial_lib_non_curr + pre_oci_financial_lib_non_curr) - pl_pre_financial_lib_non_curr)),
+			("Borrowings", cur_tpl_borrowing, cur_oci_borrowing, (pl_cur_borrowing - (cur_tpl_borrowing + cur_oci_borrowing)), pre_tpl_borrowing, pre_oci_borrowing, (pl_pre_borrowing - (pre_tpl_borrowing + pre_oci_borrowing))),
+			("Lease liabilities", cur_tpl_lease_lib, cur_oci_lease_lib, (pl_cur_lease_lib - (cur_tpl_lease_lib + cur_oci_lease_lib)), pre_tpl_lease_lib, pre_oci_lease_lib, (pl_pre_lease_lib - (pre_tpl_lease_lib + pre_oci_lease_lib))),
+			("Trade payables", cur_tpl_trade_pay, cur_oci_trade_pay, (pl_cur_trade_payable - (cur_tpl_trade_pay + cur_oci_trade_pay)), pre_tpl_trade_pay, pre_oci_trade_pay, (pl_pre_trade_payable - (pre_tpl_trade_pay + pre_oci_trade_pay))),
+			("Other financial liabilities - Current", cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, (pl_cur_financial_lib_curr - (cur_tpl_financial_lib_curr + cur_oci_financial_lib_curr)), pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, (pl_pre_financial_lib_curr - (pre_tpl_financial_lib_curr + pre_oci_financial_lib_curr))),
+			("Other financial liabilities - Non-current", cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr, (pl_cur_financial_lib_non_curr - (cur_tpl_financial_lib_non_curr + cur_oci_financial_lib_non_curr)), pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr, (pl_pre_financial_lib_non_curr - (pre_tpl_financial_lib_non_curr + pre_oci_financial_lib_non_curr))),
 		]
 
 		def build_category_rows(rows):
@@ -2802,8 +2802,9 @@ class FinancialReport(Document):
 
 		html = ""
 		cur_credit_impaired = -round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.fiscal_year) or 0), self.show_decimal_value)
-		cur_provision_deb = round((self.get_sum_grouping_amount("Other expenses", "Provision for Doubtful Debts/Bad Debts", cls_month, self.fiscal_year) or 0), self.show_decimal_value)
 		pre_credit_impaired = -round((self.get_sum_grouping_amount("Trade Receivables - credit Impaired", "Trade Receivables - credit Impaired", cls_month, self.previous_fiscal_year) or 0), self.show_decimal_value)
+	
+		cur_provision_deb = round((self.get_sum_grouping_amount("Other expenses", "Provision for Doubtful Debts/Bad Debts", cls_month, self.fiscal_year) or 0), self.show_decimal_value)
 		pre_provision_deb = round((self.get_sum_grouping_amount("Other expenses", "Provision for Doubtful Debts/Bad Debts", cls_month, self.previous_fiscal_year) or 0), self.show_decimal_value)
 		
 		loss_allowance = {
@@ -2826,12 +2827,12 @@ class FinancialReport(Document):
 			</tr>
 			<tr>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Less: Loss recognised / (reversed) during the year</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">-</td>
+				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(loss_allowance["current_year"]["reversed"])}</td>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["previous_year"]["reversed"])}</td>
 			</tr>
 			<tr>
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Add: Loss allowance provision for the year</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">-</td>
+				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(loss_allowance["current_year"]["provision"])}
 				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(loss_allowance["previous_year"]["provision"])}</td>
 			</tr>
 			<tr>
