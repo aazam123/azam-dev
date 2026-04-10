@@ -2165,12 +2165,12 @@ class FinancialReport(Document):
 		
 		a_data = {
 			"current": {"current_tax": cur_current_tax, "prior_year_adj": cur_prior_year_adj, "deferred_tax": -38},
-			"previous": {"current_tax": pre_current_tax, "prior_year_adj": -43, "deferred_tax": -220},
+			"previous": {"current_tax": pre_current_tax, "prior_year_adj": pre_prior_year_adj, "deferred_tax": -220},
 		}
 
 		for y in a_data:
 			a_data[y]["total_current"] = (a_data[y]["current_tax"] + a_data[y]["prior_year_adj"])
-			a_data[y]["total_tax"] = (a_data[y]["total_current"] + a_data[y]["deferred_tax"])
+			a_data[y]["total_tax"] = a_data[y]["total_current"]
 
 		# Fetch PBT from P&L Particular
 		pbt_particular = frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name')
@@ -2275,8 +2275,11 @@ class FinancialReport(Document):
 			prev_charged_credited = round(prev_amt - pre_prev_amt, self.show_decimal_value)
 			dta_rows.append((sec_group, cur_amt, charged_credited, prev_amt, prev_charged_credited, pre_prev_amt))
 
-		curr_deferred_tax = sum(row[3] for row in dta_rows)
-		prev_deferred_tax = sum(row[5] for row in dta_rows)
+		curr_deferred_tax = sum(row[2] for row in dta_rows)
+		prev_deferred_tax = sum(row[4] for row in dta_rows)
+
+		for y in a_data:
+			a_data[y]["total_tax"] += curr_deferred_tax if y == "current" else prev_deferred_tax
 
 		html += f"""
 		<p><strong style="color:#4472C4; font-size:13px;">(a) Income Tax Expenses</strong></p>
