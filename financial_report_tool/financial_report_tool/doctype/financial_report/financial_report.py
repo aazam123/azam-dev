@@ -2434,25 +2434,25 @@ class FinancialReport(Document):
 		lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
 		cur_borrowings = borrowings_non_current + borrowings_current + lease_liabilities_current + lease_liabilities_non_current
 
-		cur_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
+		cur_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'current_month_amount') or 0
 		cur_bank_balances = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
-		cur_tot_equity = self.get_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
+		cur_tot_equity = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
 
-		pre_borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
-		pre_borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
-		pre_lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
-		pre_lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		pre_borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0
+		pre_borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0)
+		pre_lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'previous_year') or 0)
+		pre_lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year') or 0)
 		pre_borrowings = pre_borrowings_non_current + pre_borrowings_current + pre_lease_liabilities_current + pre_lease_liabilities_non_current
 
-		pre_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash and Cash Equivalents"}, 'name'), 'current_month_amount') or 0
-		pre_bank_balances = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'current_month_amount') or 0
-		pre_tot_equity = self.get_pl_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') or 0
+		pre_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'previous_year') or 0
+		pre_bank_balances = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'previous_year') or 0
+		pre_tot_equity = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year') or 0
 
 		data = {
 			"current": {"borrowings": cur_borrowings,"cash": cur_cash,"bank_balances": cur_bank_balances,"equity": cur_tot_equity},
 			"previous": {"borrowings": pre_borrowings,"cash": pre_cash,"bank_balances": pre_bank_balances,"equity": pre_tot_equity}
 		}
-
+		frappe.throw(str(cur_tot_equity) + " - " + str(pre_tot_equity))
 		for y in data:
 			data[y]["adjusted_net_debt"] = (data[y]["borrowings"] - data[y]["cash"] - data[y]["bank_balances"])
 			data[y]["de_ratio"] = (round(data[y]["adjusted_net_debt"] / data[y]["equity"], 1)) if data[y]["equity"] != 0 else 0
@@ -2481,13 +2481,13 @@ class FinancialReport(Document):
 				</tr>
 
 				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Less – Cash and cash equivalents</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Less – Cash & Cash Equivalents</td>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(data["current"]["cash"])}</td>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(data["previous"]["cash"])}</td>
 				</tr>
 
 				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Less – Bank balances other than Cash and Cash Equivalents</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">Less – Bank balances other than Cash & Cash Equivalents</td>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(data["current"]["bank_balances"])}</td>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(data["previous"]["bank_balances"])}</td>
 				</tr>
@@ -2619,8 +2619,8 @@ class FinancialReport(Document):
 			("Trade receivables", cur_tpl_trade_receivable, cur_oci_trade_receivable, ((cur_tpl_trade_receivable + cur_oci_trade_receivable) - bs_cur_trade_receivable), pre_tpl_trade_receivable, pre_oci_trade_receivable, ((pre_tpl_trade_receivable + pre_oci_trade_receivable) - bs_pre_trade_receivable)),
 			("Loans", cur_tpl_loan, cur_oci_loan, ((cur_tpl_loan + cur_oci_loan) - bs_cur_loan), pre_tpl_loan, pre_oci_loan, ((pre_tpl_loan + pre_oci_loan) - bs_pre_loan)),
 			("Other financial assets", cur_tpl_fini_assets, cur_oci_fini_assets, ((cur_tpl_fini_assets + cur_oci_fini_assets) - bs_cur_fin_assets), pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr, pre_oci_fini_assets + pre_oci_financial_lib_curr + pre_oci_financial_lib_non_curr, ((pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr) - bs_pre_fin_assets)),
-			("Cash and cash equivalents", cur_tpl_cach, cur_oci_cach, ((cur_tpl_cach + cur_oci_cach) - bs_cur_cash), pre_tpl_cach, pre_oci_cach, ((pre_tpl_cach + pre_oci_cach) - bs_pre_cash)),
-			("Bank balances other than cash and cash equivalents", cur_tpl_bank_cash, cur_oci_bank_cash, ((cur_tpl_bank_cash + cur_oci_bank_cash) - bs_cur_bank), pre_tpl_bank_cash, pre_oci_bank_cash, ((pre_tpl_bank_cash + pre_oci_bank_cash) - bs_pre_bank)),
+			("Cash & Cash Equivalents", cur_tpl_cach, cur_oci_cach, ((cur_tpl_cach + cur_oci_cach) - bs_cur_cash), pre_tpl_cach, pre_oci_cach, ((pre_tpl_cach + pre_oci_cach) - bs_pre_cash)),
+			("Bank balances other than Cash & Cash Equivalents", cur_tpl_bank_cash, cur_oci_bank_cash, ((cur_tpl_bank_cash + cur_oci_bank_cash) - bs_cur_bank), pre_tpl_bank_cash, pre_oci_bank_cash, ((pre_tpl_bank_cash + pre_oci_bank_cash) - bs_pre_bank)),
 		]
 
 		pl_cur_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
