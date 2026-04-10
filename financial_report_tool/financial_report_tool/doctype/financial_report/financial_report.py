@@ -2430,8 +2430,8 @@ class FinancialReport(Document):
 
 		borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
 		borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
-		lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
-		lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability Liability"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability Liability"}, 'name'), 'current_month_amount') or 0)
 		cur_borrowings = borrowings_non_current + borrowings_current + lease_liabilities_current + lease_liabilities_non_current
 
 		cur_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'current_month_amount') or 0
@@ -2440,8 +2440,8 @@ class FinancialReport(Document):
 
 		pre_borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0
 		pre_borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0)
-		pre_lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'previous_year') or 0)
-		pre_lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year') or 0)
+		pre_lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability Liability"}, 'name'), 'previous_year') or 0)
+		pre_lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability Liability"}, 'name'), 'previous_year') or 0)
 		pre_borrowings = pre_borrowings_non_current + pre_borrowings_current + pre_lease_liabilities_current + pre_lease_liabilities_non_current
 
 		pre_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'previous_year') or 0
@@ -2625,8 +2625,8 @@ class FinancialReport(Document):
 
 		pl_cur_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
 		pl_pre_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0)
-		pl_cur_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') or 0)
-		pl_pre_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') or 0)
+		pl_cur_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		pl_pre_lease_lib = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'previous_year') or 0) + (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year') or 0)
 		pl_cur_trade_payable = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
 		pl_pre_trade_payable = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
 		pl_cur_financial_lib_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
@@ -4310,11 +4310,11 @@ class FinancialReport(Document):
 		pre_current_liab = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Current Liabilities"}, 'name'), 'previous_year')
 		pre_ratio = 0 if pre_current_liab == 0 else round(pre_current_asset/pre_current_liab, 2)
 
-		cur_tot_ded = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'current_month_amount')
+		cur_tot_ded = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount')
 		cur_tot_equ = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount')
 		cur_ded_ratio = 0 if cur_tot_equ == 0 else (cur_tot_ded/cur_tot_equ)
 
-		pre_tot_ded = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease"}, 'name'), 'previous_year')
+		pre_tot_ded = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'previous_year')
 		pre_tot_equ = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year')
 		pre_ded_ratio = 0 if pre_tot_equ == 0 else (pre_tot_ded/pre_tot_equ)
 
@@ -4375,11 +4375,11 @@ class FinancialReport(Document):
 		pre_net_pro_ratio = 0 if pre_rev == 0 else pre_pro_af_tax/pre_rev
 
 		curr_ear_be_tax = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'current_month_amount') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'current_month_amount')
-		curr_cap_emp_equity = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'current_month_amount')
+		curr_cap_emp_equity = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount')
 		curr_ret_cap_emp = 0 if curr_cap_emp_equity == 0 else curr_ear_be_tax/curr_cap_emp_equity 
 
 		pre_ear_be_tax = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
-		pre_cap_emp_equity = pre_total_equity + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease"}, 'name'), 'previous_year')
+		pre_cap_emp_equity = pre_total_equity + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year')
 		pre_ret_cap_emp = 0 if pre_cap_emp_equity == 0 else pre_ear_be_tax/pre_cap_emp_equity 
 
 		note_table_1 = f"""
