@@ -2145,8 +2145,11 @@ class FinancialReport(Document):
 	def get_yearly_current_tax_note_data(self, section_description=""):
 		# Get dynamic date labels
 		current_year_label, previous_year_label = self.get_yearly_dates()
+		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
+		pre_previous_year_label = f"Year Ended {pre_year[-1]}-{pre_year[0]}"
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
+		pre_previous_date = pre_previous_year_label.replace("Year Ended ", "").replace("/", "-")
 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 
 		def fmt(val):
@@ -2159,6 +2162,7 @@ class FinancialReport(Document):
 		pre_current_tax = self.get_sum_grouping_amount("P&L", "Current Tax", cls_month, self.previous_fiscal_year)
 		cur_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", cls_month, self.fiscal_year)
 		pre_prior_year_adj = self.get_sum_grouping_amount("P&L", "Prior Year Adjustment", cls_month, self.previous_fiscal_year)
+		
 		a_data = {
 			"current": {"current_tax": cur_current_tax, "prior_year_adj": cur_prior_year_adj, "deferred_tax": -38},
 			"previous": {"current_tax": pre_current_tax, "prior_year_adj": -43, "deferred_tax": -220},
@@ -2167,6 +2171,112 @@ class FinancialReport(Document):
 		for y in a_data:
 			a_data[y]["total_current"] = (a_data[y]["current_tax"] + a_data[y]["prior_year_adj"])
 			a_data[y]["total_tax"] = (a_data[y]["total_current"] + a_data[y]["deferred_tax"])
+
+		# Fetch PBT from P&L Particular
+		pbt_particular = frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name')
+		cur_pbt = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'),'current_month_amount') or 0
+		pre_pbt = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'),'previous_year') or 0
+
+		# Fetch tax rate from FR Tax Master
+		cur_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.fiscal_year})
+		pre_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.previous_fiscal_year})
+		if cur_tax_master:
+			cur_tax_master_doc = frappe.get_doc("FR Tax Master", cur_tax_master)
+			cur_rate = cur_tax_master_doc.profit_before_tax
+			cur_diff_items = cur_tax_master_doc.difference_due_to
+		else:
+			cur_rate = 0
+			cur_diff_items = []
+
+		if pre_tax_master:
+			pre_tax_master_doc = frappe.get_doc("FR Tax Master", pre_tax_master)
+			pre_rate = pre_tax_master_doc.profit_before_tax
+			pre_diff_items = pre_tax_master_doc.difference_due_to
+		else:
+			pre_rate = 0
+			pre_diff_items = []
+
+		# Build lookup for previous items by particulars
+		pre_diff_map = {d.particulars: d for d in pre_diff_items}
+
+		cur_tax_at_rate = round(cur_pbt * cur_rate / 100)
+		pre_tax_at_rate = round(pre_pbt * pre_rate / 100)
+
+		# Calculate total tax (tax_at_rate + sum of all difference values)
+		cur_diff_total = sum(flt(d.value) for d in cur_diff_items)
+		pre_diff_total = sum(flt(d.value) for d in pre_diff_items)
+		cur_tax = cur_tax_at_rate + cur_diff_total
+		pre_tax = pre_tax_at_rate + pre_diff_total
+		cur_tax_pct = round(cur_tax / cur_pbt * 100, 2) if cur_pbt else 0
+		pre_tax_pct = round(pre_tax / pre_pbt * 100, 2) if pre_pbt else 0
+
+		# (c) Deferred Tax Assets (Net)
+		def render_dta_table(rows):
+			if not rows:
+				return ""
+			total = [sum(col) for col in zip(*[r[1:] for r in rows])]
+			table = f"""
+			<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff;">
+				<tr style="background-color:#fff;">
+					<th style="width: 30%; border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Particulars</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">As at <br> {current_date}</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">(Charged)/<br>Credited to <br> profit or loss</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">As at <br> {previous_date}</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">(Charged)/<br>Credited to <br> profit or loss</th>
+					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">As at <br> {previous_date}</th>
+				</tr>
+			"""
+			for r in rows:
+				table += f"""
+				<tr>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{r[0]}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(r[1])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(r[2])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(r[3])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(r[4])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(r[5])}</td>
+				</tr>
+				"""
+			table += f"""
+				<tr>
+					<td style="border:1px solid #000; padding:6px;"><strong>Total</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total[0])}</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total[1])}</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total[2])}</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total[3])}</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total[4])}</strong></td>
+				</tr>
+			</table>
+			<br>
+			"""
+			return table
+
+		# Dynamically fetch DTA rows from GL Group Mapping + FR Trial Balance Entry
+		dta_primary_group = "Deferred tax assets (net)"
+		dta_secondary_groups = sorted(set(
+			g for g in frappe.get_list("GL Group Mapping", {"primary_group": dta_primary_group, "company": self.company}, pluck="secondary_group") if g
+		))
+
+		dta_rows = []
+		for sec_group in dta_secondary_groups:
+			gl_accounts = frappe.get_list("GL Group Mapping",
+				{"company": self.company, "primary_group": dta_primary_group, "secondary_group": sec_group}, pluck="gl_account"
+			)
+			cur_amt = 0
+			prev_amt = 0
+			pre_prev_amt = 0
+			if gl_accounts:
+				placeholders = ','.join(['%s'] * len(gl_accounts))
+				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders}) AND month=%s"
+				cur_amt = round((frappe.db.sql(query, [self.company, self.fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
+				prev_amt = round((frappe.db.sql(query, [self.company, self.previous_fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
+				pre_prev_amt = round((frappe.db.sql(query, [self.company, pre_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
+			charged_credited = round(cur_amt - prev_amt, self.show_decimal_value)
+			prev_charged_credited = round(prev_amt - pre_prev_amt, self.show_decimal_value)
+			dta_rows.append((sec_group, cur_amt, charged_credited, prev_amt, prev_charged_credited, pre_prev_amt))
+
+		curr_deferred_tax = sum(row[3] for row in dta_rows)
+		prev_deferred_tax = sum(row[5] for row in dta_rows)
 
 		html += f"""
 		<p><strong style="color:#4472C4; font-size:13px;">(a) Income Tax Expenses</strong></p>
@@ -2211,8 +2321,8 @@ class FinancialReport(Document):
 
 				<tr>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">  Increase in deferred tax assets</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(a_data["current"]["deferred_tax"])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(a_data["previous"]["deferred_tax"])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(curr_deferred_tax)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(prev_deferred_tax)}</td>
 				</tr>
 
 				<tr>
@@ -2224,44 +2334,6 @@ class FinancialReport(Document):
 		</table>
 		<br>
 		"""
-
-		# Fetch PBT from P&L Particular
-		pbt_particular = frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name')
-		cur_pbt = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'),'current_month_amount') or 0
-		pre_pbt = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'),'previous_year') or 0
-
-		# Fetch tax rate from FR Tax Master
-		cur_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.fiscal_year})
-		pre_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.previous_fiscal_year})
-		if cur_tax_master:
-			cur_tax_master_doc = frappe.get_doc("FR Tax Master", cur_tax_master)
-			cur_rate = cur_tax_master_doc.profit_before_tax
-			cur_diff_items = cur_tax_master_doc.difference_due_to
-		else:
-			cur_rate = 0
-			cur_diff_items = []
-
-		if pre_tax_master:
-			pre_tax_master_doc = frappe.get_doc("FR Tax Master", pre_tax_master)
-			pre_rate = pre_tax_master_doc.profit_before_tax
-			pre_diff_items = pre_tax_master_doc.difference_due_to
-		else:
-			pre_rate = 0
-			pre_diff_items = []
-
-		# Build lookup for previous items by particulars
-		pre_diff_map = {d.particulars: d for d in pre_diff_items}
-
-		cur_tax_at_rate = round(cur_pbt * cur_rate / 100)
-		pre_tax_at_rate = round(pre_pbt * pre_rate / 100)
-
-		# Calculate total tax (tax_at_rate + sum of all difference values)
-		cur_diff_total = sum(flt(d.value) for d in cur_diff_items)
-		pre_diff_total = sum(flt(d.value) for d in pre_diff_items)
-		cur_tax = cur_tax_at_rate + cur_diff_total
-		pre_tax = pre_tax_at_rate + pre_diff_total
-		cur_tax_pct = round(cur_tax / cur_pbt * 100, 2) if cur_pbt else 0
-		pre_tax_pct = round(pre_tax / pre_pbt * 100, 2) if pre_pbt else 0
 
 		html += f"""
 		<p><strong style="color:#4472C4; font-size:13px;">b) Reconciliation between the average effective tax rate and applicable tax rate:</strong></p>
@@ -2340,62 +2412,6 @@ class FinancialReport(Document):
 		<p><strong style="color:#4472C4; font-size:13px;">c) Deferred Tax Assets (Net) </strong></p>
 		<p><strong style="font-size:13px;">The balance comprises temporary differences attributable to the below items and corresponding movement in deferred tax assets:</strong></p>
 		"""
-
-		# (c) Deferred Tax Assets (Net)
-		def render_dta_table(rows):
-			if not rows:
-				return ""
-			total = [sum(col) for col in zip(*[r[1:] for r in rows])]
-			table = f"""
-			<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; background-color:#fff;">
-				<tr style="background-color:#fff;">
-					<th style="width: 45%; border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; color:#4472C4; background-color:#fff;">Particulars</th>
-					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">As at <br> {current_date}</th>
-					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">(Charged)/Credited to <br> profit or loss</th>
-					<th style="border-top:1px solid #000; border-right:1px solid #000; border-left:1px solid #000; border-bottom:1px solid #000 !important; padding:6px; font-weight:bold; text-align: center; color:#4472C4; background-color:#fff;">As at <br> {previous_date}</th>
-				</tr>
-			"""
-			for r in rows:
-				table += f"""
-				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{r[0]}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(r[1])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(r[2])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(r[3])}</td>
-				</tr>
-				"""
-			table += f"""
-				<tr>
-					<td style="border:1px solid #000; padding:6px;"><strong>Total</strong></td>
-					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total[0])}</strong></td>
-					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total[1])}</strong></td>
-					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total[2])}</strong></td>
-				</tr>
-			</table>
-			<br>
-			"""
-			return table
-			
-		# Dynamically fetch DTA rows from GL Group Mapping + FR Trial Balance Entry
-		dta_primary_group = "Deferred tax assets (net)"
-		dta_secondary_groups = sorted(set(
-			g for g in frappe.get_list("GL Group Mapping", {"primary_group": dta_primary_group, "company": self.company}, pluck="secondary_group") if g
-		))
-
-		dta_rows = []
-		for sec_group in dta_secondary_groups:
-			gl_accounts = frappe.get_list("GL Group Mapping",
-				{"company": self.company, "primary_group": dta_primary_group, "secondary_group": sec_group}, pluck="gl_account"
-			)
-			cur_amt = 0
-			pre_amt = 0
-			if gl_accounts:
-				placeholders = ','.join(['%s'] * len(gl_accounts))
-				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders}) AND month=%s"
-				cur_amt = round((frappe.db.sql(query, [self.company, self.fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
-				pre_amt = round((frappe.db.sql(query, [self.company, self.previous_fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
-			charged_credited = round(cur_amt - pre_amt, self.show_decimal_value)
-			dta_rows.append((sec_group, cur_amt, charged_credited, pre_amt))
 
 		html += render_dta_table(dta_rows)
 		return section_description.replace("{{note_table}}", html)
