@@ -2452,7 +2452,7 @@ class FinancialReport(Document):
 			"current": {"borrowings": cur_borrowings,"cash": cur_cash,"bank_balances": cur_bank_balances,"equity": cur_tot_equity},
 			"previous": {"borrowings": pre_borrowings,"cash": pre_cash,"bank_balances": pre_bank_balances,"equity": pre_tot_equity}
 		}
-		frappe.throw(str(cur_tot_equity) + " - " + str(pre_tot_equity))
+
 		for y in data:
 			data[y]["adjusted_net_debt"] = (data[y]["borrowings"] - data[y]["cash"] - data[y]["bank_balances"])
 			data[y]["de_ratio"] = (round(data[y]["adjusted_net_debt"] / data[y]["equity"], 1)) if data[y]["equity"] != 0 else 0
