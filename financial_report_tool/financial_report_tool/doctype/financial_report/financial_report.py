@@ -3684,11 +3684,11 @@ class FinancialReport(Document):
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 
-		curr_msme = frappe.db.exists("FR MSMSE Disclosure", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
-		prev_msme = frappe.db.exists("FR MSMSE Disclosure", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
+		curr_msme = frappe.db.exists("FR MSME Disclosure", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
+		prev_msme = frappe.db.exists("FR MSME Disclosure", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
 
 		if curr_msme:
-			curr_msme_doc = frappe.get_doc("FR MSMSE Disclosure", curr_msme)
+			curr_msme_doc = frappe.get_doc("FR MSME Disclosure", curr_msme)
 			cur_principal_amount_outstanding = round(flt(curr_msme_doc.principal_amount_outstanding)/100000, self.show_decimal_value)
 			cur_interest_amount_outstanding = round(flt(curr_msme_doc.interest_amount_outstanding)/100000, self.show_decimal_value)
 			cur_interest_paid_on_delayed_payment = round(flt(curr_msme_doc.interest_paid_on_delayed_payment)/100000, self.show_decimal_value)
@@ -3704,13 +3704,13 @@ class FinancialReport(Document):
 			cur_future_interest_payable = "-"
 		
 		if prev_msme:
-			prev_msme_doc = frappe.get_doc("FR MSMSE Disclosure", prev_msme)
-			pre_principal_amount_outstanding = round(prev_msme_doc.principal_amount_outstanding/100000, self.show_decimal_value)
-			pre_interest_amount_outstanding = round(prev_msme_doc.interest_amount_outstanding/100000, self.show_decimal_value)
-			pre_interest_paid_on_delayed_payment = round(prev_msme_doc.interest_paid_on_delayed_payment/100000, self.show_decimal_value)
-			pre_interest_due_for_the_year = round(prev_msme_doc.interest_due_for_the_year/100000, self.show_decimal_value)
-			pre_interest_accrued_unpaid = round(prev_msme_doc.interest_accrued_unpaid/100000, self.show_decimal_value)
-			pre_future_interest_payable = round(prev_msme_doc.future_interest_payable/100000, self.show_decimal_value)
+			prev_msme_doc = frappe.get_doc("FR MSME Disclosure", prev_msme)
+			pre_principal_amount_outstanding = round(flt(prev_msme_doc.principal_amount_outstanding)/100000, self.show_decimal_value)
+			pre_interest_amount_outstanding = round(flt(prev_msme_doc.interest_amount_outstanding)/100000, self.show_decimal_value)
+			pre_interest_paid_on_delayed_payment = round(flt(prev_msme_doc.interest_paid_on_delayed_payment)/100000, self.show_decimal_value)
+			pre_interest_due_for_the_year = round(flt(prev_msme_doc.interest_due_for_the_year)/100000, self.show_decimal_value)
+			pre_interest_accrued_unpaid = round(flt(prev_msme_doc.interest_accrued_unpaid)/100000, self.show_decimal_value)
+			pre_future_interest_payable = round(flt(prev_msme_doc.future_interest_payable)/100000, self.show_decimal_value)
 		else:
 			pre_principal_amount_outstanding = "-"
 			pre_interest_amount_outstanding = "-"
