@@ -2615,12 +2615,12 @@ class FinancialReport(Document):
 		bs_pre_bank = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Other Bank Balances"}, 'name'), 'previous_year') or 0
 		
 		financial_assets = [
-			("Investments in subsidiary companies", cur_tpl_investment, cur_oci_investment, ((cur_tpl_investment + cur_oci_investment) - bs_cur_investment), pre_tpl_investment, pre_oci_investment, ((pre_tpl_investment + pre_oci_investment) - bs_pre_investment)),
-			("Trade receivables", cur_tpl_trade_receivable, cur_oci_trade_receivable, ((cur_tpl_trade_receivable + cur_oci_trade_receivable) - bs_cur_trade_receivable), pre_tpl_trade_receivable, pre_oci_trade_receivable, ((pre_tpl_trade_receivable + pre_oci_trade_receivable) - bs_pre_trade_receivable)),
-			("Loans", cur_tpl_loan, cur_oci_loan, ((cur_tpl_loan + cur_oci_loan) - bs_cur_loan), pre_tpl_loan, pre_oci_loan, ((pre_tpl_loan + pre_oci_loan) - bs_pre_loan)),
-			("Other financial assets", cur_tpl_fini_assets, cur_oci_fini_assets, ((cur_tpl_fini_assets + cur_oci_fini_assets) - bs_cur_fin_assets), pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr, pre_oci_fini_assets + pre_oci_financial_lib_curr + pre_oci_financial_lib_non_curr, ((pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr) - bs_pre_fin_assets)),
-			("Cash & Cash Equivalents", cur_tpl_cach, cur_oci_cach, ((cur_tpl_cach + cur_oci_cach) - bs_cur_cash), pre_tpl_cach, pre_oci_cach, ((pre_tpl_cach + pre_oci_cach) - bs_pre_cash)),
-			("Bank balances other than Cash & Cash Equivalents", cur_tpl_bank_cash, cur_oci_bank_cash, ((cur_tpl_bank_cash + cur_oci_bank_cash) - bs_cur_bank), pre_tpl_bank_cash, pre_oci_bank_cash, ((pre_tpl_bank_cash + pre_oci_bank_cash) - bs_pre_bank)),
+			("Investments in subsidiary companies", cur_tpl_investment, cur_oci_investment, (bs_cur_investment - (cur_tpl_investment + cur_oci_investment)), pre_tpl_investment, pre_oci_investment, (bs_pre_investment - (pre_tpl_investment + pre_oci_investment))),
+			("Trade receivables", cur_tpl_trade_receivable, cur_oci_trade_receivable, (bs_cur_trade_receivable - (cur_tpl_trade_receivable + cur_oci_trade_receivable)), pre_tpl_trade_receivable, pre_oci_trade_receivable, (bs_pre_trade_receivable - (pre_tpl_trade_receivable + pre_oci_trade_receivable))),
+			("Loans", cur_tpl_loan, cur_oci_loan, (bs_cur_loan - (cur_tpl_loan + cur_oci_loan)), pre_tpl_loan, pre_oci_loan, (bs_pre_loan - (pre_tpl_loan + pre_oci_loan))),
+			("Other financial assets", cur_tpl_fini_assets, cur_oci_fini_assets, (bs_cur_fin_assets - (cur_tpl_fini_assets + cur_oci_fini_assets)), pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr, pre_oci_fini_assets + pre_oci_financial_lib_curr + pre_oci_financial_lib_non_curr, (bs_pre_fin_assets - (pre_tpl_financial_lib_curr + pre_tpl_financial_lib_non_curr))),
+			("Cash & Cash Equivalents", cur_tpl_cach, cur_oci_cach, (bs_cur_cash - (cur_tpl_cach + cur_oci_cach)), pre_tpl_cach, pre_oci_cach, (bs_pre_cash - (pre_tpl_cach + pre_oci_cach))),
+			("Bank balances other than Cash & Cash Equivalents", cur_tpl_bank_cash, cur_oci_bank_cash, (bs_cur_bank - (cur_tpl_bank_cash + cur_oci_bank_cash)), pre_tpl_bank_cash, pre_oci_bank_cash, (bs_pre_bank - (pre_tpl_bank_cash + pre_oci_bank_cash))),
 		]
 
 		pl_cur_borrowing = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) + (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0)
