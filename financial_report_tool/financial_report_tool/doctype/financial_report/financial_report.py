@@ -3141,14 +3141,14 @@ class FinancialReport(Document):
 		pre_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month})
 		if pre_lease:
 			pre_lease_doc = frappe.get_doc("FR Lease", pre_lease)
-			pre_additions_modifications_py = round(pre_lease_doc.additions_modifications, self.show_decimal_value)
-			pre_finance_cost_accrued_py = round(pre_lease_doc.finance_cost_accrued, self.show_decimal_value)
-			pre_derecognition_py = round(pre_lease_doc.derecognition, self.show_decimal_value)
-			pre_payment_of_lease_liabilities_py = round(pre_lease_doc.payment_of_lease_liabilities, self.show_decimal_value)
+			pre_additions_modifications_py = round(flt(pre_lease_doc.additions_modifications)/100000, self.show_decimal_value)
+			pre_finance_cost_accrued_py = round(flt(pre_lease_doc.finance_cost_accrued)/100000, self.show_decimal_value)
+			pre_derecognition_py = round(flt(pre_lease_doc.derecognition)/100000, self.show_decimal_value)
+			pre_payment_of_lease_liabilities_py = round(flt(pre_lease_doc.payment_of_lease_liabilities)/100000, self.show_decimal_value)
 			pre_closing = round(pre_opening + pre_additions_modifications_py + pre_finance_cost_accrued_py + pre_derecognition_py + pre_payment_of_lease_liabilities_py, self.show_decimal_value)
-			pre_less_than_one_year = round(pre_lease_doc.less_than_one_year, self.show_decimal_value)
-			pre_one_to_five_years = round(pre_lease_doc.one_to_five_years, self.show_decimal_value)
-			pre_more_than_five_years = round(pre_lease_doc.more_than_five_years, self.show_decimal_value)
+			pre_less_than_one_year = round(flt(pre_lease_doc.less_than_one_year)/100000, self.show_decimal_value)
+			pre_one_to_five_years = round(flt(pre_lease_doc.one_to_five_years)/100000, self.show_decimal_value)
+			pre_more_than_five_years = round(flt(pre_lease_doc.more_than_five_years)/100000, self.show_decimal_value)
 		else:
 			pre_additions_modifications_py, pre_finance_cost_accrued_py, pre_derecognition_py, pre_payment_of_lease_liabilities_py, pre_closing = 0, 0, 0, 0, 0
 			pre_less_than_one_year, pre_one_to_five_years, pre_more_than_five_years = 0, 0, 0
@@ -3157,14 +3157,14 @@ class FinancialReport(Document):
 		cur_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month})
 		if cur_lease:
 			cur_lease_doc = frappe.get_doc("FR Lease", cur_lease)
-			cur_additions_modifications = round(cur_lease_doc.additions_modifications, self.show_decimal_value)
-			cur_finance_cost_accrued = round(cur_lease_doc.finance_cost_accrued, self.show_decimal_value)
-			cur_derecognition = round(cur_lease_doc.derecognition, self.show_decimal_value)
-			cur_payment_of_lease_liabilities = round(cur_lease_doc.payment_of_lease_liabilities, self.show_decimal_value)
+			cur_additions_modifications = round(flt(cur_lease_doc.additions_modifications)/100000, self.show_decimal_value)
+			cur_finance_cost_accrued = round(flt(cur_lease_doc.finance_cost_accrued)/100000, self.show_decimal_value)
+			cur_derecognition = round(flt(cur_lease_doc.derecognition)/100000, self.show_decimal_value)
+			cur_payment_of_lease_liabilities = round(flt(cur_lease_doc.payment_of_lease_liabilities)/100000, self.show_decimal_value)
 			cur_closing = round(pre_closing + cur_additions_modifications + cur_finance_cost_accrued + cur_derecognition + cur_payment_of_lease_liabilities, self.show_decimal_value)
-			cur_less_than_one_year = round(cur_lease_doc.less_than_one_year, self.show_decimal_value)
-			cur_one_to_five_years = round(cur_lease_doc.one_to_five_years, self.show_decimal_value)
-			cur_more_than_five_years = round(cur_lease_doc.more_than_five_years, self.show_decimal_value)
+			cur_less_than_one_year = round(flt(cur_lease_doc.less_than_one_year)/100000, self.show_decimal_value)
+			cur_one_to_five_years = round(flt(cur_lease_doc.one_to_five_years)/100000, self.show_decimal_value)
+			cur_more_than_five_years = round(flt(cur_lease_doc.more_than_five_years)/100000, self.show_decimal_value)
 		else:
 			cur_additions_modifications, cur_finance_cost_accrued, cur_derecognition, cur_payment_of_lease_liabilities, cur_closing = 0, 0, 0, 0, 0
 			cur_less_than_one_year, cur_one_to_five_years, cur_more_than_five_years = 0, 0, 0
@@ -3465,11 +3465,11 @@ class FinancialReport(Document):
 		cur_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
 		if cur_contingent:
 			cur_contingent_doc = frappe.get_doc("FR Contingent Liabilities", cur_contingent)
-			cur_bank_guarantees = round(cur_contingent_doc.bank_guarantees, self.show_decimal_value)
-			cur_company_imported = round(cur_contingent_doc.company_imported, self.show_decimal_value)
+			cur_bank_guarantees = round(flt(cur_contingent_doc.bank_guarantees)/100000, self.show_decimal_value)
+			cur_company_imported = round(flt(cur_contingent_doc.company_imported)/100000, self.show_decimal_value)
 			cur_company_imported_label = cur_contingent_doc.company_imported_label
 			cur_claim_against = cur_contingent_doc.claim_against
-			cur_disputed_custom = round(cur_contingent_doc.disputed_custom_duty_matters, self.show_decimal_value)
+			cur_disputed_custom = round(flt(cur_contingent_doc.disputed_custom_duty_matters)/100000, self.show_decimal_value)
 		else:
 			cur_bank_guarantees = 0
 			cur_company_imported = 0
@@ -3480,11 +3480,11 @@ class FinancialReport(Document):
 		prev_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
 		if prev_contingent:
 			prev_contingent_doc = frappe.get_doc("FR Contingent Liabilities", prev_contingent)
-			pre_bank_guarantees = round(prev_contingent_doc.bank_guarantees, self.show_decimal_value)
-			pre_company_imported = round(prev_contingent_doc.company_imported, self.show_decimal_value)
+			pre_bank_guarantees = round(flt(prev_contingent_doc.bank_guarantees)/100000, self.show_decimal_value)
+			pre_company_imported = round(flt(prev_contingent_doc.company_imported)/100000, self.show_decimal_value)
 			pre_company_imported_label = prev_contingent_doc.company_imported_label
 			pre_claim_against = prev_contingent_doc.claim_against
-			pre_disputed_custom = round(prev_contingent_doc.disputed_custom_duty_matters, self.show_decimal_value)
+			pre_disputed_custom = round(flt(prev_contingent_doc.disputed_custom_duty_matters)/100000, self.show_decimal_value)
 		else:
 			pre_bank_guarantees = 0
 			pre_company_imported = 0
@@ -3555,10 +3555,10 @@ class FinancialReport(Document):
 			as_dict=True
 		)
 
-		cur_estimated_capital = round(cur_cap_data.estimated_capital_contracts_unexecuted if cur_cap_data else 0, self.show_decimal_value)
-		cur_other_commitments = round(cur_cap_data.other_commitments if cur_cap_data else 0, self.show_decimal_value)
-		pre_estimated_capital = round(pre_cap_data.estimated_capital_contracts_unexecuted if pre_cap_data else 0, self.show_decimal_value)
-		pre_other_commitments = round(pre_cap_data.other_commitments if pre_cap_data else 0, self.show_decimal_value)
+		cur_estimated_capital = round(flt(cur_cap_data.estimated_capital_contracts_unexecuted)/100000 if cur_cap_data else 0, self.show_decimal_value)
+		cur_other_commitments = round(flt(cur_cap_data.other_commitments)/100000 if cur_cap_data else 0, self.show_decimal_value)
+		pre_estimated_capital = round(flt(pre_cap_data.estimated_capital_contracts_unexecuted)/100000 if pre_cap_data else 0, self.show_decimal_value)
+		pre_other_commitments = round(flt(pre_cap_data.other_commitments)/100000 if pre_cap_data else 0, self.show_decimal_value)
 
 		def fmt(val):
 			if val in (None, "-", ""):
@@ -3689,12 +3689,12 @@ class FinancialReport(Document):
 
 		if curr_msme:
 			curr_msme_doc = frappe.get_doc("FR MSMSE Disclosure", curr_msme)
-			cur_principal_amount_outstanding = round(curr_msme_doc.principal_amount_outstanding, self.show_decimal_value)
-			cur_interest_amount_outstanding = round(curr_msme_doc.interest_amount_outstanding, self.show_decimal_value)
-			cur_interest_paid_on_delayed_payment = round(curr_msme_doc.interest_paid_on_delayed_payment, self.show_decimal_value)
-			cur_interest_due_for_the_year = round(curr_msme_doc.interest_due_for_the_year, self.show_decimal_value)
-			cur_interest_accrued_unpaid = round(curr_msme_doc.interest_accrued_unpaid, self.show_decimal_value)
-			cur_future_interest_payable = round(curr_msme_doc.future_interest_payable, self.show_decimal_value)
+			cur_principal_amount_outstanding = round(flt(curr_msme_doc.principal_amount_outstanding)/100000, self.show_decimal_value)
+			cur_interest_amount_outstanding = round(flt(curr_msme_doc.interest_amount_outstanding)/100000, self.show_decimal_value)
+			cur_interest_paid_on_delayed_payment = round(flt(curr_msme_doc.interest_paid_on_delayed_payment)/100000, self.show_decimal_value)
+			cur_interest_due_for_the_year = round(flt(curr_msme_doc.interest_due_for_the_year)/100000, self.show_decimal_value)
+			cur_interest_accrued_unpaid = round(flt(curr_msme_doc.interest_accrued_unpaid)/100000, self.show_decimal_value)
+			cur_future_interest_payable = round(flt(curr_msme_doc.future_interest_payable)/100000, self.show_decimal_value)
 		else:
 			cur_principal_amount_outstanding = "-"
 			cur_interest_amount_outstanding = "-"
@@ -3705,12 +3705,12 @@ class FinancialReport(Document):
 		
 		if prev_msme:
 			prev_msme_doc = frappe.get_doc("FR MSMSE Disclosure", prev_msme)
-			pre_principal_amount_outstanding = round(prev_msme_doc.principal_amount_outstanding, self.show_decimal_value)
-			pre_interest_amount_outstanding = round(prev_msme_doc.interest_amount_outstanding, self.show_decimal_value)
-			pre_interest_paid_on_delayed_payment = round(prev_msme_doc.interest_paid_on_delayed_payment, self.show_decimal_value)
-			pre_interest_due_for_the_year = round(prev_msme_doc.interest_due_for_the_year, self.show_decimal_value)
-			pre_interest_accrued_unpaid = round(prev_msme_doc.interest_accrued_unpaid, self.show_decimal_value)
-			pre_future_interest_payable = round(prev_msme_doc.future_interest_payable, self.show_decimal_value)
+			pre_principal_amount_outstanding = round(prev_msme_doc.principal_amount_outstanding/100000, self.show_decimal_value)
+			pre_interest_amount_outstanding = round(prev_msme_doc.interest_amount_outstanding/100000, self.show_decimal_value)
+			pre_interest_paid_on_delayed_payment = round(prev_msme_doc.interest_paid_on_delayed_payment/100000, self.show_decimal_value)
+			pre_interest_due_for_the_year = round(prev_msme_doc.interest_due_for_the_year/100000, self.show_decimal_value)
+			pre_interest_accrued_unpaid = round(prev_msme_doc.interest_accrued_unpaid/100000, self.show_decimal_value)
+			pre_future_interest_payable = round(prev_msme_doc.future_interest_payable/100000, self.show_decimal_value)
 		else:
 			pre_principal_amount_outstanding = "-"
 			pre_interest_amount_outstanding = "-"
