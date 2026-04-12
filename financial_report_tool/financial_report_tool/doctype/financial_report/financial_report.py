@@ -3133,7 +3133,7 @@ class FinancialReport(Document):
 		pre_prev_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': pre_prev_year, 'month': cls_month})
 		if pre_prev_lease:
 			pre_prev_lease_doc = frappe.get_doc("FR Lease", pre_prev_lease)
-			pre_opening = pre_prev_lease_doc.additions_modifications + pre_prev_lease_doc.finance_cost_accrued + pre_prev_lease_doc.derecognition + pre_prev_lease_doc.payment_of_lease_liabilities
+			pre_opening = round(flt(pre_prev_lease_doc.additions_modifications)/100000, self.show_decimal_value) + round(flt(pre_prev_lease_doc.finance_cost_accrued)/100000, self.show_decimal_value) + round(flt(pre_prev_lease_doc.derecognition)/100000, self.show_decimal_value) + round(flt(pre_prev_lease_doc.payment_of_lease_liabilities)/100000, self.show_decimal_value)
 		else:
 			pre_opening = 0
 
