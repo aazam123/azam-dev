@@ -14,7 +14,7 @@ RELATION_MAP = {
 	"Subsidiary Company": "Subsidiary",
 	"Fellow Subsidiary": "Fellow Subsidiary",
 	"Fellow Subsidiary of Holding Company": "Fellow Subsidiary of Holding Company",
-	"Subsidiary of Fellow Subsidiary": "Fellow Subsidiary",
+	"Subsidiary of Fellow Subsidiary": "Subsidiary of Fellow Subsidiary",
 	"Key Managerial Personnel": "Key Managerial Personnel",
 }
 
@@ -24,6 +24,7 @@ RELATION_ORDER = [
 	"Subsidiary",
 	"Fellow Subsidiary of Holding Company",
 	"Fellow Subsidiary",
+	"Subsidiary of Fellow Subsidiary",
 	"Key Managerial Personnel",
 ]
 
