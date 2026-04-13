@@ -1067,8 +1067,6 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_yearly_other_intangible_assets(self, section_description="", field=""):
-		if field:
-			return 0
 		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
 		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
 
@@ -3317,8 +3315,8 @@ class FinancialReport(Document):
 
 			return f'''
 			<div>
-			<p style="margin-top: -70px; color: #4472C4;"><b>{header}</b></p>
-			<table style="width:100%; border-collapse:collapse; margin-top: -25px">
+			<p style="margin-top: 10px; color: #4472C4;"><b>{header}</b></p>
+			<table style="width:100%; border-collapse:collapse;">
 				<thead>
 					<tr style="background-color:#E8F5E8;">
 						<th style="border:1px solid black; width:8%; text-align:center;">Sr. No.</th>
