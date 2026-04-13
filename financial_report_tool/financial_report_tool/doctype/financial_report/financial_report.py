@@ -4349,7 +4349,7 @@ class FinancialReport(Document):
 		trade_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Trade Receivables", cls_month, pre_year) or 0), self.show_decimal_value)
 		other_recv_prev = round((self.get_sum_grouping_amount("Trade Receivables", "Other Trade receivables", cls_month, pre_year) or 0), self.show_decimal_value)
 
-		pre_rev = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'current_month_amount') 
+		pre_rev = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Revenue from Operations"}, 'name'), 'previous_year') 
 		pre_avg_trade = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Receivables"}, 'name'), 'previous_year') + (credit_impaired_prev + trade_recv_prev + other_recv_prev))/2
 		pre_trade_ratio = 0 if pre_avg_trade == 0 else pre_rev/pre_avg_trade
 
