@@ -4622,16 +4622,16 @@ class FinancialReport(Document):
 
 		data = {
 			"current": {
-				"employee_benefits": curr_ebe,
-				"other_expenses": curr_oe,
-				"ppe": curr_ppe,
-				"intangible": curr_intangible
+				"employee_benefits": round(curr_ebe/100000, self.show_decimal_value),
+				"other_expenses": round(curr_oe/100000, self.show_decimal_value),
+				"ppe": round(curr_ppe/100000, self.show_decimal_value),
+				"intangible": round(curr_intangible/100000, self.show_decimal_value)
 			},
 			"previous": {
-				"employee_benefits": prev_ebe,
-				"other_expenses": prev_oe,
-				"ppe": prev_ppe,
-				"intangible": prev_intangible
+				"employee_benefits": round(prev_ebe/100000, self.show_decimal_value),
+				"other_expenses": round(prev_oe/100000, self.show_decimal_value),
+				"ppe": round(prev_ppe/100000, self.show_decimal_value),
+				"intangible": round(prev_intangible/100000, self.show_decimal_value)
 			}
 		}
 
@@ -4719,19 +4719,19 @@ class FinancialReport(Document):
 		
 		data = {
 			"current": {
-				"opening_shortfall": curr_open_short,
-				"required_to_spend": curr_rts,
-				"spent": curr_spent,
-				"closing_shortfall": curr_closing_short,
+				"opening_shortfall": round(curr_open_short/100000, self.show_decimal_value),
+				"required_to_spend": round(curr_rts/100000, self.show_decimal_value),
+				"spent": round(curr_spent/100000, self.show_decimal_value),
+				"closing_shortfall": round(curr_closing_short/100000, self.show_decimal_value),
 				"nature": curr_nature,
 				"related_party": curr_related_party,
 				"provision_movement": curr_provision_movement
 			},
 			"previous": {
-				"opening_shortfall": prev_open_short,
-				"required_to_spend": prev_rts,
-				"spent": prev_spent,
-				"closing_shortfall": prev_closing_short,
+				"opening_shortfall": round(prev_open_short/100000, self.show_decimal_value),
+				"required_to_spend": round(prev_rts/100000, self.show_decimal_value),
+				"spent": round(prev_spent/100000, self.show_decimal_value),
+				"closing_shortfall": round(prev_closing_short/100000, self.show_decimal_value),
 				"nature": prev_nature,
 				"related_party": prev_related_party,
 				"provision_movement": prev_provision_movement
