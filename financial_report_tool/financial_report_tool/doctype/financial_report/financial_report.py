@@ -4416,7 +4416,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(cur_ded_ratio, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_tot_ded)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_ded_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ded_ratio == 0 else (cur_ded_ratio - pre_ded_ratio) / pre_ded_ratio * 100, debt_equ_rem)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ded_ratio == 0 else (cur_ded_ratio - pre_ded_ratio) / pre_ded_ratio * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Total Equity</td>
@@ -4431,7 +4431,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_deb_ser_ratio, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_net_op)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_deb_ser_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_deb_ser_ratio == 0 else (curr_deb_ser_ratio - pre_deb_ser_ratio) / pre_deb_ser_ratio * 100, debt_serv_rem)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_deb_ser_ratio == 0 else (curr_deb_ser_ratio - pre_deb_ser_ratio) / pre_deb_ser_ratio * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Total Debt Service</td>
@@ -4446,7 +4446,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_equ_ratio, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_pro_af_tax)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_equ_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_equ_ratio == 0 else (curr_equ_ratio - pre_equ_ratio) / pre_equ_ratio * 100, ret_equ_rat)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_equ_ratio == 0 else (curr_equ_ratio - pre_equ_ratio) / pre_equ_ratio * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Average Shareholder's Equity</td>
@@ -4461,7 +4461,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_inv_ratio, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_cogs)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_inv_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_inv_ratio == 0 else (curr_inv_ratio - pre_inv_ratio) / pre_inv_ratio * 100, inv_turn_ratio)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_inv_ratio == 0 else (curr_inv_ratio - pre_inv_ratio) / pre_inv_ratio * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Average Inventory</td>
@@ -4476,7 +4476,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_trade_ratio, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_rev)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_trade_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_trade_ratio == 0 else (curr_trade_ratio - pre_trade_ratio) / pre_trade_ratio * 100, trade_rec_turn_ratio)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_trade_ratio == 0 else (curr_trade_ratio - pre_trade_ratio) / pre_trade_ratio * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Avg Trade Receivable</td>
@@ -4491,7 +4491,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_trade_payable, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_pur)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_trade_payable, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_trade_payable == 0 else (curr_trade_payable - pre_trade_payable) / pre_trade_payable * 100, trade_pay_turn_ratio)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_trade_payable == 0 else (curr_trade_payable - pre_trade_payable) / pre_trade_payable * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Avg Trade Payable</td>
@@ -4506,7 +4506,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_net_rev_rat, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_rev)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_net_rev_rat, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_net_rev_rat == 0 else (curr_net_rev_rat - pre_net_rev_rat) / pre_net_rev_rat * 100, net_cap_turn_ration)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_net_rev_rat == 0 else (curr_net_rev_rat - pre_net_rev_rat) / pre_net_rev_rat * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Working Capital</td>
@@ -4521,7 +4521,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_net_pro_ratio, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_pro_af_tax)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_net_pro_ratio, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_net_pro_ratio == 0 else (curr_net_pro_ratio - pre_net_pro_ratio) / pre_net_pro_ratio * 100, net_pro_ratio)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_net_pro_ratio == 0 else (curr_net_pro_ratio - pre_net_pro_ratio) / pre_net_pro_ratio * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Revenue</td>
@@ -4536,7 +4536,7 @@ class FinancialReport(Document):
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle; background-color:#E8F5E8;">{fmt(curr_ret_cap_emp, is_ratio=True)}</td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_ear_be_tax)}</td>
 				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(pre_ret_cap_emp, is_ratio=True)}</td>
-				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ret_cap_emp == 0 else (curr_ret_cap_emp - pre_ret_cap_emp) / pre_ret_cap_emp * 100, ret_on_cap_emp)}</td>
+				<td rowspan="2" style="border:1px solid #000; padding:6px; text-align:right; vertical-align:middle;">{fmt(0 if pre_ret_cap_emp == 0 else (curr_ret_cap_emp - pre_ret_cap_emp) / pre_ret_cap_emp * 100)}</td>
 			</tr>
 			<tr>
 				<td style="border:1px solid #000; padding:6px;">Capital Employed</td>
