@@ -530,7 +530,7 @@ class FinancialReport(Document):
 			if cache_key in self._sum_grouping_cache:
 				return self._sum_grouping_cache[cache_key]
 
-		filters = {"company": self.company, "report_type": "Yearly","primary_group": primary_group,"secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
+		filters = {"company": self.company, "report_type": "Yearly", "primary_group": primary_group,"secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts:
 			result = 0
@@ -4826,10 +4826,10 @@ class FinancialReport(Document):
 			d.section for d in self.get("financial_report_details", [])
 			if d.section_type == "Balance Sheet"
 		)	
-		current_sr_ind = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Domestic Sales", cls_month, self.fiscal_year) or 0
-		previous_sr_ind = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Domestic Sales", cls_month, self.previous_fiscal_year) or 0
-		current_sr_row = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Export Sales", cls_month, self.fiscal_year) or 0
-		previous_sr_row = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Export Sales", cls_month, self.previous_fiscal_year) or 0
+		current_sr_ind = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Sales of Finished Goods", cls_month, self.fiscal_year, hg_sec_group="Domestic Sales") or 0
+		previous_sr_ind = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Sales of Finished Goods", cls_month, self.previous_fiscal_year, hg_sec_group="Domestic Sales") or 0
+		current_sr_row = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Sales of Finished Goods", cls_month, self.fiscal_year, hg_sec_group="Export Sales") or 0
+		previous_sr_row = -self.get_sum_grouping_amount_yearly("Revenue from Operations", "Sales of Finished Goods", cls_month, self.previous_fiscal_year, hg_sec_group="Export Sales") or 0
 
 		current_ccsa_row = flt(frappe.get_value("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': self.fiscal_year, 'currency': ["!=", "INR"]}, "amount_in_lc")) + \
 			flt(self.get_yearly_other_intangible_assets(field="curr_intangel_asset")) + flt(frappe.get_value("FR Segmental Information Master", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month}, "ccsa_row"))
