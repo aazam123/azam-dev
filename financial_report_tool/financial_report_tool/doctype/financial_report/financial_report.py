@@ -4376,7 +4376,7 @@ class FinancialReport(Document):
 		curr_ret_cap_emp = 0 if curr_cap_emp_equity == 0 else curr_ear_be_tax/curr_cap_emp_equity 
 
 		pre_ear_be_tax = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Profit Before Tax"}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Finance Cost"}, 'name'), 'previous_year')
-		pre_cap_emp_equity = pre_total_equity + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year')
+		pre_cap_emp_equity = self.get_bs_particular_data(frappe.get_value("FR Particular", {'particular_type': "Total Equity"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year')
 		pre_ret_cap_emp = 0 if pre_cap_emp_equity == 0 else pre_ear_be_tax/pre_cap_emp_equity 
 
 		note_table_1 = f"""
