@@ -3895,7 +3895,7 @@ class FinancialReport(Document):
 		if prev_ebo:
 			for i in prev_ebo.amount_recognised_in_the_balance_sheet:
 				if i.label in note_table_1_map:
-					note_table_1_map[i.label]["prev_amt"] = i.value
+					note_table_1_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
 				else:
 					note_table_1_map[i.label] = {
 						"label": i.label,
@@ -3939,7 +3939,7 @@ class FinancialReport(Document):
 		if prev_ebo:
 			for i in prev_ebo.amount_recognised_in_statement_of_profit:
 				if i.label in note_table_2_map:
-					note_table_2_map[i.label]["prev_amt"] = i.value
+					note_table_2_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
 				else:
 					note_table_2_map[i.label] = {
 						"label": i.label,
@@ -4154,7 +4154,7 @@ class FinancialReport(Document):
 		if prev_ebo:
 			for i in prev_ebo.maturity_analysis:
 				if i.label in note_table_11_map:
-					note_table_11_map[i.label]["prev_amt"] = i.value
+					note_table_11_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
 				else:
 					note_table_11_map[i.label] = {
 						"label": i.label,
