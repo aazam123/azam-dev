@@ -1,0 +1,112 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-14 12:45:55.715895",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "particulars",
+  "section_break_cbmz",
+  "as_at_pre_previous_year",
+  "prev_addition",
+  "prev_disposals",
+  "column_break_kruz",
+  "as_at_previous_year",
+  "curr_addition",
+  "curr_disposals",
+  "column_break_jzct",
+  "as_at_current_year"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "particulars",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Particulars"
+  },
+  {
+   "fieldname": "section_break_cbmz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 2,
+   "fieldname": "as_at_pre_previous_year",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "As at Pre Previous Year",
+   "precision": "2"
+  },
+  {
+   "columns": 1,
+   "fieldname": "prev_addition",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Additions",
+   "precision": "2"
+  },
+  {
+   "columns": 1,
+   "fieldname": "prev_disposals",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Disposals",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_kruz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "as_at_previous_year",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "As at Previous Year",
+   "precision": "2"
+  },
+  {
+   "columns": 1,
+   "fieldname": "curr_addition",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Additions",
+   "precision": "2"
+  },
+  {
+   "columns": 1,
+   "fieldname": "curr_disposals",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Disposals",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_jzct",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "as_at_current_year",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "As at Current Year",
+   "precision": "2"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-14 13:56:16.123904",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR FAR Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

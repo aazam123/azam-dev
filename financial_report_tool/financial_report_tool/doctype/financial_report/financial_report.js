@@ -48,23 +48,6 @@ frappe.ui.form.on("Financial Report", {
 	},
     refresh(frm) {
         if (!frm.is_new()) {
-            // frm.add_custom_button("Show Report", function () {
-            //     frappe.db.get_single_value("FR Financial Settings", "print_format")
-            //         .then(print_format => {
-            //             if (!print_format) {
-            //                 frappe.throw(__("Please set Print Format in Financial Settings"));
-            //             }
-
-            //             const print_url = frappe.urllib.get_full_url(
-            //                 `/printview?doctype=${encodeURIComponent("Financial Report")}` +
-            //                 `&name=${encodeURIComponent(frm.doc.name)}` +
-            //                 `&format=${encodeURIComponent(print_format)}` +
-            //                 `&no_letterhead=0`
-            //             );
-
-            //             window.open(print_url, "_blank");
-            //         });
-            // });
             frm.add_custom_button("Show Report", function () {
                 const print_format = "Financial Report";
                 const print_url = `/printview?doctype=Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;

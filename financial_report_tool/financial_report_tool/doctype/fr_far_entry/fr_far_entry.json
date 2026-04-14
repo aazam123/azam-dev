@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:FAR-{company}-{###}",
+ "creation": "2026-04-14 12:42:59.496312",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "process_calculation",
+  "column_break_fhom",
+  "fiscal_year",
+  "column_break_arss",
+  "previous_fiscal_year",
+  "column_break_nlgb",
+  "pre_previous_year",
+  "property_plant_and_equipment_section",
+  "ppe_gross_carrying",
+  "ppe_accumulated_depreciation",
+  "other_intangible_assets_section",
+  "other_gross_carrying",
+  "other_accumulated_depreciation",
+  "right_of_use_assets_section",
+  "rou_gross_carrying",
+  "rou_accumulated_depreciation"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_fhom",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year"
+  },
+  {
+   "fieldname": "column_break_arss",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "previous_fiscal_year",
+   "fieldtype": "Link",
+   "label": "Previous Year",
+   "options": "Fiscal Year",
+   "read_only": 1
+  },
+  {
+   "fieldname": "property_plant_and_equipment_section",
+   "fieldtype": "Section Break",
+   "label": "Property, plant and equipment"
+  },
+  {
+   "fieldname": "ppe_gross_carrying",
+   "fieldtype": "Table",
+   "label": "Gross Carrying",
+   "options": "FR FAR Details"
+  },
+  {
+   "fieldname": "ppe_accumulated_depreciation",
+   "fieldtype": "Table",
+   "label": "Accumulated depreciation",
+   "options": "FR FAR Details"
+  },
+  {
+   "fieldname": "other_intangible_assets_section",
+   "fieldtype": "Section Break",
+   "label": "Other intangible assets"
+  },
+  {
+   "fieldname": "other_gross_carrying",
+   "fieldtype": "Table",
+   "label": "Gross Carrying",
+   "options": "FR FAR Details"
+  },
+  {
+   "fieldname": "other_accumulated_depreciation",
+   "fieldtype": "Table",
+   "label": "Accumulated depreciation",
+   "options": "FR FAR Details"
+  },
+  {
+   "fieldname": "right_of_use_assets_section",
+   "fieldtype": "Section Break",
+   "label": "Right of use assets"
+  },
+  {
+   "fieldname": "rou_gross_carrying",
+   "fieldtype": "Table",
+   "label": "Gross Carrying",
+   "options": "FR FAR Details"
+  },
+  {
+   "fieldname": "rou_accumulated_depreciation",
+   "fieldtype": "Table",
+   "label": "Accumulated depreciation",
+   "options": "FR FAR Details"
+  },
+  {
+   "fieldname": "process_calculation",
+   "fieldtype": "Button",
+   "label": "Process Calculation"
+  },
+  {
+   "fieldname": "column_break_nlgb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "pre_previous_year",
+   "fieldtype": "Link",
+   "label": "Pre Previous Year",
+   "options": "Fiscal Year",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-14 13:38:57.732005",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR FAR Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

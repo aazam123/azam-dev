@@ -12,7 +12,7 @@ from frappe.utils import flt
 from frappe.utils import getdate
 from bs4 import BeautifulSoup
 from collections import defaultdict
-from frappe.utils import get_site_path, now_datetime
+from frappe.utils import get_site_path, now_datetime, relativedelta, formatdate
 from datetime import datetime, timedelta, date
 from frappe.model.document import Document
 from openpyxl.utils import get_column_letter
@@ -773,6 +773,173 @@ class FinancialReport(Document):
 		for child in children:
 			all_groups.extend(self.get_all_child_groups(child))
 		return all_groups
+
+	# def get_yearly_property_plant_and_equipment_data(self, section_description=""):
+	# 	prev_year_end_date = formatdate(getdate(self.previous_year_ending_date), "dd-MMM-yyyy")
+	# 	curr_year_curr_year_end_dateend = formatdate(getdate(self.current_year_ending_date), "dd-MMM-yyyy")
+	# 	prev_year_start_date = formatdate(prev_year_end.replace(month=4, day=1), "dd-MMM-yyyy")
+
+	# 	far_entry = frappe.db.exists(
+	# 		"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
+	# 	)
+
+	# 	if not far_entry:
+	# 		return "<p>No FAR data found</p>"
+
+	# 	far_doc = frappe.get_doc("FR FAR Entry", far_entry)
+	# 	gross_map = {}
+	# 	dep_map = {}
+	# 	particulars = []
+
+	# 	for item in far_doc.ppe_gross_carrying:
+	# 		gross_map[item.particulars] = item
+	# 		particulars.append(item.particulars)
+
+	# 	for item in far_doc.ppe_accumulated_depreciation:
+	# 		dep_map[item.particulars] = item
+
+	# 	num_cols = len(particulars)
+	# 	col_width = round((100 - 21 - 8) / num_cols, 1) if num_cols else 10
+
+	# 	header_cols = "".join(
+	# 		f'<th style="border:1px solid black; width:{col_width}%;">{p}</th>'
+	# 		for p in particulars
+	# 	)
+
+	# 	header_cols += '<th style="background:#E8F5E8; border:1px solid black; width:8%;">Total</th>'
+
+	# 	def build_row(label, fieldname, data_map):
+	# 		row = f'<tr><td style="border:1px solid black;">{label}</td>'
+	# 		total = 0
+
+	# 		for p in particulars:
+	# 			value = getattr(data_map.get(p, {}), fieldname, 0) or 0
+	# 			total += value
+	# 			row += f'<td style="border:1px solid black; text-align:right;">{value:,.2f}</td>'
+
+	# 		row += f'<td style="border:1px solid black; text-align:right; background:#E8F5E8;">{total:,.2f}</td></tr>'
+	# 		return row
+
+	# 	# =========================
+	# 	# 🧾 Build Rows
+	# 	# =========================
+	# 	rows = ""
+
+	# 	# ---- I. Gross Carrying Amount ----
+	# 	rows += f'<tr style="background:#D9EAD3;"><td colspan="{num_cols+2}"><b>I. Gross carrying amount</b></td></tr>'
+
+	# 	rows += build_row(f"As at {prev_year_start_date}", "as_at_pre_previous_year", gross_map)
+	# 	rows += build_row("Additions", "prev_addition", gross_map)
+	# 	rows += build_row("Disposals", "prev_disposals", gross_map)
+	# 	rows += build_row(f"As at {prev_year_end_date}", "as_at_previous_year", gross_map)
+	# 	rows += build_row("Additions", "curr_addition", gross_map)
+	# 	rows += build_row("Disposals", "curr_disposals", gross_map)
+	# 	rows += build_row(f"As at {curr_year_end_date}", "as_at_current_year", gross_map)
+
+	# 	# ---- II. Accumulated Depreciation ----
+	# 	rows += f'<tr style="background:#D9EAD3;"><td colspan="{num_cols+2}"><b>II. Accumulated depreciation</b></td></tr>'
+
+	# 	rows += build_row(f"As at {prev_year_start_date}", "as_at_pre_previous_year", dep_map)
+	# 	rows += build_row("Additions", "prev_addition", dep_map)
+	# 	rows += build_row("Disposals", "prev_disposals", dep_map)
+	# 	rows += build_row(f"As at {prev_year_end_date}", "as_at_previous_year", dep_map)
+	# 	rows += build_row("Additions", "curr_addition", dep_map)
+	# 	rows += build_row("Disposals", "curr_disposals", dep_map)
+	# 	rows += build_row(f"As at {curr_year_end_date}", "as_at_current_year", dep_map)
+
+	# 	# ---- III. Net Carrying Amount ----
+	# 	rows += f'<tr style="background:#D9EAD3;"><td colspan="{num_cols+2}"><b>III. Net carrying amount</b></td></tr>'
+
+	# 	row = f'<tr><td style="border:1px solid black;">As at {curr_year_end_date}</td>'
+	# 	total = 0
+
+	# 	for p in particulars:
+	# 		gross = getattr(gross_map.get(p, {}), "as_at_current_year", 0) or 0
+	# 		dep = getattr(dep_map.get(p, {}), "as_at_current_year", 0) or 0
+	# 		net = gross - dep
+	# 		total += net
+
+	# 		row += f'<td style="border:1px solid black; text-align:right;">{net:,.2f}</td>'
+
+	# 	row += f'<td style="border:1px solid black; text-align:right; background:#E8F5E8;">{total:,.2f}</td></tr>'
+	# 	rows += row
+
+
+	# 	html = f"""
+	# 	<div style="page-break-before:always; width:1200px;">
+	# 		<table style="border-collapse:collapse; width:100%; table-layout:fixed;">
+	# 			<thead>
+	# 				<tr style="color:#4472C4;">
+	# 					<th style="border:1px solid black; width:21%;">Particulars</th>
+	# 					{header_cols}
+	# 				</tr>
+	# 			</thead>
+	# 			<tbody>
+	# 				{rows}
+	# 			</tbody>
+	# 		</table>
+	# 	</div>
+	# 	"""
+
+	# 	return html
+	# def get_yearly_property_plant_and_equipment_data(self, section_description=""):
+	# 	prev_year_start_date = formatdate(frappe.utils.getdate(self.previous_year_ending_date) - relativedelta(years=1, months=9, days= -1), 'dd-mm-yyyy')
+	# 	prev_year_end_date = formatdate(frappe.utils.getdate(self.previous_year_ending_date), 'dd-mm-yyyy')
+	# 	curr_year_end_date = formatdate(frappe.utils.getdate(self.current_year_ending_date), 'dd-mm-yyyy')
+
+	# 	far_entry = frappe.db.exists("FR FAR Entry", {"company": self.company, 'fiscal_year': self.fiscal_year})
+	# 	if far_entry:
+	# 		far_doc = frappe.get_doc("FR FAR Entry", far_entry)
+	# 		particulars = []
+	# 		for item in far_doc.ppe_gross_carrying:
+	# 			particulars.append(item.particulars)
+
+	# 		num_cols = len(particulars)
+	# 		col_width = round((100 - 21 - 8) / num_cols, 1) if num_cols else 10
+
+	# 		data_rows = {
+	# 			"I. Gross carrying amount": "",
+	# 			"As at {prev_year_start_date}": "",
+	# 			"Additions": "",
+	# 			"Disposals": "",
+	# 			"As at {prev_year_end_date}": "",
+	# 			"Additions": "",
+	# 			"Disposals": "",
+	# 			"As at {curr_year_end_date}": "",
+	# 			"II. Accumulated depreciation": "",
+	# 			"As at {prev_year_start_date}": "",
+	# 			"Additions": "",
+	# 			"Disposals": "",
+	# 			"As at {prev_year_end_date}": "",
+	# 			"Additions": "",
+	# 			"Disposals": "",
+	# 			"As at {curr_year_end_date}": "",
+	# 			"III. Net carrying amount": ""
+	# 		}
+
+	# 		header_cols = "".join(
+	# 			f'<th style="border: 1px solid black; border-bottom:1px solid black; width: {col_width}%;">{asset}</th>'
+	# 			for asset in particulars
+	# 		)
+	# 		header_cols += f'<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 8%;">Total</th>'
+			
+	# 		html = f"""
+	# 		<div class="landscape-table-wrapper" style="page-break-before: always; page-break-after: always; transform-origin: top left; position: relative; top: -30px; width: 1200px;">
+	# 			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
+	# 			<thead>
+	# 				<tr style="color: #4472C4;">
+	# 					<th style="border: 1px solid black; border-bottom:1px solid black; width: 21%;">Particulars</th>
+	# 					{header_cols}
+	# 				</tr>
+	# 			</thead>
+	# 			<tbody>
+	# 				{data_rows}
+	# 			</tbody>
+	# 			</table>
+	# 		</div>
+	# 		"""
+		
+	# 	frappe.throw(str(html))
 
 	def get_yearly_property_plant_and_equipment_data(self, section_description=""):
 		prev_year_end_date = getdate(self.previous_year_ending_date)
@@ -2964,10 +3131,10 @@ class FinancialReport(Document):
 		]
 		currency_trade_rec = set(frappe.get_all("FR Account Receivable Entry", {'company': self.company, 'fiscal_year': ["in", self.fiscal_year, self.previous_fiscal_year], 'special_gl_ind': ["!=", "D"]}, pluck='currency')) or []
 		for c in currency_trade_rec:
-			result_current = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			result_current = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'currency': c, 'month': cls_month, 'fiscal_year': self.fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_current = (result_current[0] if isinstance(result_current, tuple) else result_current) or 0
 			inr_current = (result_current[1] if isinstance(result_current, tuple) else 0) or 0
-			result_previous = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'type': 'Account Receivable', 'currency': c, 'month': cls_month, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
+			result_previous = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'currency': c, 'month': cls_month, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
 			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
 			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
