@@ -175,7 +175,7 @@ frappe.query_reports["GL Account Group Report"] = {
                                 }
 
                                 d.hide();
-                                report.refresh();
+                                window.location.reload();
                             }
                         }
                     });
