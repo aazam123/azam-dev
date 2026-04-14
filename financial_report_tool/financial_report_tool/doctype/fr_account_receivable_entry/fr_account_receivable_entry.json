@@ -122,9 +122,8 @@
   },
   {
    "fieldname": "country",
-   "fieldtype": "Link",
-   "label": "Country",
-   "options": "Country"
+   "fieldtype": "Data",
+   "label": "Country"
   },
   {
    "fieldname": "city",
@@ -341,7 +340,7 @@
    "fieldname": "special_gl_ind",
    "fieldtype": "Select",
    "label": "Special G/L ind",
-   "options": "\nA\nB\nD"
+   "options": "\nA\nB\nD\nE"
   },
   {
    "fieldname": "due_days",
@@ -373,7 +372,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-21 10:17:11.076008",
+ "modified": "2026-04-14 10:50:24.007662",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",

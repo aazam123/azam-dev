@@ -5686,30 +5686,30 @@ class FinancialReport(Document):
 		prev_data = process_ageing(prev_entries)
 
 		html += f"""
-		<p style="margin-top: -15px"><b>Ageing for trade & other receivables outstanding as at {previous_year_end_date}</b></p>
-		<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; margin-top: -30px">
-		<thead>
-		<tr>
-		<th rowspan="2" style="border:1px solid #222;">Particulars</th>
-		<th rowspan="2" style="border:1px solid #222;">Not Due</th>
-		<th colspan="5" style="border:1px solid #222;">Outstanding as on {previous_year_end_date}</th>
-		<th rowspan="2" style="border:1px solid #222;">Total</th>
-		</tr>
-		<tr>
-		<th style="border:1px solid #222;">&lt; 6M</th>
-		<th style="border:1px solid #222;">6M-1Y</th>
-		<th style="border:1px solid #222;">1Y-2Y</th>
-		<th style="border:1px solid #222;">2Y-3Y</th>
-		<th style="border:1px solid #222;">&gt; 3Y</th>
-		</tr>
-		</thead>
-		<tbody>
-		{render_table(prev_data)}
-		</tbody>
-		</table>
+			<p style="margin-top: -15px"><b>Ageing for trade & other receivables outstanding as at {previous_year_end_date}</b></p>
+			<table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000; margin-top: -30px">
+				<thead>
+					<tr>
+						<th rowspan="2" style="border:1px solid #222;">Particulars</th>
+						<th rowspan="2" style="border:1px solid #222;">Not Due</th>
+						<th colspan="5" style="border:1px solid #222;">Outstanding as on {previous_year_end_date}</th>
+						<th rowspan="2" style="border:1px solid #222;">Total</th>
+					</tr>
+					<tr>
+						<th style="border:1px solid #222;">&lt; 6M</th>
+						<th style="border:1px solid #222;">6M-1Y</th>
+						<th style="border:1px solid #222;">1Y-2Y</th>
+						<th style="border:1px solid #222;">2Y-3Y</th>
+						<th style="border:1px solid #222;">&gt; 3Y</th>
+					</tr>
+				</thead>
+				<tbody>
+				{render_table(prev_data)}
+				</tbody>
+			</table>
 		"""
-
 		return section_description.replace("{{note_table}}", html)
+
 	def get_yearly_trade_payable_note_data(self, section_description=""):
 		"""Get yearly trade and other receivables note data"""
 		month_end_label, prev_fy_label = self.get_yearly_dates()
@@ -5765,7 +5765,7 @@ class FinancialReport(Document):
 		html += "</tbody></table>"
 
 		html += f"""
-		<p style="margin-top: -20px">Ageing for trade payables outstanding as at {month_end_label}</b></p>
+		<p style="margin-top: -20px"><b>Ageing for trade payables outstanding as at {month_end_label}</b></p>
 		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; margin-top: -20px">
 			<thead>
 				<tr style="color: #00008B;">
@@ -5855,7 +5855,7 @@ class FinancialReport(Document):
 
 		#previous year
 		html += f"""
-		<p style="margin-top: -20px">Ageing for trade payables outstanding as at {prev_fy_label}</b></p>
+		<p style="margin-top: -20px"><b>Ageing for trade payables outstanding as at {prev_fy_label}</b></p>
 		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000; margin-top: -20px">
 			<thead>
 				<tr style="color: #00008B;">
