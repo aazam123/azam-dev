@@ -3,58 +3,95 @@
 
 import frappe
 from frappe.model.document import Document
-from datetime import datetime, date, timedelta
+from frappe.utils import flt, getdate, today
+
 
 class FRAccountReceivableEntry(Document):
-	def before_insert(self):
-		if self.report_type == "Yearly":
-			customer_sum = frappe.db.sql("""
-				SELECT COALESCE(SUM(amount_in_lc), 0) FROM `tabFR Account Receivable Entry` WHERE customer = %s
-			""", (self.customer,))[0][0] or 0
-			customer_sum += self.amount_in_lc
-			self.nature = "Advance" if customer_sum < 0 else "Receivable"
 
-	def before_save(self):
-		if self.gl_account:
-			if str(self.gl_account).startswith("1"):
-				self.tb_nature = "Advance"
-			elif str(self.gl_account).startswith("2"):
-				self.tb_nature = "Receivable"
+    def before_insert(self):
+        if self.report_type == "Yearly":
+            customer_sum = frappe.db.sql("""
+                SELECT COALESCE(SUM(amount_in_lc), 0)
+                FROM `tabFR Account Receivable Entry`
+                WHERE customer = %s
+            """, (self.customer,))[0][0] or 0
 
-		if self.nature == "Receivable":
-			if not self.closing_ex_rate:
-				self.closing_ex_rate = frappe.get_value("FR Foreign Exchange Rate",{"from_currency": self.currency, "to_currency": "INR", "month": "March", "fiscal_year": self.fiscal_year}, 'closing_rate') or 1
-			self.restated_value = self.amount_in_dc * self.closing_ex_rate
-			self.gainloss = self.amount_in_lc - self.restated_value
-		
-		self.ageing_days = (date.today() - self.due_date).days + 1
+            customer_sum += flt(self.amount_in_lc)
 
-		if self.ageing_days == 0:
-			self.ageing = "Not Due"
-		elif 0 < self.ageing_days <= 180:
-			self.ageing = "0-6 Months"
-		elif 180 < self.ageing_days <= 365:
-			self.ageing = "6-12 Months"
-		elif 365 < self.ageing_days <= 730:
-			self.ageing = "1-2 Years"
-		elif 730 < self.ageing_days <= 1095:
-			self.ageing = "2-3 Years"
-		elif self.ageing_days > 1095:
-			self.ageing = "More Than 3 Years"
-		else:
-			self.ageing = "Not Due"
-		
-		self.provision_amount = (self.restated_value * self.provision_percentage)/100
+            self.nature = "Advance" if customer_sum < 0 else "Receivable"
 
-	def on_update(self):
-		if self.report_type == "Yearly":
-			customer_sum = frappe.db.sql("""
-				SELECT COALESCE(SUM(amount_in_lc), 0) FROM `tabFR Account Receivable Entry` WHERE customer = %s
-			""", (self.customer,))[0][0] or 0
-			self.nature = "Advance" if customer_sum < 0 else "Receivable"
-		elif self.report_type == "Monthly":
-			if self.special_gl_ind == "A" or self.special_gl_ind == "B":
-				self.nature = "Advance"
-			else:
-				self.nature = "Receivable"
-		self.provision_amount = (self.restated_value * self.provision_percentage)/100
+    def before_save(self):
+
+        # ✅ TB Nature Logic
+        if self.gl_account:
+            if str(self.gl_account).startswith("1"):
+                self.tb_nature = "Advance"
+            elif str(self.gl_account).startswith("2"):
+                self.tb_nature = "Receivable"
+
+        # ✅ Forex & Restatement
+        if self.nature == "Receivable":
+            if not self.closing_ex_rate:
+                self.closing_ex_rate = frappe.get_value(
+                    "FR Foreign Exchange Rate",
+                    {
+                        "from_currency": self.currency,
+                        "to_currency": "INR",
+                        "month": "March",
+                        "fiscal_year": self.fiscal_year
+                    },
+                    "closing_rate"
+                ) or 1
+
+            self.restated_value = flt(self.amount_in_dc) * flt(self.closing_ex_rate)
+            self.gainloss = flt(self.amount_in_lc) - flt(self.restated_value)
+
+        # ✅ FIX: Proper Date Handling
+        if self.due_date:
+            due_date = getdate(self.due_date)
+            today_date = getdate(today())
+
+            self.ageing_days = (today_date - due_date).days + 1
+        else:
+            self.ageing_days = 0
+
+        # ✅ Ageing Bucket Logic
+        if self.ageing_days <= 0:
+            self.ageing = "Not Due"
+        elif 0 < self.ageing_days <= 180:
+            self.ageing = "0-6 Months"
+        elif 180 < self.ageing_days <= 365:
+            self.ageing = "6-12 Months"
+        elif 365 < self.ageing_days <= 730:
+            self.ageing = "1-2 Years"
+        elif 730 < self.ageing_days <= 1095:
+            self.ageing = "2-3 Years"
+        else:
+            self.ageing = "More Than 3 Years"
+
+        # ✅ Provision Calculation (safe)
+        self.provision_amount = (
+            flt(self.restated_value) * flt(self.provision_percentage)
+        ) / 100 if self.restated_value else 0
+
+    def on_update(self):
+
+        if self.report_type == "Yearly":
+            customer_sum = frappe.db.sql("""
+                SELECT COALESCE(SUM(amount_in_lc), 0)
+                FROM `tabFR Account Receivable Entry`
+                WHERE customer = %s
+            """, (self.customer,))[0][0] or 0
+
+            self.nature = "Advance" if customer_sum < 0 else "Receivable"
+
+        elif self.report_type == "Monthly":
+            if self.special_gl_ind in ["A", "B"]:
+                self.nature = "Advance"
+            else:
+                self.nature = "Receivable"
+
+        # ✅ Recalculate provision safely
+        self.provision_amount = (
+            flt(self.restated_value) * flt(self.provision_percentage)
+        ) / 100 if self.restated_value else 0
