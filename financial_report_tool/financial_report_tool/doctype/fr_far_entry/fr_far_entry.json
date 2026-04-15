@@ -30,6 +30,8 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Company",
    "options": "Company"
   },
@@ -40,6 +42,8 @@
   {
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Fiscal Year",
    "options": "Fiscal Year"
   },
@@ -136,7 +140,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-15 10:32:25.335472",
+ "modified": "2026-04-15 12:42:00.633685",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR FAR Entry",
