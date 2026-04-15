@@ -774,553 +774,566 @@ class FinancialReport(Document):
 			all_groups.extend(self.get_all_child_groups(child))
 		return all_groups
 
+	def _format_far_note_date(self, dt):
+		day = dt.day
+		if 10 <= day % 100 <= 20:
+			suffix = "th"
+		else:
+			suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+		return dt.strftime(f"%-d{suffix} %B, %Y")
+
 	def get_yearly_property_plant_and_equipment_data(self, section_description=""):
+		far_entry = frappe.db.exists(
+			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
+		)
+		if not far_entry:
+			return section_description.replace("{{note_table}}", "<p>No FAR data found</p>")
+
+		far_doc = frappe.get_doc("FR FAR Entry", far_entry)
 		prev_year_end = getdate(self.previous_year_ending_date)
 		curr_year_end = getdate(self.current_year_ending_date)
-
 		prev_year_start = prev_year_end.replace(month=4, day=1)
 
-		prev_year_start_date = formatdate(prev_year_start, "dd-MMM-yyyy")
-		prev_year_end_date = formatdate(prev_year_end, "dd-MMM-yyyy")
-		curr_year_end_date = formatdate(curr_year_end, "dd-MMM-yyyy")
+		def fmt(val):
+			val = flt(val)
+			if not val:
+				return "-"
+			if float(val).is_integer():
+				formatted = f"{abs(int(val)):,}"
+			else:
+				formatted = f"{abs(val):,.2f}"
+			return f"({formatted})" if val < 0 else formatted
+
+		def get_row_value(row, *fieldnames):
+			for fieldname in fieldnames:
+				value = getattr(row, fieldname, None)
+				if value is not None:
+					return flt(value)
+			return 0
+
+		prev_year_start_date = self._format_far_note_date(prev_year_start)
+		prev_year_end_date = self._format_far_note_date(prev_year_end)
+		curr_year_end_date = self._format_far_note_date(curr_year_end)
+		gross_map = {row.particulars: row for row in far_doc.ppe_gross_carrying}
+		dep_map = {row.particulars: row for row in far_doc.ppe_accumulated_depreciation}
+		particulars = [row.particulars for row in far_doc.ppe_gross_carrying]
+
+		if not particulars:
+			return section_description.replace("{{note_table}}", "<p>No FAR data found</p>")
+
+		num_cols = len(particulars)
+		col_width = round((100 - 32 - 12) / num_cols, 1) if num_cols else 10
+		table_min_width = max(1000, 180 + (num_cols * 75))
+		green_fill = "background-color:#EAF2E8;"
+		header_fill = "background-color:#CCF2CC;"
+		base_cell = "border-right:1px solid black; text-align:right; padding:3px 6px;"
+
+		def data_cells(values, total, style, bold=False):
+			cells = ""
+			for particular in particulars:
+				content = fmt(values.get(particular))
+				if bold:
+					content = f"<b>{content}</b>"
+				cells += f'<td style="{style}{base_cell}">{content}</td>'
+			total_content = fmt(total)
+			if bold:
+				total_content = f"<b>{total_content}</b>"
+			cells += f'<td style="{green_fill}{style}{base_cell}">{total_content}</td>'
+			return cells
+
+		def empty_cells(style):
+			cells = "".join(
+				f'<td style="{style}{base_cell}"></td>' for _ in particulars
+			)
+			cells += f'<td style="{green_fill}{style}{base_cell}"></td>'
+			return cells
+
+		def build_values(data_map, fieldnames):
+			values = {
+				particular: get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)
+				for particular in particulars
+			}
+			return values, sum(values.values())
+
+		s_top = "border-top:none; border-bottom:none;"
+		s_mid = "border-top:none; border-bottom:none;"
+		s_bot = "border-top:none; border-bottom:1px solid black;"
+		s_no_bot = "border-top:none; border-bottom:none;"
+		s_full = "border:1px solid black;"
+		s_sec_top = "border-top:1px solid black; border-bottom:none;"
+
+		header_cols = "".join(
+			f'<th style="{header_fill} border:1px solid black; border-bottom:1px solid black; width:{col_width}%;">{particular}</th>'
+			for particular in particulars
+		)
+		header_cols += f'<th style="{header_fill} border:1px solid black; border-bottom:1px solid black; width:10%;">Total</th>'
+
+		py_opening, py_opening_total = build_values(gross_map, ("as_at_pre_previous_year",))
+		py_additions, py_additions_total = build_values(gross_map, ("prev_addition",))
+		py_disposals, py_disposals_total = build_values(gross_map, ("prev_disposals",))
+		py_closing, py_closing_total = build_values(gross_map, ("as_at_previous_year",))
+		cy_additions, cy_additions_total = build_values(gross_map, ("curr_addition", "current_addition"))
+		cy_disposals, cy_disposals_total = build_values(gross_map, ("curr_disposals", "current_disposals"))
+		cy_closing, cy_closing_total = build_values(gross_map, ("as_at_current_year",))
+
+		py_acc_opening, py_acc_opening_total = build_values(dep_map, ("as_at_pre_previous_year",))
+		py_acc_for_year, py_acc_for_year_total = build_values(dep_map, ("prev_addition",))
+		py_acc_disposals, py_acc_disposals_total = build_values(dep_map, ("prev_disposals",))
+		py_acc_closing, py_acc_closing_total = build_values(dep_map, ("as_at_previous_year",))
+		cy_acc_for_year, cy_acc_for_year_total = build_values(dep_map, ("curr_addition", "current_addition"))
+		cy_acc_disposals, cy_acc_disposals_total = build_values(dep_map, ("curr_disposals", "current_disposals"))
+		cy_acc_closing, cy_acc_closing_total = build_values(dep_map, ("as_at_current_year",))
+
+		py_net = {
+			particular: py_closing.get(particular, 0) - py_acc_closing.get(particular, 0)
+			for particular in particulars
+		}
+		py_net_total = py_closing_total - py_acc_closing_total
+		cy_net = {
+			particular: cy_closing.get(particular, 0) - cy_acc_closing.get(particular, 0)
+			for particular in particulars
+		}
+		cy_net_total = cy_closing_total - cy_acc_closing_total
+
+		html = f'''
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-10px; margin-bottom:-20px;">
+			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:{table_min_width}px; table-layout:fixed; font-size:13px;">
+				<thead>
+					<tr style="color:#0000FF;">
+						<th style="border:1px solid black; border-bottom:1px solid black; width:22%;">Particulars</th>
+						{header_cols}
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-top:1px solid black; border-bottom:none;"><b>I. Gross carrying amount</b></td>
+						{empty_cells(s_sec_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_top}">As at {prev_year_start_date}</td>
+						{data_cells(py_opening, py_opening_total, s_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_mid}">Additions</td>
+						{data_cells(py_additions, py_additions_total, s_mid)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals, transfers and adjustments1</td>
+						{data_cells(py_disposals, py_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {prev_year_end_date}</b></td>
+						{data_cells(py_closing, py_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_no_bot}">Additions</td>
+						{data_cells(cy_additions, cy_additions_total, s_no_bot)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals, transfers and adjustments2</td>
+						{data_cells(cy_disposals, cy_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {curr_year_end_date}</b></td>
+						{data_cells(cy_closing, cy_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-bottom:none;"><b>II. Accumulated depreciation</b></td>
+						{empty_cells("border-bottom:none;")}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_top}">As at {prev_year_start_date}</td>
+						{data_cells(py_acc_opening, py_acc_opening_total, s_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_mid}">For the year ended {prev_year_end_date}</td>
+						{data_cells(py_acc_for_year, py_acc_for_year_total, s_mid)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals and adjustments3</td>
+						{data_cells(py_acc_disposals, py_acc_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>Upto {prev_year_end_date}</b></td>
+						{data_cells(py_acc_closing, py_acc_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_no_bot}">For the year ended {curr_year_end_date}</td>
+						{data_cells(cy_acc_for_year, cy_acc_for_year_total, s_no_bot)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals and adjustments4</td>
+						{data_cells(cy_acc_disposals, cy_acc_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>Upto {curr_year_end_date}</b></td>
+						{data_cells(cy_acc_closing, cy_acc_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="{s_full}"><b>III. Net carrying amount</b></td>
+						{empty_cells(s_full)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {prev_year_end_date}</b></td>
+						{data_cells(py_net, py_net_total, s_full, bold=True)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {curr_year_end_date}</b></td>
+						{data_cells(cy_net, cy_net_total, s_full, bold=True)}
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		'''
+		return section_description.replace("{{note_table}}", html)
+	
+	def get_yearly_other_intangible_assets(self, section_description="", field=""):
+		far_entry = frappe.db.exists(
+			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
+		)
+		if not far_entry:
+			return 0 if field else section_description.replace("{{note_table}}", "<p>No FAR data found for Other intangible assets</p>")
+		
+		far_doc = frappe.get_doc("FR FAR Entry", far_entry)
+		prev_year_end = getdate(self.previous_year_ending_date)
+		curr_year_end = getdate(self.current_year_ending_date)
+		prev_year_start = prev_year_end.replace(month=4, day=1)
+
+		def fmt(val):
+			val = flt(val)
+			if not val:
+				return "-"
+			if float(val).is_integer():
+				formatted = f"{abs(int(val)):,}"
+			else:
+				formatted = f"{abs(val):,.2f}"
+			return f"({formatted})" if val < 0 else formatted
+
+		def get_row_value(row, *fieldnames):
+			for fieldname in fieldnames:
+				value = getattr(row, fieldname, None)
+				if value is not None:
+					return flt(value)
+			return 0
+
+		prev_year_start_date = self._format_far_note_date(prev_year_start)
+		prev_year_end_date = self._format_far_note_date(prev_year_end)
+		curr_year_end_date = self._format_far_note_date(curr_year_end)
+		gross_map = {row.particulars: row for row in far_doc.other_gross_carrying}
+		dep_map = {row.particulars: row for row in far_doc.other_accumulated_depreciation}
+		particulars = [row.particulars for row in far_doc.other_gross_carrying]
+
+		if not particulars:
+			return 0 if field else section_description.replace("{{note_table}}", "<p>No FAR data found for Other intangible assets</p>")
+
+		num_cols = len(particulars)
+		col_width = round(((100 - 32 - 12) / num_cols) * 0.5, 1) if num_cols else 10
+		table_min_width = max(600, 180 + (num_cols * 75))
+		green_fill = "background-color:#EAF2E8;"
+		header_fill = "background-color:#CCF2CC;"
+		base_cell = "border-right:1px solid black; text-align:right; padding:3px 6px;"
+
+		def data_cells(values, total, style, bold=False):
+			cells = ""
+			for particular in particulars:
+				content = fmt(values.get(particular))
+				if bold:
+					content = f"<b>{content}</b>"
+				cells += f'<td style="{style}{base_cell}">{content}</td>'
+			total_content = fmt(total)
+			if bold:
+				total_content = f"<b>{total_content}</b>"
+			cells += f'<td style="{green_fill}{style}{base_cell}">{total_content}</td>'
+			return cells
+
+		def empty_cells(style):
+			cells = "".join(
+				f'<td style="{style}{base_cell}"></td>' for _ in particulars
+			)
+			cells += f'<td style="{green_fill}{style}{base_cell}"></td>'
+			return cells
+
+		def build_values(data_map, fieldnames):
+			values = {
+				particular: get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)
+				for particular in particulars
+			}
+			return values, sum(values.values())
+
+		s_top = "border-top:none; border-bottom:none;"
+		s_mid = "border-top:none; border-bottom:none;"
+		s_bot = "border-top:none; border-bottom:1px solid black;"
+		s_no_bot = "border-top:none; border-bottom:none;"
+		s_full = "border:1px solid black;"
+		s_sec_top = "border-top:1px solid black; border-bottom:none;"
+
+		header_cols = "".join(
+			f'<th style="{header_fill} border:1px solid black; border-bottom:1px solid black; width:{col_width}%;">{particular}</th>'
+			for particular in particulars
+		)
+		header_cols += f'<th style="{header_fill} border:1px solid black; border-bottom:1px solid black; width:10%;">Total</th>'
+
+		py_opening, py_opening_total = build_values(gross_map, ("as_at_pre_previous_year",))
+		py_additions, py_additions_total = build_values(gross_map, ("prev_addition",))
+		py_disposals, py_disposals_total = build_values(gross_map, ("prev_disposals",))
+		py_closing, py_closing_total = build_values(gross_map, ("as_at_previous_year",))
+		cy_additions, cy_additions_total = build_values(gross_map, ("curr_addition", "current_addition"))
+		cy_disposals, cy_disposals_total = build_values(gross_map, ("curr_disposals", "current_disposals"))
+		cy_closing, cy_closing_total = build_values(gross_map, ("as_at_current_year",))
+
+		py_acc_opening, py_acc_opening_total = build_values(dep_map, ("as_at_pre_previous_year",))
+		py_acc_for_year, py_acc_for_year_total = build_values(dep_map, ("prev_addition",))
+		py_acc_disposals, py_acc_disposals_total = build_values(dep_map, ("prev_disposals",))
+		py_acc_closing, py_acc_closing_total = build_values(dep_map, ("as_at_previous_year",))
+		cy_acc_for_year, cy_acc_for_year_total = build_values(dep_map, ("curr_addition", "current_addition"))
+		cy_acc_disposals, cy_acc_disposals_total = build_values(dep_map, ("curr_disposals", "current_disposals"))
+		cy_acc_closing, cy_acc_closing_total = build_values(dep_map, ("as_at_current_year",))
+
+		if field:
+			field_map = {
+				"prev_addition": py_additions_total,
+				"curr_addition": cy_additions_total,
+				"prev_disposals": py_disposals_total,
+				"curr_disposals": cy_disposals_total,
+				"as_at_previous_year": py_closing_total,
+				"as_at_current_year": cy_closing_total,
+			}
+			return field_map.get(field, 0)
+
+		py_net = {
+			particular: py_closing.get(particular, 0) - py_acc_closing.get(particular, 0)
+			for particular in particulars
+		}
+		py_net_total = py_closing_total - py_acc_closing_total
+		cy_net = {
+			particular: cy_closing.get(particular, 0) - cy_acc_closing.get(particular, 0)
+			for particular in particulars
+		}
+		cy_net_total = cy_closing_total - cy_acc_closing_total
+
+		html = f'''
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-10px; margin-bottom:-20px;">
+			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:{table_min_width}px; table-layout:fixed; font-size:13px;">
+				<thead>
+					<tr style="color:#0000FF;">
+						<th style="border:1px solid black; border-bottom:1px solid black; width:22%;">Particulars</th>
+						{header_cols}
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-top:1px solid black; border-bottom:none;"><b>I. Gross carrying amount</b></td>
+						{empty_cells(s_sec_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_top}">As at {prev_year_start_date}</td>
+						{data_cells(py_opening, py_opening_total, s_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_mid}">Additions</td>
+						{data_cells(py_additions, py_additions_total, s_mid)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals, transfers and adjustments1</td>
+						{data_cells(py_disposals, py_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {prev_year_end_date}</b></td>
+						{data_cells(py_closing, py_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_no_bot}">Additions</td>
+						{data_cells(cy_additions, cy_additions_total, s_no_bot)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals, transfers and adjustments2</td>
+						{data_cells(cy_disposals, cy_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {curr_year_end_date}</b></td>
+						{data_cells(cy_closing, cy_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-bottom:none;"><b>II. Accumulated depreciation</b></td>
+						{empty_cells("border-bottom:none;")}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_top}">As at {prev_year_start_date}</td>
+						{data_cells(py_acc_opening, py_acc_opening_total, s_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_mid}">For the year ended {prev_year_end_date}</td>
+						{data_cells(py_acc_for_year, py_acc_for_year_total, s_mid)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals and adjustments3</td>
+						{data_cells(py_acc_disposals, py_acc_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>Upto {prev_year_end_date}</b></td>
+						{data_cells(py_acc_closing, py_acc_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_no_bot}">For the year ended {curr_year_end_date}</td>
+						{data_cells(cy_acc_for_year, cy_acc_for_year_total, s_no_bot)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals and adjustments4</td>
+						{data_cells(cy_acc_disposals, cy_acc_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>Upto {curr_year_end_date}</b></td>
+						{data_cells(cy_acc_closing, cy_acc_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="{s_full}"><b>III. Net carrying amount</b></td>
+						{empty_cells(s_full)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {prev_year_end_date}</b></td>
+						{data_cells(py_net, py_net_total, s_full, bold=True)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {curr_year_end_date}</b></td>
+						{data_cells(cy_net, cy_net_total, s_full, bold=True)}
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		'''
+		return section_description.replace("{{note_table}}", html)
+
+	def get_yearly_capital_work_in_progress(self, section_description="", field=""):
+		previous_year_ending_date_display = frappe.utils.getdate(self.previous_year_ending_date).strftime("%d %B %Y")
+		current_year_ending_date_display  = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
 
 		far_entry = frappe.db.exists(
 			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
 		)
 
-		if not far_entry:
-			return "<p>No FAR data found</p>"
-
-		far_doc = frappe.get_doc("FR FAR Entry", far_entry)
-		gross_map = {}
-		dep_map = {}
-		particulars = []
-
-		for item in far_doc.ppe_gross_carrying:
-			gross_map[item.particulars] = item
-			particulars.append(item.particulars)
-
-		for item in far_doc.ppe_accumulated_depreciation:
-			dep_map[item.particulars] = item
-
-		num_cols = len(particulars)
-		col_width = round((100 - 21 - 8) / num_cols, 1) if num_cols else 10
-
-		header_cols = "".join(
-			f'<th style="border:1px solid black; width:{col_width}%;">{p}</th>'
-			for p in particulars
-		)
-
-		header_cols += '<th style="background:#E8F5E8; border:1px solid black; width:8%;">Total</th>'
-
-		def build_row(label, fieldname, data_map):
-			row = f'<tr><td style="border:1px solid black;">{label}</td>'
-			total = 0
-
-			for p in particulars:
-				value = getattr(data_map.get(p, {}), fieldname, 0) or 0
-				total += value
-				row += f'<td style="border:1px solid black; text-align:right;">{value:,.2f}</td>'
-
-			row += f'<td style="border:1px solid black; text-align:right; background:#E8F5E8;">{total:,.2f}</td></tr>'
-			return row
-
-		rows = ""
-
-		# ---- I. Gross Carrying Amount ----
-		rows += f'<tr><td colspan="{num_cols+2}"><b>I. Gross carrying amount</b></td></tr>'
-		rows += build_row(f"As at {prev_year_start_date}", "as_at_pre_previous_year", gross_map)
-		rows += build_row("Additions", "prev_addition", gross_map)
-		rows += build_row("Disposals", "prev_disposals", gross_map)
-		rows += build_row(f"As at {prev_year_end_date}", "as_at_previous_year", gross_map)
-		rows += build_row("Additions", "curr_addition", gross_map)
-		rows += build_row("Disposals", "curr_disposals", gross_map)
-		rows += build_row(f"As at {curr_year_end_date}", "as_at_current_year", gross_map)
-
-		# ---- II. Accumulated Depreciation ----
-		rows += f'<tr><td colspan="{num_cols+2}"><b>II. Accumulated depreciation</b></td></tr>'
-		rows += build_row(f"As at {prev_year_start_date}", "as_at_pre_previous_year", dep_map)
-		rows += build_row("Additions", "prev_addition", dep_map)
-		rows += build_row("Disposals", "prev_disposals", dep_map)
-		rows += build_row(f"As at {prev_year_end_date}", "as_at_previous_year", dep_map)
-		rows += build_row("Additions", "curr_addition", dep_map)
-		rows += build_row("Disposals", "curr_disposals", dep_map)
-		rows += build_row(f"As at {curr_year_end_date}", "as_at_current_year", dep_map)
-
-		# ---- III. Net Carrying Amount ----
-		rows += f'<tr style="background:#D9EAD3;"><td colspan="{num_cols+2}"><b>III. Net carrying amount</b></td></tr>'
-		row = f'<tr><td style="border:1px solid black;">As at {curr_year_end_date}</td>'
-		total = 0
-
-		for p in particulars:
-			gross = getattr(gross_map.get(p, {}), "as_at_current_year", 0) or 0
-			dep = getattr(dep_map.get(p, {}), "as_at_current_year", 0) or 0
-			net = gross - dep
-			total += net
-			row += f'<td style="border:1px solid black; text-align:right;">{net:,.2f}</td>'
-
-		row += f'<td style="border:1px solid black; text-align:right; background:#E8F5E8;">{total:,.2f}</td></tr>'
-		rows += row
-
-
-		html = f"""
-		<div style="page-break-before:always; width:1200px;">
-			<table style="border-collapse:collapse; width:100%; table-layout:fixed;">
-				<thead>
-					<tr style="color:#4472C4;">
-						<th style="border:1px solid black; width:21%;">Particulars</th>
-						{header_cols}
-					</tr>
-				</thead>
-				<tbody>
-					{rows}
-				</tbody>
-			</table>
-		</div>
-		"""
-		return html
-	
-	def get_yearly_other_intangible_assets(self, section_description="", field=""):
-		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
-		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
-
-		previous_year_ending_date = prev_year_end_date.strftime("%d %B %Y")
-		previous_year_starting_date = prev_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%d %B %Y")
-		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
-
-		previous_year = {
-			"start": prev_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%Y-%m-%d"),
-			"end": prev_year_end_date.strftime("%Y-%m-%d")
-		}
-		current_year = {
-			"start": curr_year_end_date.replace(year=curr_year_end_date.year - 1, month=4, day=1).strftime("%Y-%m-%d"),
-			"end": curr_year_end_date.strftime("%Y-%m-%d")
-		}
-
-		filter_values = getattr(self, "filter_values", [])
-
-		asset_classes = frappe.get_list(
-			"FR Asset Group",
-			filters={"asset_group_type": "Other Intangible Assets", "is_group": 1},
-			pluck="asset_group"
-		)
-
-		result = {
-			"previous_year": {}, "current_year": {},
-			"previous_year_acc_dep": {}, "current_year_acc_dep": {}
-		}
-
-		for asset in asset_classes:
-			valid_asset_groups = self.get_all_child_groups(asset)
-
-			# Opening
-			prev_opening_data = frappe.db.get_all(
-				"FR Asset Register Entry",
-				fields=["sap_cav", "sap_acc_dep"],
-				filters={
-					"company": self.company,
-					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["<", previous_year["start"]]
-				}
-			)
-
-			prev_opening_value = sum(float(d.sap_cav or 0) for d in prev_opening_data)
-			prev_acc_opening = sum(float(d.sap_acc_dep or 0) for d in prev_opening_data)
-
-			# Previous Year Transactions
-			prev_data = frappe.db.get_all(
-				"FR Asset Register Entry",
-				fields=["sap_transaction_acq_value", "sap_tran_acq_value", "sap_plan_dep", "sap_tran_accu_dep"],
-				filters={
-					"company": self.company,
-					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["between", [previous_year["start"], previous_year["end"]]]
-				}
-			)
-
-			prev_positive = sum(float(d.sap_transaction_acq_value or 0) for d in prev_data)
-			prev_negative = sum(float(d.sap_tran_acq_value or 0) for d in prev_data)
-			prev_closing = prev_opening_value + prev_positive + prev_negative
-
-			prev_acc_positive = sum(float(d.sap_plan_dep or 0) for d in prev_data)
-			prev_acc_negative = sum(float(d.sap_tran_accu_dep or 0) for d in prev_data)
-			prev_acc_closing = prev_acc_opening + prev_acc_positive + prev_acc_negative
-
-			result["previous_year"][asset] = {
-				"opening_value": prev_opening_value,
-				"positive_transaction": prev_positive,
-				"negative_transaction": prev_negative,
-				"closing_value": prev_closing
-			}
-
-			result["previous_year_acc_dep"][asset] = {
-				"opening_value": prev_acc_opening,
-				"positive_transaction": prev_acc_positive,
-				"negative_transaction": prev_acc_negative,
-				"closing_value": prev_acc_closing
-			}
-
-			# Current Year
-			curr_filters = {
-				"company": self.company,
-				"asset_group": ["in", valid_asset_groups],
-				"ordinary_depreciation_start_date": ["between", [current_year["start"], current_year["end"]]]
-			}
-			if filter_values:
-				curr_filters["asset_class"] = ["in", filter_values]
-
-			curr_data = frappe.db.get_all(
-				"FR Asset Register Entry",
-				fields=["sap_transaction_acq_value", "sap_tran_acq_value", "sap_plan_dep", "sap_tran_accu_dep"],
-				filters=curr_filters
-			)
-
-			curr_positive = sum(float(d.sap_transaction_acq_value or 0) for d in curr_data)
-			curr_negative = sum(float(d.sap_tran_acq_value or 0) for d in curr_data)
-			curr_closing = prev_closing + curr_positive + curr_negative
-
-			curr_acc_positive = sum(float(d.sap_plan_dep or 0) for d in curr_data)
-			curr_acc_negative = sum(float(d.sap_tran_accu_dep or 0) for d in curr_data)
-			curr_acc_closing = prev_acc_closing + curr_acc_positive + curr_acc_negative
-
-			result["current_year"][asset] = {
-				"opening_value": prev_closing,
-				"positive_transaction": curr_positive,
-				"negative_transaction": curr_negative,
-				"closing_value": curr_closing
-			}
-
-			result["current_year_acc_dep"][asset] = {
-				"opening_value": prev_acc_closing,
-				"positive_transaction": curr_acc_positive,
-				"negative_transaction": curr_acc_negative,
-				"closing_value": curr_acc_closing
-			}
-
-		# ----------- 🔥 MISSING PART (NOW ADDED) -----------
-
-		def get_val(data, asset, key):
-			return data.get(asset, {}).get(key) or 0
-
-		def fmt(val):
-			return f"{(val or 0)/100000:,.2f}"
-
-		py_opening = {a: get_val(result["previous_year"], a, "opening_value") for a in asset_classes}
-		py_additions = {a: get_val(result["previous_year"], a, "positive_transaction") for a in asset_classes}
-		py_disposals = {a: get_val(result["previous_year"], a, "negative_transaction") for a in asset_classes}
-		py_closing = {a: get_val(result["previous_year"], a, "closing_value") for a in asset_classes}
-
-		cy_additions = {a: get_val(result["current_year"], a, "positive_transaction") for a in asset_classes}
-		cy_disposals = {a: get_val(result["current_year"], a, "negative_transaction") for a in asset_classes}
-		cy_closing = {a: get_val(result["current_year"], a, "closing_value") for a in asset_classes}
-
-		py_opening_total = sum(py_opening.values())
-		py_additions_total = sum(py_additions.values())
-		py_disposals_total = sum(py_disposals.values())
-		py_closing_total = sum(py_closing.values())
-
-		cy_additions_total = sum(cy_additions.values())
-		cy_disposals_total = sum(cy_disposals.values())
-		cy_closing_total = sum(cy_closing.values())
-
-		py_acc_opening = {a: get_val(result["previous_year_acc_dep"], a, "opening_value") for a in asset_classes}
-		py_acc_for_year = {a: get_val(result["previous_year_acc_dep"], a, "positive_transaction") for a in asset_classes}
-		py_acc_disposals = {a: get_val(result["previous_year_acc_dep"], a, "negative_transaction") for a in asset_classes}
-		py_acc_closing = {a: get_val(result["previous_year_acc_dep"], a, "closing_value") for a in asset_classes}
-
-		cy_acc_for_year = {a: get_val(result["current_year_acc_dep"], a, "positive_transaction") for a in asset_classes}
-		cy_acc_disposals = {a: get_val(result["current_year_acc_dep"], a, "negative_transaction") for a in asset_classes}
-		cy_acc_closing = {a: get_val(result["current_year_acc_dep"], a, "closing_value") for a in asset_classes}
-
-		py_acc_opening_total = sum(py_acc_opening.values())
-		py_acc_for_year_total = sum(py_acc_for_year.values())
-		py_acc_disposals_total = sum(py_acc_disposals.values())
-		py_acc_closing_total = sum(py_acc_closing.values())
-
-		cy_acc_for_year_total = sum(cy_acc_for_year.values())
-		cy_acc_disposals_total = sum(cy_acc_disposals.values())
-		cy_acc_closing_total = sum(cy_acc_closing.values())
-
-		py_net = {a: py_closing[a] - py_acc_closing[a] for a in asset_classes}
-		cy_net = {a: cy_closing[a] - cy_acc_closing[a] for a in asset_classes}
-
-		py_net_total = py_closing_total - py_acc_closing_total
-		cy_net_total = cy_closing_total - cy_acc_closing_total
-
-		s_mid     = "border-right:1px solid black;border-top:none;border-bottom:none;"
-		s_top     = "border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;"
-		s_bot     = "border-right:1px solid black;border-top:none;border-bottom:1px solid black;"
-		s_full    = "border:1px solid black;"
-		s_sec_top = "border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"
-		s_no_bot  = "border-right:1px solid black;border-bottom:none;"
-
-		num_cols = len(asset_classes)
-		col_width = round((100 - 21 - 8) / num_cols, 1) if num_cols else 10
-
-		def data_cells(data_dict, total_val, style, bold=False):
-			cells = ""
-			for asset in asset_classes:
-				val = fmt(data_dict.get(asset))
-				content = f"<b>{val}</b>" if bold else val
-				cells += f'<td style="{style}">{content}</td>'
-			total_content = f"<b>{fmt(total_val)}</b>" if bold else fmt(total_val)
-			cells += f'<td style="background-color: #E8F5E8; {style}">{total_content}</td>'
-			return cells
-
-		def empty_cells(style):
-			cells = "".join(f'<td style="{style}"></td>' for _ in asset_classes)
-			cells += f'<td style="background-color: #E8F5E8; {style}"></td>'
-			return cells
-		
-		header_cols = "".join(
-			f'<th style="border: 1px solid black; border-bottom:1px solid black; width: {col_width}%;">{asset}</th>'
-			for asset in asset_classes
-		)
-		header_cols += f'<th style="background-color: #E8F5E8; border: 1px solid black; border-bottom:1px solid black; width: 20%;">Total</th>'
-
-		html = f'''
-		<table style="margin-top: -10px; margin-bottom: -30px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
-			<thead>
-				<tr style="color: #4472C4;">
-					<th style="width: 30%; border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
-					{header_cols}
-				</tr>
-			</thead>
-			<tbody>
-				<tr>
-					<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"><b>I. Gross carrying amount</b></td>
-					{empty_cells(s_sec_top)}
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					{data_cells(py_opening, py_opening_total, s_top)}
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Additions</td>
-					{data_cells(py_additions, py_additions_total, s_mid)}
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					{data_cells(py_disposals, py_disposals_total, s_bot)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="{s_full}"><b>As at {previous_year_ending_date}</b></td>
-					{data_cells(py_closing, py_closing_total, s_full, bold=True)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Additions</td>
-					{data_cells(cy_additions, cy_additions_total, s_no_bot)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals, transfer and adjustments</td>
-					{data_cells(cy_disposals, cy_disposals_total, s_bot)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="{s_full}"><b>As at {current_year_ending_date}</b></td>
-					{data_cells(cy_closing, cy_closing_total, s_full, bold=True)}
-				</tr>
-				<tr>
-					<td style="border-left: 1px solid black;border-right: 1px solid black; border-bottom: none;"><b>II. Accumulated amortisation</b></td>
-					{empty_cells("border-right: 1px solid black; border-bottom: none;")}
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					{data_cells(py_acc_opening, py_acc_opening_total, s_top)}
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Year Ended {previous_year_ending_date}</td>
-					{data_cells(py_acc_for_year, py_acc_for_year_total, s_mid)}
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					{data_cells(py_acc_disposals, py_acc_disposals_total, s_bot)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="{s_full}"><b>Upto {previous_year_ending_date}</b></td>
-					{data_cells(py_acc_closing, py_acc_closing_total, s_full, bold=True)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Year Ended {current_year_ending_date}</td>
-					{data_cells(cy_acc_for_year, cy_acc_for_year_total, s_no_bot)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals and adjustments</td>
-					{data_cells(cy_acc_disposals, cy_acc_disposals_total, s_bot)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="{s_full}"><b>Upto {current_year_ending_date}</b></td>
-					{data_cells(cy_acc_closing, cy_acc_closing_total, s_full, bold=True)}
-				</tr>
-				<tr>
-					<td style="{s_full}"><b>III. Net carrying amount</b></td>
-					{empty_cells(s_full)}
-				</tr>
-				<tr>
-					<td style="{s_full}"><b>As at {previous_year_ending_date}</b></td>
-					{data_cells(py_net, py_net_total, s_full, bold=True)}
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="{s_full}"><b>As at {current_year_ending_date}</b></td>
-					{data_cells(cy_net, cy_net_total, s_full, bold=True)}
-				</tr>
-			</tbody>
-		</table>
-		'''
-		return section_description.replace("{{note_table}}", html)
-
-	def get_yearly_capital_work_in_progress(self, section_description="", field=""):
-		if field:
-			return 0
-		previous_year_ending_date_display = frappe.utils.getdate(self.previous_year_ending_date).strftime("%d %B %Y")
-		current_year_ending_date_display  = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
-
-		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-
-		# ✅ Always safe list
-		asset_group_list = frappe.get_list(
-			"FR Asset Group",
-			filters={'asset_group_type': "Capital Work In Progress"},
-			pluck="name"
-		)
-
 		def fmt(val):
 			return "{:,.2f}".format((val or 0) / 100000)
 
-		def get_cwip_values_for_date(current_fy):
-			if not current_fy or not asset_group_list:
-				return 0, 0, 0, 0
+		if not far_entry:
+			if field:
+				return 0
+			return section_description.replace("{{note_table}}", "<p>No FAR data found for Capital Work In Progress</p>")
 
-			fy_list = []
-			fy = current_fy
-			for _ in range(4):
-				fy_list.append(fy)
-				fy = self.get_fiscal_year_before(fy) if fy else None
+		far_doc = frappe.get_doc("FR FAR Entry", far_entry)
+		cwip_map = {
+			(row.amount_in_cwip_for_a_period_of or "").strip(): row for row in far_doc.cwip_details
+		}
 
-			def get_cwip_total(fiscal_year):
-				if not fiscal_year:
-					return 0, 0
+		def get_row(label):
+			return cwip_map.get(label, frappe._dict())
 
-				# ✅ SAFE PARAMETERIZED SQL (NO syntax error)
-				result = frappe.db.sql("""
-					SELECT 
-						COALESCE(SUM(sap_transaction_acq_value),0) AS total_acq_value,
-						COALESCE(SUM(sap_ebv),0) AS total_ebv
-					FROM `tabFR Asset Register Entry`
-					WHERE asset_group IN %(asset_groups)s
-					AND company = %(company)s
-					AND fiscal_year = %(fiscal_year)s
-				""", {
-					"asset_groups": tuple(asset_group_list),
-					"company": self.company,
-					"fiscal_year": fiscal_year
-				}, as_dict=True)
+		def get_value(row, fieldname):
+			return flt(getattr(row, fieldname, 0) or 0)
 
-				total_acq = result[0].total_acq_value if result else 0
-				total_ebv = result[0].total_ebv if result else 0
+		less_1_row = get_row("Less than 1 year")
+		one_to_2_row = get_row("1-2 years")
+		two_to_3_row = get_row("2-3 years")
+		more_3_row = get_row("More than 3 years")
+		total_row = get_row("Total")
 
-				return total_acq, total_ebv
+		cy_pip_less_1 = get_value(less_1_row, "current_projects_in_progress")
+		cy_pip_1_to_2 = get_value(one_to_2_row, "current_projects_in_progress")
+		cy_pip_2_to_3 = get_value(two_to_3_row, "current_projects_in_progress")
+		cy_pip_more_3 = get_value(more_3_row, "current_projects_in_progress")
 
-			acq_0, ebv_0 = get_cwip_total(fy_list[0])
-			acq_1, ebv_1 = get_cwip_total(fy_list[1])
-			acq_2, ebv_2 = get_cwip_total(fy_list[2])
-			acq_3, ebv_3 = get_cwip_total(fy_list[3])
+		py_pip_less_1 = get_value(less_1_row, "previous_projects_in_progress")
+		py_pip_1_to_2 = get_value(one_to_2_row, "previous_projects_in_progress")
+		py_pip_2_to_3 = get_value(two_to_3_row, "previous_projects_in_progress")
+		py_pip_more_3 = get_value(more_3_row, "previous_projects_in_progress")
 
-			# ✅ Correct ageing logic
-			less_1_year     = acq_0
-			one_to_2_years  = max(ebv_0 - acq_0, 0)
-			two_to_3_years  = max(ebv_1 - acq_1, 0)
-			more_3_years    = max(ebv_2 - acq_2, 0)
+		cy_pts_less_1 = get_value(less_1_row, "current_projects_temporarily_suspended")
+		cy_pts_1_to_2 = get_value(one_to_2_row, "current_projects_temporarily_suspended")
+		cy_pts_2_to_3 = get_value(two_to_3_row, "current_projects_temporarily_suspended")
+		cy_pts_more_3 = get_value(more_3_row, "current_projects_temporarily_suspended")
 
-			return less_1_year, one_to_2_years, two_to_3_years, more_3_years
+		py_pts_less_1 = get_value(less_1_row, "previous_projects_temporarily_suspended")
+		py_pts_1_to_2 = get_value(one_to_2_row, "previous_projects_temporarily_suspended")
+		py_pts_2_to_3 = get_value(two_to_3_row, "previous_projects_temporarily_suspended")
+		py_pts_more_3 = get_value(more_3_row, "previous_projects_temporarily_suspended")
 
-		# Current Year
-		cy_pip_less_1, cy_pip_1_to_2, cy_pip_2_to_3, cy_pip_more_3 = get_cwip_values_for_date(self.fiscal_year)
+		cy_pip_total = get_value(total_row, "current_projects_in_progress") or (
+			cy_pip_less_1 + cy_pip_1_to_2 + cy_pip_2_to_3 + cy_pip_more_3
+		)
+		py_pip_total = get_value(total_row, "previous_projects_in_progress") or (
+			py_pip_less_1 + py_pip_1_to_2 + py_pip_2_to_3 + py_pip_more_3
+		)
+		cy_pts_total = get_value(total_row, "current_projects_temporarily_suspended") or (
+			cy_pts_less_1 + cy_pts_1_to_2 + cy_pts_2_to_3 + cy_pts_more_3
+		)
+		py_pts_total = get_value(total_row, "previous_projects_temporarily_suspended") or (
+			py_pts_less_1 + py_pts_1_to_2 + py_pts_2_to_3 + py_pts_more_3
+		)
 
-		# Previous Year
-		py_pip_less_1, py_pip_1_to_2, py_pip_2_to_3, py_pip_more_3 = get_cwip_values_for_date(self.previous_fiscal_year)
+		if field:
+			field_map = {
+				"curr_pre_total": cy_pip_total,
+				"prev_pre_total": py_pip_total,
+				"curr_temp_total": cy_pts_total,
+				"prev_temp_total": py_pts_total,
+			}
+			return field_map.get(field, 0)
 
-		# Suspended Projects (Manual)
-		cwip_data = frappe.db.get_value(
-			"FR CWIP Master", {"financial_report": self.name},
-			[
-				"less_than_1_year_current", "1_to_2_years_current", "2_to_3_years_current", "more_than_3_years_current",
-				"less_than_1_year_previous", "1_to_2_years_previous", "2_to_3_years_previous", "more_than_3_years_previous"
-			],
-			as_dict=True
-		) or {}
-
-		cy_pts_less_1 = cwip_data.get("less_than_1_year_current") or 0
-		cy_pts_1_to_2 = cwip_data.get("1_to_2_years_current") or 0
-		cy_pts_2_to_3 = cwip_data.get("2_to_3_years_current") or 0
-		cy_pts_more_3 = cwip_data.get("more_than_3_years_current") or 0
-
-		py_pts_less_1 = cwip_data.get("less_than_1_year_previous") or 0
-		py_pts_1_to_2 = cwip_data.get("1_to_2_years_previous") or 0
-		py_pts_2_to_3 = cwip_data.get("2_to_3_years_previous") or 0
-		py_pts_more_3 = cwip_data.get("more_than_3_years_previous") or 0
-
-		# Totals
-		cy_pip_total = cy_pip_less_1 + cy_pip_1_to_2 + cy_pip_2_to_3 + cy_pip_more_3
-		py_pip_total = py_pip_less_1 + py_pip_1_to_2 + py_pip_2_to_3 + py_pip_more_3
-
-		cy_pts_total = cy_pts_less_1 + cy_pts_1_to_2 + cy_pts_2_to_3 + cy_pts_more_3
-		py_pts_total = py_pts_less_1 + py_pts_1_to_2 + py_pts_2_to_3 + py_pts_more_3
-
-		# HTML (UNCHANGED)
 		html = f'''
-		<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto; margin-top: -30px;">
-			<thead>
-				<tr>
-					<th style="border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {current_year_ending_date_display}</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {previous_year_ending_date_display}</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr>
-					<td style="border:1px solid black;"><b>Amount in CWIP for a period of</b></td>
-					<td style="border:1px solid black;"><b>Projects in progress</b></td>
-					<td style="border:1px solid black;"><b>Projects temporarily suspended</b></td>
-					<td style="border:1px solid black;"><b>Projects in progress</b></td>
-					<td style="border:1px solid black;"><b>Projects temporarily suspended</b></td>
-				</tr>
-				<tr>
-					<td style="border-right:1px solid black;border-left:1px solid black;">Less than 1 year</td>
-					<td style="border-right:1px solid black;">{fmt(cy_pip_less_1)}</td>
-					<td style="border-right:1px solid black;">{fmt(cy_pts_less_1)}</td>
-					<td style="border-right:1px solid black;">{fmt(py_pip_less_1)}</td>
-					<td style="border-right:1px solid black;">{fmt(py_pts_less_1)}</td>
-				</tr>
-				<tr>
-					<td style="border-right:1px solid black;border-left:1px solid black;">1-2 years</td>
-					<td style="border-right:1px solid black;">{fmt(cy_pip_1_to_2)}</td>
-					<td style="border-right:1px solid black;">{fmt(cy_pts_1_to_2)}</td>
-					<td style="border-right:1px solid black;">{fmt(py_pip_1_to_2)}</td>
-					<td style="border-right:1px solid black;">{fmt(py_pts_1_to_2)}</td>
-				</tr>
-				<tr>
-					<td style="border-right:1px solid black;border-left:1px solid black;">2-3 years</td>
-					<td style="border-right:1px solid black;">{fmt(cy_pip_2_to_3)}</td>
-					<td style="border-right:1px solid black;">{fmt(cy_pts_2_to_3)}</td>
-					<td style="border-right:1px solid black;">{fmt(py_pip_2_to_3)}</td>
-					<td style="border-right:1px solid black;">{fmt(py_pts_2_to_3)}</td>
-				</tr>
-				<tr>
-					<td style="border-right:1px solid black;border-left:1px solid black;border-bottom:1px solid black;">More than 3 years</td>
-					<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(cy_pip_more_3)}</td>
-					<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(cy_pts_more_3)}</td>
-					<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(py_pip_more_3)}</td>
-					<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(py_pts_more_3)}</td>
-				</tr>
-				<tr>
-					<td style="border:1px solid black;"><b>Total</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_pip_total)}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_pts_total)}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_pip_total)}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_pts_total)}</b></td>
-				</tr>
-			</tbody>
-		</table>
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-20px;">
+			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:600px; table-layout:fixed; font-size:13px;">
+				<thead>
+					<tr style="color:#0000FF;">
+						<th style="border:1px solid black; border-bottom:1px solid black; width:24%; background-color:#CCF2CC;">Particulars</th>
+						<th style="border:1px solid black; border-bottom:1px solid black; background-color:#CCF2CC;" colspan="2">As at {current_year_ending_date_display}</th>
+						<th style="border:1px solid black; border-bottom:1px solid black; background-color:#CCF2CC;" colspan="2">As at {previous_year_ending_date_display}</th>
+					</tr>
+					<tr style="color:#0000FF;">
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Amount in CWIP for a period of</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects in progress</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects temporarily suspended</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects in progress</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects temporarily suspended</b></th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; padding:3px 6px;">Less than 1 year</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_less_1)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_less_1)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_less_1)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_less_1)}</td>
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; padding:3px 6px;">1-2 years</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_1_to_2)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_1_to_2)}</td>
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; padding:3px 6px;">2-3 years</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_2_to_3)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_2_to_3)}</td>
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-bottom:1px solid black; padding:3px 6px;">More than 3 years</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_more_3)}</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_more_3)}</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_more_3)}</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_more_3)}</td>
+					</tr>
+					<tr style="background-color:#EAF2E8;">
+						<td style="border:1px solid black; padding:3px 6px;"><b>Total</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(cy_pip_total)}</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(cy_pts_total)}</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(py_pip_total)}</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(py_pts_total)}</b></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 		'''
 
 		return section_description.replace("{{note_table}}", html)
@@ -1502,360 +1515,207 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_yearly_right_of_use_assets(self, section_description=""):
-		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
-		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
+		far_entry = frappe.db.exists(
+			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
+		)
+		if not far_entry:
+			return section_description.replace("{{note_table}}", "<p>No FAR data found for Right of use assets</p>")
 
-		previous_year_ending_date = prev_year_end_date.strftime("%d %B %Y")
-		previous_year_starting_date = prev_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%d %B %Y")
-		current_year_ending_date = curr_year_end_date.strftime("%d %B %Y")
+		far_doc = frappe.get_doc("FR FAR Entry", far_entry)
+		prev_year_end = getdate(self.previous_year_ending_date)
+		curr_year_end = getdate(self.current_year_ending_date)
+		prev_year_start = prev_year_end.replace(month=4, day=1)
 
-		# Right of Use Asset classes
-		asset_classes = [
-			"Right-of-use assets - Vehicles",
-			"Right-of-use assets - Immovable property"
-		]
-
-		# Define years
-		previous_year = {
-			"start": prev_year_end_date.replace(year=prev_year_end_date.year - 1, month=4, day=1).strftime("%Y-%m-%d"),
-			"end": prev_year_end_date.strftime("%Y-%m-%d")
-		}
-		current_year = {
-			"start": curr_year_end_date.replace(year=curr_year_end_date.year - 1, month=4, day=1).strftime("%Y-%m-%d"),
-			"end": curr_year_end_date.strftime("%Y-%m-%d")
-		}
-
-		prev_year_start = frappe.utils.getdate(previous_year["start"])
-		prev_year_end = frappe.utils.getdate(previous_year["end"])
-		curr_year_start = frappe.utils.getdate(current_year["start"])
-		curr_year_end = frappe.utils.getdate(current_year["end"])
-
-		# Initialize result dictionaries
-		result = {
-			"previous_year": {},
-			"current_year": {},
-			"previous_year_acc_dep": {},
-			"current_year_acc_dep": {}
-		}
-
-		for asset in asset_classes:
-			# Fetch data for previous year
-			prev_data = frappe.db.get_all(
-				'FR Asset Register Entry',
-				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
-				filters={
-					'company': self.company,
-					'asset_class': asset,
-					'ordinary_depreciation_start_date': ['between', [previous_year["start"], previous_year["end"]]]
-				},
-				order_by='ordinary_depreciation_start_date asc'
-			)
-
-			# Fetch data for current year
-			curr_data = frappe.db.get_all(
-				'FR Asset Register Entry',
-				fields=['name', 'sap_transaction_acq_value', 'sap_cav', 'sap_tran_accu_dep', 'sap_acc_dep', 'sap_plan_dep', 'ordinary_depreciation_start_date'],
-				filters={
-					'company': self.company,
-					'asset_class': asset,
-					'ordinary_depreciation_start_date': ['between', [current_year["start"], current_year["end"]]]
-				},
-				order_by='ordinary_depreciation_start_date asc'
-			)
-
-			# PREVIOUS YEAR (SAP CAV) - Gross Carrying Amount
-			prev_opening_value = 0.0
-			prev_positive = 0.0
-			prev_negative = 0.0
-
-			for entry in prev_data:
-				if entry.sap_cav:
-					prev_opening_value = float(entry.sap_cav)
-					break
-
-			for entry in prev_data:
-				value = float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
-				if value > 0:
-					prev_positive += value
-				elif value < 0:
-					prev_negative += value
-
-			prev_closing_value = prev_opening_value + prev_positive + prev_negative
-
-			result["previous_year"][asset] = {
-				"opening_value": prev_opening_value,
-				"positive_transaction": prev_positive,
-				"negative_transaction": prev_negative,
-				"closing_value": prev_closing_value
-			}
-
-			# CURRENT YEAR (SAP CAV) - Gross Carrying Amount
-			curr_opening_value = prev_closing_value
-			curr_positive = 0.0
-			curr_negative = 0.0
-
-			for entry in curr_data:
-				value = float(entry.sap_transaction_acq_value) if entry.sap_transaction_acq_value else 0.0
-				if value > 0:
-					curr_positive += value
-				elif value < 0:
-					curr_negative += value
-
-			curr_closing_value = curr_opening_value + curr_positive + curr_negative
-
-			result["current_year"][asset] = {
-				"opening_value": curr_opening_value,
-				"positive_transaction": curr_positive,
-				"negative_transaction": curr_negative,
-				"closing_value": curr_closing_value
-			}
-
-			# PREVIOUS YEAR (SAP Acc Dep) - Accumulated Amortisation
-			prev_acc_opening_value = 0.0
-			prev_acc_positive = 0.0
-			prev_acc_negative = 0.0
-
-			for entry in prev_data:
-				if entry.sap_acc_dep:
-					prev_acc_opening_value = abs(float(entry.sap_acc_dep))
-					break
-
-			for entry in prev_data:
-				value = float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
-				if value > 0:
-					prev_acc_negative += value
-				elif value < 0:
-					prev_acc_positive += abs(value)
-
-				plan_value = float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
-				prev_acc_positive += abs(plan_value)
-
-			prev_acc_closing_value = prev_acc_opening_value + prev_acc_positive - prev_acc_negative
-
-			result["previous_year_acc_dep"][asset] = {
-				"opening_value": prev_acc_opening_value,
-				"positive_transaction": prev_acc_positive,
-				"negative_transaction": prev_acc_negative,
-				"closing_value": prev_acc_closing_value
-			}
-
-			# CURRENT YEAR (SAP Acc Dep) - Accumulated Amortisation
-			curr_acc_opening_value = prev_acc_closing_value
-			curr_acc_positive = 0.0
-			curr_acc_negative = 0.0
-
-			for entry in curr_data:
-				value = float(entry.sap_tran_accu_dep) if entry.sap_tran_accu_dep else 0.0
-				if value > 0:
-					curr_acc_negative += value
-				elif value < 0:
-					curr_acc_positive += abs(value)
-
-				plan_value = float(entry.sap_plan_dep) if entry.sap_plan_dep else 0.0
-				curr_acc_positive += abs(plan_value)
-
-			curr_acc_closing_value = curr_acc_opening_value + curr_acc_positive - curr_acc_negative
-
-			result["current_year_acc_dep"][asset] = {
-				"opening_value": curr_acc_opening_value,
-				"positive_transaction": curr_acc_positive,
-				"negative_transaction": curr_acc_negative,
-				"closing_value": curr_acc_closing_value
-			}
-
-		# Helper function to format values in lacs (÷100000)
 		def fmt(val):
-			if val is None:
-				return "0.00"
-			return f"{val / 100000:,.2f}"
+			val = flt(val)
+			if not val:
+				return "-"
+			if float(val).is_integer():
+				formatted = f"{abs(int(val)):,}"
+			else:
+				formatted = f"{abs(val):,.2f}"
+			return f"({formatted})" if val < 0 else formatted
 
-		# Get values for each asset class
-		def get_val(data_dict, asset, key):
-			if asset in data_dict and data_dict[asset].get(key) is not None:
-				return data_dict[asset][key]
+		def get_row_value(row, *fieldnames):
+			for fieldname in fieldnames:
+				value = getattr(row, fieldname, None)
+				if value is not None:
+					return flt(value)
 			return 0
 
-		# I. Gross carrying amount values
-		py_opening = {asset: get_val(result["previous_year"], asset, "opening_value") for asset in asset_classes}
-		py_opening_total = sum(v for v in py_opening.values() if v)
+		prev_year_start_date = self._format_far_note_date(prev_year_start)
+		prev_year_end_date = self._format_far_note_date(prev_year_end)
+		curr_year_end_date = self._format_far_note_date(curr_year_end)
+		gross_map = {row.particulars: row for row in far_doc.rou_gross_carrying}
+		dep_map = {row.particulars: row for row in far_doc.rou_accumulated_depreciation}
+		particulars = [row.particulars for row in far_doc.rou_gross_carrying]
 
-		py_additions = {asset: get_val(result["previous_year"], asset, "positive_transaction") for asset in asset_classes}
-		py_additions_total = sum(v for v in py_additions.values() if v)
+		if not particulars:
+			return section_description.replace("{{note_table}}", "<p>No FAR data found for Right of use assets</p>")
 
-		py_disposals = {asset: get_val(result["previous_year"], asset, "negative_transaction") for asset in asset_classes}
-		py_disposals_total = sum(v for v in py_disposals.values() if v)
+		num_cols = len(particulars)
+		col_width = round(((100 - 32 - 12) / num_cols) * 0.5, 1) if num_cols else 10
+		table_min_width = max(600, 180 + (num_cols * 150))
+		green_fill = "background-color:#EAF2E8;"
+		header_fill = "background-color:#CCF2CC;"
+		base_cell = "border-right:1px solid black; text-align:right; padding:3px 6px;"
 
-		py_closing = {asset: get_val(result["previous_year"], asset, "closing_value") for asset in asset_classes}
-		py_closing_total = sum(v for v in py_closing.values() if v)
+		def data_cells(values, total, style, bold=False):
+			cells = ""
+			for particular in particulars:
+				content = fmt(values.get(particular))
+				if bold:
+					content = f"<b>{content}</b>"
+				cells += f'<td style="{style}{base_cell}">{content}</td>'
+			total_content = fmt(total)
+			if bold:
+				total_content = f"<b>{total_content}</b>"
+			cells += f'<td style="{green_fill}{style}{base_cell}">{total_content}</td>'
+			return cells
 
-		cy_additions = {asset: get_val(result["current_year"], asset, "positive_transaction") for asset in asset_classes}
-		cy_additions_total = sum(v for v in cy_additions.values() if v)
+		def empty_cells(style):
+			cells = "".join(
+				f'<td style="{style}{base_cell}"></td>' for _ in particulars
+			)
+			cells += f'<td style="{green_fill}{style}{base_cell}"></td>'
+			return cells
 
-		cy_disposals = {asset: get_val(result["current_year"], asset, "negative_transaction") for asset in asset_classes}
-		cy_disposals_total = sum(v for v in cy_disposals.values() if v)
+		def build_values(data_map, fieldnames):
+			values = {
+				particular: get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)
+				for particular in particulars
+			}
+			return values, sum(values.values())
 
-		cy_closing = {asset: get_val(result["current_year"], asset, "closing_value") for asset in asset_classes}
-		cy_closing_total = sum(v for v in cy_closing.values() if v)
+		s_top = "border-top:none; border-bottom:none;"
+		s_mid = "border-top:none; border-bottom:none;"
+		s_bot = "border-top:none; border-bottom:1px solid black;"
+		s_no_bot = "border-top:none; border-bottom:none;"
+		s_full = "border:1px solid black;"
+		s_sec_top = "border-top:1px solid black; border-bottom:none;"
 
-		# II. Accumulated amortisation values
-		py_acc_opening = {asset: get_val(result["previous_year_acc_dep"], asset, "opening_value") for asset in asset_classes}
-		py_acc_opening_total = sum(v for v in py_acc_opening.values() if v)
+		header_cols = "".join(
+			f'<th style="{header_fill} border:1px solid black; border-bottom:1px solid black; width:{col_width}%;">{particular}</th>'
+			for particular in particulars
+		)
+		header_cols += f'<th style="{header_fill} border:1px solid black; border-bottom:1px solid black; width:10%;">Total</th>'
 
-		py_acc_for_year = {asset: get_val(result["previous_year_acc_dep"], asset, "positive_transaction") for asset in asset_classes}
-		py_acc_for_year_total = sum(v for v in py_acc_for_year.values() if v)
+		py_opening, py_opening_total = build_values(gross_map, ("as_at_pre_previous_year",))
+		py_additions, py_additions_total = build_values(gross_map, ("prev_addition",))
+		py_disposals, py_disposals_total = build_values(gross_map, ("prev_disposals",))
+		py_closing, py_closing_total = build_values(gross_map, ("as_at_previous_year",))
+		cy_additions, cy_additions_total = build_values(gross_map, ("curr_addition", "current_addition"))
+		cy_disposals, cy_disposals_total = build_values(gross_map, ("curr_disposals", "current_disposals"))
+		cy_closing, cy_closing_total = build_values(gross_map, ("as_at_current_year",))
 
-		py_acc_disposals = {asset: get_val(result["previous_year_acc_dep"], asset, "negative_transaction") for asset in asset_classes}
-		py_acc_disposals_total = sum(v for v in py_acc_disposals.values() if v)
+		py_acc_opening, py_acc_opening_total = build_values(dep_map, ("as_at_pre_previous_year",))
+		py_acc_for_year, py_acc_for_year_total = build_values(dep_map, ("prev_addition",))
+		py_acc_disposals, py_acc_disposals_total = build_values(dep_map, ("prev_disposals",))
+		py_acc_closing, py_acc_closing_total = build_values(dep_map, ("as_at_previous_year",))
+		cy_acc_for_year, cy_acc_for_year_total = build_values(dep_map, ("curr_addition", "current_addition"))
+		cy_acc_disposals, cy_acc_disposals_total = build_values(dep_map, ("curr_disposals", "current_disposals"))
+		cy_acc_closing, cy_acc_closing_total = build_values(dep_map, ("as_at_current_year",))
 
-		py_acc_closing = {asset: get_val(result["previous_year_acc_dep"], asset, "closing_value") for asset in asset_classes}
-		py_acc_closing_total = sum(v for v in py_acc_closing.values() if v)
-
-		cy_acc_for_year = {asset: get_val(result["current_year_acc_dep"], asset, "positive_transaction") for asset in asset_classes}
-		cy_acc_for_year_total = sum(v for v in cy_acc_for_year.values() if v)
-
-		cy_acc_disposals = {asset: get_val(result["current_year_acc_dep"], asset, "negative_transaction") for asset in asset_classes}
-		cy_acc_disposals_total = sum(v for v in cy_acc_disposals.values() if v)
-
-		cy_acc_closing = {asset: get_val(result["current_year_acc_dep"], asset, "closing_value") for asset in asset_classes}
-		cy_acc_closing_total = sum(v for v in cy_acc_closing.values() if v)
-
-		# III. Net carrying amount = Gross Closing - Accumulated Amortisation Closing
-		py_net = {asset: (py_closing.get(asset, 0) or 0) - (py_acc_closing.get(asset, 0) or 0) for asset in asset_classes}
+		py_net = {
+			particular: py_closing.get(particular, 0) - py_acc_closing.get(particular, 0)
+			for particular in particulars
+		}
 		py_net_total = py_closing_total - py_acc_closing_total
-
-		cy_net = {asset: (cy_closing.get(asset, 0) or 0) - (cy_acc_closing.get(asset, 0) or 0) for asset in asset_classes}
+		cy_net = {
+			particular: cy_closing.get(particular, 0) - cy_acc_closing.get(particular, 0)
+			for particular in particulars
+		}
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
 		html = f'''
-		<table style="margin-top: -20px; margin-bottom: -20px; border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: fixed;">
-			<thead>
-				<tr style="color: #4472C4;">
-					<th style="width: 40%; border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black;">Right-of-use assets - Vehicles</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black;">Right-of-use assets - Immovable property</th>
-					<th style="border: 1px solid black; border-bottom:1px solid black;">Total</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr>
-					<td style="border-left: 1px solid black;border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"><b>I. Gross carrying amount</b></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black;border-top:1px solid black; border-bottom: none;"></td>
-					
-				</tr>
-				<tr>
-					<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_opening_total)}</td>					
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Additions</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_additions_total)}</td>
-					
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_disposals_total)}</td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>As at {previous_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Right-of-use assets - Vehicles"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing.get("Right-of-use assets - Immovable property"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_closing_total)}</b></td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Additions</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_additions_total)}</td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals, transfer and adjustments</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_disposals_total)}</td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>As at {current_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Right-of-use assets - Vehicles"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing.get("Right-of-use assets - Immovable property"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_closing_total)}</b></td>
-				</tr>
-				<tr>
-					<td style="border-left: 1px solid black;border-right: 1px solid black; border-bottom: none;"><b>II.  Accumulated amortisation<b></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>
-					<td style="border-right: 1px solid black; border-bottom: none;"></td>					
-				</tr>
-				<tr>
-					<td style="border-top: 1px solid black;border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">As at {previous_year_starting_date}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-top: 1px solid black;border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_opening_total)}</td>					
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:none;">Year Ended {previous_year_ending_date}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:none;">{fmt(py_acc_for_year_total)}</td>					
-				</tr>
-				<tr>
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none; border-bottom:1px solid black;">Disposals</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(py_acc_disposals_total)}</td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>Upto {previous_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Right-of-use assets - Vehicles"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing.get("Right-of-use assets - Immovable property"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_acc_closing_total)}</b></td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-bottom:none;">Year Ended {current_year_ending_date}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-bottom:none;">{fmt(cy_acc_for_year_total)}</td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border-left:1px solid black; border-right: 1px solid black;border-top:none;border-bottom:1px solid black;">Disposals and adjustments</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Right-of-use assets - Vehicles"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals.get("Right-of-use assets - Immovable property"))}</td>
-					<td style="border-right:1px solid black;border-top:none;border-bottom:1px solid black;">{fmt(cy_acc_disposals_total)}</td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>Upto {current_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Right-of-use assets - Vehicles"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing.get("Right-of-use assets - Immovable property"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_acc_closing_total)}</b></td>					
-				</tr>
-				<tr>
-					<td style="border:1px solid black;"><b>III.  Net carrying amount</b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>
-					<td style="border:1px solid black;"><b></b></td>					
-				</tr>
-				<tr>
-					<td style="border:1px solid black;"><b>As at {previous_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Right-of-use assets - Vehicles"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net.get("Right-of-use assets - Immovable property"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(py_net_total)}</b></td>					
-				</tr>
-				<tr style="background-color: #E8F5E8;">
-					<td style="border:1px solid black;"><b>As at {current_year_ending_date}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Right-of-use assets - Vehicles"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net.get("Right-of-use assets - Immovable property"))}</b></td>
-					<td style="border:1px solid black;"><b>{fmt(cy_net_total)}</b></td>					
-				</tr>
-			</tbody>
-		</table>
-
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-10px; margin-bottom:-20px;">
+			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:{table_min_width}px; table-layout:fixed; font-size:13px;">
+				<thead>
+					<tr style="color:#0000FF;">
+						<th style="border:1px solid black; border-bottom:1px solid black; width:25%;">Particulars</th>
+						{header_cols}
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-top:1px solid black; border-bottom:none;"><b>I. Gross carrying amount</b></td>
+						{empty_cells(s_sec_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_top}">As at {prev_year_start_date}</td>
+						{data_cells(py_opening, py_opening_total, s_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_mid}">Additions</td>
+						{data_cells(py_additions, py_additions_total, s_mid)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals, transfers and adjustments1</td>
+						{data_cells(py_disposals, py_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {prev_year_end_date}</b></td>
+						{data_cells(py_closing, py_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_no_bot}">Additions</td>
+						{data_cells(cy_additions, cy_additions_total, s_no_bot)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals, transfers and adjustments2</td>
+						{data_cells(cy_disposals, cy_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {curr_year_end_date}</b></td>
+						{data_cells(cy_closing, cy_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-bottom:none;"><b>II. Accumulated depreciation</b></td>
+						{empty_cells("border-bottom:none;")}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_top}">As at {prev_year_start_date}</td>
+						{data_cells(py_acc_opening, py_acc_opening_total, s_top)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_mid}">For the year ended {prev_year_end_date}</td>
+						{data_cells(py_acc_for_year, py_acc_for_year_total, s_mid)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals and adjustments3</td>
+						{data_cells(py_acc_disposals, py_acc_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>Upto {prev_year_end_date}</b></td>
+						{data_cells(py_acc_closing, py_acc_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_no_bot}">For the year ended {curr_year_end_date}</td>
+						{data_cells(cy_acc_for_year, cy_acc_for_year_total, s_no_bot)}
+					</tr>
+					<tr>
+						<td style="border-left:1px solid black; border-right:1px solid black; {s_bot}">Disposals and adjustments4</td>
+						{data_cells(cy_acc_disposals, cy_acc_disposals_total, s_bot)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>Upto {curr_year_end_date}</b></td>
+						{data_cells(cy_acc_closing, cy_acc_closing_total, s_full, bold=True)}
+					</tr>
+					<tr>
+						<td style="{s_full}"><b>III. Net carrying amount</b></td>
+						{empty_cells(s_full)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {prev_year_end_date}</b></td>
+						{data_cells(py_net, py_net_total, s_full, bold=True)}
+					</tr>
+					<tr style="{green_fill}">
+						<td style="{s_full}"><b>As at {curr_year_end_date}</b></td>
+						{data_cells(cy_net, cy_net_total, s_full, bold=True)}
+					</tr>
+				</tbody>
+			</table>
+		</div>
 		'''
 		return section_description.replace("{{note_table}}", html)
 
@@ -2014,14 +1874,6 @@ class FinancialReport(Document):
 		cur_tax_at_rate = round(cur_pbt * cur_rate / 100)
 		pre_tax_at_rate = round(pre_pbt * pre_rate / 100)
 
-		# Calculate total tax (tax_at_rate + sum of all difference values)
-		cur_diff_total = sum(flt(d.value) for d in cur_diff_items)
-		pre_diff_total = sum(flt(d.value) for d in pre_diff_items)
-		cur_tax = cur_tax_at_rate + cur_diff_total
-		pre_tax = pre_tax_at_rate + pre_diff_total
-		cur_tax_pct = round(cur_tax / cur_pbt * 100, 2) if cur_pbt else 0
-		pre_tax_pct = round(pre_tax / pre_pbt * 100, 2) if pre_pbt else 0
-
 		# (c) Deferred Tax Assets (Net)
 		def render_dta_table(rows):
 			if not rows:
@@ -2089,7 +1941,7 @@ class FinancialReport(Document):
 
 		curr_deferred_tax = sum(row[2] for row in dta_rows)
 		prev_deferred_tax = sum(row[4] for row in dta_rows)
-
+		
 		for y in a_data:
 			a_data[y]["total_tax"] += curr_deferred_tax if y == "current" else prev_deferred_tax
 
@@ -2142,8 +1994,8 @@ class FinancialReport(Document):
 
 				<tr>
 					<td style="border:1px solid #000; padding:6px;"><strong>Total Income tax expense</strong></td>
-					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(a_data["current"]["total_tax"])}</strong></td>
-					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(a_data["previous"]["total_tax"])}</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(round(a_data["current"]["total_tax"], self.show_decimal_value))}</strong></td>
+					<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(round(a_data["previous"]["total_tax"], self.show_decimal_value))}</strong></td>
 				</tr>
 			</tbody>
 		</table>
@@ -2183,7 +2035,10 @@ class FinancialReport(Document):
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(pre_tax_at_rate)}</td>
 				</tr>
 		"""
-		# Dynamic difference_due_to rows from FR Tax Master child table
+		cur_tax = cur_pbt + cur_tax_at_rate
+		pre_tax = pre_pbt + pre_tax_at_rate
+		cur_tax_pct = cur_rate
+		pre_tax_pct = pre_rate
 		all_particulars = list(dict.fromkeys([d.particulars for d in cur_diff_items] + [d.particulars for d in pre_diff_items]))
 		html += f"""
 				<tr>
@@ -2197,12 +2052,19 @@ class FinancialReport(Document):
 		for particular in all_particulars:
 			cur_d = next((d for d in cur_diff_items if d.particulars == particular), None)
 			pre_d = pre_diff_map.get(particular)
-
+			
 			cur_pct = f'{flt(cur_d.percentage):.2f}%' if cur_d else ""
 			pre_pct = f'{flt(pre_d.percentage):.2f}%' if pre_d else ""
 
 			cur_val = flt(cur_d.value) if cur_d else 0
 			pre_val = flt(pre_d.value) if pre_d else 0
+
+			cur_tax += flt(cur_d.value) if cur_d else 0
+			pre_tax += flt(pre_d.value) if pre_d else 0
+			
+			cur_tax_pct += flt(cur_d.percentage) if cur_d else 0
+			pre_tax_pct += flt(pre_d.percentage) if pre_d else 0
+
 			html += f"""
 				<tr>
 					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{particular}</td>

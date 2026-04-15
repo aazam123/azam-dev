@@ -22,7 +22,9 @@
   "other_accumulated_depreciation",
   "right_of_use_assets_section",
   "rou_gross_carrying",
-  "rou_accumulated_depreciation"
+  "rou_accumulated_depreciation",
+  "capital_work_in_progress_section",
+  "cwip_details"
  ],
  "fields": [
   {
@@ -118,12 +120,23 @@
    "label": "Pre Previous Year",
    "options": "Fiscal Year",
    "read_only": 1
+  },
+  {
+   "fieldname": "capital_work_in_progress_section",
+   "fieldtype": "Section Break",
+   "label": "Capital Work In Progress"
+  },
+  {
+   "fieldname": "cwip_details",
+   "fieldtype": "Table",
+   "label": "CWIP Details",
+   "options": "FR FAR CWIP Details"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-14 13:38:57.732005",
+ "modified": "2026-04-15 10:32:25.335472",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR FAR Entry",
