@@ -1212,7 +1212,7 @@ class FinancialReport(Document):
 		)
 
 		def fmt(val):
-			return "{:,.2f}".format((val or 0) / 100000)
+			return "{:,.2f}".format((val or 0))
 
 		if not far_entry:
 			if field:
