@@ -6,6 +6,12 @@ from frappe.utils import flt, getdate
 from frappe.model.document import Document
 
 class FRFAREntry(Document):
+	def before_insert(self):
+		if self.fiscal_year and self.company:
+			existing_entry = frappe.db.exists("FR FAR Entry", {"fiscal_year": self.fiscal_year, "company": self.company})
+			if existing_entry:
+				frappe.throw(f"An entry for fiscal year {self.fiscal_year} and company {self.company} already exists.")
+	
 	def to_lakhs(self, value):
 		return flt(value) / 100000
 
