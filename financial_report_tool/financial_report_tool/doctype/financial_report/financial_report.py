@@ -3554,8 +3554,8 @@ class FinancialReport(Document):
 				return "-"
 			if isinstance(val, str) and "%" in val:
 				return val.strip()
-			if isinstance(val, (int, float)):
-				return round(val / 100000, self.show_decimal_value)
+			else:
+				return round(flt(val) / 100000, self.show_decimal_value)
 
 			return val	
 											
