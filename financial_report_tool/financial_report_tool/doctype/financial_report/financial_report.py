@@ -1349,7 +1349,6 @@ class FinancialReport(Document):
 
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 
-		# ✅ FIX 1: Correct Asset Group Type
 		asset_groups = frappe.get_list(
 			"FR Asset Group",
 			filters={'asset_group_type': "Intangible Assets Under Development"},
@@ -2104,8 +2103,8 @@ class FinancialReport(Document):
 
 		borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'current_month_amount') or 0
 		borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0)
-		lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability Liability"}, 'name'), 'current_month_amount') or 0)
-		lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability Liability"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
+		lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'current_month_amount') or 0)
 		cur_borrowings = borrowings_non_current + borrowings_current + lease_liabilities_current + lease_liabilities_non_current
 
 		cur_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'current_month_amount') or 0
@@ -2114,8 +2113,8 @@ class FinancialReport(Document):
 
 		pre_borrowings_non_current = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Borrowing"}, 'name'), 'previous_year') or 0
 		pre_borrowings_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'previous_year') or 0)
-		pre_lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability Liability"}, 'name'), 'previous_year') or 0)
-		pre_lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability Liability"}, 'name'), 'previous_year') or 0)
+		pre_lease_liabilities_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Lease Liability"}, 'name'), 'previous_year') or 0)
+		pre_lease_liabilities_non_current = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Lease Liability"}, 'name'), 'previous_year') or 0)
 		pre_borrowings = pre_borrowings_non_current + pre_borrowings_current + pre_lease_liabilities_current + pre_lease_liabilities_non_current
 
 		pre_cash = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Cash & Cash Equivalents"}, 'name'), 'previous_year') or 0
