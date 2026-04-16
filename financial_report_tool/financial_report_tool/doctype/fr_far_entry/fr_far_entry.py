@@ -212,7 +212,8 @@ class FRFAREntry(Document):
 				filters={
 					"company": self.company,
 					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["<", prev_start]
+					"ordinary_depreciation_start_date": ["<", prev_start],
+					"fiscal_year": self.pre_previous_year
 				}
 			)
 
@@ -230,7 +231,8 @@ class FRFAREntry(Document):
 				filters={
 					"company": self.company,
 					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["between", [prev_start, prev_end]]
+					"ordinary_depreciation_start_date": ["between", [prev_start, prev_end]],
+					'fiscal_year': self.previous_fiscal_year
 				}
 			)
 
@@ -253,7 +255,8 @@ class FRFAREntry(Document):
 				filters={
 					"company": self.company,
 					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["between", [curr_start, curr_end]]
+					"ordinary_depreciation_start_date": ["between", [curr_start, curr_end]],
+					'fiscal_year': self.fiscal_year
 				}
 			)
 
@@ -328,7 +331,8 @@ class FRFAREntry(Document):
 				filters={
 					"company": self.company,
 					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["<", prev_start]
+					"ordinary_depreciation_start_date": ["<", prev_start],
+					"fiscal_year": self.pre_previous_year
 				}
 			)
 
@@ -346,7 +350,8 @@ class FRFAREntry(Document):
 				filters={
 					"company": self.company,
 					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["between", [prev_start, prev_end]]
+					"ordinary_depreciation_start_date": ["between", [prev_start, prev_end]],
+					'fiscal_year': self.previous_fiscal_year
 				}
 			)
 
@@ -369,7 +374,8 @@ class FRFAREntry(Document):
 				filters={
 					"company": self.company,
 					"asset_group": ["in", valid_asset_groups],
-					"ordinary_depreciation_start_date": ["between", [curr_start, curr_end]]
+					"ordinary_depreciation_start_date": ["between", [curr_start, curr_end]],
+					'fiscal_year': self.fiscal_year
 				}
 			)
 

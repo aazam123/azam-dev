@@ -3548,6 +3548,17 @@ class FinancialReport(Document):
 
 		def fmt_pct(val):
 			return val if isinstance(val, str) else f"{val:.2f}%"
+
+		def format_value(val):
+			if val in (None, "", "-"):
+				return "-"
+			if isinstance(val, str) and "%" in val:
+				return val.strip()
+			if isinstance(val, (int, float)):
+				return round(val / 100000, self.show_decimal_value)
+
+			return val	
+											
 		curr_ebo = prev_ebo = None
 		curr_name = frappe.db.exists("FR Employee Benefit Obligation",{"company": self.company,"fiscal_year": self.fiscal_year,"month": cls_month})
 		if curr_name:
@@ -3562,19 +3573,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.amount_recognised_in_the_balance_sheet:
 				note_table_1_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.amount_recognised_in_the_balance_sheet:
 				if i.label in note_table_1_map:
-					note_table_1_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_1_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_1_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3606,19 +3617,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.amount_recognised_in_statement_of_profit:
 				note_table_2_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.amount_recognised_in_statement_of_profit:
 				if i.label in note_table_2_map:
-					note_table_2_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_2_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_2_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3649,19 +3660,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.reconciliation_of_defined_benefit_obligation:
 				note_table_3_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.reconciliation_of_defined_benefit_obligation:
 				if i.label in note_table_3_map:
-					note_table_3_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_3_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_3_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3692,19 +3703,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.actuarial_assumptions:
 				note_table_4_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.actuarial_assumptions:
 				if i.label in note_table_4_map:
-					note_table_4_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_4_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_4_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3735,19 +3746,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.experience_adjustments:
 				note_table_8_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.experience_adjustments:
 				if i.label in note_table_8_map:
-					note_table_8_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_8_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_8_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3778,19 +3789,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.sensitivity_analysis:
 				note_table_9_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.sensitivity_analysis:
 				if i.label in note_table_9_map:
-					note_table_9_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_9_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_9_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3821,19 +3832,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.maturity_analysis:
 				note_table_11_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.maturity_analysis:
 				if i.label in note_table_11_map:
-					note_table_11_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_11_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_11_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3864,19 +3875,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.actuarial_assumption_for_compensated_absences:
 				note_table_12_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.actuarial_assumption_for_compensated_absences:
 				if i.label in note_table_12_map:
-					note_table_12_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_12_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_12_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
@@ -3907,19 +3918,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.actuarial_assumption_for_compensated_absences:
 				note_table_12_2_map[i.label] = {
 					"label": i.label,
-					"curr_amt": round(flt(i.value)/100000, self.show_decimal_value),
+					"curr_amt": format_value(i.value),
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.actuarial_assumption_for_compensated_absences:
 				if i.label in note_table_12_2_map:
-					note_table_12_2_map[i.label]["prev_amt"] = round(flt(i.value)/100000, self.show_decimal_value)
+					note_table_12_2_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
 					note_table_12_2_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": round(flt(i.value)/100000, self.show_decimal_value),
+						"prev_amt": format_value(i.value),
 						"is_bold": i.is_bold
 					}
 
