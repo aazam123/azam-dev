@@ -42,6 +42,8 @@ frappe.ui.form.on("FR FAR Entry", {
         frappe.call({
             method: "process_calculation",
             doc: frm.doc,
+            freeze: true,
+            freeze_message: "Processing calculation. Please wait...",
             callback: function(r) {
                 if (r.message) {
                     frm.refresh();

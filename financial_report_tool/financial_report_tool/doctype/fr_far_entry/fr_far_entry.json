@@ -24,7 +24,20 @@
   "rou_gross_carrying",
   "rou_accumulated_depreciation",
   "capital_work_in_progress_section",
-  "cwip_details"
+  "cwip_details",
+  "total_section",
+  "ppe_column",
+  "ppe_net_py_total",
+  "ppe_net_cy_total",
+  "other_intangible_assets_column",
+  "other_py_total",
+  "other_cy_total",
+  "right_to_use_column",
+  "rou_net_py_total",
+  "rou_net_cy_total",
+  "cwip_column",
+  "cwip_py_total",
+  "cwip_cy_total"
  ],
  "fields": [
   {
@@ -135,12 +148,77 @@
    "fieldtype": "Table",
    "label": "CWIP Details",
    "options": "FR FAR CWIP Details"
+  },
+  {
+   "fieldname": "total_section",
+   "fieldtype": "Section Break",
+   "label": "Total"
+  },
+  {
+   "fieldname": "ppe_column",
+   "fieldtype": "Column Break",
+   "label": "PPE"
+  },
+  {
+   "fieldname": "ppe_net_py_total",
+   "fieldtype": "Float",
+   "label": "Net Pervious Year Total"
+  },
+  {
+   "fieldname": "other_intangible_assets_column",
+   "fieldtype": "Column Break",
+   "label": "Other Intangible assets"
+  },
+  {
+   "fieldname": "other_py_total",
+   "fieldtype": "Float",
+   "label": "Net Pervious Year Total"
+  },
+  {
+   "fieldname": "other_cy_total",
+   "fieldtype": "Float",
+   "label": "Net Current Year Total"
+  },
+  {
+   "fieldname": "ppe_net_cy_total",
+   "fieldtype": "Float",
+   "label": "Net Current Year Total"
+  },
+  {
+   "fieldname": "right_to_use_column",
+   "fieldtype": "Column Break",
+   "label": "Right to Use"
+  },
+  {
+   "fieldname": "rou_net_py_total",
+   "fieldtype": "Float",
+   "label": "Net Pervious Year Total"
+  },
+  {
+   "fieldname": "rou_net_cy_total",
+   "fieldtype": "Float",
+   "label": "Net Current Year Total"
+  },
+  {
+   "fieldname": "cwip_column",
+   "fieldtype": "Column Break",
+   "label": "CWIP"
+  },
+  {
+   "fieldname": "cwip_py_total",
+   "fieldtype": "Float",
+   "label": "Pervious Year Total"
+  },
+  {
+   "fieldname": "cwip_cy_total",
+   "fieldtype": "Float",
+   "label": "Current Year Total"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-15 12:42:00.633685",
+ "modified": "2026-04-16 17:09:25.320539",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR FAR Entry",

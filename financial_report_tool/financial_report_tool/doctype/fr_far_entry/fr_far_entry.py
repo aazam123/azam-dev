@@ -55,7 +55,7 @@ class FRFAREntry(Document):
 	def process_property_plant_and_equipment(self):
 		self.ppe_gross_carrying = []
 		self.ppe_accumulated_depreciation = []
-
+		tot_curr_close, tot_curr_acc_close, tot_prev_close, tot_prev_acc_close = 0, 0, 0, 0
 		ppe_asset_classes = frappe.get_list(
 			"FR Asset Group",
 			filters={"asset_group_type": "Property Plant and Equipment", "is_group": 1},
@@ -170,11 +170,18 @@ class FRFAREntry(Document):
 				"curr_disposals": self.to_lakhs(curr_acc_dis),
 				"as_at_current_year": self.to_lakhs(curr_acc_close)
 			})
+			tot_curr_close += self.to_lakhs(curr_close)
+			tot_curr_acc_close += self.to_lakhs(curr_acc_close)
+			tot_prev_close += self.to_lakhs(prev_close)
+			tot_prev_acc_close += self.to_lakhs(prev_acc_close)
+
+		self.ppe_net_py_total = (tot_prev_close - tot_prev_acc_close)
+		self.ppe_net_cy_total = (tot_curr_close - tot_curr_acc_close)
 
 	def process_other_intangible_assets(self):
 		self.other_gross_carrying = []
 		self.other_accumulated_depreciation = []
-
+		tot_prev_close, tot_prev_acc_close, tot_curr_close, tot_curr_acc_close = 0, 0, 0, 0
 		intangible_asset_classes = frappe.get_list(
 			"FR Asset Group",
 			filters={"asset_group_type": "Other Intangible Assets", "is_group": 1},
@@ -289,11 +296,18 @@ class FRFAREntry(Document):
 				"curr_disposals": self.to_lakhs(curr_acc_dis),
 				"as_at_current_year": self.to_lakhs(curr_acc_close)
 			})
+			tot_curr_close += self.to_lakhs(curr_close)
+			tot_curr_acc_close += self.to_lakhs(curr_acc_close)
+			tot_prev_close += self.to_lakhs(prev_close)
+			tot_prev_acc_close += self.to_lakhs(prev_acc_close)
+
+		self.other_py_total = tot_prev_close - tot_prev_acc_close
+		self.other_cy_total = tot_curr_close - tot_curr_acc_close
 
 	def process_right_of_use_assets(self):
 		self.rou_gross_carrying = []
 		self.rou_accumulated_depreciation = []
-
+		tot_prev_close, tot_prev_acc_close, tot_curr_close, tot_curr_acc_close = 0, 0, 0, 0
 		rou_asset_classes = frappe.get_list(
 			"FR Asset Group",
 			filters={"asset_group_type": "Right of Use Assets", "is_group": 1},
@@ -408,6 +422,13 @@ class FRFAREntry(Document):
 				"curr_disposals": self.to_lakhs(curr_acc_dis),
 				"as_at_current_year": self.to_lakhs(curr_acc_close)
 			})
+			tot_prev_close += self.to_lakhs(prev_close)
+			tot_prev_acc_close += self.to_lakhs(prev_acc_close)
+			tot_curr_close += self.to_lakhs(curr_close)
+			tot_curr_acc_close += self.to_lakhs(curr_acc_close)
+
+		self.rou_net_py_total = tot_prev_close - tot_prev_acc_close
+		self.rou_net_cy_total = tot_curr_close - tot_curr_acc_close
 
 	def process_cwip(self):
 		self.cwip_details = []
@@ -519,3 +540,6 @@ class FRFAREntry(Document):
 
 		for row in cwip_data:
 			self.append("cwip_details", row)
+
+		self.cwip_py_total = in_lakhs(py_pip_total)
+		self.cwip_cy_total = in_lakhs(cy_pip_total)
