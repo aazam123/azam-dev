@@ -850,8 +850,7 @@ class FinancialReport(Document):
 
 		def build_values(data_map, fieldnames):
 			values = {
-				particular: get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)
-				for particular in particulars
+				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/ 100000, self.show_decimal_value) for particular in particulars
 			}
 			return values, sum(values.values())
 
@@ -896,7 +895,7 @@ class FinancialReport(Document):
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
 		html = f'''
-		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-10px; margin-bottom:-20px;">
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-50px; margin-bottom:-30px;">
 			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:{table_min_width}px; table-layout:fixed; font-size:13px;">
 				<thead>
 					<tr style="color:#0000FF;">
@@ -1055,8 +1054,7 @@ class FinancialReport(Document):
 
 		def build_values(data_map, fieldnames):
 			values = {
-				particular: get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)
-				for particular in particulars
+				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/ 100000, self.show_decimal_value) for particular in particulars
 			}
 			return values, sum(values.values())
 
@@ -1112,7 +1110,7 @@ class FinancialReport(Document):
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
 		html = f'''
-		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-10px; margin-bottom:-20px;">
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-50px; margin-bottom:-20px;">
 			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:{table_min_width}px; table-layout:fixed; font-size:13px;">
 				<thead>
 					<tr style="color:#0000FF;">
@@ -1228,7 +1226,7 @@ class FinancialReport(Document):
 			return cwip_map.get(label, frappe._dict())
 
 		def get_value(row, fieldname):
-			return flt(getattr(row, fieldname, 0) or 0)
+			return round(flt(getattr(row, fieldname, 0) or 0)/100000, self.show_decimal_value)
 
 		less_1_row = get_row("Less than 1 year")
 		one_to_2_row = get_row("1-2 years")
@@ -1271,15 +1269,15 @@ class FinancialReport(Document):
 
 		if field:
 			field_map = {
-				"curr_pre_total": cy_pip_total,
-				"prev_pre_total": py_pip_total,
-				"curr_temp_total": cy_pts_total,
-				"prev_temp_total": py_pts_total,
+				"curr_pre_total": round(cy_pip_total, self.show_decimal_value),
+				"curr_temp_total": round(cy_pts_total, self.show_decimal_value),
+				"prev_pre_total": round(py_pip_total, self.show_decimal_value),
+				"prev_temp_total": round(py_pts_total, self.show_decimal_value),
 			}
 			return field_map.get(field, 0)
 
 		html = f'''
-		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-20px;">
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-50px;">
 			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:600px; table-layout:fixed; font-size:13px;">
 				<thead>
 					<tr style="color:#0000FF;">
@@ -1339,177 +1337,136 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_yearly_intangible_assets_under_development(self, section_description="", field=""):
-		if field:
-			return 0
-		curr_year_end_date = frappe.utils.getdate(self.current_year_ending_date)
-		prev_year_end_date = frappe.utils.getdate(self.previous_year_ending_date)
+		previous_year_ending_date_display = frappe.utils.getdate(self.previous_year_ending_date).strftime("%d %B %Y")
+		current_year_ending_date_display  = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
 
-		previous_year_ending_date_display = prev_year_end_date.strftime("%d %B %Y")
-		current_year_ending_date_display  = curr_year_end_date.strftime("%d %B %Y")
-
-		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-
-		asset_groups = frappe.get_list(
-			"FR Asset Group",
-			filters={'asset_group_type': "Intangible Assets Under Development"},
-			pluck="name"
+		far_entry = frappe.db.exists(
+			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
 		)
 
 		def fmt(val):
-			return "{:,.2f}".format((val or 0) / 100000)
+			return "{:,.2f}".format((val or 0))
 
-		def get_iaud_values_for_date(current_fy):
-			if not current_fy:
-				return 0, 0, 0, 0
+		if not far_entry:
+			if field:
+				return 0
+			return section_description.replace("{{note_table}}", "<p>No FAR data found for Intangible Assets Under Development</p>")
 
-			# Fiscal Year ladder
-			fy_list = []
-			fy = current_fy
-			for _ in range(4):
-				if fy:
-					fy_list.append(fy)
-					fy = self.get_fiscal_year_before(fy)
-				else:
-					fy_list.append(None)
+		far_doc = frappe.get_doc("FR FAR Entry", far_entry)
+		iaud_map = {
+			(row.amount_in_iaud_for_a_period_of or "").strip(): row for row in far_doc.intangible_details
+		}
 
-			def get_iaud_total(fiscal_year):
-				if not fiscal_year or not asset_groups:
-					return 0, 0
+		def get_row(label):
+			return iaud_map.get(label, frappe._dict())
 
-				# ✅ FIX 2: Safe SQL IN clause
-				placeholders = ", ".join(["%s"] * len(asset_groups))
+		def get_value(row, fieldname):
+			return round(flt(getattr(row, fieldname, 0) or 0)/100000, self.show_decimal_value)
 
-				query = f"""
-					SELECT 
-						COALESCE(SUM(sap_transaction_acq_value),0) AS total_acq_value,
-						COALESCE(SUM(sap_ebv),0) AS total_ebv
-					FROM `tabFR Asset Register Entry`
-					WHERE asset_group IN ({placeholders})
-					AND company = %s
-					AND fiscal_year = %s
-				"""
+		less_1_row = get_row("Less than 1 year")
+		one_to_2_row = get_row("1-2 years")
+		two_to_3_row = get_row("2-3 years")
+		more_3_row = get_row("More than 3 years")
+		total_row = get_row("Total")
 
-				params = tuple(asset_groups) + (self.company, fiscal_year)
+		cy_pip_less_1 = get_value(less_1_row, "current_projects_in_progress")
+		cy_pip_1_to_2 = get_value(one_to_2_row, "current_projects_in_progress")
+		cy_pip_2_to_3 = get_value(two_to_3_row, "current_projects_in_progress")
+		cy_pip_more_3 = get_value(more_3_row, "current_projects_in_progress")
 
-				result = frappe.db.sql(query, params, as_dict=True)
+		py_pip_less_1 = get_value(less_1_row, "previous_projects_in_progress")
+		py_pip_1_to_2 = get_value(one_to_2_row, "previous_projects_in_progress")
+		py_pip_2_to_3 = get_value(two_to_3_row, "previous_projects_in_progress")
+		py_pip_more_3 = get_value(more_3_row, "previous_projects_in_progress")
 
-				total_acq = result[0].total_acq_value if result else 0
-				total_ebv = result[0].total_ebv if result else 0
+		cy_pts_less_1 = get_value(less_1_row, "current_projects_temporarily_suspended")
+		cy_pts_1_to_2 = get_value(one_to_2_row, "current_projects_temporarily_suspended")
+		cy_pts_2_to_3 = get_value(two_to_3_row, "current_projects_temporarily_suspended")
+		cy_pts_more_3 = get_value(more_3_row, "current_projects_temporarily_suspended")
 
-				return total_acq, total_ebv
+		py_pts_less_1 = get_value(less_1_row, "previous_projects_temporarily_suspended")
+		py_pts_1_to_2 = get_value(one_to_2_row, "previous_projects_temporarily_suspended")
+		py_pts_2_to_3 = get_value(two_to_3_row, "previous_projects_temporarily_suspended")
+		py_pts_more_3 = get_value(more_3_row, "previous_projects_temporarily_suspended")
 
-			acq_0, ebv_0 = get_iaud_total(fy_list[0])
-			acq_1, ebv_1 = get_iaud_total(fy_list[1])
-			acq_2, ebv_2 = get_iaud_total(fy_list[2])
-			acq_3, ebv_3 = get_iaud_total(fy_list[3])
+		cy_pip_total = get_value(total_row, "current_projects_in_progress") or (
+			cy_pip_less_1 + cy_pip_1_to_2 + cy_pip_2_to_3 + cy_pip_more_3
+		)
+		py_pip_total = get_value(total_row, "previous_projects_in_progress") or (
+			py_pip_less_1 + py_pip_1_to_2 + py_pip_2_to_3 + py_pip_more_3
+		)
+		cy_pts_total = get_value(total_row, "current_projects_temporarily_suspended") or (
+			cy_pts_less_1 + cy_pts_1_to_2 + cy_pts_2_to_3 + cy_pts_more_3
+		)
+		py_pts_total = get_value(total_row, "previous_projects_temporarily_suspended") or (
+			py_pts_less_1 + py_pts_1_to_2 + py_pts_2_to_3 + py_pts_more_3
+		)
 
-			# ✅ FIX 3: Safe bucket logic
-			less_1_year    = acq_0
-			one_to_2_years = max(ebv_0 - acq_0, 0)
-			two_to_3_years = max(ebv_1 - acq_1, 0)
-			more_3_years   = max(ebv_2 - acq_2, 0)
+		if field:
+			field_map = {
+				"curr_pre_total": round(cy_pip_total, self.show_decimal_value),
+				"curr_temp_total": round(cy_pts_total, self.show_decimal_value),
+				"prev_pre_total": round(py_pip_total, self.show_decimal_value),
+				"prev_temp_total": round(py_pts_total, self.show_decimal_value),
+			}
+			return field_map.get(field, 0)
 
-			return less_1_year, one_to_2_years, two_to_3_years, more_3_years
-
-		# Current Year
-		cy_pip_less_1, cy_pip_1_to_2, cy_pip_2_to_3, cy_pip_more_3 = get_iaud_values_for_date(self.fiscal_year)
-
-		# Previous Year
-		py_pip_less_1, py_pip_1_to_2, py_pip_2_to_3, py_pip_more_3 = get_iaud_values_for_date(self.previous_fiscal_year)
-
-		# Suspended Projects (Manual)
-		iaud_data = frappe.db.get_value(
-			"FR CWIP Intangible Asse Master",
-			{"financial_report": self.name},
-			[
-				"less_than_1_year_current", "1_to_2_years_current", "2_to_3_years_current", "more_than_3_years_current",
-				"less_than_1_year_previous", "1_to_2_years_previous", "2_to_3_years_previous", "more_than_3_years_previous"
-			],
-			as_dict=True
-		) or {}
-
-		cy_pts_less_1 = iaud_data.get("less_than_1_year_current") or 0
-		cy_pts_1_to_2 = iaud_data.get("1_to_2_years_current") or 0
-		cy_pts_2_to_3 = iaud_data.get("2_to_3_years_current") or 0
-		cy_pts_more_3 = iaud_data.get("more_than_3_years_current") or 0
-
-		py_pts_less_1 = iaud_data.get("less_than_1_year_previous") or 0
-		py_pts_1_to_2 = iaud_data.get("1_to_2_years_previous") or 0
-		py_pts_2_to_3 = iaud_data.get("2_to_3_years_previous") or 0
-		py_pts_more_3 = iaud_data.get("more_than_3_years_previous") or 0
-
-		# Totals
-		cy_pip_total = cy_pip_less_1 + cy_pip_1_to_2 + cy_pip_2_to_3 + cy_pip_more_3
-		py_pip_total = py_pip_less_1 + py_pip_1_to_2 + py_pip_2_to_3 + py_pip_more_3
-
-		cy_pts_total = cy_pts_less_1 + cy_pts_1_to_2 + cy_pts_2_to_3 + cy_pts_more_3
-		py_pts_total = py_pts_less_1 + py_pts_1_to_2 + py_pts_2_to_3 + py_pts_more_3
-
-		# Previous Previous Year
-		pre_py_pip_less_1, pre_py_pip_1_to_2, pre_py_pip_2_to_3, pre_py_pip_more_3 = get_iaud_values_for_date(pre_year)
-		pre_py_pip_total = pre_py_pip_less_1 + pre_py_pip_1_to_2 + pre_py_pip_2_to_3 + pre_py_pip_more_3
-
-		# Field Return
-		if field == "curr_total":
-			return (cy_pip_total - py_pip_total) / 100000
-		elif field == "prev_total":
-			return (py_pip_total - pre_py_pip_total) / 100000
-
-		# 🔹 HTML (UNCHANGED)
 		html = f'''
-			<table style="border-collapse: collapse; border: 1px solid black; width: 100%; table-layout: auto; margin-top: 30px;">
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-50px;">
+			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:600px; table-layout:fixed; font-size:13px;">
 				<thead>
-					<tr>
-						<th style="border: 1px solid black; border-bottom:1px solid black;">Particulars</th>
-						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {current_year_ending_date_display}</th>
-						<th style="border: 1px solid black; border-bottom:1px solid black;" colspan="2">As at {previous_year_ending_date_display}</th>
+					<tr style="color:#0000FF;">
+						<th style="border:1px solid black; border-bottom:1px solid black; width:24%; background-color:#CCF2CC;">Particulars</th>
+						<th style="border:1px solid black; border-bottom:1px solid black; background-color:#CCF2CC;" colspan="2">As at {current_year_ending_date_display}</th>
+						<th style="border:1px solid black; border-bottom:1px solid black; background-color:#CCF2CC;" colspan="2">As at {previous_year_ending_date_display}</th>
+					</tr>
+					<tr style="color:#0000FF;">
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Amount in IAUD for a period of</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects in progress</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects temporarily suspended</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects in progress</b></th>
+						<th style="border:1px solid black; background-color:#CCF2CC;"><b>Projects temporarily suspended</b></th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
-						<td style="border:1px solid black;"><b>Amount in CWIP for a period of</b></td>
-						<td style="border:1px solid black;"><b>Projects in progress</b></td>
-						<td style="border:1px solid black;"><b>Projects temporarily suspended</b></td>
-						<td style="border:1px solid black;"><b>Projects in progress</b></td>
-						<td style="border:1px solid black;"><b>Projects temporarily suspended</b></td>
+						<td style="border-left:1px solid black; border-right:1px solid black; padding:3px 6px;">Less than 1 year</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_less_1)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_less_1)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_less_1)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_less_1)}</td>
 					</tr>
 					<tr>
-						<td style="border-right:1px solid black;border-left:1px solid black;">Less than 1 year</td>
-						<td style="border-right:1px solid black;">{fmt(cy_pip_less_1)}</td>
-						<td style="border-right:1px solid black;">{fmt(cy_pts_less_1)}</td>
-						<td style="border-right:1px solid black;">{fmt(py_pip_less_1)}</td>
-						<td style="border-right:1px solid black;">{fmt(py_pts_less_1)}</td>
+						<td style="border-left:1px solid black; border-right:1px solid black; padding:3px 6px;">1-2 years</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_1_to_2)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_1_to_2)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_1_to_2)}</td>
 					</tr>
 					<tr>
-						<td style="border-right:1px solid black;border-left:1px solid black;">1-2 years</td>
-						<td style="border-right:1px solid black;">{fmt(cy_pip_1_to_2)}</td>
-						<td style="border-right:1px solid black;">{fmt(cy_pts_1_to_2)}</td>
-						<td style="border-right:1px solid black;">{fmt(py_pip_1_to_2)}</td>
-						<td style="border-right:1px solid black;">{fmt(py_pts_1_to_2)}</td>
+						<td style="border-left:1px solid black; border-right:1px solid black; padding:3px 6px;">2-3 years</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_2_to_3)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_2_to_3)}</td>
+						<td style="border-right:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_2_to_3)}</td>
 					</tr>
 					<tr>
-						<td style="border-right:1px solid black;border-left:1px solid black;">2-3 years</td>
-						<td style="border-right:1px solid black;">{fmt(cy_pip_2_to_3)}</td>
-						<td style="border-right:1px solid black;">{fmt(cy_pts_2_to_3)}</td>
-						<td style="border-right:1px solid black;">{fmt(py_pip_2_to_3)}</td>
-						<td style="border-right:1px solid black;">{fmt(py_pts_2_to_3)}</td>
+						<td style="border-left:1px solid black; border-right:1px solid black; border-bottom:1px solid black; padding:3px 6px;">More than 3 years</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pip_more_3)}</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(cy_pts_more_3)}</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pip_more_3)}</td>
+						<td style="border-right:1px solid black; border-bottom:1px solid black; text-align:right; padding:3px 6px;">{fmt(py_pts_more_3)}</td>
 					</tr>
-					<tr>
-						<td style="border-right:1px solid black;border-left:1px solid black;border-bottom:1px solid black;">More than 3 years</td>
-						<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(cy_pip_more_3)}</td>
-						<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(cy_pts_more_3)}</td>
-						<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(py_pip_more_3)}</td>
-						<td style="border-right:1px solid black;border-bottom:1px solid black;">{fmt(py_pts_more_3)}</td>
-					</tr>
-					<tr>
-						<td style="border:1px solid black;"><b>Total</b></td>
-						<td style="border:1px solid black;"><b>{fmt(cy_pip_total)}</b></td>
-						<td style="border:1px solid black;"><b>{fmt(cy_pts_total)}</b></td>
-						<td style="border:1px solid black;"><b>{fmt(py_pip_total)}</b></td>
-						<td style="border:1px solid black;"><b>{fmt(py_pts_total)}</b></td>
+					<tr style="background-color:#EAF2E8;">
+						<td style="border:1px solid black; padding:3px 6px;"><b>Total</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(cy_pip_total)}</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(cy_pts_total)}</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(py_pip_total)}</b></td>
+						<td style="border:1px solid black; text-align:right; padding:3px 6px;"><b>{fmt(py_pts_total)}</b></td>
 					</tr>
 				</tbody>
 			</table>
+		</div>
 		'''
 		return section_description.replace("{{note_table}}", html)
 
@@ -1581,8 +1538,7 @@ class FinancialReport(Document):
 
 		def build_values(data_map, fieldnames):
 			values = {
-				particular: get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)
-				for particular in particulars
+				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/100000, self.show_decimal_value) for particular in particulars
 			}
 			return values, sum(values.values())
 
@@ -1627,7 +1583,7 @@ class FinancialReport(Document):
 		cy_net_total = cy_closing_total - cy_acc_closing_total
 
 		html = f'''
-		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-10px; margin-bottom:-20px;">
+		<div style="width:100%; overflow-x:auto; overflow-y:hidden; padding-bottom:8px; margin-top:-50px; margin-bottom:-20px;">
 			<table style="border-collapse:collapse; border:1px solid black; width:100%; min-width:{table_min_width}px; table-layout:fixed; font-size:13px;">
 				<thead>
 					<tr style="color:#0000FF;">
