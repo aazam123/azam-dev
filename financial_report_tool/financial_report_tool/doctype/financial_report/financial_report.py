@@ -5910,20 +5910,45 @@ class FinancialReport(Document):
 			elif fr_particular.fetch_from_schedule:
 				note_type = get_fr_section(fr_particular.schedule).note_type if fr_particular.schedule else None
 				if note_type == "Property, plant and equipment":
-					field = 'ppe_net_cy_total' if is_current else 'ppe_net_py_total'
-					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
+					if is_current:
+						conditions = {'company': self.company, 'fiscal_year': year}
+						field = 'ppe_net_cy_total'
+					else:
+						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						field = 'ppe_net_py_total'
+					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Other intangible assets":
-					field = 'other_cy_total' if is_current else 'other_py_total'
-					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
+					if is_current:
+						conditions = {'company': self.company, 'fiscal_year': year}
+						field = 'other_cy_total'
+					else:
+						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						field = 'other_py_total'
+					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Right-of-use assets":
-					field = 'rou_net_cy_total' if is_current else 'rou_net_py_total'
-					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
+					if is_current:
+						conditions = {'company': self.company, 'fiscal_year': year}
+						field = 'rou_net_cy_total'
+					else:
+						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						field = 'rou_net_py_total'
+					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Capital work-in-progress":
-					field = 'cwip_cy_total' if is_current else 'cwip_py_total'
-					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
+					if is_current:
+						conditions = {'company': self.company, 'fiscal_year': year}
+						field = 'cwip_cy_total'
+					else:
+						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						field = 'cwip_py_total'
+					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Intangible assets under development":
-					field = 'iaud_cy_total' if is_current else 'iaud_py_total'
-					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
+					if is_current:
+						conditions = {'company': self.company, 'fiscal_year': year}
+						field = 'iaud_cy_total'
+					else:
+						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						field = 'iaud_py_total'
+					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Other Equity" and not for_other_equity and not account:
 					field = 'grand_total_current' if is_current else 'grand_total_prev_year'
 					amount = self.get_yearly_other_equity_note_data(self.fiscal_year, self.previous_fiscal_year, total=True, field=field)
