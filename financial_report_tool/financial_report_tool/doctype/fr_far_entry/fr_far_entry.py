@@ -105,16 +105,16 @@ class FRFAREntry(Document):
 				i.previous_projects_temporarily_suspended = cwip_py_suspended_total
 				i.current_projects_temporarily_suspended = cwip_cy_suspended_total
 
-		self.ppe_net_py_total = ppe_tot_prev_close - ppe_tot_prev_acc_close
-		self.ppe_net_cy_total = ppe_tot_curr_close - ppe_tot_curr_acc_close
-		self.other_py_total = oth_tot_prev_close - oth_tot_prev_acc_close
-		self.other_cy_total = oth_tot_curr_close - oth_tot_curr_acc_close
-		self.rou_net_py_total = rou_tot_prev_close - rou_tot_prev_acc_close
-		self.rou_net_cy_total = rou_tot_curr_close - rou_tot_curr_acc_close
-		self.cwip_py_total = cwip_py_total
-		self.cwip_cy_total = cwip_cy_total
-		self.iaud_py_total = iaud_py_total
-		self.iaud_cy_total = iaud_cy_total
+		self.ppe_net_py_total = self.to_lakhs(ppe_tot_prev_close) - self.to_lakhs(ppe_tot_prev_acc_close)
+		self.ppe_net_cy_total = self.to_lakhs(ppe_tot_curr_close) - self.to_lakhs(ppe_tot_curr_acc_close)
+		self.other_py_total = self.to_lakhs(oth_tot_prev_close) - self.to_lakhs(oth_tot_prev_acc_close)
+		self.other_cy_total = self.to_lakhs(oth_tot_curr_close) - self.to_lakhs(oth_tot_curr_acc_close)
+		self.rou_net_py_total = self.to_lakhs(rou_tot_prev_close) - self.to_lakhs(rou_tot_prev_acc_close)
+		self.rou_net_cy_total = self.to_lakhs(rou_tot_curr_close) - self.to_lakhs(rou_tot_curr_acc_close)
+		self.cwip_py_total = self.to_lakhs(cwip_py_total)
+		self.cwip_cy_total = self.to_lakhs(cwip_cy_total)
+		self.iaud_py_total = self.to_lakhs(iaud_py_total)
+		self.iaud_cy_total = self.to_lakhs(iaud_cy_total)
 
 	@frappe.whitelist()
 	def get_previous_fiscal_year(self, fiscal_year):
@@ -235,32 +235,32 @@ class FRFAREntry(Document):
 
 			self.append("ppe_gross_carrying", {
 				"particulars": asset_class,
-				"as_at_pre_previous_year": self.to_lakhs(prev_opening_value),
-				"prev_addition": self.to_lakhs(prev_add),
-				"prev_disposals": self.to_lakhs(prev_dis),
-				"as_at_previous_year": self.to_lakhs(prev_close),
-				"curr_addition": self.to_lakhs(curr_add),
-				"curr_disposals": self.to_lakhs(curr_dis),
-				"as_at_current_year": self.to_lakhs(curr_close)
+				"as_at_pre_previous_year": prev_opening_value,
+				"prev_addition": prev_add,
+				"prev_disposals": prev_dis,
+				"as_at_previous_year": prev_close,
+				"curr_addition": curr_add,
+				"curr_disposals": curr_dis,
+				"as_at_current_year": curr_close
 			})
 
 			self.append("ppe_accumulated_depreciation", {
 				"particulars": asset_class,
-				"as_at_pre_previous_year": self.to_lakhs(prev_acc_opening),
-				"prev_addition": self.to_lakhs(prev_acc_add),
-				"prev_disposals": self.to_lakhs(prev_acc_dis),
-				"as_at_previous_year": self.to_lakhs(prev_acc_close),
-				"curr_addition": self.to_lakhs(curr_acc_add),
-				"curr_disposals": self.to_lakhs(curr_acc_dis),
-				"as_at_current_year": self.to_lakhs(curr_acc_close)
+				"as_at_pre_previous_year": (prev_acc_opening),
+				"prev_addition": (prev_acc_add),
+				"prev_disposals": (prev_acc_dis),
+				"as_at_previous_year": (prev_acc_close),
+				"curr_addition": (curr_acc_add),
+				"curr_disposals": (curr_acc_dis),
+				"as_at_current_year": (curr_acc_close)
 			})
-			tot_curr_close += self.to_lakhs(curr_close)
-			tot_curr_acc_close += self.to_lakhs(curr_acc_close)
-			tot_prev_close += self.to_lakhs(prev_close)
-			tot_prev_acc_close += self.to_lakhs(prev_acc_close)
+			tot_curr_close += (curr_close)
+			tot_curr_acc_close += (curr_acc_close)
+			tot_prev_close += (prev_close)
+			tot_prev_acc_close += (prev_acc_close)
 
-		self.ppe_net_py_total = (tot_prev_close - tot_prev_acc_close)
-		self.ppe_net_cy_total = (tot_curr_close - tot_curr_acc_close)
+		self.ppe_net_py_total = self.to_lakhs(tot_prev_close) - self.to_lakhs(tot_prev_acc_close)
+		self.ppe_net_cy_total = self.to_lakhs(tot_curr_close) - self.to_lakhs(tot_curr_acc_close)
 
 	def process_other_intangible_assets(self):
 		self.other_gross_carrying = []
@@ -361,32 +361,32 @@ class FRFAREntry(Document):
 
 			self.append("other_gross_carrying", {
 				"particulars": asset_class,
-				"as_at_pre_previous_year": self.to_lakhs(prev_opening_value),
-				"prev_addition": self.to_lakhs(prev_add),
-				"prev_disposals": self.to_lakhs(prev_dis),
-				"as_at_previous_year": self.to_lakhs(prev_close),
-				"curr_addition": self.to_lakhs(curr_add),
-				"curr_disposals": self.to_lakhs(curr_dis),
-				"as_at_current_year": self.to_lakhs(curr_close)
+				"as_at_pre_previous_year": (prev_opening_value),
+				"prev_addition": (prev_add),
+				"prev_disposals": (prev_dis),
+				"as_at_previous_year": (prev_close),
+				"curr_addition": (curr_add),
+				"curr_disposals": (curr_dis),
+				"as_at_current_year": (curr_close)
 			})
 
 			self.append("other_accumulated_depreciation", {
 				"particulars": asset_class,
-				"as_at_pre_previous_year": self.to_lakhs(prev_acc_opening),
-				"prev_addition": self.to_lakhs(prev_acc_add),
-				"prev_disposals": self.to_lakhs(prev_acc_dis),
-				"as_at_previous_year": self.to_lakhs(prev_acc_close),
-				"curr_addition": self.to_lakhs(curr_acc_add),
-				"curr_disposals": self.to_lakhs(curr_acc_dis),
-				"as_at_current_year": self.to_lakhs(curr_acc_close)
+				"as_at_pre_previous_year": (prev_acc_opening),
+				"prev_addition": (prev_acc_add),
+				"prev_disposals": (prev_acc_dis),
+				"as_at_previous_year": (prev_acc_close),
+				"curr_addition": (curr_acc_add),
+				"curr_disposals": (curr_acc_dis),
+				"as_at_current_year": (curr_acc_close)
 			})
-			tot_curr_close += self.to_lakhs(curr_close)
-			tot_curr_acc_close += self.to_lakhs(curr_acc_close)
-			tot_prev_close += self.to_lakhs(prev_close)
-			tot_prev_acc_close += self.to_lakhs(prev_acc_close)
+			tot_curr_close += (curr_close)
+			tot_curr_acc_close += (curr_acc_close)
+			tot_prev_close += (prev_close)
+			tot_prev_acc_close += (prev_acc_close)
 
-		self.other_py_total = tot_prev_close - tot_prev_acc_close
-		self.other_cy_total = tot_curr_close - tot_curr_acc_close
+		self.other_py_total = self.to_lakhs(tot_prev_close) - self.to_lakhs(tot_prev_acc_close)
+		self.other_cy_total = self.to_lakhs(tot_curr_close) - self.to_lakhs(tot_curr_acc_close)
 
 	def process_right_of_use_assets(self):
 		self.rou_gross_carrying = []
@@ -487,32 +487,32 @@ class FRFAREntry(Document):
 
 			self.append("rou_gross_carrying", {
 				"particulars": asset_class,
-				"as_at_pre_previous_year": self.to_lakhs(prev_opening_value),
-				"prev_addition": self.to_lakhs(prev_add),
-				"prev_disposals": self.to_lakhs(prev_dis),
-				"as_at_previous_year": self.to_lakhs(prev_close),
-				"curr_addition": self.to_lakhs(curr_add),
-				"curr_disposals": self.to_lakhs(curr_dis),
-				"as_at_current_year": self.to_lakhs(curr_close)
+				"as_at_pre_previous_year": (prev_opening_value),
+				"prev_addition": (prev_add),
+				"prev_disposals": (prev_dis),
+				"as_at_previous_year": (prev_close),
+				"curr_addition": (curr_add),
+				"curr_disposals": (curr_dis),
+				"as_at_current_year": (curr_close)
 			})
 
 			self.append("rou_accumulated_depreciation", {
 				"particulars": asset_class,
-				"as_at_pre_previous_year": self.to_lakhs(prev_acc_opening),
-				"prev_addition": self.to_lakhs(prev_acc_add),
-				"prev_disposals": self.to_lakhs(prev_acc_dis),
-				"as_at_previous_year": self.to_lakhs(prev_acc_close),
-				"curr_addition": self.to_lakhs(curr_acc_add),
-				"curr_disposals": self.to_lakhs(curr_acc_dis),
-				"as_at_current_year": self.to_lakhs(curr_acc_close)
+				"as_at_pre_previous_year": (prev_acc_opening),
+				"prev_addition": (prev_acc_add),
+				"prev_disposals": (prev_acc_dis),
+				"as_at_previous_year": (prev_acc_close),
+				"curr_addition": (curr_acc_add),
+				"curr_disposals": (curr_acc_dis),
+				"as_at_current_year": (curr_acc_close)
 			})
-			tot_prev_close += self.to_lakhs(prev_close)
-			tot_prev_acc_close += self.to_lakhs(prev_acc_close)
-			tot_curr_close += self.to_lakhs(curr_close)
-			tot_curr_acc_close += self.to_lakhs(curr_acc_close)
+			tot_prev_close += (prev_close)
+			tot_prev_acc_close += (prev_acc_close)
+			tot_curr_close += (curr_close)
+			tot_curr_acc_close += (curr_acc_close)
 
-		self.rou_net_py_total = tot_prev_close - tot_prev_acc_close
-		self.rou_net_cy_total = tot_curr_close - tot_curr_acc_close
+		self.rou_net_py_total = self.to_lakhs(tot_prev_close) - self.to_lakhs(tot_prev_acc_close)
+		self.rou_net_cy_total = self.to_lakhs(tot_curr_close) - self.to_lakhs(tot_curr_acc_close)
 
 	def process_cwip(self):
 		self.cwip_details = []
@@ -532,9 +532,6 @@ class FRFAREntry(Document):
 			filters={"asset_group_type": "Capital Work In Progress"},
 			pluck="asset_group"
 		)
-
-		def in_lakhs(value):
-			return flt(value) / 100000
 
 		def get_cwip_values_for_fy(current_fy):
 			if not current_fy or not asset_group_list:
@@ -587,37 +584,37 @@ class FRFAREntry(Document):
 		cwip_data = [
 			{
 				"amount_in_cwip_for_a_period_of": "Less than 1 year",
-				"current_projects_in_progress": in_lakhs(cy_pip_less_1),
+				"current_projects_in_progress": (cy_pip_less_1),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_less_1),
+				"previous_projects_in_progress": (py_pip_less_1),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_cwip_for_a_period_of": "1-2 years",
-				"current_projects_in_progress": in_lakhs(cy_pip_1_to_2),
+				"current_projects_in_progress": (cy_pip_1_to_2),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_1_to_2),
+				"previous_projects_in_progress": (py_pip_1_to_2),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_cwip_for_a_period_of": "2-3 years",
-				"current_projects_in_progress": in_lakhs(cy_pip_2_to_3),
+				"current_projects_in_progress": (cy_pip_2_to_3),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_2_to_3),
+				"previous_projects_in_progress": (py_pip_2_to_3),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_cwip_for_a_period_of": "More than 3 years",
-				"current_projects_in_progress": in_lakhs(cy_pip_more_3),
+				"current_projects_in_progress": (cy_pip_more_3),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_more_3),
+				"previous_projects_in_progress": (py_pip_more_3),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_cwip_for_a_period_of": "Total",
-				"current_projects_in_progress": in_lakhs(cy_pip_total),
+				"current_projects_in_progress": (cy_pip_total),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_total),
+				"previous_projects_in_progress": (py_pip_total),
 				"previous_projects_temporarily_suspended": 0,
 			},
 		]
@@ -625,8 +622,8 @@ class FRFAREntry(Document):
 		for row in cwip_data:
 			self.append("cwip_details", row)
 
-		self.cwip_py_total = in_lakhs(py_pip_total)
-		self.cwip_cy_total = in_lakhs(cy_pip_total)
+		self.cwip_py_total = self.to_lakhs(py_pip_total)
+		self.cwip_cy_total = self.to_lakhs(cy_pip_total)
 
 	def process_iaud(self):
 		self.intangible_details = []
@@ -646,9 +643,6 @@ class FRFAREntry(Document):
 			filters={"asset_group_type": "Intangible Assets Under Development"},
 			pluck="asset_group"
 		)
-
-		def in_lakhs(value):
-			return flt(value) / 100000
 
 		def get_iaud_values_for_fy(current_fy):
 			if not current_fy or not asset_group_list:
@@ -701,37 +695,37 @@ class FRFAREntry(Document):
 		iaud_data = [
 			{
 				"amount_in_iaud_for_a_period_of": "Less than 1 year",
-				"current_projects_in_progress": in_lakhs(cy_pip_less_1),
+				"current_projects_in_progress": (cy_pip_less_1),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_less_1),
+				"previous_projects_in_progress": (py_pip_less_1),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_iaud_for_a_period_of": "1-2 years",
-				"current_projects_in_progress": in_lakhs(cy_pip_1_to_2),
+				"current_projects_in_progress": (cy_pip_1_to_2),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_1_to_2),
+				"previous_projects_in_progress": (py_pip_1_to_2),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_iaud_for_a_period_of": "2-3 years",
-				"current_projects_in_progress": in_lakhs(cy_pip_2_to_3),
+				"current_projects_in_progress": (cy_pip_2_to_3),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_2_to_3),
+				"previous_projects_in_progress": (py_pip_2_to_3),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_iaud_for_a_period_of": "More than 3 years",
-				"current_projects_in_progress": in_lakhs(cy_pip_more_3),
+				"current_projects_in_progress": (cy_pip_more_3),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_more_3),
+				"previous_projects_in_progress": (py_pip_more_3),
 				"previous_projects_temporarily_suspended": 0,
 			},
 			{
 				"amount_in_iaud_for_a_period_of": "Total",
-				"current_projects_in_progress": in_lakhs(cy_pip_total),
+				"current_projects_in_progress": (cy_pip_total),
 				"current_projects_temporarily_suspended": 0,
-				"previous_projects_in_progress": in_lakhs(py_pip_total),
+				"previous_projects_in_progress": (py_pip_total),
 				"previous_projects_temporarily_suspended": 0,
 			},
 		]
@@ -739,5 +733,5 @@ class FRFAREntry(Document):
 		for row in iaud_data:
 			self.append("intangible_details", row)
 
-		self.iaud_py_total = in_lakhs(py_pip_total)
-		self.iaud_cy_total = in_lakhs(cy_pip_total)
+		self.iaud_py_total = self.to_lakhs(py_pip_total)
+		self.iaud_cy_total = self.to_lakhs(cy_pip_total)
