@@ -23,6 +23,8 @@
   "right_of_use_assets_section",
   "rou_gross_carrying",
   "rou_accumulated_depreciation",
+  "intangible_assets_under_development_section",
+  "intangible_details",
   "capital_work_in_progress_section",
   "cwip_details",
   "total_section",
@@ -35,6 +37,9 @@
   "right_to_use_column",
   "rou_net_py_total",
   "rou_net_cy_total",
+  "iaud_column",
+  "iaud_py_total",
+  "iaud_cy_total",
   "cwip_column",
   "cwip_py_total",
   "cwip_cy_total"
@@ -162,7 +167,7 @@
   {
    "fieldname": "ppe_net_py_total",
    "fieldtype": "Float",
-   "label": "Net Pervious Year Total"
+   "label": "Net PY Total"
   },
   {
    "fieldname": "other_intangible_assets_column",
@@ -172,17 +177,17 @@
   {
    "fieldname": "other_py_total",
    "fieldtype": "Float",
-   "label": "Net Pervious Year Total"
+   "label": "Net PY Total"
   },
   {
    "fieldname": "other_cy_total",
    "fieldtype": "Float",
-   "label": "Net Current Year Total"
+   "label": "Net CY Total"
   },
   {
    "fieldname": "ppe_net_cy_total",
    "fieldtype": "Float",
-   "label": "Net Current Year Total"
+   "label": "Net CY Total"
   },
   {
    "fieldname": "right_to_use_column",
@@ -192,12 +197,12 @@
   {
    "fieldname": "rou_net_py_total",
    "fieldtype": "Float",
-   "label": "Net Pervious Year Total"
+   "label": "Net PY Total"
   },
   {
    "fieldname": "rou_net_cy_total",
    "fieldtype": "Float",
-   "label": "Net Current Year Total"
+   "label": "Net CY Total"
   },
   {
    "fieldname": "cwip_column",
@@ -207,18 +212,44 @@
   {
    "fieldname": "cwip_py_total",
    "fieldtype": "Float",
-   "label": "Pervious Year Total"
+   "label": "PY Total"
   },
   {
    "fieldname": "cwip_cy_total",
    "fieldtype": "Float",
-   "label": "Current Year Total"
+   "label": "CY Total"
+  },
+  {
+   "fieldname": "intangible_assets_under_development_section",
+   "fieldtype": "Section Break",
+   "label": "Intangible assets under development"
+  },
+  {
+   "fieldname": "intangible_details",
+   "fieldtype": "Table",
+   "label": "Intangible Details",
+   "options": "FR FAR Intangible assets under development"
+  },
+  {
+   "fieldname": "iaud_column",
+   "fieldtype": "Column Break",
+   "label": "IAUD"
+  },
+  {
+   "fieldname": "iaud_py_total",
+   "fieldtype": "Float",
+   "label": "PY Total"
+  },
+  {
+   "fieldname": "iaud_cy_total",
+   "fieldtype": "Float",
+   "label": "CY Total"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-16 17:09:25.320539",
+ "modified": "2026-04-16 18:22:33.819265",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR FAR Entry",

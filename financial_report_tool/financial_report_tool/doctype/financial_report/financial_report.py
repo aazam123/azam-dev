@@ -692,6 +692,8 @@ class FinancialReport(Document):
 						i.section_description = self.get_yearly_right_of_use_assets(section_description)
 					elif note_type == "Capital work-in-progress":
 						i.section_description = self.get_yearly_capital_work_in_progress(section_description)
+					elif note_type == "Intangible assets under development":
+						i.section_description = self.get_yearly_intangible_assets_under_development(section_description)
 					if note_type == "Investments (Non-current)":
 						i.section_description = self.get_yearly_investment_non_current_note_data(total=False, field=None, section_description=section_description)
 					elif note_type == "Trade & Other receivables":
@@ -5911,13 +5913,16 @@ class FinancialReport(Document):
 					field = 'ppe_net_cy_total' if is_current else 'ppe_net_py_total'
 					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
 				elif note_type == "Other intangible assets":
-					field = 'other_net_cy_total' if is_current else 'other_net_py_total'
+					field = 'other_cy_total' if is_current else 'other_py_total'
 					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
 				elif note_type == "Right-of-use assets":
 					field = 'rou_net_cy_total' if is_current else 'rou_net_py_total'
 					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
 				elif note_type == "Capital work-in-progress":
 					field = 'cwip_cy_total' if is_current else 'cwip_py_total'
+					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
+				elif note_type == "Intangible assets under development":
+					field = 'iaud_cy_total' if is_current else 'iaud_py_total'
 					amount = frappe.get_value("FR FAR Entry", {'company': self.company, 'fiscal_year': year}, field) or 0
 				elif note_type == "Other Equity" and not for_other_equity and not account:
 					field = 'grand_total_current' if is_current else 'grand_total_prev_year'

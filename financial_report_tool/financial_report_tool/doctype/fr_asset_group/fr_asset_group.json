@@ -75,7 +75,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Asset Group Type",
-   "options": "\nProperty Plant and Equipment\nOther Intangible Assets\nRight of Use Assets\nCapital Work In Progress",
+   "options": "\nProperty Plant and Equipment\nOther Intangible Assets\nRight of Use Assets\nCapital Work In Progress\nIntangible Assets Under Development",
    "reqd": 1
   },
   {
@@ -93,7 +93,7 @@
  "index_web_pages_for_search": 1,
  "is_tree": 1,
  "links": [],
- "modified": "2026-04-16 10:21:53.141399",
+ "modified": "2026-04-16 18:13:50.537396",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Group",

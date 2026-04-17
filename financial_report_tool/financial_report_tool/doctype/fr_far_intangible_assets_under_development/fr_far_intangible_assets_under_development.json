@@ -1,0 +1,88 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-16 18:19:09.164071",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "amount_in_iaud_for_a_period_of",
+  "column_break_diew",
+  "section_break_qtkt",
+  "current_column",
+  "current_projects_in_progress",
+  "current_projects_temporarily_suspended",
+  "previous_column",
+  "previous_projects_in_progress",
+  "previous_projects_temporarily_suspended"
+ ],
+ "fields": [
+  {
+   "fieldname": "column_break_diew",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_qtkt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "current_column",
+   "fieldtype": "Column Break",
+   "label": "Current"
+  },
+  {
+   "columns": 2,
+   "fieldname": "current_projects_in_progress",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Current Projects in progress"
+  },
+  {
+   "columns": 2,
+   "fieldname": "current_projects_temporarily_suspended",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Current Projects temporarily suspended"
+  },
+  {
+   "fieldname": "previous_column",
+   "fieldtype": "Column Break",
+   "label": "Previous"
+  },
+  {
+   "columns": 2,
+   "fieldname": "previous_projects_in_progress",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Previous Projects in progress"
+  },
+  {
+   "columns": 2,
+   "fieldname": "previous_projects_temporarily_suspended",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Previous Projects temporarily suspended"
+  },
+  {
+   "columns": 2,
+   "fieldname": "amount_in_iaud_for_a_period_of",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Amount in IAUD for a period of"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-16 18:34:44.603996",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR FAR Intangible assets under development",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

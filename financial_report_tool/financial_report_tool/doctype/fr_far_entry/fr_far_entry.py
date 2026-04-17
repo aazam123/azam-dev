@@ -33,6 +33,89 @@ class FRFAREntry(Document):
 			"previous_fiscal_year"
 		)
 
+	def before_save(self):
+		if self.fiscal_year and self.company:
+			previous_fiscal_year = self.get_previous_fiscal_year_name(self.fiscal_year)
+			if previous_fiscal_year and previous_fiscal_year != self.previous_fiscal_year:
+				self.previous_fiscal_year = previous_fiscal_year
+
+		ppe_tot_curr_close, ppe_tot_curr_acc_close, ppe_tot_prev_close, ppe_tot_prev_acc_close = 0, 0, 0, 0
+		oth_tot_prev_close, oth_tot_prev_acc_close, oth_tot_curr_close, oth_tot_curr_acc_close = 0, 0, 0, 0
+		rou_tot_prev_close, rou_tot_prev_acc_close, rou_tot_curr_close, rou_tot_curr_acc_close = 0, 0, 0, 0
+		cwip_cy_total, cwip_py_total, iaud_cy_total, iaud_py_total = 0, 0, 0, 0
+		cwip_cy_suspended_total, cwip_py_suspended_total, iaud_cy_suspended_total, iaud_py_suspended_total = 0, 0, 0, 0
+
+		for i in self.ppe_gross_carrying:
+			i.as_at_previous_year = i.as_at_pre_previous_year + i.prev_addition + i.prev_disposals
+			i.as_at_current_year = i.as_at_previous_year + i.curr_addition + i.curr_disposals
+			ppe_tot_curr_close += flt(i.as_at_current_year)
+			ppe_tot_prev_close += flt(i.as_at_previous_year)
+
+		for i in self.ppe_accumulated_depreciation:
+			i.as_at_previous_year = i.as_at_pre_previous_year + i.prev_addition + i.prev_disposals
+			i.as_at_current_year = i.as_at_previous_year + i.curr_addition + i.curr_disposals
+			ppe_tot_curr_acc_close += flt(i.as_at_current_year)
+			ppe_tot_prev_acc_close += flt(i.as_at_previous_year)
+
+		for i in self.other_gross_carrying:
+			i.as_at_previous_year = i.as_at_pre_previous_year + i.prev_addition + i.prev_disposals
+			i.as_at_current_year = i.as_at_previous_year + i.curr_addition + i.curr_disposals
+			oth_tot_curr_close += flt(i.as_at_current_year)
+			oth_tot_prev_close += flt(i.as_at_previous_year)
+
+		for i in self.other_accumulated_depreciation:
+			i.as_at_previous_year = i.as_at_pre_previous_year + i.prev_addition + i.prev_disposals
+			i.as_at_current_year = i.as_at_previous_year + i.curr_addition + i.curr_disposals
+			oth_tot_curr_acc_close += flt(i.as_at_current_year)
+			oth_tot_prev_acc_close += flt(i.as_at_previous_year)
+
+		for i in self.rou_gross_carrying:
+			i.as_at_previous_year = i.as_at_pre_previous_year + i.prev_addition + i.prev_disposals
+			i.as_at_current_year = i.as_at_previous_year + i.curr_addition + i.curr_disposals
+			rou_tot_curr_close += flt(i.as_at_current_year)
+			rou_tot_prev_close += flt(i.as_at_previous_year)
+
+		for i in self.rou_accumulated_depreciation:
+			i.as_at_previous_year = i.as_at_pre_previous_year + i.prev_addition + i.prev_disposals
+			i.as_at_current_year = i.as_at_previous_year + i.curr_addition + i.curr_disposals
+			rou_tot_curr_acc_close += flt(i.as_at_current_year)
+			rou_tot_prev_acc_close += flt(i.as_at_previous_year)
+
+		for i in self.intangible_details:
+			if i.amount_in_iaud_for_a_period_of != "Total":
+				iaud_py_total += i.previous_projects_in_progress
+				iaud_cy_total += i.current_projects_in_progress
+				iaud_py_suspended_total += i.previous_projects_temporarily_suspended
+				iaud_cy_suspended_total += i.current_projects_temporarily_suspended
+			elif i.amount_in_iaud_for_a_period_of == "Total":
+				i.previous_projects_in_progress = iaud_py_total
+				i.current_projects_in_progress = iaud_cy_total
+				i.previous_projects_temporarily_suspended = iaud_py_suspended_total
+				i.current_projects_temporarily_suspended = iaud_cy_suspended_total
+
+		for i in self.cwip_details:
+			if i.amount_in_cwip_for_a_period_of != "Total":
+				cwip_py_total += i.previous_projects_in_progress
+				cwip_cy_total += i.current_projects_in_progress
+				cwip_py_suspended_total += i.previous_projects_temporarily_suspended
+				cwip_cy_suspended_total += i.current_projects_temporarily_suspended
+			elif i.amount_in_cwip_for_a_period_of == "Total":
+				i.previous_projects_in_progress = cwip_py_total
+				i.current_projects_in_progress = cwip_cy_total
+				i.previous_projects_temporarily_suspended = cwip_py_suspended_total
+				i.current_projects_temporarily_suspended = cwip_cy_suspended_total
+
+		self.ppe_net_py_total = ppe_tot_prev_close - ppe_tot_prev_acc_close
+		self.ppe_net_cy_total = ppe_tot_curr_close - ppe_tot_curr_acc_close
+		self.other_py_total = oth_tot_prev_close - oth_tot_prev_acc_close
+		self.other_cy_total = oth_tot_curr_close - oth_tot_curr_acc_close
+		self.rou_net_py_total = rou_tot_prev_close - rou_tot_prev_acc_close
+		self.rou_net_cy_total = rou_tot_curr_close - rou_tot_curr_acc_close
+		self.cwip_py_total = cwip_py_total
+		self.cwip_cy_total = cwip_cy_total
+		self.iaud_py_total = iaud_py_total
+		self.iaud_cy_total = iaud_cy_total
+
 	@frappe.whitelist()
 	def get_previous_fiscal_year(self, fiscal_year):
 		"""Get the previous fiscal year for a given fiscal year."""
@@ -49,6 +132,7 @@ class FRFAREntry(Document):
 		self.process_other_intangible_assets()
 		self.process_right_of_use_assets()
 		self.process_cwip()
+		self.process_iaud()
 		self.save()
 		return "Calculation completed successfully."
 
@@ -543,3 +627,117 @@ class FRFAREntry(Document):
 
 		self.cwip_py_total = in_lakhs(py_pip_total)
 		self.cwip_cy_total = in_lakhs(cy_pip_total)
+
+	def process_iaud(self):
+		self.intangible_details = []
+
+		if not self.fiscal_year:
+			return
+
+		previous_fiscal_year = self.previous_fiscal_year or self.get_previous_fiscal_year_name(self.fiscal_year)
+		if previous_fiscal_year and previous_fiscal_year != self.previous_fiscal_year:
+			self.previous_fiscal_year = previous_fiscal_year
+		pre_previous_fiscal_year = self.get_previous_fiscal_year_name(previous_fiscal_year) if previous_fiscal_year else None
+		if pre_previous_fiscal_year and hasattr(self, "pre_previous_year"):
+			self.pre_previous_year = pre_previous_fiscal_year
+
+		asset_group_list = frappe.get_list(
+			"FR Asset Group",
+			filters={"asset_group_type": "Intangible Assets Under Development"},
+			pluck="asset_group"
+		)
+
+		def in_lakhs(value):
+			return flt(value) / 100000
+
+		def get_iaud_values_for_fy(current_fy):
+			if not current_fy or not asset_group_list:
+				return 0, 0, 0, 0
+
+			fy_list = []
+			fy = current_fy
+			for _ in range(4):
+				fy_list.append(fy)
+				fy = self.get_previous_fiscal_year_name(fy) if fy else None
+
+			def get_iaud_total(fiscal_year):
+				if not fiscal_year:
+					return 0, 0
+
+				result = frappe.db.sql("""
+					SELECT
+						COALESCE(SUM(sap_transaction_acq_value), 0) AS total_acq_value,
+						COALESCE(SUM(sap_ebv), 0) AS total_ebv
+					FROM `tabFR Asset Register Entry`
+					WHERE company = %(company)s
+					AND fiscal_year = %(fiscal_year)s
+					AND asset_group IN %(asset_groups)s
+				""", {
+					"company": self.company,
+					"fiscal_year": fiscal_year,
+					"asset_groups": tuple(asset_group_list),
+				}, as_dict=True)
+
+				row = result[0] if result else {}
+				return flt(row.get("total_acq_value")), flt(row.get("total_ebv"))
+
+			acq_0, ebv_0 = get_iaud_total(fy_list[0])
+			acq_1, ebv_1 = get_iaud_total(fy_list[1])
+			acq_2, ebv_2 = get_iaud_total(fy_list[2])
+
+			less_1_year = acq_0
+			one_to_2_years = max(ebv_0 - acq_0, 0)
+			two_to_3_years = max(ebv_1 - acq_1, 0)
+			more_3_years = max(ebv_2 - acq_2, 0)
+
+			return less_1_year, one_to_2_years, two_to_3_years, more_3_years
+
+		cy_pip_less_1, cy_pip_1_to_2, cy_pip_2_to_3, cy_pip_more_3 = get_iaud_values_for_fy(self.fiscal_year)
+		py_pip_less_1, py_pip_1_to_2, py_pip_2_to_3, py_pip_more_3 = get_iaud_values_for_fy(previous_fiscal_year)
+
+		cy_pip_total = cy_pip_less_1 + cy_pip_1_to_2 + cy_pip_2_to_3 + cy_pip_more_3
+		py_pip_total = py_pip_less_1 + py_pip_1_to_2 + py_pip_2_to_3 + py_pip_more_3
+
+		iaud_data = [
+			{
+				"amount_in_iaud_for_a_period_of": "Less than 1 year",
+				"current_projects_in_progress": in_lakhs(cy_pip_less_1),
+				"current_projects_temporarily_suspended": 0,
+				"previous_projects_in_progress": in_lakhs(py_pip_less_1),
+				"previous_projects_temporarily_suspended": 0,
+			},
+			{
+				"amount_in_iaud_for_a_period_of": "1-2 years",
+				"current_projects_in_progress": in_lakhs(cy_pip_1_to_2),
+				"current_projects_temporarily_suspended": 0,
+				"previous_projects_in_progress": in_lakhs(py_pip_1_to_2),
+				"previous_projects_temporarily_suspended": 0,
+			},
+			{
+				"amount_in_iaud_for_a_period_of": "2-3 years",
+				"current_projects_in_progress": in_lakhs(cy_pip_2_to_3),
+				"current_projects_temporarily_suspended": 0,
+				"previous_projects_in_progress": in_lakhs(py_pip_2_to_3),
+				"previous_projects_temporarily_suspended": 0,
+			},
+			{
+				"amount_in_iaud_for_a_period_of": "More than 3 years",
+				"current_projects_in_progress": in_lakhs(cy_pip_more_3),
+				"current_projects_temporarily_suspended": 0,
+				"previous_projects_in_progress": in_lakhs(py_pip_more_3),
+				"previous_projects_temporarily_suspended": 0,
+			},
+			{
+				"amount_in_iaud_for_a_period_of": "Total",
+				"current_projects_in_progress": in_lakhs(cy_pip_total),
+				"current_projects_temporarily_suspended": 0,
+				"previous_projects_in_progress": in_lakhs(py_pip_total),
+				"previous_projects_temporarily_suspended": 0,
+			},
+		]
+
+		for row in iaud_data:
+			self.append("intangible_details", row)
+
+		self.iaud_py_total = in_lakhs(py_pip_total)
+		self.iaud_cy_total = in_lakhs(cy_pip_total)
