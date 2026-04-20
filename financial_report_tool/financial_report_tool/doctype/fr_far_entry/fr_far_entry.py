@@ -7,6 +7,10 @@ from frappe.model.document import Document
 
 class FRFAREntry(Document):
 	def before_insert(self):
+		if self.is_consol:
+			self.name_type = f"CONSOL-{self.fiscal_year}"
+		else:
+			self.name_type = f"{self.company}"
 		if self.fiscal_year and self.company:
 			existing_entry = frappe.db.exists("FR FAR Entry", {"fiscal_year": self.fiscal_year, "company": self.company})
 			if existing_entry:
@@ -735,3 +739,154 @@ class FRFAREntry(Document):
 
 		self.iaud_py_total = self.to_lakhs(py_pip_total)
 		self.iaud_cy_total = self.to_lakhs(cy_pip_total)
+
+	@frappe.whitelist()
+	def get_consolidated_data(self):
+
+		if not self.fiscal_year:
+			frappe.throw("Fiscal Year is required")
+
+		entries = frappe.get_all(
+			"FR FAR Entry",
+			filters={
+				"fiscal_year": self.fiscal_year,
+				"name": ["!=", self.name]
+			},
+			pluck="name"
+		)
+
+		if not entries:
+			frappe.msgprint("No data found")
+			return
+
+		# -------- CONFIG FOR ALL TABLES --------
+		table_config = {
+			# Common FAR tables
+			"ppe_gross_carrying": {
+				"key": "particulars",
+				"fields": [
+					"as_at_pre_previous_year",
+					"prev_addition",
+					"prev_disposals",
+					"as_at_previous_year",
+					"curr_addition",
+					"curr_disposals",
+					"as_at_current_year"
+				]
+			},
+			"ppe_accumulated_depreciation": {
+				"key": "particulars",
+				"fields": [
+					"as_at_pre_previous_year",
+					"prev_addition",
+					"prev_disposals",
+					"as_at_previous_year",
+					"curr_addition",
+					"curr_disposals",
+					"as_at_current_year"
+				]
+			},
+			"other_gross_carrying": {
+				"key": "particulars",
+				"fields": [
+					"as_at_pre_previous_year",
+					"prev_addition",
+					"prev_disposals",
+					"as_at_previous_year",
+					"curr_addition",
+					"curr_disposals",
+					"as_at_current_year"
+				]
+			},
+			"other_accumulated_depreciation": {
+				"key": "particulars",
+				"fields": [
+					"as_at_pre_previous_year",
+					"prev_addition",
+					"prev_disposals",
+					"as_at_previous_year",
+					"curr_addition",
+					"curr_disposals",
+					"as_at_current_year"
+				]
+			},
+			"rou_gross_carrying": {
+				"key": "particulars",
+				"fields": [
+					"as_at_pre_previous_year",
+					"prev_addition",
+					"prev_disposals",
+					"as_at_previous_year",
+					"curr_addition",
+					"curr_disposals",
+					"as_at_current_year"
+				]
+			},
+			"rou_accumulated_depreciation": {
+				"key": "particulars",
+				"fields": [
+					"as_at_pre_previous_year",
+					"prev_addition",
+					"prev_disposals",
+					"as_at_previous_year",
+					"curr_addition",
+					"curr_disposals",
+					"as_at_current_year"
+				]
+			},
+
+			# CWIP
+			"cwip_details": {
+				"key": "amount_in_cwip_for_a_period_of",
+				"fields": [
+					"current_projects_in_progress",
+					"current_projects_temporarily_suspended",
+					"previous_projects_in_progress",
+					"previous_projects_temporarily_suspended"
+				]
+			},
+
+			# Intangible
+			"intangible_details": {
+				"key": "amount_in_iaud_for_a_period_of",
+				"fields": [
+					"current_projects_in_progress",
+					"current_projects_temporarily_suspended",
+					"previous_projects_in_progress",
+					"previous_projects_temporarily_suspended"
+				]
+			}
+		}
+
+		# -------- INIT RESULT STORAGE --------
+		final_map = {table: {} for table in table_config}
+
+		# -------- SINGLE LOOP --------
+		for name in entries:
+			doc = frappe.get_doc("FR FAR Entry", name)
+
+			for table, config in table_config.items():
+				key_field = config["key"]
+				fields = config["fields"]
+
+				for row in doc.get(table):
+
+					key = row.get(key_field)
+					if not key:
+						continue
+
+					if key not in final_map[table]:
+						final_map[table][key] = {key_field: key}
+						for f in fields:
+							final_map[table][key][f] = 0
+
+					for f in fields:
+						final_map[table][key][f] += row.get(f) or 0
+
+		# -------- WRITE BACK --------
+		for table, data_dict in final_map.items():
+			self.set(table, [])
+			for row in data_dict.values():
+				self.append(table, row)
+
+		self.save()

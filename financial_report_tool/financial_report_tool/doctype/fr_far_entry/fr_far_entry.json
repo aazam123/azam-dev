@@ -1,15 +1,18 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:FAR-{company}-{###}",
+ "autoname": "format:FAR-{name_type}-{###}",
  "creation": "2026-04-14 12:42:59.496312",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "company",
+  "is_consol",
   "process_calculation",
+  "name_type",
   "column_break_fhom",
   "currency",
+  "get_data",
   "column_break_arss",
   "fiscal_year",
   "column_break_nlgb",
@@ -47,6 +50,7 @@
  ],
  "fields": [
   {
+   "depends_on": "eval:doc.is_consol == 0",
    "fieldname": "company",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -64,7 +68,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_arss",
@@ -129,6 +134,7 @@
    "options": "FR FAR Details"
   },
   {
+   "depends_on": "eval:doc.is_consol == 0",
    "fieldname": "process_calculation",
    "fieldtype": "Button",
    "label": "Process Calculation"
@@ -247,21 +253,40 @@
    "label": "CY Total"
   },
   {
+   "depends_on": "eval:doc.is_consol == 0",
    "fetch_from": "company.default_currency",
    "fieldname": "currency",
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_consol",
+   "fieldtype": "Check",
+   "label": "Is Consol"
+  },
+  {
+   "depends_on": "eval:doc.is_consol == 1",
+   "fieldname": "get_data",
+   "fieldtype": "Button",
+   "label": "Get Data"
+  },
+  {
+   "fieldname": "name_type",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Name Type"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-20 08:53:36.252375",
+ "modified": "2026-04-20 17:57:57.645176",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR FAR Entry",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
