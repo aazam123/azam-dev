@@ -19,13 +19,31 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
 def do_generate_report(docname):
-	doc = frappe.get_doc("Financial Report", docname)
-	frappe.publish_progress(5, title="Initializing report generation...")
-	doc._generate_report_internal()
-	frappe.publish_progress(100, title="Report generated successfully!")
+	try:
+		doc = frappe.get_doc("Financial Report", docname)
+		frappe.publish_progress(5, title="Initializing report generation...")
+		doc._generate_report_internal()
+		frappe.publish_progress(100, title="Report generated successfully!")
 
-	frappe.msgprint(f"✅ Financial Report {docname} generated successfully.")
-	frappe.db.commit()
+		frappe.db.set_value("Financial Report", docname, {
+			"report_status": "Successful",
+			"report_error": "",
+			"report_generated_on": now_datetime(),
+		})
+		frappe.db.commit()
+		frappe.publish_realtime("report_generation_complete", {"docname": docname, "status": "Successful"})
+		frappe.msgprint(f"✅ Financial Report {docname} generated successfully.")
+	except Exception:
+		frappe.db.rollback()
+		error_message = frappe.get_traceback(with_context=True)
+		frappe.db.set_value("Financial Report", docname, {
+			"report_status": "Failed",
+			"report_error": error_message,
+		})
+		frappe.db.commit()
+		frappe.publish_realtime("report_generation_complete", {"docname": docname, "status": "Failed"})
+		frappe.log_error(title=f"Financial Report Generation Failed - {docname}")
+		raise
 
 class FinancialReport(Document):
 	def _init_report_caches(self):
@@ -586,13 +604,12 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
-		# doc._generate_report_internal()
+		frappe.db.set_value("Financial Report", doc.name, {"report_status": "Under Generation", "report_error": "", "report_generated_on": None})
+		frappe.db.commit()
+
 		frappe.enqueue(
 			"financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
-			docname=doc.name,
-			queue='long',                 
-			job_name=f"Generate Financial Report - {doc.name}",
-			timeout=600                   
+			docname=doc.name, queue='long', job_name=f"Generate Financial Report - {doc.name}", timeout=600
 		)
 
 		return {
@@ -783,9 +800,7 @@ class FinancialReport(Document):
 		return dt.strftime(f"%-d{suffix} %B, %Y")
 
 	def get_yearly_property_plant_and_equipment_data(self, section_description=""):
-		far_entry = frappe.db.exists(
-			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
-		)
+		far_entry = frappe.db.exists("FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year, 'currency': self.currency})
 		if not far_entry:
 			return section_description.replace("{{note_table}}", "<p>No FAR data found</p>")
 
@@ -987,9 +1002,7 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 	
 	def get_yearly_other_intangible_assets(self, section_description="", field=""):
-		far_entry = frappe.db.exists(
-			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
-		)
+		far_entry = frappe.db.exists("FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year, "currency": self.currency})
 		if not far_entry:
 			return 0 if field else section_description.replace("{{note_table}}", "<p>No FAR data found for Other intangible assets</p>")
 		
@@ -1204,10 +1217,7 @@ class FinancialReport(Document):
 	def get_yearly_capital_work_in_progress(self, section_description="", field=""):
 		previous_year_ending_date_display = frappe.utils.getdate(self.previous_year_ending_date).strftime("%d %B %Y")
 		current_year_ending_date_display  = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
-
-		far_entry = frappe.db.exists(
-			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
-		)
+		far_entry = frappe.db.exists("FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year, "currency": self.currency})
 
 		def fmt(val):
 			return "{:,.2f}".format((val or 0))
@@ -1339,10 +1349,7 @@ class FinancialReport(Document):
 	def get_yearly_intangible_assets_under_development(self, section_description="", field=""):
 		previous_year_ending_date_display = frappe.utils.getdate(self.previous_year_ending_date).strftime("%d %B %Y")
 		current_year_ending_date_display  = frappe.utils.getdate(self.current_year_ending_date).strftime("%d %B %Y")
-
-		far_entry = frappe.db.exists(
-			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
-		)
+		far_entry = frappe.db.exists("FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year, "currency": self.currency})
 
 		def fmt(val):
 			return "{:,.2f}".format((val or 0))
@@ -1471,9 +1478,7 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def get_yearly_right_of_use_assets(self, section_description=""):
-		far_entry = frappe.db.exists(
-			"FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year}
-		)
+		far_entry = frappe.db.exists("FR FAR Entry", {"company": self.company, "fiscal_year": self.fiscal_year, "currency": self.currency})
 		if not far_entry:
 			return section_description.replace("{{note_table}}", "<p>No FAR data found for Right of use assets</p>")
 
@@ -1675,6 +1680,8 @@ class FinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 	def render_yearly_equity_share_table(self, section_description=""):
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		pre_prev_year = self.get_previous_fiscal_year(self.previous_fiscal_year)
 		def fmt(val):
 			if val is None:
 				return ""
@@ -1682,12 +1689,16 @@ class FinancialReport(Document):
 				return f"({abs(val):,})" if val < 0 else f"{val:,}"
 			return val
 
+		pre_prev_year_amt = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, pre_prev_year) or 0), self.show_decimal_value) * 10000
+		prev_year_amt = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, self.previous_fiscal_year) or 0), self.show_decimal_value) * 10000
+		curr_year_amt = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, self.fiscal_year) or 0), self.show_decimal_value) * 10000
+
 		data = [
-			("As at 1st April, 2023", 59360000, 5936, True),
+			("As at 1st April, 2023", pre_prev_year_amt, round(pre_prev_year_amt/100000, self.show_decimal_value), True),
 			("Changes in equity share capital during the year", None, None, False),
-			("Balance as at 31st March, 2024", 59360000, 5936, True),
+			("Balance as at 31st March, 2024", prev_year_amt, round(prev_year_amt/100000, self.show_decimal_value), True),
 			("Changes in equity share capital during the year", None, None, False),
-			("Balance as at 31st March, 2025", 59360000, 5936, True),
+			("Balance as at 31st March, 2025", curr_year_amt, round(curr_year_amt/100000, self.show_decimal_value), True),
 		]
 
 		html = """
@@ -1721,51 +1732,51 @@ class FinancialReport(Document):
 
 		html += "</tbody></table>"
 
-		data = [
-			("Balance as at 31st March, 2023", 41144, 4459, 45603, True),
-			("Profit for the year", 18111, None, 18111, False),
-			("Other comprehensive income", -72, None, -72, False),
-			("Balance as at 31st March, 2024", 59183, 4459, 63642, True),
-			("Profit for the year", 42545, None, 42545, False),
-			("Other comprehensive income", -142, None, -142, False),
-			("Add: Equity contribution on financial guarantee taken", None, 3, 3, False),
-			("Balance as at 31st March, 2025", 101586, 4462, 106048, True),
-		]
+		# data = [
+		# 	("Balance as at 31st March, 2023", 41144, 4459, 45603, True),
+		# 	("Profit for the year", 18111, None, 18111, False),
+		# 	("Other comprehensive income", -72, None, -72, False),
+		# 	("Balance as at 31st March, 2024", 59183, 4459, 63642, True),
+		# 	("Profit for the year", 42545, None, 42545, False),
+		# 	("Other comprehensive income", -142, None, -142, False),
+		# 	("Add: Equity contribution on financial guarantee taken", None, 3, 3, False),
+		# 	("Balance as at 31st March, 2025", 101586, 4462, 106048, True),
+		# ]
 
-		html += """
-		<br>
-		<p><strong style="color:#4472C4; font-size:13px;">B. Other Equity</strong></p>
-		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
-			<thead>
-				<tr style="color:#4472C4; background-color:#E8F5E8;">
-					<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding:2px 5px; width:40%;">Particulars</th>
-					<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:right; padding:2px 5px; width:20%;">Retained Earnings</th>
-					<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:right; padding:2px 5px; width:20%;">Capital Contribution</th>
-					<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:right; padding:2px 5px; width:20%;">Total Other Equity</th>
-				</tr>
-			</thead>
-			<tbody>
-		"""
+		# html += """
+		# <br>
+		# <p><strong style="color:#4472C4; font-size:13px;">B. Other Equity</strong></p>
+		# <table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; border:1px solid #000;">
+		# 	<thead>
+		# 		<tr style="color:#4472C4; background-color:#E8F5E8;">
+		# 			<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding:2px 5px; width:40%;">Particulars</th>
+		# 			<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:right; padding:2px 5px; width:20%;">Retained Earnings</th>
+		# 			<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:right; padding:2px 5px; width:20%;">Capital Contribution</th>
+		# 			<th style="background-color:#E8F5E8; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:right; padding:2px 5px; width:20%;">Total Other Equity</th>
+		# 		</tr>
+		# 	</thead>
+		# 	<tbody>
+		# """
 
-		for row in data:
-			particulars, re, cc, total, is_balance = row
-			# Only vertical borders for regular rows, full borders for balance rows
-			if is_balance:
-				border = "border:1px solid #222;"
-			else:
-				border = "border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;"
-			bold = "font-weight:bold;" if is_balance else ""
+		# for row in data:
+		# 	particulars, re, cc, total, is_balance = row
+		# 	# Only vertical borders for regular rows, full borders for balance rows
+		# 	if is_balance:
+		# 		border = "border:1px solid #222;"
+		# 	else:
+		# 		border = "border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;"
+		# 	bold = "font-weight:bold;" if is_balance else ""
 
-			html += f"""
-			<tr style="line-height:1; border:none;">
-				<td style="padding:2px 5px; {border} {bold}">{particulars}</td>
-				<td style="padding:2px 5px; text-align:right; {border} {bold}">{fmt(re)}</td>
-				<td style="padding:2px 5px; text-align:right; {border} {bold}">{fmt(cc)}</td>
-				<td style="padding:2px 5px; text-align:right; {border} {bold}">{fmt(total)}</td>
-			</tr>
-			"""
+		# 	html += f"""
+		# 	<tr style="line-height:1; border:none;">
+		# 		<td style="padding:2px 5px; {border} {bold}">{particulars}</td>
+		# 		<td style="padding:2px 5px; text-align:right; {border} {bold}">{fmt(re)}</td>
+		# 		<td style="padding:2px 5px; text-align:right; {border} {bold}">{fmt(cc)}</td>
+		# 		<td style="padding:2px 5px; text-align:right; {border} {bold}">{fmt(total)}</td>
+		# 	</tr>
+		# 	"""
 
-		html += "</tbody></table>"
+		# html += "</tbody></table>"
 		return html
 
 
@@ -5867,42 +5878,42 @@ class FinancialReport(Document):
 				note_type = get_fr_section(fr_particular.schedule).note_type if fr_particular.schedule else None
 				if note_type == "Property, plant and equipment":
 					if is_current:
-						conditions = {'company': self.company, 'fiscal_year': year}
+						conditions = {'company': self.company, 'fiscal_year': year, 'currency': self.currency}
 						field = 'ppe_net_cy_total'
 					else:
-						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						conditions = {'company': self.company, 'previous_fiscal_year': year, 'currency': self.currency}
 						field = 'ppe_net_py_total'
 					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Other intangible assets":
 					if is_current:
-						conditions = {'company': self.company, 'fiscal_year': year}
+						conditions = {'company': self.company, 'fiscal_year': year, 'currency': self.currency}
 						field = 'other_cy_total'
 					else:
-						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						conditions = {'company': self.company, 'previous_fiscal_year': year, 'currency': self.currency}
 						field = 'other_py_total'
 					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Right-of-use assets":
 					if is_current:
-						conditions = {'company': self.company, 'fiscal_year': year}
+						conditions = {'company': self.company, 'fiscal_year': year, 'currency': self.currency}
 						field = 'rou_net_cy_total'
 					else:
-						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						conditions = {'company': self.company, 'previous_fiscal_year': year, 'currency': self.currency}
 						field = 'rou_net_py_total'
 					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Capital work-in-progress":
 					if is_current:
-						conditions = {'company': self.company, 'fiscal_year': year}
+						conditions = {'company': self.company, 'fiscal_year': year, 'currency': self.currency}
 						field = 'cwip_cy_total'
 					else:
-						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						conditions = {'company': self.company, 'previous_fiscal_year': year, 'currency': self.currency}
 						field = 'cwip_py_total'
 					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Intangible assets under development":
 					if is_current:
-						conditions = {'company': self.company, 'fiscal_year': year}
+						conditions = {'company': self.company, 'fiscal_year': year, 'currency': self.currency}
 						field = 'iaud_cy_total'
 					else:
-						conditions = {'company': self.company, 'previous_fiscal_year': year}
+						conditions = {'company': self.company, 'previous_fiscal_year': year, 'currency': self.currency}
 						field = 'iaud_py_total'
 					amount = frappe.get_value("FR FAR Entry", conditions, field) or 0
 				elif note_type == "Other Equity" and not for_other_equity and not account:

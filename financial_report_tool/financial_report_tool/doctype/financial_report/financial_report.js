@@ -47,6 +47,38 @@ frappe.ui.form.on("Financial Report", {
         })
 	},
     refresh(frm) {
+        // Status indicator
+        if (frm.doc.report_status === "Under Generation") {
+            frm.dashboard.set_headline_alert(
+                '<span class="indicator-pill whitespace-nowrap blue">' +
+                '<span class="indicator-dot"></span> Under Generation</span>'
+            );
+        } else if (frm.doc.report_status === "Failed") {
+            frm.set_intro("Report generation failed. Check Error Details below.", "red");
+            frm.dashboard.set_headline_alert(
+                '<span class="indicator-pill whitespace-nowrap red">' +
+                '<span class="indicator-dot"></span> Generation Failed</span>'
+            );
+        } else if (frm.doc.report_status === "Successful") {
+            frm.dashboard.set_headline_alert(
+                '<span class="indicator-pill whitespace-nowrap green">' +
+                '<span class="indicator-dot"></span> Report Generated Successfully</span>'
+            );
+        }
+
+        // Listen for realtime event to auto-reload when job finishes
+        frappe.realtime.off("report_generation_complete");
+        frappe.realtime.on("report_generation_complete", (data) => {
+            if (data.docname === frm.doc.name) {
+                frm.reload_doc();
+                if (data.status === "Successful") {
+                    frappe.show_alert({message: "Report generated successfully!", indicator: "green"});
+                } else if (data.status === "Failed") {
+                    frappe.show_alert({message: "Report generation failed. Check the form for details.", indicator: "red"});
+                }
+            }
+        });
+
         if (!frm.is_new()) {
             frm.add_custom_button("Show Report", function () {
                 const print_format = "Financial Report";
@@ -194,39 +226,17 @@ async function generateFinancialReport(frm) {
         return;
     }
 
-    const progress_dialog = new frappe.ui.Dialog({
-        title: "Generating Financial Report",
-        size: 'large',
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'progress_html',
-                options: `
-                    <div style="text-align: center; padding: 20px;">
-                        <div class="progress-bar" style="width: 100%; height: 20px; background-color: #f0f0f0; border-radius: 10px; overflow: hidden;">
-                            <div class="progress-fill" style="width: 0%; height: 100%; background-color:rgb(122, 122, 122); transition: width 0.3s ease;"></div>
-                        </div>
-                        <div class="progress-text" style="margin-top: 10px; font-weight: bold;">Initializing...</div>
-                    </div>
-                `
-            }
-        ]
-    });
-
     try {
         const result = await frappe.call({
             method: 'generate_report',
             doc: frm.doc
         });
-        
+
         if (result.exc) {
             frappe.msgprint("Error generating report: " + result.exc, "Error");
         } else {
-            updateProgress(progress_dialog, 100, "Complete!");
-            setTimeout(() => {
-                frm.reload_doc();
-                frm.refresh_field('financial_report_details');
-            }, 1000);
+            frappe.show_alert({message: "Report generation started in background.", indicator: "blue"});
+            frm.reload_doc();
         }
 
     } catch (error) {

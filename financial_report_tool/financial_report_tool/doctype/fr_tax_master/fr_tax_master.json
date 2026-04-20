@@ -7,11 +7,11 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
-  "currency_type",
   "column_break_srdz",
   "fiscal_year",
-  "currency",
   "column_break_dljl",
+  "currency",
+  "column_break_hlxt",
   "profit_before_tax",
   "difference_due_to_section",
   "difference_due_to"
@@ -33,7 +33,8 @@
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
    "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_dljl",
@@ -56,22 +57,22 @@
    "options": "FR Difference Due"
   },
   {
-   "default": "Default",
-   "fieldname": "currency_type",
-   "fieldtype": "Select",
-   "label": "Currency Type",
-   "options": "\nDefault\nIndian"
+   "fetch_from": "company.default_currency",
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
   },
   {
-   "fieldname": "currency",
-   "fieldtype": "Data",
-   "label": "Currency"
+   "fieldname": "column_break_hlxt",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-18 14:51:00.890421",
+ "modified": "2026-04-20 08:19:30.607637",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Tax Master",

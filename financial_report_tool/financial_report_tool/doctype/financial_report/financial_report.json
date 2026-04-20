@@ -24,7 +24,12 @@
   "currency",
   "show_decimal_value",
   "section_break_nrwe",
+  "report_status",
+  "report_generated_on",
+  "report_error",
+  "column_break_hehg",
   "foreign_exchange_rate",
+  "report_status_section",
   "financial_report_details"
  ],
  "fields": [
@@ -142,6 +147,32 @@
    "read_only": 1
   },
   {
+   "fieldname": "report_status_section",
+   "fieldtype": "Section Break",
+   "label": "Report Generation Status"
+  },
+  {
+   "fieldname": "report_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Report Status",
+   "options": "\nUnder Generation\nSuccessful\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "report_generated_on",
+   "fieldtype": "Datetime",
+   "label": "Report Generated On",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.report_status=='Failed'",
+   "fieldname": "report_error",
+   "fieldtype": "Small Text",
+   "label": "Error Details",
+   "read_only": 1
+  },
+  {
    "fetch_from": "fiscal_year.year_start_date",
    "fieldname": "current_year_start_date",
    "fieldtype": "Date",
@@ -152,12 +183,16 @@
    "fieldname": "previous_year_start_date",
    "fieldtype": "Date",
    "label": "Previous Year Start Date"
+  },
+  {
+   "fieldname": "column_break_hehg",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-19 12:14:10.599854",
+ "modified": "2026-04-20 08:14:46.286607",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report",
