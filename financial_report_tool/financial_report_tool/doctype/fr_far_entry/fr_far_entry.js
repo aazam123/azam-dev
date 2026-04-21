@@ -2,6 +2,25 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("FR FAR Entry", {
+    get_data(frm) {
+        if (!frm.doc.fiscal_year) {
+            frappe.msgprint("Please select Fiscal Year");
+            return;
+        }
+
+        frappe.call({
+            method: "get_consolidated_data",
+            doc: frm.doc,
+            freeze: true,
+            freeze_message: "Fetching consolidated data...",
+            callback: function(r) {
+                if (r.message) {
+                    frm.refresh();
+                    frappe.msgprint("Consolidated data loaded successfully");
+                }
+            }
+        });
+    },
 	fiscal_year(frm) {
         frm.call({
             method: "get_previous_fiscal_year",
