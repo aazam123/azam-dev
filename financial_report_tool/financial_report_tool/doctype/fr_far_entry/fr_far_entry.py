@@ -750,7 +750,8 @@ class FRFAREntry(Document):
 			"FR FAR Entry",
 			filters={
 				"fiscal_year": self.fiscal_year,
-				"name": ["!=", self.name]
+				"name": ["!=", self.name],
+				"is_consol": 0
 			},
 			pluck="name"
 		)
