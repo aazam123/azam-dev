@@ -19,13 +19,31 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
 def do_generate_report(docname):
-	doc = frappe.get_doc("FR Console Financial Report", docname)
-	frappe.publish_progress(5, title="Initializing report generation...")
-	doc._generate_report_internal()
-	frappe.publish_progress(100, title="Report generated successfully!")
+	try:
+		doc = frappe.get_doc("FR Console Financial Report", docname)
+		frappe.publish_progress(5, title="Initializing report generation...")
+		doc._generate_report_internal()
+		frappe.publish_progress(100, title="Report generated successfully!")
 
-	frappe.msgprint(f"FR Console Financial Report {docname} generated successfully.")
-	frappe.db.commit()
+		frappe.db.set_value("FR Console Financial Report", docname, {
+			"report_status": "Successful",
+			"report_error": "",
+			"report_generated_on": now_datetime(),
+		})
+		frappe.db.commit()
+		frappe.publish_realtime("report_generation_complete", {"docname": docname, "status": "Successful"})
+		frappe.msgprint(f"✅ FR Console Financial Report {docname} generated successfully.")
+	except Exception:
+		frappe.db.rollback()
+		error_message = frappe.get_traceback(with_context=True)
+		frappe.db.set_value("FR Console Financial Report", docname, {
+			"report_status": "Failed",
+			"report_error": error_message,
+		})
+		frappe.db.commit()
+		frappe.publish_realtime("report_generation_complete", {"docname": docname, "status": "Failed"})
+		frappe.log_error(title=f"FR Console Financial Report Generation Failed - {docname}")
+		raise
 
 class FRConsoleFinancialReport(Document):
 	def _init_report_caches(self):
@@ -655,6 +673,8 @@ class FRConsoleFinancialReport(Document):
 
 	@frappe.whitelist()
 	def generate_report(doc):
+		frappe.db.set_value("FR Console Financial Report", doc.name, {"report_status": "Under Generation", "report_error": "", "report_generated_on": None})
+		frappe.db.commit()
 		# doc._generate_report_internal()
 		frappe.enqueue(
 			"financial_report_tool.financial_report_tool.doctype.fr_console_financial_report.fr_console_financial_report.do_generate_report",
