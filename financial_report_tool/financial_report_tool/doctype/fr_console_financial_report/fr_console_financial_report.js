@@ -40,6 +40,23 @@ frappe.ui.form.on("FR Console Financial Report", {
 	},
     refresh(frm) {
         if (!frm.is_new()) {
+            if (frm.doc.report_status === "Under Generation") {
+                frm.dashboard.set_headline_alert(
+                    '<span class="indicator-pill whitespace-nowrap blue">' +
+                    '<span class="indicator-dot"></span> Under Generation</span>'
+                );
+            } else if (frm.doc.report_status === "Failed") {
+                frm.set_intro("Report generation failed. Check Error Details below.", "red");
+                frm.dashboard.set_headline_alert(
+                    '<span class="indicator-pill whitespace-nowrap red">' +
+                    '<span class="indicator-dot"></span> Generation Failed</span>'
+                );
+            } else if (frm.doc.report_status === "Successful") {
+                frm.dashboard.set_headline_alert(
+                    '<span class="indicator-pill whitespace-nowrap green">' +
+                    '<span class="indicator-dot"></span> Report Generated Successfully</span>'
+                );
+            }
             frm.add_custom_button("Show Report", function () {
                 const print_format = "Console Financial Report";
                 const print_url = `/printview?doctype=FR Console Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;

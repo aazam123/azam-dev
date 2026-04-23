@@ -22,6 +22,10 @@
   "currency",
   "current_month",
   "previous_month",
+  "section_break_kyou",
+  "report_status",
+  "report_generated_on",
+  "report_error",
   "section_break_nrwe",
   "financial_report_details"
  ],
@@ -136,12 +140,36 @@
    "fieldtype": "Link",
    "label": "Currency",
    "options": "Currency"
+  },
+  {
+   "fieldname": "section_break_kyou",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "report_status",
+   "fieldtype": "Select",
+   "label": "Report Status",
+   "options": "\nUnder Generation\nSuccessful\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "report_generated_on",
+   "fieldtype": "Datetime",
+   "label": "Report Generated On",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.report_status=='Failed'",
+   "fieldname": "report_error",
+   "fieldtype": "Small Text",
+   "label": "Error Details",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-07 18:02:39.389147",
+ "modified": "2026-04-23 16:54:37.532334",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Console Financial Report",
