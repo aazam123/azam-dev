@@ -3881,7 +3881,7 @@ class FinancialReport(Document):
 
 		note_table_12_2_map = {}
 		if curr_ebo:
-			for i in curr_ebo.actuarial_assumption_for_compensated_absences:
+			for i in curr_ebo.amount_recognised_in_the_statement_of_profit_and_loss:
 				note_table_12_2_map[i.label] = {
 					"label": i.label,
 					"curr_amt": format_value(i.value),
@@ -3889,7 +3889,7 @@ class FinancialReport(Document):
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
-			for i in prev_ebo.actuarial_assumption_for_compensated_absences:
+			for i in prev_ebo.amount_recognised_in_the_statement_of_profit_and_loss:
 				if i.label in note_table_12_2_map:
 					note_table_12_2_map[i.label]["prev_amt"] = format_value(i.value)
 				else:
