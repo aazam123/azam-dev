@@ -23,8 +23,8 @@ class FRCorporateSocialResponsibliityMaster(Document):
 			self.shortfall_at_the_beginning_of_the_year = frappe.get_value("FR Corporate Social Responsibliity Master", {'company': self.company, 'fiscal_year':second_year, 'month': self.month}, 'shortfall_at_the_end_of_the_year') or 0
 			self.amount_required_to_be_spent_by_the_company_during_the_year = average_profit
 			self.amount_of_expenditure_incurred = self.get_sum_grouping_amount("Other expenses", "Corporate Social Responsibility Expenditure", self.month, self.fiscal_year)
-			self.shortfall_at_the_end_of_the_year = 0 if (self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year) < 0 else self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
-
+			self.shortfall_at_the_end_of_the_year = self.self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
+			
 			self.calculation_details_data = self._build_calculation_html(
 				first_year, second_year, third_year,
 				first_year_profit, second_year_profit, third_year_profit,
