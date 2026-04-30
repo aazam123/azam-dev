@@ -26,17 +26,24 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "bank_name",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Bank Name"
   },
   {
    "fieldname": "loan_amount",
    "fieldtype": "Float",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Loan Amount"
   },
   {
@@ -57,7 +64,10 @@
   {
    "fieldname": "installment_amount",
    "fieldtype": "Float",
-   "label": "Installment Amount"
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Installment Amount",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_hjbw",
@@ -66,8 +76,11 @@
   {
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "start_date",
@@ -110,7 +123,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-29 17:37:50.455914",
+ "modified": "2026-04-29 12:10:35.849488",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Repayment",

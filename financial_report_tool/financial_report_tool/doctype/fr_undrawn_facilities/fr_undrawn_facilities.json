@@ -32,6 +32,7 @@
    "fieldname": "company",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Company",
    "options": "Company",
    "reqd": 1
@@ -44,6 +45,7 @@
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Fiscal Year",
    "options": "Fiscal Year",
    "reqd": 1
@@ -56,6 +58,7 @@
    "fieldname": "month",
    "fieldtype": "Select",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Month",
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember",
    "reqd": 1
@@ -141,7 +144,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-29 12:58:32.478192",
+ "modified": "2026-04-29 12:20:02.328453",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Undrawn Facilities",
