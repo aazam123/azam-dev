@@ -36,8 +36,11 @@
   {
    "fieldname": "company",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Company",
-   "options": "Company"
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_yzio",
@@ -46,8 +49,11 @@
   {
    "fieldname": "fiscal_year",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Fiscal Year",
-   "options": "Fiscal Year"
+   "options": "Fiscal Year",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_wmmq",
@@ -152,9 +158,11 @@
   {
    "fieldname": "template",
    "fieldtype": "Link",
+   "in_standard_filter": 1,
    "label": "Template",
    "link_filters": "[[\"FR Employee Benefit Obligation Templates\",\"disable\",\"=\",0]]",
-   "options": "FR Employee Benefit Obligation Templates"
+   "options": "FR Employee Benefit Obligation Templates",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_hjhy",
@@ -164,7 +172,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-13 12:21:32.213252",
+ "modified": "2026-04-29 12:20:45.788248",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Employee Benefit Obligation",
