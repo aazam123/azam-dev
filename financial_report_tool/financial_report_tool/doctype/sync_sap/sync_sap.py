@@ -12,12 +12,12 @@ from frappe.utils.file_manager import get_file
 
 
 ALLOWED_DOCUMENT_TYPES = [
-	"FR Sales Register",
-	"FR Purchase Register",
-	"FR FAR Entry",
-	"FR Account Payable Entry",
-	"FR Account Receivable Entry",
-	"FR Asset Register Entry",
+	"Sales Register",
+	"Purchase Register",
+	"FAR Entry",
+	"Account Payable Entry",
+	"Account Receivable Entry",
+	"Asset Register Entry",
 ]
 
 

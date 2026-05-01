@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "document_type.###",
+ "autoname": "format:{document_type}-{#####}",
  "creation": "2026-05-01 10:04:01.349488",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -14,13 +14,17 @@
   {
    "fieldname": "document_type",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Document Type",
-   "options": "\nFR Sales Register\nFR Purchase Register\nFR FAR Entry\nFR Account Payable Entry\nFR Account Receivable Entry\nFR Asset Register Entry"
+   "options": "\nSales Register\nPurchase Register\nFAR Entry\nAccount Payable Entry\nAccount Receivable Entry\nAsset Register Entry",
+   "reqd": 1
   },
   {
    "fieldname": "file",
    "fieldtype": "Attach",
-   "label": "File"
+   "in_list_view": 1,
+   "label": "File",
+   "reqd": 1
   },
   {
    "fieldname": "json_data",
@@ -32,8 +36,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-01 10:16:32.636754",
- "modified_by": "Administrator",
+ "modified": "2026-05-01 12:16:13.233374",
+ "modified_by": "test2@gmail.com",
  "module": "Financial Report Tool",
  "name": "Sync SAP",
  "naming_rule": "Expression",

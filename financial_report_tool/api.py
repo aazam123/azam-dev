@@ -46,21 +46,24 @@ def _upload_for_type(document_type, file_name=None, file_content=None, preview_o
 			"json_data": json.loads(json_data),
 		}
 
-	doc = frappe.new_doc("Sync SAP")
-	doc.document_type = document_type
-	doc.insert(ignore_permissions=False)
-
 	saved = save_file(
 		fname=file_name,
 		content=raw_bytes,
-		dt="Sync SAP",
-		dn=doc.name,
+		dt=None,
+		dn=None,
 		decode=False,
 		is_private=1,
 	)
 
+	doc = frappe.new_doc("Sync SAP")
+	doc.document_type = document_type
 	doc.file = saved.file_url
-	doc.save()
+	doc.insert(ignore_permissions=False)
+
+	frappe.db.set_value("File", saved.name, {
+		"attached_to_doctype": "Sync SAP",
+		"attached_to_name": doc.name,
+	})
 	frappe.db.commit()
 
 	return {
@@ -73,38 +76,38 @@ def _upload_for_type(document_type, file_name=None, file_content=None, preview_o
 
 @frappe.whitelist()
 def upload_sales_register(file_name=None, file_content=None, preview_only=0):
-	"""Upload CSV/JSON for FR Sales Register."""
-	return _upload_for_type("FR Sales Register", file_name, file_content, preview_only)
+	"""Upload CSV/JSON for Sales Register."""
+	return _upload_for_type("Sales Register", file_name, file_content, preview_only)
 
 
 @frappe.whitelist()
 def upload_purchase_register(file_name=None, file_content=None, preview_only=0):
-	"""Upload CSV/JSON for FR Purchase Register."""
-	return _upload_for_type("FR Purchase Register", file_name, file_content, preview_only)
+	"""Upload CSV/JSON for Purchase Register."""
+	return _upload_for_type("Purchase Register", file_name, file_content, preview_only)
 
 
 @frappe.whitelist()
 def upload_far_entry(file_name=None, file_content=None, preview_only=0):
-	"""Upload CSV/JSON for FR FAR Entry."""
-	return _upload_for_type("FR FAR Entry", file_name, file_content, preview_only)
+	"""Upload CSV/JSON for FAR Entry."""
+	return _upload_for_type("FAR Entry", file_name, file_content, preview_only)
 
 
 @frappe.whitelist()
 def upload_account_payable_entry(file_name=None, file_content=None, preview_only=0):
-	"""Upload CSV/JSON for FR Account Payable Entry."""
-	return _upload_for_type("FR Account Payable Entry", file_name, file_content, preview_only)
+	"""Upload CSV/JSON for Account Payable Entry."""
+	return _upload_for_type("Account Payable Entry", file_name, file_content, preview_only)
 
 
 @frappe.whitelist()
 def upload_account_receivable_entry(file_name=None, file_content=None, preview_only=0):
-	"""Upload CSV/JSON for FR Account Receivable Entry."""
-	return _upload_for_type("FR Account Receivable Entry", file_name, file_content, preview_only)
+	"""Upload CSV/JSON for Account Receivable Entry."""
+	return _upload_for_type("Account Receivable Entry", file_name, file_content, preview_only)
 
 
 @frappe.whitelist()
 def upload_asset_register_entry(file_name=None, file_content=None, preview_only=0):
-	"""Upload CSV/JSON for FR Asset Register Entry."""
-	return _upload_for_type("FR Asset Register Entry", file_name, file_content, preview_only)
+	"""Upload CSV/JSON for Asset Register Entry."""
+	return _upload_for_type("Asset Register Entry", file_name, file_content, preview_only)
 
 
 def _parse_bytes(raw_bytes, ext):
