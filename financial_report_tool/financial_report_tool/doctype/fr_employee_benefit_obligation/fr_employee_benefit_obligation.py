@@ -25,6 +25,7 @@ class FREmployeeBenefitObligation(Document):
 		self.copy_child_table(temp.amount_recognised_in_the_balance_sheet, "amount_recognised_in_the_balance_sheet")
 		self.copy_child_table(temp.amount_recognised_in_statement_of_profit, "amount_recognised_in_statement_of_profit")
 		self.copy_child_table(temp.reconciliation_of_defined_benefit_obligation, "reconciliation_of_defined_benefit_obligation")
+		self.copy_child_table(temp.change_in_assets_during_the_year, "change_in_assets_during_the_year")
 		self.copy_child_table(temp.actuarial_assumptions, "actuarial_assumptions")
 		self.copy_child_table(temp.experience_adjustments, "experience_adjustments")
 		self.copy_child_table(temp.sensitivity_analysis, "sensitivity_analysis")

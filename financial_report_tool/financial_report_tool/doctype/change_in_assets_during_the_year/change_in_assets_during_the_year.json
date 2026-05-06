@@ -1,0 +1,54 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-06 12:30:16.540035",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "label",
+  "column_break_viyf",
+  "value",
+  "is_bold"
+ ],
+ "fields": [
+  {
+   "fieldname": "label",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "fieldname": "column_break_viyf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Value"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_bold",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Bold"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-06 12:32:41.927568",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Change In Assets During The Year",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

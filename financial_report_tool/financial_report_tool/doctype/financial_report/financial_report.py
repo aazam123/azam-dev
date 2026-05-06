@@ -3669,19 +3669,19 @@ class FinancialReport(Document):
 			for i in curr_ebo.actuarial_assumptions:
 				note_table_4_map[i.label] = {
 					"label": i.label,
-					"curr_amt": format_value(i.value),
+					"curr_amt": i.value,
 					"prev_amt": "-",
 					"is_bold": i.is_bold
 				}
 		if prev_ebo:
 			for i in prev_ebo.actuarial_assumptions:
 				if i.label in note_table_4_map:
-					note_table_4_map[i.label]["prev_amt"] = format_value(i.value)
+					note_table_4_map[i.label]["prev_amt"] = i.value
 				else:
 					note_table_4_map[i.label] = {
 						"label": i.label,
 						"curr_amt": "-",
-						"prev_amt": format_value(i.value),
+						"prev_amt": i.value,
 						"is_bold": i.is_bold
 					}
 
@@ -3691,8 +3691,8 @@ class FinancialReport(Document):
 			rows_4_html += f"""
 			<tr>
 				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{ row['curr_amt'] if row['curr_amt']  else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{ row['prev_amt'] if row['prev_amt']  else '-'}</td>
 			</tr>
 			"""
 
@@ -3704,6 +3704,50 @@ class FinancialReport(Document):
 			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
 		{rows_4_html}
+		</table>
+		"""
+
+		note_table_5_map = {}
+		print("calling ebo", curr_ebo.change_in_assets_during_the_year)
+		if curr_ebo:
+			for i in curr_ebo.change_in_assets_during_the_year:
+				note_table_5_map[i.label] = {
+					"label": i.label,
+					"curr_amt": format_value(i.value),
+					"prev_amt": "-",
+					"is_bold": i.is_bold
+				}
+		if prev_ebo:
+			for i in prev_ebo.change_in_assets_during_the_year:
+				if i.label in note_table_5_map:
+					note_table_5_map[i.label]["prev_amt"] = format_value(i.value)
+				else:
+					note_table_5_map[i.label] = {
+						"label": i.label,
+						"curr_amt": "-",
+						"prev_amt": format_value(i.value),
+						"is_bold": i.is_bold
+					}
+
+		rows_5_html = ""
+		for row in note_table_5_map.values():
+			style = "font-weight:bold;" if row["is_bold"] else "border-top:none; border-bottom:none;"
+			rows_5_html += f"""
+			<tr>
+				<td style="border:1px solid #000; padding:6px; {style}">{row['label']}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8; {style}">{fmt_amt(row['curr_amt']) if row['curr_amt'] != '-' else '-'}</td>
+				<td style="border:1px solid #000; padding:6px; text-align:right; {style}">{fmt_amt(row['prev_amt']) if row['prev_amt'] != '-' else '-'}</td>
+			</tr>
+			"""
+
+		note_table_5 = f"""
+		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+		<tr>
+			<th style="width: 60%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">(V) Change In Assets During The Year</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
+		</tr>
+		{rows_5_html}
 		</table>
 		"""
 
@@ -3929,6 +3973,7 @@ class FinancialReport(Document):
 			.replace("{{note_table_2}}", note_table_2)
 			.replace("{{note_table_3}}", note_table_3)
 			.replace("{{note_table_4}}", note_table_4)
+			.replace("{{note_table_5}}", note_table_5)
 			.replace("{{note_table_8}}", note_table_8)
 			.replace("{{note_table_9}}", note_table_9)
 			.replace("{{note_table_11}}", note_table_11)

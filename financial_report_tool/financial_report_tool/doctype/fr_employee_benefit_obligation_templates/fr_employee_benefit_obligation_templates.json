@@ -14,6 +14,8 @@
   "amount_recognised_in_statement_of_profit",
   "section_break_lnwg",
   "reconciliation_of_defined_benefit_obligation",
+  "section_break_dcux",
+  "change_in_assets_during_the_year",
   "section_break_vdwv",
   "actuarial_assumptions",
   "section_break_bwpo",
@@ -129,12 +131,22 @@
    "fieldname": "disable",
    "fieldtype": "Check",
    "label": "Disable"
+  },
+  {
+   "fieldname": "section_break_dcux",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "change_in_assets_during_the_year",
+   "fieldtype": "Table",
+   "label": "Change In Assets During The Year",
+   "options": "Change In Assets During The Year"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-13 12:21:13.588589",
+ "modified": "2026-05-06 14:15:20.339671",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Employee Benefit Obligation Templates",
@@ -155,6 +167,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
