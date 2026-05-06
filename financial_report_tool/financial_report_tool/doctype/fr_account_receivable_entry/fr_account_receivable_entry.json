@@ -149,7 +149,7 @@
    "fieldname": "document_type",
    "fieldtype": "Select",
    "label": "Document Type",
-   "options": "\nAB\nDZ\nRV\nSA"
+   "options": "AB\nDZ\nRV\nSA\nDR\nDA\nB1\nUE"
   },
   {
    "fieldname": "document_date",
@@ -286,7 +286,7 @@
    "fieldname": "tb_nature",
    "fieldtype": "Select",
    "label": "TB Nature",
-   "options": "\nAdvance\nReceivable"
+   "options": "Advance\nReceivable\nDeposit"
   },
   {
    "fieldname": "remark",
@@ -372,11 +372,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-14 10:52:21.851951",
+ "modified": "2026-05-04 16:04:30.021121",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

@@ -49,22 +49,26 @@ class FRAccountReceivableEntry(Document):
         # ✅ FIX: Proper Date Handling
         if self.due_date:
             due_date = getdate(self.due_date)
-            today_date = getdate(today())
+            if self.posting_date:
+                today_date = getdate(self.posting_date)
+            else:
+                year = str(self.fiscal_year).split("-")[-1]
+                today_date = getdate(f"{year}-03-31")
 
-            self.ageing_days = (today_date - due_date).days + 1
+            self.due_days = (today_date - due_date).days + 1
         else:
             self.ageing_days = 0
 
         # ✅ Ageing Bucket Logic
-        if self.ageing_days <= 0:
+        if self.due_days <= 0:
             self.ageing = "Not Due"
-        elif 0 < self.ageing_days <= 180:
+        elif 0 < self.due_days <= 180:
             self.ageing = "0-6 Months"
-        elif 180 < self.ageing_days <= 365:
+        elif 180 < self.due_days <= 365:
             self.ageing = "6-12 Months"
-        elif 365 < self.ageing_days <= 730:
+        elif 365 < self.due_days <= 730:
             self.ageing = "1-2 Years"
-        elif 730 < self.ageing_days <= 1095:
+        elif 730 < self.due_days <= 1095:
             self.ageing = "2-3 Years"
         else:
             self.ageing = "More Than 3 Years"
