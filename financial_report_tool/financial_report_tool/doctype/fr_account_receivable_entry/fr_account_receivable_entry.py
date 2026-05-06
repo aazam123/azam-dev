@@ -57,7 +57,7 @@ class FRAccountReceivableEntry(Document):
 
             self.due_days = (today_date - due_date).days + 1
         else:
-            self.ageing_days = 0
+            self.due_days = 0
 
         # ✅ Ageing Bucket Logic
         if self.due_days <= 0:
