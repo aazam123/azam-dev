@@ -43,7 +43,7 @@
  "modified": "2026-05-06 12:32:41.927568",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
- "name": "Change In Assets During The Year",
+ "name": "FR Change In Assets During The Year",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",

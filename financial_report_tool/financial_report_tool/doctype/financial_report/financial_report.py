@@ -3708,7 +3708,6 @@ class FinancialReport(Document):
 		"""
 
 		note_table_5_map = {}
-		print("calling ebo", curr_ebo.change_in_assets_during_the_year)
 		if curr_ebo:
 			for i in curr_ebo.change_in_assets_during_the_year:
 				note_table_5_map[i.label] = {
@@ -5007,8 +5006,8 @@ class FinancialReport(Document):
 		cc_open_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
 		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
 
-		fin_guar_cur = round(self.get_sum_grouping_amount("Other Equity", "Guarantee Expenses measured at amortised cost", cls_month, current_year), self.show_decimal_value)
-		fin_guar_prev = round(self.get_sum_grouping_amount("Other Equity", "Guarantee Expenses measured at amortised cost", cls_month, previous_year), self.show_decimal_value)
+		fin_guar_cur = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, current_year), self.show_decimal_value)
+		fin_guar_prev = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, previous_year), self.show_decimal_value)
 
 		cc_close_prev = round(cc_open_prev + cc_add_prev + fin_guar_prev, self.show_decimal_value)
 		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) + cc_close_prev

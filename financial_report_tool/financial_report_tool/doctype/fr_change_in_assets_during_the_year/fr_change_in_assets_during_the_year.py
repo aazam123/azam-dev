@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class ChangeInAssetsDuringTheYear(Document):
+class FRChangeInAssetsDuringTheYear(Document):
 	pass

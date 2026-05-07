@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestChangeInAssetsDuringTheYear(FrappeTestCase):
+class TestFRChangeInAssetsDuringTheYear(FrappeTestCase):
 	pass
