@@ -16,6 +16,8 @@ RELATION_MAP = {
 	"Fellow Subsidiary of Holding Company": "Fellow Subsidiary of Holding Company",
 	"Subsidiary of Fellow Subsidiary": "Subsidiary of Fellow Subsidiary",
 	"Key Managerial Personnel": "Key Managerial Personnel",
+	"Holding Company of Holding Company": "Holding Company of Holding Company",
+	"Step-down Subsidiary of Micro Life Sciences Pvt Ltd": "Step-down Subsidiary of Micro Life Sciences Pvt Ltd"
 }
 
 RELATION_ORDER = [
@@ -26,6 +28,8 @@ RELATION_ORDER = [
 	"Fellow Subsidiary",
 	"Subsidiary of Fellow Subsidiary",
 	"Key Managerial Personnel",
+	"Holding Company of Holding Company",
+	"Step-down Subsidiary of Micro Life Sciences Pvt Ltd"
 ]
 
 # Default template: Transaction categories
