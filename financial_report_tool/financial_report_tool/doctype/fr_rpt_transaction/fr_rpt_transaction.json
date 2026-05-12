@@ -22,7 +22,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Relation Type",
-   "options": "\nUltimate Holding Company\nHolding Company\nSubsidiary\nFellow Subsidiary of Holding Company\nFellow Subsidiary\nSubsidiary of Fellow Subsidiary\nKey Managerial Personnel",
+   "options": "\nUltimate Holding Company\nHolding Company\nSubsidiary\nFellow Subsidiary of Holding Company\nFellow Subsidiary\nSubsidiary of Fellow Subsidiary\nKey Managerial Personnel\nHolding Company of Holding Company\nStep-down Subsidiary of Micro Life Sciences Pvt Ltd",
    "reqd": 1
   },
   {
@@ -79,7 +79,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-04-13 18:02:31.976069",
+ "modified": "2026-05-12 14:10:34.873458",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR RPT Transaction",
