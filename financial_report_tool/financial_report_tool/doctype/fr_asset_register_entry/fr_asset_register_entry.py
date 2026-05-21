@@ -3,8 +3,14 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import getdate
 import calendar
+import json
+from frappe.utils import (
+    flt,
+    cint,
+    getdate
+)
+
 
 class FRAssetRegisterEntry(Document):
 	def before_insert(self):
@@ -213,3 +219,456 @@ class FRAssetRegisterEntry(Document):
 # 		self.close_gross_block = self.open_gross_block + (self.transaction_acquisition_value or 0)
 # 		self.close_accumulated_depreciation = self.open_accumulated_depreciation + self.planned_depreciation
 # 		self.ending_book_value = self.close_gross_block - self.close_accumulated_depreciation
+
+
+
+
+@frappe.whitelist()
+def import_from_sync_sap(
+    sync_sap_doc,
+    fiscal_year
+):
+
+    # ---------------------------------------------------
+    # GET SYNC DOC
+    # ---------------------------------------------------
+
+    sync_doc = frappe.get_doc(
+        "Sync SAP",
+        sync_sap_doc
+    )
+
+    # ---------------------------------------------------
+    # VALIDATIONS
+    # ---------------------------------------------------
+
+    if not sync_doc.json_data:
+
+        frappe.throw(
+            "JSON Data not found"
+        )
+
+    # ---------------------------------------------------
+    # PREVENT DUPLICATE IMPORT
+    # ---------------------------------------------------
+
+    already_imported = frappe.db.exists(
+        "FR Asset Register Entry",
+        {
+            "sync_sap_id":
+                sync_doc.name
+        }
+    )
+
+    if already_imported:
+
+        frappe.throw(
+            f"Sync SAP already imported: "
+            f"{sync_doc.name}"
+        )
+
+    # ---------------------------------------------------
+    # LOAD JSON
+    # ---------------------------------------------------
+
+    try:
+
+        data = json.loads(
+            sync_doc.json_data
+        )
+
+    except Exception:
+
+        frappe.throw(
+            "Invalid JSON Data"
+        )
+
+    if not isinstance(data, list):
+
+        frappe.throw(
+            "JSON Data must be a list"
+        )
+
+    # ---------------------------------------------------
+    # COMPANY CACHE
+    # ---------------------------------------------------
+
+    company_map = {}
+
+    companies = frappe.get_all(
+        "Company",
+        fields=[
+            "name",
+            "custom_company_code"
+        ]
+    )
+
+    for company in companies:
+
+        if company.custom_company_code:
+
+            company_map[
+                str(
+                    company.custom_company_code
+                ).strip()
+            ] = company.name
+
+    # ---------------------------------------------------
+    # FIELD MAP
+    # ---------------------------------------------------
+
+    field_map = {
+
+        "Asset":
+            "asset_id",
+
+        "Subnumber":
+            "subnumber",
+
+        "BalshacctAPC":
+            "balance_sheet_account_apc",
+
+        "AssetClass":
+            "asset_class",
+
+        "Depreciationkey":
+            "depreciation_key",
+
+        "Plant":
+            "plant",
+
+        "CostCenter":
+            "cost_center",
+
+        "Vendor":
+            "vendor"
+    }
+
+    # ---------------------------------------------------
+    # FLOAT FIELD MAP
+    # ---------------------------------------------------
+
+    float_fields = {
+
+        "Quantity":
+            "quantity",
+
+        "Cumacqvalue":
+            "cumulative_acquisition_value",
+
+        "Transacqval":
+            "transaction_acquisition_value",
+
+        "PlndODep":
+            "planned_depreciation",
+
+        "CumOdep1":
+            "transferred_accumulated_depreciation",
+
+        "CumOdep3":
+            "transferred_acquisition_value",
+
+        "Startbookval":
+            "starting_book_value",
+
+        "Cumacqvalue7":
+            "ending_book_value",
+
+        "Cumacqvalue":
+            "sap_cav",
+
+        "CumOdep":
+            "sap_acc_dep",
+
+        "Transacqval":
+            "sap_transaction_acq_value",
+
+        "PlndODep":
+            "sap_plan_dep",
+
+        "CumOdep1":
+            "sap_tran_accu_dep",
+
+        "CumOdep3":
+            "sap_tran_acq_value",
+
+        "Startbookval":
+            "sap_sbv",
+
+        "Cumacqvalue7":
+            "sap_ebv"
+    }
+
+    # ---------------------------------------------------
+    # DATE FIELD MAP
+    # ---------------------------------------------------
+
+    date_fields = {
+
+        "Orddepstartdate":
+            "ordinary_depreciation_start_date"
+    }
+
+    # ---------------------------------------------------
+    # COUNTERS
+    # ---------------------------------------------------
+
+    created = 0
+    skipped = 0
+    errors = []
+
+    # ---------------------------------------------------
+    # LOOP
+    # ---------------------------------------------------
+
+    for index, row in enumerate(
+        data,
+        start=1
+    ):
+
+        try:
+
+            # ---------------------------------------------------
+            # COMPANY
+            # ---------------------------------------------------
+
+            company_code = str(
+                row.get("CompanyCode")
+                or ""
+            ).strip()
+
+            company = company_map.get(
+                company_code
+            )
+
+            if not company:
+
+                skipped += 1
+
+                errors.append(
+                    f"Row {index}: "
+                    f"Company not found "
+                    f"for code "
+                    f"{company_code}"
+                )
+
+                continue
+
+            # ---------------------------------------------------
+            # CREATE DOC
+            # ---------------------------------------------------
+
+            doc = frappe.new_doc(
+                "FR Asset Register Entry"
+            )
+
+            # ---------------------------------------------------
+            # REQUIRED
+            # ---------------------------------------------------
+
+            doc.company = company
+
+            doc.fiscal_year = (
+                fiscal_year
+            )
+
+            doc.sync_sap_id = (
+                sync_doc.name
+            )
+
+            doc.asset_group = (
+                "Default"
+            )
+
+            # ---------------------------------------------------
+            # NORMAL FIELDS
+            # ---------------------------------------------------
+
+            for (
+                json_key,
+                fieldname
+            ) in field_map.items():
+
+                setattr(
+                    doc,
+                    fieldname,
+                    row.get(json_key)
+                )
+
+            # ---------------------------------------------------
+            # FLOAT FIELDS
+            # ---------------------------------------------------
+
+            for (
+                json_key,
+                fieldname
+            ) in float_fields.items():
+
+                setattr(
+                    doc,
+                    fieldname,
+                    flt(
+                        row.get(json_key)
+                    )
+                )
+
+            # ---------------------------------------------------
+            # DATE FIELDS
+            # ---------------------------------------------------
+
+            for (
+                json_key,
+                fieldname
+            ) in date_fields.items():
+
+                setattr(
+                    doc,
+                    fieldname,
+                    get_valid_date(
+                        row.get(json_key)
+                    )
+                )
+
+            # ---------------------------------------------------
+            # LIFE
+            # ---------------------------------------------------
+
+            life = (
+                row.get("Life")
+                or ""
+            )
+
+            if "/" in life:
+
+                parts = life.split("/")
+
+                doc.life_years = cint(
+                    parts[0]
+                )
+
+                doc.life_days = cint(
+                    parts[1]
+                )
+
+            # ---------------------------------------------------
+            # ERP VALUES
+            # ---------------------------------------------------
+
+            doc.accumulated_depreciation = flt(
+                row.get("CumOdep")
+            )
+
+            doc.open_accumulated_depreciation = flt(
+                row.get("CumOdep1")
+            )
+
+            doc.close_accumulated_depreciation = flt(
+                row.get("CumOdep2")
+            )
+
+            doc.open_gross_block = flt(
+                row.get("Cumacqvalue8")
+            )
+
+            doc.close_gross_block = flt(
+                row.get("Cumacqvalue9")
+            )
+
+            doc.total_depreciation = (
+                flt(doc.depreciation)
+                + flt(doc.additional)
+            )
+
+            # ---------------------------------------------------
+            # INSERT
+            # ---------------------------------------------------
+
+            doc.insert(
+                ignore_permissions=True
+            )
+
+            created += 1
+
+        except Exception:
+
+            skipped += 1
+
+            errors.append(
+                f"""
+                Row: {index}
+
+                Asset:
+                {row.get('Asset')}
+
+                Error:
+                {frappe.get_traceback()}
+                """
+            )
+
+    # ---------------------------------------------------
+    # COMMIT
+    # ---------------------------------------------------
+
+    frappe.db.commit()
+
+    # ---------------------------------------------------
+    # LOG ERRORS
+    # ---------------------------------------------------
+
+    if errors:
+
+        error_log = "\n\n".join(
+            errors
+        )
+
+        frappe.log_error(
+            title=
+                "FR Asset Register Import Errors",
+
+            message=error_log
+        )
+
+    # ---------------------------------------------------
+    # RESPONSE
+    # ---------------------------------------------------
+
+    message = (
+        f"{created} entries created "
+        f"successfully and "
+        f"{skipped} skipped"
+    )
+
+    if errors:
+
+        message += (
+            "<br><br>"
+            "Check Error Log "
+            "for skipped reasons."
+        )
+
+    return message
+
+
+def get_valid_date(date_value):
+
+    if not date_value:
+
+        return None
+
+    if str(date_value) in [
+
+        "0000-00-00",
+        "0",
+        ""
+
+    ]:
+
+        return None
+
+    try:
+
+        return getdate(date_value)
+
+    except Exception:
+
+        return None

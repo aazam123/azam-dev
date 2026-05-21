@@ -3,6 +3,13 @@
 
 import frappe
 from frappe.model.document import Document
+import json
+from frappe.utils import (
+    flt,
+    cint,
+    getdate
+)
+
 
 
 class FRPurchaseRegister(Document):
@@ -27,15 +34,6 @@ class FRPurchaseRegister(Document):
 		else:
 			self.party_type = "Unrelated Party"
 
-
-import frappe
-import json
-
-from frappe.utils import (
-    flt,
-    cint,
-    getdate
-)
 
 
 @frappe.whitelist()

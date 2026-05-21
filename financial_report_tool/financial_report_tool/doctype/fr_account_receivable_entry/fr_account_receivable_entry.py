@@ -3,7 +3,14 @@
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import flt, getdate, today
+import json
+from frappe.utils import (
+    flt,
+    cint,
+    getdate,
+    today
+)
+
 
 
 class FRAccountReceivableEntry(Document):
@@ -101,14 +108,6 @@ class FRAccountReceivableEntry(Document):
         ) / 100 if self.restated_value else 0
 
 
-import frappe
-import json
-
-from frappe.utils import (
-    flt,
-    cint,
-    getdate
-)
 
 
 @frappe.whitelist()
