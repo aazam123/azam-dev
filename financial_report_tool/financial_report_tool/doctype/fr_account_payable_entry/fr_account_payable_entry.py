@@ -159,3 +159,516 @@ class FRAccountPayableEntry(Document):
 				self.grouping = "Service Payable"
 				self.grouping_remark = "No grouping match found → Default: Service Payable"
 			self.remark = "No Grouping Match"
+
+
+import frappe
+import json
+
+from frappe.utils import (
+    flt,
+    cint,
+    getdate
+)
+
+
+@frappe.whitelist()
+def import_from_sync_sap(
+    sync_sap_doc,
+    fiscal_year
+):
+
+    # ---------------------------------------------------
+    # GET SYNC DOC
+    # ---------------------------------------------------
+
+    sync_doc = frappe.get_doc(
+        "Sync SAP",
+        sync_sap_doc
+    )
+
+    # ---------------------------------------------------
+    # VALIDATIONS
+    # ---------------------------------------------------
+
+    if not sync_doc.json_data:
+
+        frappe.throw(
+            "JSON Data not found"
+        )
+
+    # ---------------------------------------------------
+    # PREVENT DUPLICATE IMPORT
+    # ---------------------------------------------------
+
+    already_imported = frappe.db.exists(
+        "FR Account Payable Entry",
+        {
+            "sync_sap_id":
+                sync_doc.name
+        }
+    )
+
+    if already_imported:
+
+        frappe.throw(
+            f"Sync SAP already imported: "
+            f"{sync_doc.name}"
+        )
+
+    # ---------------------------------------------------
+    # LOAD JSON
+    # ---------------------------------------------------
+
+    try:
+
+        data = json.loads(
+            sync_doc.json_data
+        )
+
+    except Exception:
+
+        frappe.throw(
+            "Invalid JSON Data"
+        )
+
+    if not isinstance(data, list):
+
+        frappe.throw(
+            "JSON Data must be a list"
+        )
+
+    # ---------------------------------------------------
+    # COMPANY CACHE
+    # ---------------------------------------------------
+
+    company_map = {}
+
+    companies = frappe.get_all(
+        "Company",
+        fields=[
+            "name",
+            "custom_company_code"
+        ]
+    )
+
+    for company in companies:
+
+        if company.custom_company_code:
+
+            company_map[
+                str(
+                    company.custom_company_code
+                ).strip()
+            ] = company.name
+
+    # ---------------------------------------------------
+    # FIELD MAP
+    # ---------------------------------------------------
+
+    field_map = {
+
+        # Basic
+        "DocumentNumber":
+            "document_number",
+
+        "Vendor":
+            "supplier",
+
+        "VendorName":
+            "supplier_name",
+
+        "PurchaseOrder":
+            "purchase_order",
+
+        "ReconAC":
+            "account_no",
+
+        "Assignment":
+            "assignment",
+
+        "Reference":
+            "reference",
+
+        "Country":
+            "country",
+
+        "City":
+            "city",
+
+        "Region":
+            "state",
+
+        "DocumentType":
+            "document_type",
+
+        "DebitCredit":
+            "debitcredit",
+
+        "SpecialGLind":
+            "special_gl_ind",
+
+        "InvoiceNo":
+            "invoice_no",
+
+        "DocCurrency":
+            "currency",
+
+        "PaytTerms":
+            "paymet_terms",
+
+        "PaymentDays":
+            "payment_days",
+
+        "Text":
+            "text"
+    }
+
+    # ---------------------------------------------------
+    # FLOAT FIELD MAP
+    # ---------------------------------------------------
+
+    float_fields = {
+
+        "ExchangeRate":
+            "exchange_rate",
+
+        "AmountinLC":
+            "amount_in_lc",
+
+        "AmountinDC":
+            "amount_in_dc",
+
+        "DueAmt":
+            "due_amount",
+
+        "NondueAmt":
+            "non_due_amount"
+    }
+
+    # ---------------------------------------------------
+    # DATE FIELD MAP
+    # ---------------------------------------------------
+
+    date_fields = {
+
+        "DocumentDate":
+            "document_date",
+
+        "PostingDate":
+            "posting_date",
+
+        "BaselineDate":
+            "baseline_date",
+
+        "DueDate":
+            "due_date"
+    }
+
+    # ---------------------------------------------------
+    # COUNTERS
+    # ---------------------------------------------------
+
+    created = 0
+    skipped = 0
+    errors = []
+
+    # ---------------------------------------------------
+    # LOOP
+    # ---------------------------------------------------
+
+    for index, row in enumerate(
+        data,
+        start=1
+    ):
+
+        try:
+
+            # ---------------------------------------------------
+            # COMPANY
+            # ---------------------------------------------------
+
+            company_code = str(
+                row.get("CompanyCode")
+                or ""
+            ).strip()
+
+            company = company_map.get(
+                company_code
+            )
+
+            if not company:
+
+                skipped += 1
+
+                errors.append(
+                    f"Row {index}: "
+                    f"Company not found "
+                    f"for code "
+                    f"{company_code}"
+                )
+
+                continue
+
+            # ---------------------------------------------------
+            # CREATE DOC
+            # ---------------------------------------------------
+
+            doc = frappe.new_doc(
+                "FR Account Payable Entry"
+            )
+
+            # ---------------------------------------------------
+            # REQUIRED
+            # ---------------------------------------------------
+
+            doc.company = company
+
+            doc.fiscal_year = (
+                fiscal_year
+            )
+
+            doc.sync_sap_id = (
+                sync_doc.name
+            )
+
+            doc.account_no = (
+                row.get("ReconAC")
+            )
+
+            doc.currency = (
+                row.get("DocCurrency")
+                or "INR"
+            )
+
+            # ---------------------------------------------------
+            # NORMAL FIELDS
+            # ---------------------------------------------------
+
+            for (
+                json_key,
+                fieldname
+            ) in field_map.items():
+
+                setattr(
+                    doc,
+                    fieldname,
+                    row.get(json_key)
+                )
+
+            # ---------------------------------------------------
+            # FLOAT FIELDS
+            # ---------------------------------------------------
+
+            for (
+                json_key,
+                fieldname
+            ) in float_fields.items():
+
+                setattr(
+                    doc,
+                    fieldname,
+                    flt(
+                        row.get(json_key)
+                    )
+                )
+
+            # ---------------------------------------------------
+            # DATE FIELDS
+            # ---------------------------------------------------
+
+            for (
+                json_key,
+                fieldname
+            ) in date_fields.items():
+
+                setattr(
+                    doc,
+                    fieldname,
+                    get_valid_date(
+                        row.get(json_key)
+                    )
+                )
+
+            # ---------------------------------------------------
+            # CALCULATED
+            # ---------------------------------------------------
+
+            doc.due_days = cint(
+                row.get("DueDays")
+            )
+
+            # Nature
+            if (
+                doc.document_type
+                in ["KZ", "AA"]
+            ):
+
+                doc.nature = (
+                    "Payment"
+                )
+
+            else:
+
+                doc.nature = (
+                    "Payable"
+                )
+
+            # AP
+            if doc.special_gl_ind:
+
+                doc.ap = "Advance"
+
+            else:
+
+                doc.ap = "Payable"
+
+            # Domestic / Import
+            if (
+                row.get("Country")
+                == "IN"
+            ):
+
+                doc.domesticimport = (
+                    "Domestic"
+                )
+
+            else:
+
+                doc.domesticimport = (
+                    "Import"
+                )
+
+            # Ageing
+            due_days = cint(
+                row.get("DueDays")
+            )
+
+            if due_days <= 0:
+
+                doc.ageing = (
+                    "Not Due"
+                )
+
+            elif due_days <= 180:
+
+                doc.ageing = (
+                    "0-6 Months"
+                )
+
+            elif due_days <= 365:
+
+                doc.ageing = (
+                    "6-12 Months"
+                )
+
+            elif due_days <= 730:
+
+                doc.ageing = (
+                    "1-2 Years"
+                )
+
+            elif due_days <= 1095:
+
+                doc.ageing = (
+                    "2-3 Years"
+                )
+
+            else:
+
+                doc.ageing = (
+                    "More Than 3 Years"
+                )
+
+            # ---------------------------------------------------
+            # INSERT
+            # ---------------------------------------------------
+
+            doc.insert(
+                ignore_permissions=True
+            )
+
+            created += 1
+
+        except Exception:
+
+            skipped += 1
+
+            errors.append(
+                f"""
+                Row: {index}
+
+                Document Number:
+                {row.get('DocumentNumber')}
+
+                Error:
+                {frappe.get_traceback()}
+                """
+            )
+
+    # ---------------------------------------------------
+    # COMMIT
+    # ---------------------------------------------------
+
+    frappe.db.commit()
+
+    # ---------------------------------------------------
+    # LOG ERRORS
+    # ---------------------------------------------------
+
+    if errors:
+
+        error_log = "\n\n".join(
+            errors
+        )
+
+        frappe.log_error(
+            title=
+                "FR AP Import Errors",
+
+            message=error_log
+        )
+
+    # ---------------------------------------------------
+    # RESPONSE
+    # ---------------------------------------------------
+
+    message = (
+        f"{created} entries created "
+        f"successfully and "
+        f"{skipped} skipped"
+    )
+
+    if errors:
+
+        message += (
+            "<br><br>"
+            "Check Error Log "
+            "for skipped reasons."
+        )
+
+    return message
+
+
+def get_valid_date(date_value):
+
+    if not date_value:
+
+        return None
+
+    if str(date_value) in [
+
+        "0000-00-00",
+        "0",
+        ""
+
+    ]:
+
+        return None
+
+    try:
+
+        return getdate(date_value)
+
+    except Exception:
+
+        return None
