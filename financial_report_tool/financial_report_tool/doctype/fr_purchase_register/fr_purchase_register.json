@@ -159,7 +159,8 @@
   "column_break_nmqk",
   "assessable_value_boe",
   "valueigst",
-  "check"
+  "check",
+  "sync_sap_id"
  ],
  "fields": [
   {
@@ -916,12 +917,17 @@
    "fieldname": "check",
    "fieldtype": "Float",
    "label": "Check"
+  },
+  {
+   "fieldname": "sync_sap_id",
+   "fieldtype": "Data",
+   "label": "Sync SAP ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-13 14:36:34.128090",
+ "modified": "2026-05-21 11:40:34.553907",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Purchase Register",

@@ -64,7 +64,8 @@
   "column_break_gqfu",
   "remark",
   "column_break_neog",
-  "grouping_remark"
+  "grouping_remark",
+  "sync_sap_id"
  ],
  "fields": [
   {
@@ -374,16 +375,21 @@
    "fieldname": "grouping_remark",
    "fieldtype": "Small Text",
    "label": "Grouping Remark"
+  },
+  {
+   "fieldname": "sync_sap_id",
+   "fieldtype": "Data",
+   "label": "Sync SAP ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-11 10:35:59.449176",
+ "modified": "2026-05-20 17:48:02.975613",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

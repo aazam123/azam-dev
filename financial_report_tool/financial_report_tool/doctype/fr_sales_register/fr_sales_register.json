@@ -149,7 +149,8 @@
   "remarks_reconciliation",
   "e_invoice_status",
   "e_way_bill_status",
-  "total_tax"
+  "total_tax",
+  "sync_sap_id"
  ],
  "fields": [
   {
@@ -851,12 +852,17 @@
    "fieldname": "category",
    "fieldtype": "Data",
    "label": "Category"
+  },
+  {
+   "fieldname": "sync_sap_id",
+   "fieldtype": "Data",
+   "label": "Sync SAP ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-14 15:43:15.348366",
+ "modified": "2026-05-20 16:31:44.052819",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Sales Register",
