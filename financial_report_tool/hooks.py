@@ -271,4 +271,4 @@ fixtures = [
     }
 ]
 
-after_migrate = ["financial_report_tool.setup.cost_center.create_root_cost_centers"]
+# after_migrate = ["financial_report_tool.setup.cost_center.create_root_cost_centers"]
