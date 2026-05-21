@@ -269,4 +269,8 @@ fixtures = [
         "dt": "Custom DocPerm",
         "filters": [["role", "in", ["Financial Report User", "Financial Report Manager"]]]
     },
+    {
+        "dt": "Cost Center",
+        "filters": [["is_group", "=", 1]]
+    }
 ]
