@@ -72,7 +72,8 @@
   "column_break_tfgz",
   "transferred_accumulated_depreciation",
   "transferred_acquisition_value",
-  "column_break_fkpm"
+  "column_break_fkpm",
+  "sync_sap_id"
  ],
  "fields": [
   {
@@ -440,12 +441,17 @@
    "label": "Asset Group",
    "options": "FR Asset Group",
    "reqd": 1
+  },
+  {
+   "fieldname": "sync_sap_id",
+   "fieldtype": "Data",
+   "label": "Sync SAP ID"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-15 12:41:20.376049",
+ "modified": "2026-05-21 14:46:52.170586",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",

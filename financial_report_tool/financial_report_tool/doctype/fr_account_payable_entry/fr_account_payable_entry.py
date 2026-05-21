@@ -3,6 +3,13 @@
 
 import frappe
 from frappe.model.document import Document
+import json
+from frappe.utils import (
+    flt,
+    cint,
+    getdate
+)
+
 
 
 class FRAccountPayableEntry(Document):
@@ -160,15 +167,6 @@ class FRAccountPayableEntry(Document):
 				self.grouping_remark = "No grouping match found → Default: Service Payable"
 			self.remark = "No Grouping Match"
 
-
-import frappe
-import json
-
-from frappe.utils import (
-    flt,
-    cint,
-    getdate
-)
 
 
 @frappe.whitelist()

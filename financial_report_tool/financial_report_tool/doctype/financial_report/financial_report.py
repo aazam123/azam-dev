@@ -6194,7 +6194,7 @@ class FinancialReport(Document):
 			})
 	
 		if fetch_for_other_equity:
-			account = profit_and_loss_doc.profit_and_loss_template_details[-1].account
+			account = profit_and_loss_doc.profit_and_loss_template_details[-12].account
 			return (
 				calc_amount_for_particular_monthly(account, cls_month, self.fiscal_year, is_current=True, fx_rate=current_fx),
 				calc_amount_for_particular_monthly(account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx)
