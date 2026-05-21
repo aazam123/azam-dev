@@ -268,9 +268,7 @@ fixtures = [
     {
         "dt": "Custom DocPerm",
         "filters": [["role", "in", ["Financial Report User", "Financial Report Manager"]]]
-    },
-    {
-        "dt": "Cost Center",
-        "filters": [["is_group", "=", 1]]
     }
 ]
+
+after_migrate = ["financial_report_tool.setup.cost_center.create_root_cost_centers"]
