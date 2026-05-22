@@ -8,7 +8,12 @@
  "field_order": [
   "document_type",
   "file",
-  "json_data"
+  "json_data",
+  "import_status",
+  "total_records",
+  "imported_records",
+  "failed_records",
+  "error_log"
  ],
  "fields": [
   {
@@ -31,12 +36,37 @@
    "fieldtype": "Long Text",
    "label": "Json Data",
    "read_only": 1
+  },
+  {
+   "fieldname": "import_status",
+   "fieldtype": "Data",
+   "label": "Import Status"
+  },
+  {
+   "fieldname": "total_records",
+   "fieldtype": "Int",
+   "label": "Total Records"
+  },
+  {
+   "fieldname": "imported_records",
+   "fieldtype": "Int",
+   "label": "Imported Records"
+  },
+  {
+   "fieldname": "failed_records",
+   "fieldtype": "Int",
+   "label": "Failed Records"
+  },
+  {
+   "fieldname": "error_log",
+   "fieldtype": "Long Text",
+   "label": "Error Log"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-01 14:14:16.437633",
+ "modified": "2026-05-22 12:14:40.309903",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP",

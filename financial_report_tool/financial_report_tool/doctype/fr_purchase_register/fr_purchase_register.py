@@ -37,33 +37,16 @@ class FRPurchaseRegister(Document):
 
 
 @frappe.whitelist()
-def import_from_sync_sap(
-    sync_sap_doc,
-    fiscal_year
-):
-
-    # ---------------------------------------------------
-    # GET SYNC DOC
-    # ---------------------------------------------------
-
+def import_from_sync_sap(sync_sap_doc, fiscal_year):
     sync_doc = frappe.get_doc(
         "Sync SAP",
         sync_sap_doc
     )
 
-    # ---------------------------------------------------
-    # VALIDATIONS
-    # ---------------------------------------------------
-
     if not sync_doc.json_data:
-
         frappe.throw(
             "JSON Data not found"
         )
-
-    # ---------------------------------------------------
-    # PREVENT DUPLICATE IMPORT
-    # ---------------------------------------------------
 
     already_imported = frappe.db.exists(
         "FR Purchase Register",
@@ -74,40 +57,26 @@ def import_from_sync_sap(
     )
 
     if already_imported:
-
         frappe.throw(
             f"Sync SAP already imported: "
             f"{sync_doc.name}"
         )
 
-    # ---------------------------------------------------
-    # LOAD JSON
-    # ---------------------------------------------------
-
     try:
-
         data = json.loads(
             sync_doc.json_data
         )
-
     except Exception:
-
         frappe.throw(
             "Invalid JSON Data"
         )
 
     if not isinstance(data, list):
-
         frappe.throw(
             "JSON Data must be a list"
         )
 
-    # ---------------------------------------------------
-    # COMPANY CACHE
-    # ---------------------------------------------------
-
     company_map = {}
-
     companies = frappe.get_all(
         "Company",
         fields=[
@@ -117,186 +86,124 @@ def import_from_sync_sap(
     )
 
     for company in companies:
-
         if company.custom_company_code:
-
             company_map[
                 str(
                     company.custom_company_code
                 ).strip()
             ] = company.name
 
-    # ---------------------------------------------------
-    # FIELD MAP
-    # ---------------------------------------------------
-
     field_map = {
-
         "InvDocNo":
             "invoice_document_no",
-
-        "PurchaseOrder":
+       "PurchaseOrder":
             "purchase_order",
-
         "PurchaseOrdItm":
             "purchase_order_item",
-
         "PurchaseOrdType":
             "purchase_order_type",
-
         "PurchaseOrdType_t":
             "purchase_order_type_description",
-
         "AccDoc":
             "accounting_document",
-
         "AccYear":
             "accounting_year",
-
         "DocumentType":
             "document_type",
-
         "TransactnType":
             "transaction_type",
-
         "Reference":
             "reference",
-
         "Currency":
             "currency",
-
         "InvoicingPty":
             "invoicing_party",
-
         "VendorName":
             "vendor_name",
-
         "City":
             "city",
-
         "Region":
             "region",
-
         "Country":
             "country",
-
         "CSTNo":
             "cst_no",
-
         "VATNo":
             "vat_no",
-
         "GSTNNo":
             "gstn_no",
-
         "VendorType":
             "vendor_type",
-
         "VendorClass":
             "vendor_class",
-
         "MIROStatus":
             "miro_status",
-
         "Reversedby":
             "reversed_by",
-
         "ReversedYear":
             "reversed_year",
-
         "Taxcode":
             "tax_code",
-
         "PaytTerms":
             "payment_terms",
-
         "PayTermDesc":
             "payment_term_description",
-
         "Incoterms":
             "incoterms",
-
         "Incoterms2":
             "incoterms_2",
-
         "Taxcode":
             "tax_code",
-
         "PurchasingOrg":
             "purchasing_organization",
-
         "Material":
             "material",
-
         "MaterialGroup":
             "material_group",
-
         "MaterialGroup_t":
             "material_group_description",
-
         "MaterialGroup_l":
             "material_group_description_2",
-
         "MaterialType":
             "material_type",
-
         "Mattypedescr":
             "material_type_description",
-
         "Division":
             "division",
-
         "Division_t":
             "division_text",
-
         "PurchasingGroup":
             "purchasing_group",
-
         "PurGroupDesc":
             "purchasing_group_description",
-
         "ItemText":
             "item_text",
-
         "Plant":
             "plant",
-
         "PlantRegion":
             "plant_region",
-
         "GLAccount":
             "gl_account_no",
-
         "GLLongName":
             "gl_long_name",
-
         "OrderUnit":
             "order_unit",
-
         "BaseUnit":
             "base_unit",
-
         "HSNSACCode":
             "hsnsac_code",
-
-        "ReferenceDoc":
+       "ReferenceDoc":
             "reference_document",
-
         "Yearcurperiod":
             "year_current_period",
-
         "RefDocItem":
             "reference_document_item",
-
         "Text":
             "text",
-
         "CreatedBy":
             "created_by",
-
         "PRNo":
             "pr_no",
-
         "PRItem":
             "pr_item",
 
@@ -318,10 +225,6 @@ def import_from_sync_sap(
         "Department":
             "department"
     }
-
-    # ---------------------------------------------------
-    # FLOAT FIELD MAP
-    # ---------------------------------------------------
 
     float_fields = {
 
@@ -486,17 +389,9 @@ def import_from_sync_sap(
             "pr_date"
     }
 
-    # ---------------------------------------------------
-    # COUNTERS
-    # ---------------------------------------------------
-
     created = 0
-    skipped = 0
+    failed = 0
     errors = []
-
-    # ---------------------------------------------------
-    # LOOP
-    # ---------------------------------------------------
 
     for index, row in enumerate(
         data,
@@ -504,23 +399,14 @@ def import_from_sync_sap(
     ):
 
         try:
-
-            # ---------------------------------------------------
-            # COMPANY
-            # ---------------------------------------------------
-
             company_code = str(
                 row.get("CompanyCode")
                 or ""
             ).strip()
-
             company = company_map.get(
                 company_code
             )
-
             if not company:
-
-                skipped += 1
 
                 errors.append(
                     f"Row {index}: "
@@ -649,7 +535,7 @@ def import_from_sync_sap(
 
         except Exception:
 
-            skipped += 1
+            failed += 1
 
             errors.append(
                 f"""
@@ -663,48 +549,13 @@ def import_from_sync_sap(
                 """
             )
 
-    # ---------------------------------------------------
-    # COMMIT
-    # ---------------------------------------------------
-
     frappe.db.commit()
-
-    # ---------------------------------------------------
-    # LOG ERRORS
-    # ---------------------------------------------------
-
-    if errors:
-
-        error_log = "\n\n".join(
-            errors
-        )
-
-        frappe.log_error(
-            title=
-                "FR Purchase Register Import Errors",
-
-            message=error_log
-        )
-
-    # ---------------------------------------------------
-    # RESPONSE
-    # ---------------------------------------------------
-
-    message = (
-        f"{created} entries created "
-        f"successfully and "
-        f"{skipped} skipped"
-    )
-
-    if errors:
-
-        message += (
-            "<br><br>"
-            "Check Error Log "
-            "for skipped reasons."
-        )
-
-    return message
+ 
+    return {
+        "created": created,
+        "failed": failed,
+        "error_log": "\n\n".join(errors) if errors else ""
+    }
 
 
 def get_valid_date(date_value):
