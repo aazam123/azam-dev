@@ -34,19 +34,10 @@ class FRSalesRegister(Document):
 
 @frappe.whitelist()
 def import_from_sync_sap(sync_sap_doc, fiscal_year):
-
-    # ---------------------------------------------------
-    # GET SYNC SAP DOC
-    # ---------------------------------------------------
-
     sync_doc = frappe.get_doc(
         "Sync SAP",
         sync_sap_doc
     )
-
-    # ---------------------------------------------------
-    # VALIDATIONS
-    # ---------------------------------------------------
 
     if not sync_doc.json_data:
         frappe.throw("JSON Data not found in Sync SAP")
@@ -60,36 +51,22 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
     )
 
     if already_imported:
-
         frappe.throw(
             f"Entries already imported from "
             f"Sync SAP: {sync_doc.name}"
         )
 
-    # ---------------------------------------------------
-    # LOAD JSON
-    # ---------------------------------------------------
-
     try:
-
         data = json.loads(sync_doc.json_data)
-
     except Exception:
-
         frappe.throw("Invalid JSON Data")
 
     if not isinstance(data, list):
-
         frappe.throw(
             "JSON Data must be a list"
         )
 
-    # ---------------------------------------------------
-    # COMPANY CACHE
-    # ---------------------------------------------------
-
     company_map = {}
-
     companies = frappe.get_all(
         "Company",
         fields=[
@@ -99,21 +76,14 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
     )
 
     for company in companies:
-
         if company.custom_company_code:
-
             company_map[
                 str(
                     company.custom_company_code
                 ).strip()
             ] = company.name
 
-    # ---------------------------------------------------
-    # FIELD MAP
-    # ---------------------------------------------------
-
     field_map = {
-
         # Basic
         "Plant": "plant",
         "PlantRegion": "plant_region",
@@ -171,10 +141,6 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
         "Cancelled": "cancelled"
     }
 
-    # ---------------------------------------------------
-    # FLOAT FIELD MAP
-    # ---------------------------------------------------
-
     float_fields = {
 
         "Rate": "rate",
@@ -202,10 +168,6 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
             "exchange_rate_account"
     }
 
-    # ---------------------------------------------------
-    # DATE FIELD MAP
-    # ---------------------------------------------------
-
     date_fields = {
 
         "SOSTODt": "sosto_date",
@@ -214,100 +176,61 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
         "DeliveryDt": "delivery_date"
     }
 
-    # ---------------------------------------------------
-    # COUNTERS
-    # ---------------------------------------------------
-
     created = 0
-
-    # ---------------------------------------------------
-    # LOOP THROUGH JSON
-    # ---------------------------------------------------
+    failed = 0
+    errors = []
 
     for index, row in enumerate(data, start=1):
 
         try:
 
-            # ---------------------------------------------------
-            # COMPANY
-            # ---------------------------------------------------
-
             custom_company_code = str(
                 row.get("CompanyCode") or ""
             ).strip()
-
             company = company_map.get(
                 custom_company_code
             )
-
             if not company:
-
                 frappe.throw(
                     f"""
                     Company not found
-
                     Row:
                     {index}
-
                     Company Code:
                     {custom_company_code}
                     """
                 )
 
-            # ---------------------------------------------------
-            # CREATE DOC
-            # ---------------------------------------------------
-
             doc = frappe.new_doc(
                 "FR Sales Register"
             )
 
-            # ---------------------------------------------------
-            # REQUIRED FIELDS
-            # ---------------------------------------------------
-
             doc.company = company
-
             doc.company_code = (
                 custom_company_code
             )
-
             doc.fiscal_year = fiscal_year
-
             doc.sync_sap_id = sync_doc.name
-
             doc.gst_no = (
                 row.get("PayerGSTNNo")
                 or "0"
             )
-
             doc.item = str(
                 row.get("Item") or ""
             )
-
             doc.nature = "Foreign"
-
             doc.party_type = (
                 "Unrelated Party"
             )
 
-            # ---------------------------------------------------
-            # NORMAL FIELDS
-            # ---------------------------------------------------
-
             for json_key, fieldname in (
                 field_map.items()
             ):
-
                 setattr(
                     doc,
                     fieldname,
                     row.get(json_key)
                 )
-
-            # ---------------------------------------------------
-            # FLOAT FIELDS
-            # ---------------------------------------------------
 
             for json_key, fieldname in (
                 float_fields.items()
@@ -321,10 +244,6 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
                     )
                 )
 
-            # ---------------------------------------------------
-            # DATE FIELDS
-            # ---------------------------------------------------
-
             for json_key, fieldname in (
                 date_fields.items()
             ):
@@ -336,10 +255,6 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
                         row.get(json_key)
                     )
                 )
-
-            # ---------------------------------------------------
-            # CALCULATED FIELDS
-            # ---------------------------------------------------
 
             doc.tax_amount = (
 
@@ -359,16 +274,7 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
                 doc.gross_amount
             )
 
-            # ---------------------------------------------------
-            # IGNORE LINK VALIDATION
-            # ---------------------------------------------------
-
             doc.flags.ignore_links = True
-
-            # ---------------------------------------------------
-            # INSERT
-            # ---------------------------------------------------
-
             doc.insert(
                 ignore_permissions=True
             )
@@ -376,7 +282,7 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
             created += 1
 
         except Exception:
-
+            failed += 1
             frappe.throw(
                 f"""
                 ERROR IN ROW:
@@ -388,19 +294,13 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
                 """
             )
 
-    # ---------------------------------------------------
-    # COMMIT
-    # ---------------------------------------------------
-
     frappe.db.commit()
 
-    # ---------------------------------------------------
-    # RESPONSE
-    # ---------------------------------------------------
-
-    return (
-        f"{created} entries created successfully"
-    )
+    return {
+        "created": created,
+        "failed": failed,
+        "error_log": "\n\n".join(errors) if errors else ""
+    }
 
 
 def get_valid_date(date_value):

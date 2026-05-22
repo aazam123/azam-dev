@@ -8,7 +8,8 @@ import json
 from frappe.utils import (
     flt,
     cint,
-    getdate
+    getdate,
+    nowdate
 )
 
 
@@ -225,22 +226,13 @@ class FRAssetRegisterEntry(Document):
 
 @frappe.whitelist()
 def import_from_sync_sap(
-    sync_sap_doc,
-    fiscal_year
+    sync_sap_doc
 ):
-
-    # ---------------------------------------------------
-    # GET SYNC DOC
-    # ---------------------------------------------------
 
     sync_doc = frappe.get_doc(
         "Sync SAP",
         sync_sap_doc
     )
-
-    # ---------------------------------------------------
-    # VALIDATIONS
-    # ---------------------------------------------------
 
     if not sync_doc.json_data:
 
@@ -414,7 +406,7 @@ def import_from_sync_sap(
     # ---------------------------------------------------
 
     created = 0
-    skipped = 0
+    failed = 0
     errors = []
 
     # ---------------------------------------------------
@@ -468,8 +460,15 @@ def import_from_sync_sap(
 
             doc.company = company
 
-            doc.fiscal_year = (
-                fiscal_year
+            doc.fiscal_year = frappe.db.get_value(
+                "Fiscal Year",
+                {
+                    "year_start_date":
+                        ["<=", nowdate()],
+
+                    "year_end_date":
+                        [">=", nowdate()]
+                }
             )
 
             doc.sync_sap_id = (
@@ -591,7 +590,7 @@ def import_from_sync_sap(
 
         except Exception:
 
-            skipped += 1
+            failed += 1
 
             errors.append(
                 f"""
@@ -605,48 +604,13 @@ def import_from_sync_sap(
                 """
             )
 
-    # ---------------------------------------------------
-    # COMMIT
-    # ---------------------------------------------------
-
     frappe.db.commit()
 
-    # ---------------------------------------------------
-    # LOG ERRORS
-    # ---------------------------------------------------
-
-    if errors:
-
-        error_log = "\n\n".join(
-            errors
-        )
-
-        frappe.log_error(
-            title=
-                "FR Asset Register Import Errors",
-
-            message=error_log
-        )
-
-    # ---------------------------------------------------
-    # RESPONSE
-    # ---------------------------------------------------
-
-    message = (
-        f"{created} entries created "
-        f"successfully and "
-        f"{skipped} skipped"
-    )
-
-    if errors:
-
-        message += (
-            "<br><br>"
-            "Check Error Log "
-            "for skipped reasons."
-        )
-
-    return message
+    return {
+        "created": created,
+        "failed": failed,
+        "error_log": "\n\n".join(errors) if errors else ""
+    }
 
 
 def get_valid_date(date_value):

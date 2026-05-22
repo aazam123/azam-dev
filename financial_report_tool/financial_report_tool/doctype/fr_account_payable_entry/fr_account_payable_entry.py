@@ -367,7 +367,7 @@ def import_from_sync_sap(
     # ---------------------------------------------------
 
     created = 0
-    skipped = 0
+    failed = 0
     errors = []
 
     # ---------------------------------------------------
@@ -589,7 +589,7 @@ def import_from_sync_sap(
 
         except Exception:
 
-            skipped += 1
+            failed += 1
 
             errors.append(
                 f"""
@@ -603,48 +603,13 @@ def import_from_sync_sap(
                 """
             )
 
-    # ---------------------------------------------------
-    # COMMIT
-    # ---------------------------------------------------
-
     frappe.db.commit()
 
-    # ---------------------------------------------------
-    # LOG ERRORS
-    # ---------------------------------------------------
-
-    if errors:
-
-        error_log = "\n\n".join(
-            errors
-        )
-
-        frappe.log_error(
-            title=
-                "FR AP Import Errors",
-
-            message=error_log
-        )
-
-    # ---------------------------------------------------
-    # RESPONSE
-    # ---------------------------------------------------
-
-    message = (
-        f"{created} entries created "
-        f"successfully and "
-        f"{skipped} skipped"
-    )
-
-    if errors:
-
-        message += (
-            "<br><br>"
-            "Check Error Log "
-            "for skipped reasons."
-        )
-
-    return message
+    return {
+    "created": created,
+    "failed": failed,
+    "error_log": "\n\n".join(errors) if errors else ""
+    }
 
 
 def get_valid_date(date_value):

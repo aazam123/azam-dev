@@ -341,7 +341,7 @@
    "fieldname": "special_gl_ind",
    "fieldtype": "Select",
    "label": "Special G/L ind",
-   "options": "\nA\nB\nD\nE\nO"
+   "options": "\nA\nB\nD\nE\nO\nW"
   },
   {
    "fieldname": "due_days",
@@ -378,7 +378,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-21 11:14:42.211504",
+ "modified": "2026-05-22 14:34:22.486169",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",

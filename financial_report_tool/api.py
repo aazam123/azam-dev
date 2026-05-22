@@ -9,69 +9,119 @@ from financial_report_tool.financial_report_tool.doctype.sync_sap.sync_sap impor
 	ALLOWED_DOCUMENT_TYPES,
 )
 
+IMPORT_METHOD_MAP = {
+    "Sales Register": {
+        "method":
+            "financial_report_tool.financial_report_tool.doctype.fr_sales_register.fr_sales_register.import_from_sync_sap",
+            "requires_fiscal_year": True
+    },
+
+    "Purchase Register": {
+        "method":
+            "financial_report_tool.financial_report_tool.doctype.fr_purchase_register.fr_purchase_register.import_from_sync_sap",
+            "requires_fiscal_year": True
+    },
+
+	"Account Payable Entry": {
+        "method":
+            "financial_report_tool.financial_report_tool.doctype.fr_account_payable_entry.fr_account_payable_entry.import_from_sync_sap",
+            "requires_fiscal_year": True
+    },
+
+    "Account Receivable Entry": {
+        "method":
+            "financial_report_tool.financial_report_tool.doctype.fr_account_receivable_entry.fr_account_receivable_entry.import_from_sync_sap",
+            "requires_fiscal_year": True
+    },
+
+    "Asset Register Entry": {
+        "method":
+            "financial_report_tool.financial_report_tool.doctype.fr_asset_register_entry.fr_asset_register_entry.import_from_sync_sap",
+            "requires_fiscal_year": False
+    }
+}
 
 def _upload_for_type(document_type, file_name=None, file_content=None, preview_only=0):
-	"""Shared logic: parse uploaded CSV/JSON and create a Sync SAP record."""
-	if document_type not in ALLOWED_DOCUMENT_TYPES:
-		frappe.throw(
-			f"Invalid document_type. Allowed: {', '.join(ALLOWED_DOCUMENT_TYPES)}"
-		)
+    if document_type not in ALLOWED_DOCUMENT_TYPES:
+        frappe.throw(f"Invalid document_type. Allowed: {', '.join(ALLOWED_DOCUMENT_TYPES)}")
+    uploaded = frappe.request.files.get("file") if frappe.request else None
+    if uploaded is not None:
+        file_name = file_name or uploaded.filename
+        raw_bytes = uploaded.stream.read()
+    elif file_content:
+        if not file_name:
+            frappe.throw("file_name is required when sending file_content")
+        try:
+            raw_bytes = base64.b64decode(file_content)
+        except (ValueError, TypeError) as e:
+            frappe.throw(f"file_content must be valid base64: {e}")
+    else:
+        frappe.throw("Provide either a multipart 'file' or base64 'file_content'")
 
-	uploaded = frappe.request.files.get("file") if frappe.request else None
+    ext = os.path.splitext(
+        file_name
+    )[1].lower()
 
-	if uploaded is not None:
-		file_name = file_name or uploaded.filename
-		raw_bytes = uploaded.stream.read()
-	elif file_content:
-		if not file_name:
-			frappe.throw("file_name is required when sending file_content")
-		try:
-			raw_bytes = base64.b64decode(file_content)
-		except (ValueError, TypeError) as e:
-			frappe.throw(f"file_content must be valid base64: {e}")
-	else:
-		frappe.throw("Provide either a multipart 'file' or base64 'file_content'")
+    if ext not in (".csv", ".json"):
+        frappe.throw("Only .csv and .json files are supported")
 
-	ext = os.path.splitext(file_name)[1].lower()
-	if ext not in (".csv", ".json"):
-		frappe.throw("Only .csv and .json files are supported")
+    preview_only = int(preview_only or 0)
 
-	preview_only = int(preview_only or 0)
+    if preview_only:
+        json_data = _parse_bytes(raw_bytes, ext)
+        return {
+            "document_type": document_type,
+            "file_name": file_name,
+            "json_data": json.loads(json_data),
+        }
+   
+        
+    saved = save_file(
+        fname=file_name,
+        content=raw_bytes,
+        dt=None,
+        dn=None,
+        decode=False,
+        is_private=1,
+    )
 
-	if preview_only:
-		json_data = _parse_bytes(raw_bytes, ext)
-		return {
-			"document_type": document_type,
-			"file_name": file_name,
-			"json_data": json.loads(json_data),
-		}
+    json_data = _parse_bytes(raw_bytes, ext)
 
-	saved = save_file(
-		fname=file_name,
-		content=raw_bytes,
-		dt=None,
-		dn=None,
-		decode=False,
-		is_private=1,
-	)
+    doc = frappe.new_doc("Sync SAP")
+    doc.document_type = document_type
+    doc.file = saved.file_url
+    doc.json_data = json_data
+    doc.import_status = "Pending"
 
-	doc = frappe.new_doc("Sync SAP")
-	doc.document_type = document_type
-	doc.file = saved.file_url
-	doc.insert(ignore_permissions=False)
+    doc.insert(ignore_permissions=True)
 
-	frappe.db.set_value("File", saved.name, {
-		"attached_to_doctype": "Sync SAP",
-		"attached_to_name": doc.name,
-	})
-	frappe.db.commit()
+    frappe.db.set_value(
+        "File",
+        saved.name,
+        {
+            "attached_to_doctype":
+                "Sync SAP",
 
-	return {
-		"name": doc.name,
-		"document_type": doc.document_type,
-		"file_url": doc.file,
-		"json_data": json.loads(doc.json_data) if doc.json_data else None,
-	}
+            "attached_to_name":
+                doc.name,
+        }
+    )
+
+    frappe.db.commit()
+    frappe.enqueue(
+        method=
+            "financial_report_tool.api.process_import_in_background",
+        queue="long",
+        timeout=8000,
+        sync_sap_doc=doc.name
+    )
+
+    return {
+        "status": "queued",
+        "sync_sap_doc": doc.name,
+        "message":
+            "File uploaded successfully. Background import started."
+    }
 
 
 @frappe.whitelist()
@@ -85,6 +135,225 @@ def upload_purchase_register(file_name=None, file_content=None, preview_only=0):
 	"""Upload CSV/JSON for Purchase Register."""
 	return _upload_for_type("Purchase Register", file_name, file_content, preview_only)
 
+def process_import_in_background(sync_sap_doc):
+
+    sync_doc = frappe.get_doc(
+        "Sync SAP",
+        sync_sap_doc
+    )
+
+    try:
+
+        sync_doc.db_set(
+            "import_status",
+            "Processing"
+        )
+
+        if not sync_doc.json_data:
+
+            frappe.throw(
+                "JSON Data not found"
+            )
+
+        try:
+
+            data = json.loads(
+                sync_doc.json_data
+            )
+
+        except Exception:
+
+            frappe.throw(
+                "Invalid JSON Data"
+            )
+
+        if not isinstance(
+            data,
+            list
+        ):
+
+            frappe.throw(
+                "JSON Data must be a list"
+            )
+
+        sync_doc.db_set(
+            "total_records",
+            len(data)
+        )
+
+        config = IMPORT_METHOD_MAP.get(
+            sync_doc.document_type
+        )
+
+        if not config:
+
+            frappe.throw(
+                f"No import method configured for "
+                f"{sync_doc.document_type}"
+            )
+
+        fiscal_year = None
+
+        if config.get(
+            "requires_fiscal_year"
+        ):
+
+            fiscal_year = (
+                get_fiscal_year_from_json(
+                    data
+                )
+            )
+
+        import_method = frappe.get_attr(
+            config.get("method")
+        )
+
+        kwargs = {
+            "sync_sap_doc":
+                sync_doc.name
+        }
+
+        if fiscal_year:
+
+            kwargs[
+                "fiscal_year"
+            ] = fiscal_year
+
+        result = import_method(
+            **kwargs
+        )
+
+        sync_doc.db_set({
+
+            "import_status":
+                "Completed",
+
+            "imported_records":
+                result.get(
+                    "created",
+                    0
+                ),
+
+            "failed_records":
+                result.get(
+                    "failed",
+                    0
+                ),
+
+            "error_log":
+                result.get(
+                    "error_log",
+                    ""
+                )
+        })
+
+        frappe.db.commit()
+
+    except Exception:
+
+        error = frappe.get_traceback()
+
+        frappe.log_error(
+            title=
+                "Background Import Error",
+
+            message=error
+        )
+
+        frappe.db.rollback()
+
+        frappe.db.set_value(
+            "Sync SAP",
+            sync_doc.name,
+            {
+                "import_status":
+                    "Failed",
+
+                "error_log":
+                    error
+            }
+        )
+
+        frappe.db.commit()
+
+def get_fiscal_year_from_json(data):
+
+    from frappe.utils import getdate
+
+    for row in data:
+
+        for date_field in [
+            "BillingDate",
+            "PostingDate",
+            "DocumentDate"
+        ]:
+
+            date_value = row.get(
+                date_field
+            )
+
+            if not date_value:
+                continue
+
+            try:
+
+                date = getdate(
+                    date_value
+                )
+
+            except Exception:
+
+                continue
+
+            fiscal_year = frappe.db.get_value(
+                "Fiscal Year",
+                {
+                    "year_start_date":
+                        ["<=", date],
+
+                    "year_end_date":
+                        [">=", date]
+                }
+            )
+
+            if fiscal_year:
+
+                return fiscal_year
+
+    frappe.throw(
+        "Unable to determine Fiscal Year"
+    )
+
+
+def _parse_bytes(raw_bytes, ext):
+
+    content = raw_bytes.decode(
+        "utf-8"
+    )
+
+    if ext == ".json":
+
+        json.loads(content)
+
+        return content
+
+    elif ext == ".csv":
+
+        import csv
+
+        from io import StringIO
+
+        reader = csv.DictReader(
+            StringIO(content)
+        )
+
+        rows = list(reader)
+
+        return json.dumps(rows)
+
+    frappe.throw(
+        "Unsupported file type"
+    )
 
 @frappe.whitelist()
 def upload_far_entry(file_name=None, file_content=None, preview_only=0):
