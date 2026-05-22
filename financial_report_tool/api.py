@@ -74,8 +74,27 @@ def _upload_for_type(document_type, file_name=None, file_content=None, preview_o
             "file_name": file_name,
             "json_data": json.loads(json_data),
         }
-   
-        
+
+    already_exists = frappe.db.exists(
+        "Sync SAP",
+        {
+            "document_type":
+                document_type,
+
+            "file":
+                ["like", f"%{os.path.splitext(file_name)[0]}%"]
+        }
+    )
+
+    if already_exists:
+
+        return {
+            "status": "duplicate",
+            "sync_sap_doc": already_exists,
+            "message":
+                f"File already uploaded: {file_name}"
+        }
+
     saved = save_file(
         fname=file_name,
         content=raw_bytes,
