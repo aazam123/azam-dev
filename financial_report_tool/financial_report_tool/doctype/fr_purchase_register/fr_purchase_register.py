@@ -48,20 +48,6 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
             "JSON Data not found"
         )
 
-    already_imported = frappe.db.exists(
-        "FR Purchase Register",
-        {
-            "sync_sap_id":
-                sync_doc.name
-        }
-    )
-
-    if already_imported:
-        frappe.throw(
-            f"Sync SAP already imported: "
-            f"{sync_doc.name}"
-        )
-
     try:
         data = json.loads(
             sync_doc.json_data
@@ -390,6 +376,7 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
     }
 
     created = 0
+    updated = 0
     failed = 0
     errors = []
 
@@ -417,18 +404,25 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
 
                 continue
 
-            # ---------------------------------------------------
-            # CREATE DOC
-            # ---------------------------------------------------
-
-            doc = frappe.new_doc(
-                "FR Purchase Register"
+            existing_doc = None
+            unique_id = f"{row.get('InvDocNo')}-{row.get('Item')}"
+            existing_doc = frappe.db.exists(
+                "FR Purchase Register",
+                {
+                    "sap_unique_id": unique_id
+                }
             )
-
-            # ---------------------------------------------------
-            # REQUIRED
-            # ---------------------------------------------------
-
+            if existing_doc:
+                doc = frappe.get_doc(
+                    "FR Purchase Register",
+                    existing_doc
+                )
+            else:
+                doc = frappe.new_doc(
+                    "FR Purchase Register"
+                )           
+                doc.sap_unique_id = unique_id
+ 
             doc.company = company
 
             doc.company_code = (
@@ -523,15 +517,18 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
 
             doc.rpt = "No"
 
-            # ---------------------------------------------------
-            # INSERT
-            # ---------------------------------------------------
-
-            doc.insert(
-                ignore_permissions=True
-            )
-
-            created += 1
+            doc.flags.ignore_links = True
+            if existing_doc:
+                doc.save(
+                    ignore_permissions=True
+                )
+                updated += 1
+            else:
+                doc.insert(
+                    ignore_permissions=True
+                )
+            
+                created += 1
 
         except Exception:
 
@@ -553,6 +550,7 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
  
     return {
         "created": created,
+        "updated": updated,
         "failed": failed,
         "error_log": "\n\n".join(errors) if errors else ""
     }

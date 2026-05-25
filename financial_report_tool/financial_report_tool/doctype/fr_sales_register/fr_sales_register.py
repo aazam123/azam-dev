@@ -42,20 +42,6 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
     if not sync_doc.json_data:
         frappe.throw("JSON Data not found in Sync SAP")
 
-    # Prevent duplicate import
-    already_imported = frappe.db.exists(
-        "FR Sales Register",
-        {
-            "sync_sap_id": sync_doc.name
-        }
-    )
-
-    if already_imported:
-        frappe.throw(
-            f"Entries already imported from "
-            f"Sync SAP: {sync_doc.name}"
-        )
-
     try:
         data = json.loads(sync_doc.json_data)
     except Exception:
@@ -177,6 +163,7 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
     }
 
     created = 0
+    updated = 0
     failed = 0
     errors = []
 
@@ -201,9 +188,26 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
                     """
                 )
 
-            doc = frappe.new_doc(
-                "FR Sales Register"
+            existing_doc = None
+            unique_id = f"{row.get('BillingDoc')}-{row.get('Item')}"
+            existing_doc = frappe.db.exists(
+                "FR Sales Register",
+                {
+                    "sap_unique_id": unique_id
+                }
             )
+            if existing_doc:
+                doc = frappe.get_doc(
+                    "FR Sales Register",
+                    existing_doc
+                )
+            else:
+
+                doc = frappe.new_doc(
+                    "FR Sales Register"
+                )
+            
+                doc.sap_unique_id = unique_id
 
             doc.company = company
             doc.company_code = (
@@ -275,29 +279,41 @@ def import_from_sync_sap(sync_sap_doc, fiscal_year):
             )
 
             doc.flags.ignore_links = True
-            doc.insert(
-                ignore_permissions=True
-            )
+            if existing_doc:
+                doc.save(
+                    ignore_permissions=True
+                )
+                updated += 1
+            else:
+                doc.insert(
+                    ignore_permissions=True
+                )
+            
+                created += 1
 
-            created += 1
 
         except Exception:
             failed += 1
-            frappe.throw(
-                f"""
-                ERROR IN ROW:
-                {index}
-
-                TRACEBACK:
-
-                {frappe.get_traceback()}
-                """
-            )
+            errors.append(
+            f"""
+            Row: {index}
+    
+            BillingDoc:
+            {row.get("BillingDoc")}
+    
+            Item:
+            {row.get("Item")}
+    
+            Error:
+            {frappe.get_traceback()}
+            """
+        )     
 
     frappe.db.commit()
 
     return {
         "created": created,
+        "updated": updated,
         "failed": failed,
         "error_log": "\n\n".join(errors) if errors else ""
     }

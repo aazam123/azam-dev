@@ -170,23 +170,11 @@ class FRAccountPayableEntry(Document):
 
 
 @frappe.whitelist()
-def import_from_sync_sap(
-    sync_sap_doc,
-    fiscal_year
-):
-
-    # ---------------------------------------------------
-    # GET SYNC DOC
-    # ---------------------------------------------------
-
+def import_from_sync_sap(sync_sap_doc, fiscal_year):
     sync_doc = frappe.get_doc(
         "Sync SAP",
         sync_sap_doc
     )
-
-    # ---------------------------------------------------
-    # VALIDATIONS
-    # ---------------------------------------------------
 
     if not sync_doc.json_data:
 
@@ -194,29 +182,7 @@ def import_from_sync_sap(
             "JSON Data not found"
         )
 
-    # ---------------------------------------------------
-    # PREVENT DUPLICATE IMPORT
-    # ---------------------------------------------------
-
-    already_imported = frappe.db.exists(
-        "FR Account Payable Entry",
-        {
-            "sync_sap_id":
-                sync_doc.name
-        }
-    )
-
-    if already_imported:
-
-        frappe.throw(
-            f"Sync SAP already imported: "
-            f"{sync_doc.name}"
-        )
-
-    # ---------------------------------------------------
-    # LOAD JSON
-    # ---------------------------------------------------
-
+ 
     try:
 
         data = json.loads(
@@ -234,10 +200,6 @@ def import_from_sync_sap(
         frappe.throw(
             "JSON Data must be a list"
         )
-
-    # ---------------------------------------------------
-    # COMPANY CACHE
-    # ---------------------------------------------------
 
     company_map = {}
 
@@ -367,6 +329,7 @@ def import_from_sync_sap(
     # ---------------------------------------------------
 
     created = 0
+    updated = 0
     failed = 0
     errors = []
 
@@ -380,11 +343,6 @@ def import_from_sync_sap(
     ):
 
         try:
-
-            # ---------------------------------------------------
-            # COMPANY
-            # ---------------------------------------------------
-
             company_code = str(
                 row.get("CompanyCode")
                 or ""
@@ -407,17 +365,24 @@ def import_from_sync_sap(
 
                 continue
 
-            # ---------------------------------------------------
-            # CREATE DOC
-            # ---------------------------------------------------
-
-            doc = frappe.new_doc(
-                "FR Account Payable Entry"
+            existing_doc = None
+            unique_id = f"{row.get('DocumentNumber')}-{row.get('Lineitem')}-{fiscal_year}"
+            existing_doc = frappe.db.exists(
+                "FR Account Payable Entry",
+                {
+                    "sap_unique_id": unique_id
+                }
             )
-
-            # ---------------------------------------------------
-            # REQUIRED
-            # ---------------------------------------------------
+            if existing_doc:
+                doc = frappe.get_doc(
+                    "FR Account Payable Entry",
+                    existing_doc
+                )
+            else:
+                doc = frappe.new_doc(
+                    "FR Account Payable Entry"
+                )           
+                doc.sap_unique_id = unique_id
 
             doc.company = company
 
@@ -577,15 +542,18 @@ def import_from_sync_sap(
                     "More Than 3 Years"
                 )
 
-            # ---------------------------------------------------
-            # INSERT
-            # ---------------------------------------------------
-
-            doc.insert(
-                ignore_permissions=True
-            )
-
-            created += 1
+            doc.flags.ignore_links = True
+            if existing_doc:
+                doc.save(
+                    ignore_permissions=True
+                )
+                updated += 1
+            else:
+                doc.insert(
+                    ignore_permissions=True
+                )
+            
+                created += 1
 
         except Exception:
 
@@ -607,6 +575,7 @@ def import_from_sync_sap(
 
     return {
     "created": created,
+    "updated": updated,
     "failed": failed,
     "error_log": "\n\n".join(errors) if errors else ""
     }

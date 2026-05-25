@@ -225,10 +225,7 @@ class FRAssetRegisterEntry(Document):
 
 
 @frappe.whitelist()
-def import_from_sync_sap(
-    sync_sap_doc
-):
-
+def import_from_sync_sap(sync_sap_doc):
     sync_doc = frappe.get_doc(
         "Sync SAP",
         sync_sap_doc
@@ -239,29 +236,6 @@ def import_from_sync_sap(
         frappe.throw(
             "JSON Data not found"
         )
-
-    # ---------------------------------------------------
-    # PREVENT DUPLICATE IMPORT
-    # ---------------------------------------------------
-
-    already_imported = frappe.db.exists(
-        "FR Asset Register Entry",
-        {
-            "sync_sap_id":
-                sync_doc.name
-        }
-    )
-
-    if already_imported:
-
-        frappe.throw(
-            f"Sync SAP already imported: "
-            f"{sync_doc.name}"
-        )
-
-    # ---------------------------------------------------
-    # LOAD JSON
-    # ---------------------------------------------------
 
     try:
 
@@ -406,6 +380,7 @@ def import_from_sync_sap(
     # ---------------------------------------------------
 
     created = 0
+    updated = 0
     failed = 0
     errors = []
 
@@ -446,17 +421,24 @@ def import_from_sync_sap(
 
                 continue
 
-            # ---------------------------------------------------
-            # CREATE DOC
-            # ---------------------------------------------------
-
-            doc = frappe.new_doc(
-                "FR Asset Register Entry"
+            existing_doc = None
+            unique_id = f"{row.get('Asset')}-{row.get('Subnumber')}-{row.get('CompanyCode')}"
+            existing_doc = frappe.db.exists(
+                "FR Asset Register Entry",
+                {
+                    "sap_unique_id": unique_id
+                }
             )
-
-            # ---------------------------------------------------
-            # REQUIRED
-            # ---------------------------------------------------
+            if existing_doc:
+                doc = frappe.get_doc(
+                    "FR Asset Register Entry",
+                    existing_doc
+                )
+            else:
+                doc = frappe.new_doc(
+                    "FR Asset Register Entry"
+                )           
+                doc.sap_unique_id = unique_id
 
             doc.company = company
 
@@ -578,15 +560,18 @@ def import_from_sync_sap(
                 + flt(doc.additional)
             )
 
-            # ---------------------------------------------------
-            # INSERT
-            # ---------------------------------------------------
-
-            doc.insert(
-                ignore_permissions=True
-            )
-
-            created += 1
+            doc.flags.ignore_links = True
+            if existing_doc:
+                doc.save(
+                    ignore_permissions=True
+                )
+                updated += 1
+            else:
+                doc.insert(
+                    ignore_permissions=True
+                )
+            
+                created += 1
 
         except Exception:
 
@@ -608,6 +593,7 @@ def import_from_sync_sap(
 
     return {
         "created": created,
+        "updated": updated,
         "failed": failed,
         "error_log": "\n\n".join(errors) if errors else ""
     }

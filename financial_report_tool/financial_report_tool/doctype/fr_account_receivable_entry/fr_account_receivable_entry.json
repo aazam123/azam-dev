@@ -65,7 +65,8 @@
   "text",
   "column_break_ptpk",
   "remark",
-  "sync_sap_id"
+  "sync_sap_id",
+  "sap_unique_id"
  ],
  "fields": [
   {
@@ -373,12 +374,18 @@
    "fieldname": "sync_sap_id",
    "fieldtype": "Data",
    "label": "Sync SAP ID"
+  },
+  {
+   "fieldname": "sap_unique_id",
+   "fieldtype": "Data",
+   "label": "Sap Unique Id",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-22 14:34:22.486169",
+ "modified": "2026-05-25 15:40:41.162890",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Receivable Entry",
