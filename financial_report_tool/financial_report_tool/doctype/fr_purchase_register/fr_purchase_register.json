@@ -160,7 +160,8 @@
   "assessable_value_boe",
   "valueigst",
   "check",
-  "sync_sap_id"
+  "sync_sap_id",
+  "sap_unique_id"
  ],
  "fields": [
   {
@@ -922,12 +923,17 @@
    "fieldname": "sync_sap_id",
    "fieldtype": "Data",
    "label": "Sync SAP ID"
+  },
+  {
+   "fieldname": "sap_unique_id",
+   "fieldtype": "Data",
+   "label": "Sap Unique Id"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-21 11:40:34.553907",
+ "modified": "2026-05-25 14:17:12.363806",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Purchase Register",
