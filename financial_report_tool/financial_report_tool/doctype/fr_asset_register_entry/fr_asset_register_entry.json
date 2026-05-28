@@ -446,11 +446,13 @@
   {
    "fieldname": "sync_sap_id",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Sync SAP ID"
   },
   {
    "fieldname": "sap_unique_id",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Sap Unique Id",
    "read_only": 1
   }
@@ -458,7 +460,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-25 16:33:08.381914",
+ "modified": "2026-05-27 16:02:00.409633",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Asset Register Entry",

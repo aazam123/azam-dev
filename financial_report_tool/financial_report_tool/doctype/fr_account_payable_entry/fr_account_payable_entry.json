@@ -380,11 +380,13 @@
   {
    "fieldname": "sync_sap_id",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Sync SAP ID"
   },
   {
    "fieldname": "sap_unique_id",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Sap Unique Id",
    "read_only": 1
   }
@@ -392,7 +394,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-25 15:40:53.069294",
+ "modified": "2026-05-27 16:00:42.079886",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",

@@ -45,16 +45,19 @@
   {
    "fieldname": "total_records",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Total Records"
   },
   {
    "fieldname": "imported_records",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Imported Records"
   },
   {
    "fieldname": "failed_records",
    "fieldtype": "Int",
+   "hidden": 1,
    "label": "Failed Records"
   },
   {
@@ -66,7 +69,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-22 12:14:40.309903",
+ "modified": "2026-05-27 16:03:25.072847",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP",
