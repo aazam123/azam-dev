@@ -30,9 +30,7 @@ class FRAccountPayableEntry(Document):
 		else:
 			self.domesticimport = "Import"
 
-		self.reconciliation_account = frappe.get_value("Account", {"account_number": self.account_no, "company": self.company, 'disabled': 0}, 'name')
-		if not self.reconciliation_account:
-			frappe.throw(f"Reconciliation account not found for account number {self.account_no} in company {self.company}")
+		self.reconciliation_account = get_or_create_reconciliation_account(self)
 
 		self.ap = "Payable" if self.amount_in_lc < 0 else "Advance"
 		if self.ap == "Advance":
@@ -167,8 +165,41 @@ class FRAccountPayableEntry(Document):
 				self.grouping_remark = "No grouping match found → Default: Service Payable"
 			self.remark = "No Grouping Match"
 
+def get_or_create_reconciliation_account(doc):
+    account = frappe.get_value(
+        "Account",
+        {
+            "account_number": doc.account_no,
+            "company": doc.company,
+            "disabled": 0
+        },
+        "name"
+    )
 
+    if account:
+        return account
 
+    company_abbr = frappe.get_value(
+        "Company",
+        doc.company,
+        "abbr"
+    )
+
+    parent_account = f"Accounts Payable - {company_abbr}"
+
+    account_doc = frappe.new_doc("Account")
+    account_doc.account_name = doc.account_no
+    account_doc.account_number = doc.account_no
+    account_doc.company = doc.company
+    account_doc.parent_account = parent_account
+    account_doc.account_type = "Payable"
+    account_doc.root_type = "Liability"
+
+    account_doc.insert(ignore_permissions=True)
+
+    return account_doc.name
+
+    
 @frappe.whitelist()
 def import_from_sync_sap(sync_sap_doc, fiscal_year):
     sync_doc = frappe.get_doc(
