@@ -16,9 +16,8 @@ from frappe.utils import (
 class FRAssetRegisterEntry(Document):
 	def before_insert(self):
 		if not self.asset:
-			asset = frappe.get_doc("FR Assets Master", {"assets_id": self.asset_id, 'company': self.company, 'subnumber': self.subnumber})
-			if not asset:
-				frappe.throw(f"No Assets Master found for Asset ID {self.asset_id} in Company {self.company} with Subnumber {self.subnumber}")
+			asset = get_or_create_asset_master(self)
+
 			self.asset = asset.name
 			self.asset_value = asset.assets_value
 			self.ordinary_depreciation_start_date = asset.capitalisation_date
@@ -222,7 +221,43 @@ class FRAssetRegisterEntry(Document):
 # 		self.ending_book_value = self.close_gross_block - self.close_accumulated_depreciation
 
 
+def get_or_create_asset_master(doc):
+    asset_name = frappe.db.exists(
+        "FR Assets Master",
+        {
+            "assets_id": doc.asset_id,
+            "company": doc.company,
+            "subnumber": cint(doc.subnumber)
+        }
+    )
 
+    if asset_name:
+        return frappe.get_doc("FR Assets Master", asset_name)
+
+    asset = frappe.new_doc("FR Assets Master")
+
+    asset.assets_id = doc.asset_id
+    asset.company = doc.company
+    asset.subnumber = cint(doc.subnumber)
+
+    asset.asset_name = doc.asset_id
+    asset.assets_value = flt(
+        doc.cumulative_acquisition_value
+        or doc.asset_value
+        or 0
+    )
+    asset.asset_class = doc.asset_class
+
+    asset.capitalisation_date = doc.ordinary_depreciation_start_date
+    asset.life_years = doc.life_years
+    asset.life_days = doc.life_days
+
+    if doc.shift:
+        asset.shift = doc.shift
+
+    asset.insert(ignore_permissions=True)
+
+    return asset
 
 @frappe.whitelist()
 def import_from_sync_sap(sync_sap_doc):

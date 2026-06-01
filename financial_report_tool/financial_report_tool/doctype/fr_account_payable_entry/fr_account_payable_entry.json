@@ -190,9 +190,9 @@
   },
   {
    "fieldname": "document_type",
-   "fieldtype": "Select",
+   "fieldtype": "Data",
    "label": "Document Type",
-   "options": "\nAB\nEE\nKZ\nFP\nKR\nRE\nSA\nKG\nMB\nMP\nAA\nUE\nB1"
+   "options": "\nAB\nEE\nKZ\nFP\nKR\nRE\nSA\nKG\nMB\nMP\nAA\nUE\nB1\nKA"
   },
   {
    "fieldname": "msme_vendor",
@@ -394,7 +394,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-27 16:00:42.079886",
+ "modified": "2026-06-01 14:50:51.782077",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Account Payable Entry",
