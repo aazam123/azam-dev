@@ -12,7 +12,6 @@ from frappe.utils import (
     nowdate
 )
 
-
 class FRAssetRegisterEntry(Document):
 	def before_insert(self):
 		if not self.asset:

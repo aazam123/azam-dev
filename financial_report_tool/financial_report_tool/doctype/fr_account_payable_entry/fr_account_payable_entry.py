@@ -10,8 +10,6 @@ from frappe.utils import (
     getdate
 )
 
-
-
 class FRAccountPayableEntry(Document):
 	def set_employee_grouping(self):
 		if self.currency != "INR" and self.ap == "Advance":
