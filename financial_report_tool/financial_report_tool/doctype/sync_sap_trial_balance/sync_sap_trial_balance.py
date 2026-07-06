@@ -55,7 +55,47 @@ class SyncSAPTrialBalance(Document):
 
 	@frappe.whitelist()
 	def sync_sap_data(self):
-		"""Fetch Trial Balance data from SAP"""
+		"""Kick off the SAP Trial Balance sync in the background.
+
+		The SAP API call plus the account-mapping save can take well over the
+		120s Nginx/gateway limit for a large trial balance, so the heavy work is
+		offloaded to a background job (see ``do_sync_sap_data``). This method only
+		does the quick, synchronous validations — so the user still gets instant
+		feedback on misconfiguration — then queues the job and returns immediately.
+		"""
+		# Fast, synchronous checks so config errors surface right away.
+		self.validate_sap_settings()
+		self.validate_required_fields()
+
+		# Persist any pending field edits (SAP params) + mark queued, so the
+		# background worker reads the current values from the DB.
+		self.sync_status = "Queued"
+		self.sync_error = ""
+		self.save()
+		frappe.db.commit()
+
+		frappe.enqueue(
+			"financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance.sync_sap_trial_balance.do_sync_sap_data",
+			docname=self.name,
+			queue="long",
+			job_name=f"Sync SAP Trial Balance - {self.name}",
+			timeout=1500,
+		)
+
+		return {
+			"success": True,
+			"message": (
+				f"SAP data sync started in background for {self.name}. "
+				"You will be notified once it completes."
+			),
+		}
+
+	def _sync_sap_data_internal(self):
+		"""Fetch Trial Balance data from SAP and store it (heavy work).
+
+		Runs inside the background job. Raising here marks the job Failed and the
+		error is surfaced on the form via ``sync_error`` (see ``do_sync_sap_data``).
+		"""
 		self.details.clear()
 		self.responce = None
 
@@ -122,6 +162,37 @@ class SyncSAPTrialBalance(Document):
 
 		frappe.db.set_value("Sync SAP Trial Balance", self.name, "tb_created", 1)
 		frappe.msgprint("Trial Balance Entries created successfully!")
+
+
+def do_sync_sap_data(docname):
+	"""Background worker: fetch + store SAP Trial Balance data for ``docname``.
+
+	Enqueued by ``SyncSAPTrialBalance.sync_sap_data``. Updates ``sync_status`` as
+	it progresses and publishes ``sap_tb_sync_complete`` so the form can auto
+	reload. Any failure is recorded on ``sync_error`` and logged.
+	"""
+	doc = frappe.get_doc("Sync SAP Trial Balance", docname)
+	try:
+		doc.db_set("sync_status", "Syncing", commit=True)
+		doc._sync_sap_data_internal()
+		doc.db_set({"sync_status": "Completed", "sync_error": ""}, commit=True)
+		frappe.publish_realtime(
+			"sap_tb_sync_complete", {"docname": docname, "status": "Completed"}
+		)
+	except Exception:
+		frappe.db.rollback()
+		error_message = frappe.get_traceback(with_context=True)
+		frappe.db.set_value(
+			"Sync SAP Trial Balance",
+			docname,
+			{"sync_status": "Failed", "sync_error": error_message},
+		)
+		frappe.db.commit()
+		frappe.publish_realtime(
+			"sap_tb_sync_complete", {"docname": docname, "status": "Failed"}
+		)
+		frappe.log_error(title=f"SAP Trial Balance Sync Failed - {docname}")
+		raise
 
 
 # params = {
