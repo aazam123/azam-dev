@@ -43,6 +43,8 @@ frappe.ui.form.on("Sync SAP Trial Balance", {
                 frm.reload_doc();
                 if (data.status === "Completed") {
                     frappe.show_alert({ message: __("SAP data synced successfully!"), indicator: "green" });
+                } else if (data.status === "Awaiting SAP") {
+                    frappe.show_alert({ message: __("Request accepted by SAP. Waiting for SAP to push the trial balance…"), indicator: "orange" });
                 } else if (data.status === "Failed") {
                     frappe.show_alert({ message: __("SAP sync failed. See 'Sync Error' on the form."), indicator: "red" });
                 }

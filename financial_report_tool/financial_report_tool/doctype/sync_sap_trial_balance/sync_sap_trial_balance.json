@@ -92,7 +92,7 @@
    "fieldname": "sync_status",
    "fieldtype": "Select",
    "label": "Sync Status",
-   "options": "\nQueued\nSyncing\nCompleted\nFailed",
+   "options": "\nQueued\nSyncing\nAwaiting SAP\nCompleted\nFailed",
    "read_only": 1,
    "in_list_view": 1,
    "no_copy": 1
