@@ -11,6 +11,7 @@
   "column_break_hwwa",
   "erp_type",
   "print_format",
+  "amount_display_unit",
   "console_details_section",
   "console_tb_threshold_amount",
   "set_previous_fiscal_year_section",
@@ -25,6 +26,14 @@
   "password"
  ],
  "fields": [
+  {
+   "default": "Lakhs",
+   "description": "Unit in which amounts are displayed on Financial Reports (e.g. Lakhs = divide by 100000, Hundreds = divide by 100).",
+   "fieldname": "amount_display_unit",
+   "fieldtype": "Select",
+   "label": "Amount Display Unit",
+   "options": "Actual\nHundreds\nThousands\nLakhs\nMillions\nCrores"
+  },
   {
    "fieldname": "set_previous_fiscal_year_section",
    "fieldtype": "Section Break",

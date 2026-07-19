@@ -18,6 +18,19 @@ from frappe.model.document import Document
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
+# Amount display unit -> (divisor, label word). Configured in FR Financial Settings
+# via `amount_display_unit`. Amounts stored in absolute currency are divided by the
+# divisor for display; the label word is shown in report headers (e.g. "(₹ in Lakhs)").
+AMOUNT_UNIT_CONFIG = {
+	"Actual": (1, "Actuals"),
+	"Hundreds": (100, "Hundreds"),
+	"Thousands": (1000, "Thousands"),
+	"Lakhs": (100000, "Lacs"),
+	"Millions": (1000000, "Millions"),
+	"Crores": (10000000, "Crores"),
+}
+_DEFAULT_AMOUNT_UNIT = "Lakhs"
+
 def do_generate_report(docname):
 	try:
 		doc = frappe.get_doc("Financial Report", docname)
@@ -53,6 +66,7 @@ class FinancialReport(Document):
 
 		# Cache singleton/static values fetched repeatedly
 		self._erp_type = frappe.get_single_value("FR Financial Settings", "erp_type") or "SAP"
+		self._amount_unit = frappe.get_single_value("FR Financial Settings", "amount_display_unit") or _DEFAULT_AMOUNT_UNIT
 		self._closing_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 		self._default_currency = frappe.get_value("Company", self.company, "default_currency")
 
@@ -471,6 +485,20 @@ class FinancialReport(Document):
 			return self._erp_type
 		return frappe.get_single_value("FR Financial Settings", "erp_type") or "SAP"
 
+	def _get_amount_unit(self):
+		"""Configured display unit name from FR Financial Settings (default Lakhs)."""
+		if getattr(self, '_caches_initialized', False):
+			return getattr(self, '_amount_unit', None) or _DEFAULT_AMOUNT_UNIT
+		return frappe.get_single_value("FR Financial Settings", "amount_display_unit") or _DEFAULT_AMOUNT_UNIT
+
+	def get_amount_divisor(self):
+		"""Divisor applied to absolute amounts for display (e.g. 100000 for Lakhs)."""
+		return AMOUNT_UNIT_CONFIG.get(self._get_amount_unit(), AMOUNT_UNIT_CONFIG[_DEFAULT_AMOUNT_UNIT])[0]
+
+	def get_amount_unit_word(self):
+		"""Human label for the display unit shown in report headers (e.g. 'Lakhs')."""
+		return AMOUNT_UNIT_CONFIG.get(self._get_amount_unit(), AMOUNT_UNIT_CONFIG[_DEFAULT_AMOUNT_UNIT])[1]
+
 	def get_fiscal_year_dates(self, fiscal_year):
 		"""Get start and end dates for a fiscal year"""
 		if getattr(self, '_caches_initialized', False):
@@ -533,10 +561,10 @@ class FinancialReport(Document):
 					result = 0
 				else:
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
-					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / self.get_amount_divisor(), self.show_decimal_value)
 			else:
 				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
-				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / self.get_amount_divisor(), self.show_decimal_value)
 
 		if getattr(self, '_caches_initialized', False):
 			self._sum_grouping_cache[cache_key] = result
@@ -548,7 +576,7 @@ class FinancialReport(Document):
 			if cache_key in self._sum_grouping_cache:
 				return self._sum_grouping_cache[cache_key]
 
-		filters = {"company": self.company, "report_type": "Yearly", "primary_group": primary_group,"secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
+		filters = {"company": self.company, "report_type": "Yearly", "primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts:
 			result = 0
@@ -560,10 +588,10 @@ class FinancialReport(Document):
 					result = 0
 				else:
 					query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company=%s AND posting_date BETWEEN %s AND %s AND account IN ({','.join(['%s']*len(gl_accounts))})"
-					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / 100000, self.show_decimal_value)
+					result = round((frappe.db.sql(query, [self.company, start_date, end_date]+gl_accounts)[0][0] or 0) / self.get_amount_divisor(), self.show_decimal_value)
 			else:
 				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
-				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / 100000, self.show_decimal_value)
+				result = round((frappe.db.sql(query, [self.company, year]+gl_accounts+[month])[0][0] or 0) / self.get_amount_divisor(), self.show_decimal_value)
 
 		if getattr(self, '_caches_initialized', False):
 			self._sum_grouping_cache[cache_key] = result
@@ -777,8 +805,40 @@ class FinancialReport(Document):
 								else f'<div id="{note_id}" class="note-anchor"></div>'
 							)
 
+		self._apply_amount_unit_label()
 		self.save(ignore_permissions=True)
 		frappe.db.commit()
+
+	def _apply_amount_unit_label(self):
+		"""Reflect the configured display unit in the rendered report HTML.
+
+		- Normalises any existing "in lac(s)" unit captions to the configured
+		  unit word (e.g. "in Hundreds").
+		- Adds a "(₹ in <unit>)" caption to Balance Sheet / Profit & Loss, which
+		  carry no unit label of their own.
+
+		Operates ONLY on the rendered HTML (``section_description`` /
+		``subsection_description``). ``table_data`` is a JSON model consumed
+		downstream via ``json.loads`` (EPS, note cross-references) and must not be
+		mutated. Amounts are already scaled by ``get_amount_divisor()`` during
+		rendering, so this only keeps the printed unit label in sync.
+		"""
+		unit_word = self.get_amount_unit_word()
+		lac_re = re.compile(r"in\s+lac(?:s)?", re.IGNORECASE)
+		caption = (
+			f'<div style="text-align:right; font-weight:bold; font-style:italic; '
+			f'color:#4472C4; padding:2px 4px;">(₹ in {unit_word})</div>'
+		)
+		for i in self.financial_report_details:
+			for field in ("section_description", "subsection_description"):
+				val = i.get(field)
+				if val:
+					i.set(field, lac_re.sub(f"in {unit_word}", val))
+			# BS / P&L rendered HTML lives in section_description and has no unit
+			# label of its own; a leading caption is skipped by the Excel export
+			# (which does soup.find('table')), so it is display-only.
+			if i.section_type in ("Balance Sheet", "Profit & Loss") and i.section_description:
+				i.section_description = caption + i.section_description
 
 	def get_all_child_groups(self, parent):
 		children = frappe.get_all(
@@ -865,7 +925,7 @@ class FinancialReport(Document):
 
 		def build_values(data_map, fieldnames):
 			values = {
-				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/ 100000, self.show_decimal_value) for particular in particulars
+				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/ self.get_amount_divisor(), self.show_decimal_value) for particular in particulars
 			}
 			return values, sum(values.values())
 
@@ -1067,7 +1127,7 @@ class FinancialReport(Document):
 
 		def build_values(data_map, fieldnames):
 			values = {
-				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/ 100000, self.show_decimal_value) for particular in particulars
+				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/ self.get_amount_divisor(), self.show_decimal_value) for particular in particulars
 			}
 			return values, sum(values.values())
 
@@ -1236,7 +1296,7 @@ class FinancialReport(Document):
 			return cwip_map.get(label, frappe._dict())
 
 		def get_value(row, fieldname):
-			return round(flt(getattr(row, fieldname, 0) or 0)/100000, self.show_decimal_value)
+			return round(flt(getattr(row, fieldname, 0) or 0)/ self.get_amount_divisor(), self.show_decimal_value)
 
 		less_1_row = get_row("Less than 1 year")
 		one_to_2_row = get_row("1-2 years")
@@ -1368,7 +1428,7 @@ class FinancialReport(Document):
 			return iaud_map.get(label, frappe._dict())
 
 		def get_value(row, fieldname):
-			return round(flt(getattr(row, fieldname, 0) or 0)/100000, self.show_decimal_value)
+			return round(flt(getattr(row, fieldname, 0) or 0)/ self.get_amount_divisor(), self.show_decimal_value)
 
 		less_1_row = get_row("Less than 1 year")
 		one_to_2_row = get_row("1-2 years")
@@ -1543,7 +1603,7 @@ class FinancialReport(Document):
 
 		def build_values(data_map, fieldnames):
 			values = {
-				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/100000, self.show_decimal_value) for particular in particulars
+				particular: round(get_row_value(data_map.get(particular, frappe._dict()), *fieldnames)/ self.get_amount_divisor(), self.show_decimal_value) for particular in particulars
 			}
 			return values, sum(values.values())
 
@@ -1694,11 +1754,11 @@ class FinancialReport(Document):
 		curr_year_amt = -round((self.get_sum_grouping_amount("Equity Share Capital - Paid up Capital", "Equity Share Capital - Paid up Capital", cls_month, self.fiscal_year) or 0), self.show_decimal_value) * 10000
 
 		data = [
-			("As at 1st April, 2023", pre_prev_year_amt, round(pre_prev_year_amt/100000, self.show_decimal_value), True),
+			("As at 1st April, 2023", pre_prev_year_amt, round(pre_prev_year_amt/ self.get_amount_divisor(), self.show_decimal_value), True),
 			("Changes in equity share capital during the year", None, None, False),
-			("Balance as at 31st March, 2024", prev_year_amt, round(prev_year_amt/100000, self.show_decimal_value), True),
+			("Balance as at 31st March, 2024", prev_year_amt, round(prev_year_amt/ self.get_amount_divisor(), self.show_decimal_value), True),
 			("Changes in equity share capital during the year", None, None, False),
-			("Balance as at 31st March, 2025", curr_year_amt, round(curr_year_amt/100000, self.show_decimal_value), True),
+			("Balance as at 31st March, 2025", curr_year_amt, round(curr_year_amt/ self.get_amount_divisor(), self.show_decimal_value), True),
 		]
 
 		html = """
@@ -1898,9 +1958,9 @@ class FinancialReport(Document):
 			if gl_accounts:
 				placeholders = ','.join(['%s'] * len(gl_accounts))
 				query = f"SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders}) AND month=%s"
-				cur_amt = round((frappe.db.sql(query, [self.company, self.fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
-				prev_amt = round((frappe.db.sql(query, [self.company, self.previous_fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
-				pre_prev_amt = round((frappe.db.sql(query, [self.company, pre_year] + gl_accounts + [cls_month])[0][0] or 0) / 100000, self.show_decimal_value)
+				cur_amt = round((frappe.db.sql(query, [self.company, self.fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / self.get_amount_divisor(), self.show_decimal_value)
+				prev_amt = round((frappe.db.sql(query, [self.company, self.previous_fiscal_year] + gl_accounts + [cls_month])[0][0] or 0) / self.get_amount_divisor(), self.show_decimal_value)
+				pre_prev_amt = round((frappe.db.sql(query, [self.company, pre_year] + gl_accounts + [cls_month])[0][0] or 0) / self.get_amount_divisor(), self.show_decimal_value)
 			charged_credited = round(cur_amt - prev_amt, self.show_decimal_value)
 			prev_charged_credited = round(prev_amt - pre_prev_amt, self.show_decimal_value)
 			dta_rows.append((sec_group, cur_amt, charged_credited, prev_amt, prev_charged_credited, pre_prev_amt))
@@ -2488,12 +2548,12 @@ class FinancialReport(Document):
 		one_year_from_end = current_year_end + timedelta(days=365)
 		three_years_from_end = current_year_end + timedelta(days=1095)
 		repayment = frappe.get_all("FR Repayment", {'company': self.company}, pluck='name') or []
-		repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [current_year_end, one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
-		repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [one_year_from_end + timedelta(days=1), three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
-		repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ 100000
-		lease = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'less_than_one_year') or 0) / 100000
-		lease_one_to_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'one_to_three_years') or 0) / 100000
-		lease_more_than_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'more_than_three_years') or 0) / 100000
+		repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [current_year_end, one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / self.get_amount_divisor()
+		repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [one_year_from_end + timedelta(days=1), three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / self.get_amount_divisor()
+		repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ self.get_amount_divisor()
+		lease = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'less_than_one_year') or 0) / self.get_amount_divisor()
+		lease_one_to_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'one_to_three_years') or 0) / self.get_amount_divisor()
+		lease_more_than_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year}, 'more_than_three_years') or 0) / self.get_amount_divisor()
 		cur_trade_pay = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'current_month_amount') or 0
 		cur_financial_lib_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
 		cur_financial_lib_non_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'current_month_amount') or 0
@@ -2511,12 +2571,12 @@ class FinancialReport(Document):
 		prev_year_end = frappe.utils.getdate(self.previous_year_ending_date)
 		pre_one_year_from_end = prev_year_end + timedelta(days=365)
 		pre_three_years_from_end = prev_year_end + timedelta(days=1095)
-		pre_repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [prev_year_end, pre_one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
-		pre_repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [pre_one_year_from_end + timedelta(days=1), pre_three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / 100000
-		pre_repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', pre_three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ 100000
-		pre_lease = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'less_than_one_year') or 0) / 100000
-		pre_lease_one_to_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'one_to_three_years') or 0) / 100000
-		pre_lease_more_than_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'more_than_three_years') or 0) / 100000
+		pre_repaymnet_less_than_one = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [prev_year_end, pre_one_year_from_end]]}, 'SUM(repayment_amount)') or 0) / self.get_amount_divisor()
+		pre_repayment_one_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['between', [pre_one_year_from_end + timedelta(days=1), pre_three_years_from_end]]}, 'SUM(repayment_amount)') or 0) / self.get_amount_divisor()
+		pre_repayment_more_than_three = (frappe.get_value("FR Repayment Details", {'parent': ['in', repayment], 'posting_date': ['>', pre_three_years_from_end]}, 'SUM(repayment_amount)') or 0)/ self.get_amount_divisor()
+		pre_lease = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'less_than_one_year') or 0) / self.get_amount_divisor()
+		pre_lease_one_to_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'one_to_three_years') or 0) / self.get_amount_divisor()
+		pre_lease_more_than_three = (frappe.get_value("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year}, 'more_than_three_years') or 0) / self.get_amount_divisor()
 		pre_trade_pay = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Trade & Other Payables"}, 'name'), 'previous_year') or 0
 		pre_financial_lib_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Current Financial Liabilities"}, 'name'), 'previous_year') or 0
 		pre_financial_lib_non_curr = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Non Current Financial Liabilities"}, 'name'), 'previous_year') or 0
@@ -2612,15 +2672,15 @@ class FinancialReport(Document):
 			result_previous = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'currency': c, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': ["!=", "D"]},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
 			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
-			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
-			pbt_previous = -round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / 100000 if fc_previous else 0
+			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / self.get_amount_divisor() if fc_current else 0
+			pbt_previous = -round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / self.get_amount_divisor() if fc_previous else 0
 			note_data_d.append({
 				"particular": "Trade Receivables",
 				"currency": c,
-				"fc_current": fmt(round(fc_current / 100000, self.show_decimal_value)),
-				"inr_current": fmt(round(inr_current / 100000, self.show_decimal_value)),
-				"fc_previous": fmt(round(fc_previous / 100000, self.show_decimal_value)),
-				"inr_previous": fmt(round(inr_previous / 100000, self.show_decimal_value)),
+				"fc_current": fmt(round(fc_current / self.get_amount_divisor(), self.show_decimal_value)),
+				"inr_current": fmt(round(inr_current / self.get_amount_divisor(), self.show_decimal_value)),
+				"fc_previous": fmt(round(fc_previous / self.get_amount_divisor(), self.show_decimal_value)),
+				"inr_previous": fmt(round(inr_previous / self.get_amount_divisor(), self.show_decimal_value)),
 				"pbt_current": fmt(round(pbt_current, self.show_decimal_value)),
 				"pbt_previous": fmt(round(pbt_previous, self.show_decimal_value)),
 			})
@@ -2633,15 +2693,15 @@ class FinancialReport(Document):
 			result_previous = frappe.get_value("FR Account Receivable Entry",{'company': self.company, 'currency': c, 'fiscal_year': self.previous_fiscal_year, 'special_gl_ind': "D"},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
 			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
-			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
-			pbt_previous = -round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / 100000 if fc_previous else 0
+			pbt_current = -round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / self.get_amount_divisor() if fc_current else 0
+			pbt_previous = -round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / self.get_amount_divisor() if fc_previous else 0
 			note_data_d.append({
 				"particular": "Other Deposits",
 				"currency": c,
-				"fc_current": fmt(round(fc_current / 100000, self.show_decimal_value)),
-				"inr_current": fmt(round(inr_current / 100000, self.show_decimal_value)),
-				"fc_previous": fmt(round(fc_previous / 100000, self.show_decimal_value)),
-				"inr_previous": fmt(round(inr_previous / 100000, self.show_decimal_value)),
+				"fc_current": fmt(round(fc_current / self.get_amount_divisor(), self.show_decimal_value)),
+				"inr_current": fmt(round(inr_current / self.get_amount_divisor(), self.show_decimal_value)),
+				"fc_previous": fmt(round(fc_previous / self.get_amount_divisor(), self.show_decimal_value)),
+				"inr_previous": fmt(round(inr_previous / self.get_amount_divisor(), self.show_decimal_value)),
 				"pbt_current": fmt(round(pbt_current, self.show_decimal_value)),
 				"pbt_previous": fmt(round(pbt_previous, self.show_decimal_value)),
 			})
@@ -2655,15 +2715,15 @@ class FinancialReport(Document):
 			result_previous = frappe.get_value("FR Account Payable Entry",{'company': self.company, 'currency': c, 'fiscal_year': self.previous_fiscal_year},['SUM(amount_in_lc)', 'SUM(amount_in_dc)']) or (0, 0)
 			fc_previous = (result_previous[0] if isinstance(result_previous, tuple) else result_previous) or 0
 			inr_previous = (result_previous[1] if isinstance(result_previous, tuple) else 0) or 0
-			pbt_current = round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / 100000 if fc_current else 0
-			pbt_previous = round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / 100000 if fc_previous else 0
+			pbt_current = round((inr_current / fc_current) * 1.05 * fc_current - inr_current, 2) / self.get_amount_divisor() if fc_current else 0
+			pbt_previous = round((inr_previous / fc_previous) * 1.05 * fc_previous - inr_previous, 2) / self.get_amount_divisor() if fc_previous else 0
 			note_data_d.append({
 				"particular": "Trade & Other Payables",
 				"currency": c,
-				"fc_current": fmt(round(fc_current / 100000, self.show_decimal_value)),
-				"inr_current": fmt(round(inr_current / 100000, self.show_decimal_value)),
-				"fc_previous": fmt(round(fc_previous / 100000, self.show_decimal_value)),
-				"inr_previous": fmt(round(inr_previous / 100000, self.show_decimal_value)),
+				"fc_current": fmt(round(fc_current / self.get_amount_divisor(), self.show_decimal_value)),
+				"inr_current": fmt(round(inr_current / self.get_amount_divisor(), self.show_decimal_value)),
+				"fc_previous": fmt(round(fc_previous / self.get_amount_divisor(), self.show_decimal_value)),
+				"inr_previous": fmt(round(inr_previous / self.get_amount_divisor(), self.show_decimal_value)),
 				"pbt_current": fmt(round(pbt_current, self.show_decimal_value)),
 				"pbt_previous": fmt(round(pbt_previous, self.show_decimal_value)),
 			})
@@ -2773,7 +2833,7 @@ class FinancialReport(Document):
 		pre_prev_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': pre_prev_year, 'month': cls_month})
 		if pre_prev_lease:
 			pre_prev_lease_doc = frappe.get_doc("FR Lease", pre_prev_lease)
-			pre_opening = round(flt(pre_prev_lease_doc.additions_modifications)/100000, self.show_decimal_value) + round(flt(pre_prev_lease_doc.finance_cost_accrued)/100000, self.show_decimal_value) + round(flt(pre_prev_lease_doc.derecognition)/100000, self.show_decimal_value) + round(flt(pre_prev_lease_doc.payment_of_lease_liabilities)/100000, self.show_decimal_value)
+			pre_opening = round(flt(pre_prev_lease_doc.additions_modifications)/ self.get_amount_divisor(), self.show_decimal_value) + round(flt(pre_prev_lease_doc.finance_cost_accrued)/ self.get_amount_divisor(), self.show_decimal_value) + round(flt(pre_prev_lease_doc.derecognition)/ self.get_amount_divisor(), self.show_decimal_value) + round(flt(pre_prev_lease_doc.payment_of_lease_liabilities)/ self.get_amount_divisor(), self.show_decimal_value)
 		else:
 			pre_opening = 0
 
@@ -2781,14 +2841,14 @@ class FinancialReport(Document):
 		pre_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': self.previous_fiscal_year, 'month': cls_month})
 		if pre_lease:
 			pre_lease_doc = frappe.get_doc("FR Lease", pre_lease)
-			pre_additions_modifications_py = round(flt(pre_lease_doc.additions_modifications)/100000, self.show_decimal_value)
-			pre_finance_cost_accrued_py = round(flt(pre_lease_doc.finance_cost_accrued)/100000, self.show_decimal_value)
-			pre_derecognition_py = round(flt(pre_lease_doc.derecognition)/100000, self.show_decimal_value)
-			pre_payment_of_lease_liabilities_py = round(flt(pre_lease_doc.payment_of_lease_liabilities)/100000, self.show_decimal_value)
+			pre_additions_modifications_py = round(flt(pre_lease_doc.additions_modifications)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_finance_cost_accrued_py = round(flt(pre_lease_doc.finance_cost_accrued)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_derecognition_py = round(flt(pre_lease_doc.derecognition)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_payment_of_lease_liabilities_py = round(flt(pre_lease_doc.payment_of_lease_liabilities)/ self.get_amount_divisor(), self.show_decimal_value)
 			pre_closing = round(pre_opening + pre_additions_modifications_py + pre_finance_cost_accrued_py + pre_derecognition_py + pre_payment_of_lease_liabilities_py, self.show_decimal_value)
-			pre_less_than_one_year = round(flt(pre_lease_doc.less_than_one_year)/100000, self.show_decimal_value)
-			pre_one_to_five_years = round(flt(pre_lease_doc.one_to_five_years)/100000, self.show_decimal_value)
-			pre_more_than_five_years = round(flt(pre_lease_doc.more_than_five_years)/100000, self.show_decimal_value)
+			pre_less_than_one_year = round(flt(pre_lease_doc.less_than_one_year)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_one_to_five_years = round(flt(pre_lease_doc.one_to_five_years)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_more_than_five_years = round(flt(pre_lease_doc.more_than_five_years)/ self.get_amount_divisor(), self.show_decimal_value)
 		else:
 			pre_additions_modifications_py, pre_finance_cost_accrued_py, pre_derecognition_py, pre_payment_of_lease_liabilities_py, pre_closing = 0, 0, 0, 0, 0
 			pre_less_than_one_year, pre_one_to_five_years, pre_more_than_five_years = 0, 0, 0
@@ -2797,14 +2857,14 @@ class FinancialReport(Document):
 		cur_lease = frappe.db.exists("FR Lease", {'company': self.company, 'fiscal_year': self.fiscal_year, 'month': cls_month})
 		if cur_lease:
 			cur_lease_doc = frappe.get_doc("FR Lease", cur_lease)
-			cur_additions_modifications = round(flt(cur_lease_doc.additions_modifications)/100000, self.show_decimal_value)
-			cur_finance_cost_accrued = round(flt(cur_lease_doc.finance_cost_accrued)/100000, self.show_decimal_value)
-			cur_derecognition = round(flt(cur_lease_doc.derecognition)/100000, self.show_decimal_value)
-			cur_payment_of_lease_liabilities = round(flt(cur_lease_doc.payment_of_lease_liabilities)/100000, self.show_decimal_value)
+			cur_additions_modifications = round(flt(cur_lease_doc.additions_modifications)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_finance_cost_accrued = round(flt(cur_lease_doc.finance_cost_accrued)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_derecognition = round(flt(cur_lease_doc.derecognition)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_payment_of_lease_liabilities = round(flt(cur_lease_doc.payment_of_lease_liabilities)/ self.get_amount_divisor(), self.show_decimal_value)
 			cur_closing = round(pre_closing + cur_additions_modifications + cur_finance_cost_accrued + cur_derecognition + cur_payment_of_lease_liabilities, self.show_decimal_value)
-			cur_less_than_one_year = round(flt(cur_lease_doc.less_than_one_year)/100000, self.show_decimal_value)
-			cur_one_to_five_years = round(flt(cur_lease_doc.one_to_five_years)/100000, self.show_decimal_value)
-			cur_more_than_five_years = round(flt(cur_lease_doc.more_than_five_years)/100000, self.show_decimal_value)
+			cur_less_than_one_year = round(flt(cur_lease_doc.less_than_one_year)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_one_to_five_years = round(flt(cur_lease_doc.one_to_five_years)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_more_than_five_years = round(flt(cur_lease_doc.more_than_five_years)/ self.get_amount_divisor(), self.show_decimal_value)
 		else:
 			cur_additions_modifications, cur_finance_cost_accrued, cur_derecognition, cur_payment_of_lease_liabilities, cur_closing = 0, 0, 0, 0, 0
 			cur_less_than_one_year, cur_one_to_five_years, cur_more_than_five_years = 0, 0, 0
@@ -3105,11 +3165,11 @@ class FinancialReport(Document):
 		cur_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
 		if cur_contingent:
 			cur_contingent_doc = frappe.get_doc("FR Contingent Liabilities", cur_contingent)
-			cur_bank_guarantees = round(flt(cur_contingent_doc.bank_guarantees)/100000, self.show_decimal_value)
-			cur_company_imported = round(flt(cur_contingent_doc.company_imported)/100000, self.show_decimal_value)
+			cur_bank_guarantees = round(flt(cur_contingent_doc.bank_guarantees)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_company_imported = round(flt(cur_contingent_doc.company_imported)/ self.get_amount_divisor(), self.show_decimal_value)
 			cur_company_imported_label = cur_contingent_doc.company_imported_label
 			cur_claim_against = cur_contingent_doc.claim_against
-			cur_disputed_custom = round(flt(cur_contingent_doc.disputed_custom_duty_matters)/100000, self.show_decimal_value)
+			cur_disputed_custom = round(flt(cur_contingent_doc.disputed_custom_duty_matters)/ self.get_amount_divisor(), self.show_decimal_value)
 		else:
 			cur_bank_guarantees = 0
 			cur_company_imported = 0
@@ -3120,11 +3180,11 @@ class FinancialReport(Document):
 		prev_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": cls_month})
 		if prev_contingent:
 			prev_contingent_doc = frappe.get_doc("FR Contingent Liabilities", prev_contingent)
-			pre_bank_guarantees = round(flt(prev_contingent_doc.bank_guarantees)/100000, self.show_decimal_value)
-			pre_company_imported = round(flt(prev_contingent_doc.company_imported)/100000, self.show_decimal_value)
+			pre_bank_guarantees = round(flt(prev_contingent_doc.bank_guarantees)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_company_imported = round(flt(prev_contingent_doc.company_imported)/ self.get_amount_divisor(), self.show_decimal_value)
 			pre_company_imported_label = prev_contingent_doc.company_imported_label
 			pre_claim_against = prev_contingent_doc.claim_against
-			pre_disputed_custom = round(flt(prev_contingent_doc.disputed_custom_duty_matters)/100000, self.show_decimal_value)
+			pre_disputed_custom = round(flt(prev_contingent_doc.disputed_custom_duty_matters)/ self.get_amount_divisor(), self.show_decimal_value)
 		else:
 			pre_bank_guarantees = 0
 			pre_company_imported = 0
@@ -3195,10 +3255,10 @@ class FinancialReport(Document):
 			as_dict=True
 		)
 
-		cur_estimated_capital = round(flt(cur_cap_data.estimated_capital_contracts_unexecuted)/100000 if cur_cap_data else 0, self.show_decimal_value)
-		cur_other_commitments = round(flt(cur_cap_data.other_commitments)/100000 if cur_cap_data else 0, self.show_decimal_value)
-		pre_estimated_capital = round(flt(pre_cap_data.estimated_capital_contracts_unexecuted)/100000 if pre_cap_data else 0, self.show_decimal_value)
-		pre_other_commitments = round(flt(pre_cap_data.other_commitments)/100000 if pre_cap_data else 0, self.show_decimal_value)
+		cur_estimated_capital = round(flt(cur_cap_data.estimated_capital_contracts_unexecuted)/ self.get_amount_divisor() if cur_cap_data else 0, self.show_decimal_value)
+		cur_other_commitments = round(flt(cur_cap_data.other_commitments)/ self.get_amount_divisor() if cur_cap_data else 0, self.show_decimal_value)
+		pre_estimated_capital = round(flt(pre_cap_data.estimated_capital_contracts_unexecuted)/ self.get_amount_divisor() if pre_cap_data else 0, self.show_decimal_value)
+		pre_other_commitments = round(flt(pre_cap_data.other_commitments)/ self.get_amount_divisor() if pre_cap_data else 0, self.show_decimal_value)
 
 		def fmt(val):
 			if val in (None, "-", ""):
@@ -3329,12 +3389,12 @@ class FinancialReport(Document):
 
 		if curr_msme:
 			curr_msme_doc = frappe.get_doc("FR MSME Disclosure", curr_msme)
-			cur_principal_amount_outstanding = round(flt(curr_msme_doc.principal_amount_outstanding)/100000, self.show_decimal_value)
-			cur_interest_amount_outstanding = round(flt(curr_msme_doc.interest_amount_outstanding)/100000, self.show_decimal_value)
-			cur_interest_paid_on_delayed_payment = round(flt(curr_msme_doc.interest_paid_on_delayed_payment)/100000, self.show_decimal_value)
-			cur_interest_due_for_the_year = round(flt(curr_msme_doc.interest_due_for_the_year)/100000, self.show_decimal_value)
-			cur_interest_accrued_unpaid = round(flt(curr_msme_doc.interest_accrued_unpaid)/100000, self.show_decimal_value)
-			cur_future_interest_payable = round(flt(curr_msme_doc.future_interest_payable)/100000, self.show_decimal_value)
+			cur_principal_amount_outstanding = round(flt(curr_msme_doc.principal_amount_outstanding)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_interest_amount_outstanding = round(flt(curr_msme_doc.interest_amount_outstanding)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_interest_paid_on_delayed_payment = round(flt(curr_msme_doc.interest_paid_on_delayed_payment)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_interest_due_for_the_year = round(flt(curr_msme_doc.interest_due_for_the_year)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_interest_accrued_unpaid = round(flt(curr_msme_doc.interest_accrued_unpaid)/ self.get_amount_divisor(), self.show_decimal_value)
+			cur_future_interest_payable = round(flt(curr_msme_doc.future_interest_payable)/ self.get_amount_divisor(), self.show_decimal_value)
 		else:
 			cur_principal_amount_outstanding = "-"
 			cur_interest_amount_outstanding = "-"
@@ -3345,12 +3405,12 @@ class FinancialReport(Document):
 		
 		if prev_msme:
 			prev_msme_doc = frappe.get_doc("FR MSME Disclosure", prev_msme)
-			pre_principal_amount_outstanding = round(flt(prev_msme_doc.principal_amount_outstanding)/100000, self.show_decimal_value)
-			pre_interest_amount_outstanding = round(flt(prev_msme_doc.interest_amount_outstanding)/100000, self.show_decimal_value)
-			pre_interest_paid_on_delayed_payment = round(flt(prev_msme_doc.interest_paid_on_delayed_payment)/100000, self.show_decimal_value)
-			pre_interest_due_for_the_year = round(flt(prev_msme_doc.interest_due_for_the_year)/100000, self.show_decimal_value)
-			pre_interest_accrued_unpaid = round(flt(prev_msme_doc.interest_accrued_unpaid)/100000, self.show_decimal_value)
-			pre_future_interest_payable = round(flt(prev_msme_doc.future_interest_payable)/100000, self.show_decimal_value)
+			pre_principal_amount_outstanding = round(flt(prev_msme_doc.principal_amount_outstanding)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_interest_amount_outstanding = round(flt(prev_msme_doc.interest_amount_outstanding)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_interest_paid_on_delayed_payment = round(flt(prev_msme_doc.interest_paid_on_delayed_payment)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_interest_due_for_the_year = round(flt(prev_msme_doc.interest_due_for_the_year)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_interest_accrued_unpaid = round(flt(prev_msme_doc.interest_accrued_unpaid)/ self.get_amount_divisor(), self.show_decimal_value)
+			pre_future_interest_payable = round(flt(prev_msme_doc.future_interest_payable)/ self.get_amount_divisor(), self.show_decimal_value)
 		else:
 			pre_principal_amount_outstanding = "-"
 			pre_interest_amount_outstanding = "-"
@@ -3521,7 +3581,7 @@ class FinancialReport(Document):
 			if isinstance(val, str) and "%" in val:
 				return val.strip()
 			else:
-				return round(flt(val) / 100000, self.show_decimal_value)
+				return round(flt(val) / self.get_amount_divisor(), self.show_decimal_value)
 
 			return val	
 											
@@ -4317,16 +4377,16 @@ class FinancialReport(Document):
 
 		data = {
 			"current": {
-				"employee_benefits": round(curr_ebe/100000, self.show_decimal_value),
-				"other_expenses": round(curr_oe/100000, self.show_decimal_value),
-				"ppe": round(curr_ppe/100000, self.show_decimal_value),
-				"intangible": round(curr_intangible/100000, self.show_decimal_value)
+				"employee_benefits": round(curr_ebe/ self.get_amount_divisor(), self.show_decimal_value),
+				"other_expenses": round(curr_oe/ self.get_amount_divisor(), self.show_decimal_value),
+				"ppe": round(curr_ppe/ self.get_amount_divisor(), self.show_decimal_value),
+				"intangible": round(curr_intangible/ self.get_amount_divisor(), self.show_decimal_value)
 			},
 			"previous": {
-				"employee_benefits": round(prev_ebe/100000, self.show_decimal_value),
-				"other_expenses": round(prev_oe/100000, self.show_decimal_value),
-				"ppe": round(prev_ppe/100000, self.show_decimal_value),
-				"intangible": round(prev_intangible/100000, self.show_decimal_value)
+				"employee_benefits": round(prev_ebe/ self.get_amount_divisor(), self.show_decimal_value),
+				"other_expenses": round(prev_oe/ self.get_amount_divisor(), self.show_decimal_value),
+				"ppe": round(prev_ppe/ self.get_amount_divisor(), self.show_decimal_value),
+				"intangible": round(prev_intangible/ self.get_amount_divisor(), self.show_decimal_value)
 			}
 		}
 
@@ -4414,19 +4474,19 @@ class FinancialReport(Document):
 		
 		data = {
 			"current": {
-				"opening_shortfall": round(curr_open_short/100000, self.show_decimal_value),
-				"required_to_spend": round(curr_rts/100000, self.show_decimal_value),
-				"spent": round(curr_spent/100000, self.show_decimal_value),
-				"closing_shortfall": round(curr_closing_short/100000, self.show_decimal_value),
+				"opening_shortfall": round(curr_open_short/ self.get_amount_divisor(), self.show_decimal_value),
+				"required_to_spend": round(curr_rts/ self.get_amount_divisor(), self.show_decimal_value),
+				"spent": round(curr_spent/ self.get_amount_divisor(), self.show_decimal_value),
+				"closing_shortfall": round(curr_closing_short/ self.get_amount_divisor(), self.show_decimal_value),
 				"nature": curr_nature,
 				"related_party": curr_related_party,
 				"provision_movement": curr_provision_movement
 			},
 			"previous": {
-				"opening_shortfall": round(prev_open_short/100000, self.show_decimal_value),
-				"required_to_spend": round(prev_rts/100000, self.show_decimal_value),
-				"spent": round(prev_spent/100000, self.show_decimal_value),
-				"closing_shortfall": round(prev_closing_short/100000, self.show_decimal_value),
+				"opening_shortfall": round(prev_open_short/ self.get_amount_divisor(), self.show_decimal_value),
+				"required_to_spend": round(prev_rts/ self.get_amount_divisor(), self.show_decimal_value),
+				"spent": round(prev_spent/ self.get_amount_divisor(), self.show_decimal_value),
+				"closing_shortfall": round(prev_closing_short/ self.get_amount_divisor(), self.show_decimal_value),
 				"nature": prev_nature,
 				"related_party": prev_related_party,
 				"provision_movement": prev_provision_movement
@@ -5305,7 +5365,7 @@ class FinancialReport(Document):
 			]
 
 		def fmt_ageing_val(val):
-			val = round(val / 100000, self.show_decimal_value)
+			val = round(val / self.get_amount_divisor(), self.show_decimal_value)
 			return frappe.utils.fmt_money(val, self.show_decimal_value) if val else "-"
 
 		def render_table(rows):
@@ -5525,7 +5585,7 @@ class FinancialReport(Document):
 					others_undisputed[display_key] += amount
 
 		def fmt_pay_ageing_val(val):
-			val = round(val / 100000, self.show_decimal_value)
+			val = round(val / self.get_amount_divisor(), self.show_decimal_value)
 			return frappe.utils.fmt_money(val, self.show_decimal_value) if val else "-"
 
 		pay_ageing_rows = []
@@ -5905,7 +5965,7 @@ class FinancialReport(Document):
 				if month:
 					query += " AND month=%s"
 					params.append(month)
-			return (frappe.db.sql(query, params)[0][0] or 0) / 100000
+			return (frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()
 
 		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
 			cache_key = (particular_name, month, year, fx_rate)
@@ -6129,14 +6189,14 @@ class FinancialReport(Document):
 							if start_date:
 								query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 								params = [self.company, start_date, end_date] + gl_accounts
-								amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+								amount = (frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()
 						else:
 							query = f"""
 								SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 								WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 							"""
 							params = [self.company, year, month] + gl_accounts
-							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+							amount = (frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()
 			else:
 				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 				if gl_accounts:
@@ -6147,14 +6207,14 @@ class FinancialReport(Document):
 						if start_date:
 							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 							params = [self.company, start_date, end_date] + gl_accounts
-							amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+							amount = (frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()
 					else:
 						query = f"""
 							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 						"""
 						params = [self.company, year, month] + gl_accounts
-						amount = (frappe.db.sql(query, params)[0][0] or 0) / 100000
+						amount = (frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()
 
 			if fr_particular.show_reversed_value:
 				amount = -amount
@@ -6299,7 +6359,7 @@ class FinancialReport(Document):
 					else:
 						query = f"""
 							SELECT SUM(amount) FROM `tabFR Trial Balance Entry`
-							WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
+							WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
 							AND month >= %s
 						"""
 						params = [self.company, year] + gl_accounts + [month]
@@ -6309,7 +6369,7 @@ class FinancialReport(Document):
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 
-			amount_cache[cache_key] = flt(round((amount / 100000), self.show_decimal_value))
+			amount_cache[cache_key] = flt(round((amount / self.get_amount_divisor()), self.show_decimal_value))
 			return amount_cache[cache_key]
 
 		data = []
@@ -7576,14 +7636,14 @@ class FinancialReport(Document):
 							if start_date:
 								query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 								params = [self.company, start_date, end_date] + gl_accounts
-								amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
+								amount = ((frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()) * fx_rate
 						else:
 							query = f"""
 								SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 								WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 							"""
 							params = [self.company, year, month] + gl_accounts
-							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
+							amount = ((frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()) * fx_rate
 
 			elif fr_particular.type == "Deferred Tax" and default_currency != self.currency:
 				cls_month, prev_year = self.get_previous_year_cls_month(year)
@@ -7599,7 +7659,7 @@ class FinancialReport(Document):
 
 					prev_params = [self.company, prev_year, cls_month] + gl_accounts
 					prev_amount = (frappe.db.sql(query, prev_params)[0][0] or 0)
-					amount = ((cur_amount - prev_amount) / 100000) * fx_rate
+					amount = ((cur_amount - prev_amount) / self.get_amount_divisor()) * fx_rate
 				else:
 					amount = 0
 			else:
@@ -7612,14 +7672,14 @@ class FinancialReport(Document):
 						if start_date:
 							query = f"SELECT SUM(debit) - SUM(credit) FROM `tabGL Entry` WHERE company = %s AND posting_date BETWEEN %s AND %s AND account IN ({placeholders})"
 							params = [self.company, start_date, end_date] + gl_accounts
-							amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
+							amount = ((frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()) * fx_rate
 					else:
 						query = f"""
 							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
 							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
 						"""
 						params = [self.company, year, month] + gl_accounts
-						amount = ((frappe.db.sql(query, params)[0][0] or 0) / 100000) * fx_rate
+						amount = ((frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()) * fx_rate
 
 			if fr_particular.show_reversed_value:
 				amount = -amount
@@ -7708,7 +7768,7 @@ class FinancialReport(Document):
 				if month:
 					query += " AND month=%s"
 					params.append(month)
-			return (frappe.db.sql(query, params)[0][0] or 0) / 100000
+			return (frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()
 
 		def calc_amount_for_particular_monthly(particular_name, month, year, is_current=False, is_yearly=False, fx_rate=1, convert=True):
 			cache_key = (particular_name, month, year, fx_rate)
@@ -7796,8 +7856,8 @@ class FinancialReport(Document):
 			# Special case: Equity Share Capital → fixed INR investment value
 			if default_currency != self.currency and particular_type == "Equity Share Capital":
 				_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
-				previous_month_amount = current_month_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0))/100000, self.show_decimal_value)
-				previous_year_amount = round((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)")/100000 or 0), self.show_decimal_value)
+				previous_month_amount = current_month_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0))/ self.get_amount_divisor(), self.show_decimal_value)
+				previous_year_amount = round((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)")/ self.get_amount_divisor() or 0), self.show_decimal_value)
 			else:
 				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
 				previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx) or 0
@@ -7865,7 +7925,7 @@ class FinancialReport(Document):
 					else:
 						query = f"""
 							SELECT SUM(amount) FROM `tabFR Trial Balance Entry`
-							WHERE company=%s AND fiscal_year=%s AND account IN ({placeholders})
+							WHERE company=%s AND fiscal_year=%s AND gl_account IN ({placeholders})
 							AND month >= %s
 						"""
 						params = [self.company, year] + gl_accounts + [month]
@@ -7875,7 +7935,7 @@ class FinancialReport(Document):
 			if getattr(fr_particular, "show_reversed_value", 0):
 				amount = -amount
 
-			amount_cache[cache_key] = flt(round((amount / 100000), self.show_decimal_value))
+			amount_cache[cache_key] = flt(round((amount / self.get_amount_divisor()), self.show_decimal_value))
 			return amount_cache[cache_key]
 
 		data = []
@@ -8236,7 +8296,7 @@ class FinancialReport(Document):
 		def get_equity_data(entry_type, date, amt_field):
 			data = frappe.db.get_values("FR Equity Entry", {"company": self.company, "type": entry_type, "date": ["<=", date]}, ["sum(no_of_shares) as shares", f"sum({amt_field}) as amount", "face_value"], as_dict=True)
 			row = data[0] if data else {}
-			return (row.get("face_value") or "-",row.get("shares") or 0, round(row.get("amount")/100000, self.show_decimal_value or 0))
+			return (row.get("face_value") or "-",row.get("shares") or 0, round(row.get("amount")/ self.get_amount_divisor(), self.show_decimal_value or 0))
 
 		amt_field = "investment_inr" if self.currency != company_currency else "investment_value"
 
