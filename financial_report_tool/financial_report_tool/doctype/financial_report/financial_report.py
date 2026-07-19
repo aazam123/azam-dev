@@ -284,7 +284,7 @@ class FinancialReport(Document):
 
 		# Build HTML table
 		foreign_exchange_rate = f"""
-			<table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:-35px 0;">
+			<table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:0 0 10px 0;">
 				<thead>
 					<tr style = "border-bottom:2px solid #222;">
 						<th style="border:1px solid #ddd; padding:4px;">Month</th>
@@ -315,7 +315,14 @@ class FinancialReport(Document):
 				</tbody>
 			</table>
 		"""
-		self.foreign_exchange_rate = foreign_exchange_rate
+		# Show the foreign-exchange-rate table only for a foreign company, i.e.
+		# when its functional currency differs from the report currency and the
+		# figures are actually translated. For a domestic (same-currency) company
+		# every rate is 1, so the table is hidden.
+		if default_currency and default_currency != self.currency:
+			self.foreign_exchange_rate = foreign_exchange_rate
+		else:
+			self.foreign_exchange_rate = ""
 
 	def fetch_equity_data(self, company, date_filter):
 		return frappe.get_all(
@@ -812,33 +819,34 @@ class FinancialReport(Document):
 	def _apply_amount_unit_label(self):
 		"""Reflect the configured display unit in the rendered report HTML.
 
-		- Normalises any existing "in lac(s)" unit captions to the configured
-		  unit word (e.g. "in Hundreds").
-		- Adds a "(₹ in <unit>)" caption to Balance Sheet / Profit & Loss, which
-		  carry no unit label of their own.
+		- Balance Sheet / Profit & Loss get a single right-aligned "(₹ in <unit>)"
+		  caption at the top of the statement table. It is added as a <caption>
+		  (part of the table box) rather than a floating div, so the table's
+		  negative top margin cannot overlap it.
+		- Existing "in lac(s)" captions in schedules are normalised to the
+		  configured unit word.
 
-		Operates ONLY on the rendered HTML (``section_description`` /
-		``subsection_description``). ``table_data`` is a JSON model consumed
-		downstream via ``json.loads`` (EPS, note cross-references) and must not be
-		mutated. Amounts are already scaled by ``get_amount_divisor()`` during
-		rendering, so this only keeps the printed unit label in sync.
+		Operates ONLY on rendered HTML (``section_description`` /
+		``subsection_description``) — never on ``table_data`` (a JSON model
+		consumed downstream via ``json.loads``).
 		"""
 		unit_word = self.get_amount_unit_word()
 		lac_re = re.compile(r"in\s+lac(?:s)?", re.IGNORECASE)
+		table_re = re.compile(r"<table\b[^>]*>", re.IGNORECASE)
 		caption = (
-			f'<div style="text-align:right; font-weight:bold; font-style:italic; '
-			f'color:#4472C4; padding:2px 4px;">(₹ in {unit_word})</div>'
+			f'<caption style="caption-side:top; text-align:right; font-weight:bold; '
+			f'font-style:italic; color:#4472C4; padding:2px 4px;">(₹ in {unit_word})</caption>'
 		)
 		for i in self.financial_report_details:
 			for field in ("section_description", "subsection_description"):
 				val = i.get(field)
 				if val:
 					i.set(field, lac_re.sub(f"in {unit_word}", val))
-			# BS / P&L rendered HTML lives in section_description and has no unit
-			# label of its own; a leading caption is skipped by the Excel export
-			# (which does soup.find('table')), so it is display-only.
+			# One unit caption at the top-left of the BS / P&L statement table.
 			if i.section_type in ("Balance Sheet", "Profit & Loss") and i.section_description:
-				i.section_description = caption + i.section_description
+				i.section_description = table_re.sub(
+					lambda m: m.group(0) + caption, i.section_description, count=1
+				)
 
 	def get_all_child_groups(self, parent):
 		children = frappe.get_all(
