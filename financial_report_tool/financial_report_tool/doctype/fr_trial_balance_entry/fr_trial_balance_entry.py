@@ -38,8 +38,20 @@ class FRTrialBalanceEntry(Document):
                 if self.company:
                     prev_filters["company"] = self.company
 
-                previous_entries = frappe.get_all("FR Trial Balance Entry",filters=prev_filters,fields=["amount"])
-                previous_sum = sum((entry.get("amount") or 0) for entry in previous_entries)
+                previous_entries = frappe.get_all(
+                    "FR Trial Balance Entry",
+                    filters=prev_filters,
+                    fields=["month", "amount", "creation"],
+                    order_by="creation asc",
+                )
+                # Collapse to one representative amount per month so any stray
+                # duplicates cannot compound the running delta (which would grow
+                # unbounded and eventually overflow the ``amount`` column). Keep
+                # the most recently created row for each month.
+                latest_amount_by_month = {}
+                for entry in previous_entries:
+                    latest_amount_by_month[entry.get("month")] = entry.get("amount") or 0
+                previous_sum = sum(latest_amount_by_month.values())
             else:
                 previous_sum = 0
 

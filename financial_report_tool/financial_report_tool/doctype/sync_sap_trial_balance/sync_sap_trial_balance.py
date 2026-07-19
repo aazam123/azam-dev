@@ -175,7 +175,15 @@ class SyncSAPTrialBalance(Document):
 
 	@frappe.whitelist()
 	def create_trail_balance(self):
-		"""Generate FR Trial Balance Entries from synced details"""
+		"""Generate FR Trial Balance Entries from synced details.
+
+		Idempotent: any entries previously generated for this
+		(company, fiscal_year, month) are removed first, so re-running does not
+		append duplicates. Duplicates are dangerous here because
+		``FRTrialBalanceEntry.before_save`` derives ``amount`` from the running
+		sum of previous months' entries — leftover duplicates compound that sum
+		on every run until it overflows the ``amount`` column.
+		"""
 		none_account = [d for d in self.details if not d.account]
 		if none_account:
 			first = none_account[0]
@@ -185,6 +193,12 @@ class SyncSAPTrialBalance(Document):
 				f"GL Desc: {first.gl_description}, "
 				f"Amount: {first.amount} → <b>GL Account is missing</b>"
 			)
+
+		frappe.db.delete("FR Trial Balance Entry", {
+			"company": self.company,
+			"fiscal_year": self.fiscal_year,
+			"month": self.month,
+		})
 
 		for i in self.details:
 			if i.amount != 0:
