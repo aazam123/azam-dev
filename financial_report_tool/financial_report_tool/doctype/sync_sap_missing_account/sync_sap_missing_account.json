@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-20 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "gl_code",
+  "gl_description",
+  "amount",
+  "parent_account",
+  "primary_group",
+  "secondary_group",
+  "higher_secondary_group"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "gl_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "GL Code",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "gl_description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "GL Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Float",
+   "label": "Amount",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "parent_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Parent Account",
+   "options": "Account"
+  },
+  {
+   "columns": 2,
+   "fieldname": "primary_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Primary Group",
+   "options": "Standalone Group"
+  },
+  {
+   "columns": 2,
+   "fieldname": "secondary_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Secondary Group",
+   "options": "Standalone Group"
+  },
+  {
+   "columns": 1,
+   "fieldname": "higher_secondary_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Higher Secondary Group",
+   "options": "Standalone Group"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-20 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Sync SAP Missing Account",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

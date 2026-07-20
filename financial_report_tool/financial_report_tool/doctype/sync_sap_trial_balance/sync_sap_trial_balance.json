@@ -38,7 +38,12 @@
   "section_break_szef",
   "responce",
   "details",
-  "tb_created"
+  "tb_created",
+  "missing_grouping_tab",
+  "report_scope",
+  "load_missing_accounts_btn",
+  "create_accounts_btn",
+  "missing_accounts"
  ],
  "fields": [
   {
@@ -217,6 +222,37 @@
    "fieldname": "sap_client",
    "fieldtype": "Data",
    "label": "SAP Client"
+  },
+  {
+   "fieldname": "missing_grouping_tab",
+   "fieldtype": "Tab Break",
+   "label": "Missing Account & Grouping"
+  },
+  {
+   "default": "Both",
+   "description": "Report type(s) the GL Group Mapping is created for when accounts are created.",
+   "fieldname": "report_scope",
+   "fieldtype": "Select",
+   "label": "Report Type",
+   "options": "Monthly\nYearly\nBoth"
+  },
+  {
+   "fieldname": "load_missing_accounts_btn",
+   "fieldtype": "Button",
+   "label": "Load Missing Accounts"
+  },
+  {
+   "depends_on": "eval:(doc.missing_accounts || []).length",
+   "fieldname": "create_accounts_btn",
+   "fieldtype": "Button",
+   "label": "Create Accounts"
+  },
+  {
+   "description": "Click 'Load Missing Accounts' to populate this from Trial Balance rows with no mapped Account, set the grouping, then 'Create Accounts'.",
+   "fieldname": "missing_accounts",
+   "fieldtype": "Table",
+   "label": "Missing Accounts",
+   "options": "Sync SAP Missing Account"
   }
  ],
  "grid_page_length": 50,

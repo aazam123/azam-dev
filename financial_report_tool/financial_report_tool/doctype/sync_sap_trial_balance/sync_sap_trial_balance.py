@@ -216,6 +216,199 @@ class SyncSAPTrialBalance(Document):
 		frappe.db.set_value("Sync SAP Trial Balance", self.name, "tb_created", 1)
 		frappe.msgprint("Trial Balance Entries created successfully!")
 
+	@frappe.whitelist()
+	def load_missing_accounts(self):
+		"""(Re)populate the Missing Accounts tab from unmapped detail rows.
+
+		A detail row is "unmapped" when it has no linked Account but carries a GL
+		code *or* just a GL description (description-only rows are matched to an
+		Account by name). Any grouping already entered is preserved across reloads,
+		so a reload never discards in-progress selections; rows whose Account got
+		mapped since the last load simply drop off.
+		"""
+		existing_cfg = {_missing_key(r.gl_code, r.gl_description): r for r in self.missing_accounts}
+
+		self.missing_accounts = []
+		for row in self.details:
+			if row.account:
+				continue
+			gl = (row.gl_code or "").strip()
+			desc = (row.gl_description or "").strip()
+			if not gl and not desc:
+				continue
+			prev = existing_cfg.get(_missing_key(gl, desc))
+			self.append("missing_accounts", {
+				"gl_code": gl,
+				"gl_description": row.gl_description,
+				"amount": row.amount,
+				"parent_account": prev.parent_account if prev else None,
+				"primary_group": prev.primary_group if prev else None,
+				"secondary_group": prev.secondary_group if prev else None,
+				"higher_secondary_group": prev.higher_secondary_group if prev else None,
+			})
+
+		self.save()
+		frappe.msgprint(
+			_("Loaded {0} missing account(s).").format(len(self.missing_accounts)),
+			indicator="blue",
+		)
+		return {"count": len(self.missing_accounts)}
+
+	@frappe.whitelist()
+	def create_missing_accounts(self):
+		"""Create ERPNext Accounts + GL Group Mappings from the Missing Accounts tab.
+
+		Each row of ``missing_accounts`` carries the user's chosen ``parent_account``
+		and ``primary_group`` / ``secondary_group`` / ``higher_secondary_group`` for
+		one GL code. For every matching detail row we create the Account under its
+		parent group and a :doctype:`GL Group Mapping` from its Standalone Groups.
+
+		``report_scope`` (``"Monthly"`` / ``"Yearly"`` / ``"Both"``) selects which GL
+		Group Mapping report types get created. The method is idempotent: existing
+		Accounts / mappings are reused, never duplicated.
+		"""
+		config_by_key = {}
+		for r in self.missing_accounts:
+			config_by_key[_missing_key(r.gl_code, r.gl_description)] = r
+
+		if not config_by_key:
+			frappe.throw(_("No rows in Missing Accounts. Click 'Load Missing Accounts' first."))
+
+		report_types = {
+			"Monthly": ["Monthly"],
+			"Yearly": ["Yearly"],
+			"Both": ["Monthly", "Yearly"],
+		}.get(self.report_scope or "Both", ["Monthly", "Yearly"])
+
+		validated_parents = set()
+		created_accounts = []
+		created_mappings = 0
+		skipped = []
+
+		for row in self.details:
+			if row.account:
+				continue
+
+			gl = (row.gl_code or "").strip()
+			desc = (row.gl_description or "").strip()
+			if not gl and not desc:
+				continue
+
+			cfg = config_by_key.get(_missing_key(gl, desc))
+			parent_account = (cfg or {}).get("parent_account")
+			primary_group = (cfg or {}).get("primary_group")
+			secondary_group = (cfg or {}).get("secondary_group")
+			higher_secondary_group = (cfg or {}).get("higher_secondary_group")
+
+			if not (parent_account and primary_group and secondary_group):
+				skipped.append(gl or desc)
+				continue
+
+			if parent_account not in validated_parents:
+				_validate_parent_group(parent_account, self.company)
+				validated_parents.add(parent_account)
+
+			# GL code matches by account number; description-only rows match by name.
+			if gl:
+				existing = frappe.get_value(
+					"Account",
+					{"account_number": gl, "company": self.company, "is_group": 0},
+					"name",
+				)
+			else:
+				existing = frappe.get_value(
+					"Account",
+					{"account_name": desc, "company": self.company, "is_group": 0},
+					"name",
+				)
+
+			if existing:
+				row.account = existing
+			else:
+				row.account = _create_account(gl, row.gl_description, self.company, parent_account)
+				created_accounts.append(row.account)
+
+			for report_type in report_types:
+				if _ensure_gl_group_mapping(
+					row.account, self.company, report_type,
+					primary_group, secondary_group, higher_secondary_group,
+				):
+					created_mappings += 1
+
+		# Saving recomputes account auto-mapping + total_amount via before_save.
+		self.save()
+		frappe.db.commit()
+
+		return {
+			"created_accounts": created_accounts,
+			"created_mappings": created_mappings,
+			"skipped": skipped,
+		}
+
+
+def _missing_key(gl_code, gl_description):
+	"""Stable identity for a missing row — GL codes may be blank (description-only)."""
+	return ((gl_code or "").strip(), (gl_description or "").strip())
+
+
+def _validate_parent_group(parent_account, company):
+	"""Ensure ``parent_account`` is a group account belonging to ``company``."""
+	parent = frappe.db.get_value(
+		"Account", parent_account, ["is_group", "company"], as_dict=True
+	)
+	if not parent:
+		frappe.throw(_("Parent Account {0} not found.").format(parent_account))
+	if not parent.is_group:
+		frappe.throw(_("Parent Account {0} must be a Group.").format(parent_account))
+	if parent.company != company:
+		frappe.throw(
+			_("Parent Account {0} belongs to {1}, not {2}.").format(
+				parent_account, parent.company, company
+			)
+		)
+
+
+def _create_account(gl_code, gl_description, company, parent_account):
+	"""Create and return an Account for ``gl_code`` under ``parent_account``.
+
+	``root_type`` is inherited from the parent group by ERPNext, so it isn't set
+	here. ERPNext prefixes the record name with the account number, keeping
+	accounts unique even when two GL codes share a description.
+	"""
+	account = frappe.new_doc("Account")
+	account.account_name = (gl_description or gl_code).strip()
+	if (gl_code or "").strip():
+		account.account_number = gl_code
+	account.company = company
+	account.parent_account = parent_account
+	account.insert(ignore_permissions=True)
+	return account.name
+
+
+def _ensure_gl_group_mapping(
+	gl_account, company, report_type, primary_group, secondary_group, higher_secondary_group=None
+):
+	"""Create the GL Group Mapping for ``gl_account``/``report_type`` if absent.
+
+	Returns ``True`` when a mapping was created, ``False`` when one already exists.
+	"""
+	if frappe.db.exists(
+		"GL Group Mapping",
+		{"gl_account": gl_account, "company": company, "report_type": report_type},
+	):
+		return False
+
+	mapping = frappe.new_doc("GL Group Mapping")
+	mapping.gl_account = gl_account
+	mapping.company = company
+	mapping.report_type = report_type
+	mapping.primary_group = primary_group
+	mapping.secondary_group = secondary_group
+	if higher_secondary_group:
+		mapping.higher_secondary_group = higher_secondary_group
+	mapping.insert(ignore_permissions=True)
+	return True
+
 
 def do_sync_sap_data(docname):
 	"""Background worker: fire the generation request to SAP for ``docname``.

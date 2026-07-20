@@ -1,3 +1,40 @@
+function load_missing_accounts(frm) {
+    frappe.call({
+        method: "load_missing_accounts",
+        doc: frm.doc,
+        freeze: true,
+        freeze_message: __("Loading missing accounts…"),
+        callback: function (r) {
+            if (!r.exc) {
+                frm.reload_doc();
+                frm.scroll_to_field && frm.scroll_to_field("missing_accounts");
+            }
+        }
+    });
+}
+
+function create_missing_accounts(frm) {
+    frappe.call({
+        method: "create_missing_accounts",
+        doc: frm.doc,
+        freeze: true,
+        freeze_message: __("Creating missing accounts…"),
+        callback: function (r) {
+            if (!r.exc) {
+                const m = r.message || {};
+                const created = (m.created_accounts || []).length;
+                const skipped = (m.skipped || []).length;
+                let msg = __("Created {0} account(s) and {1} GL group mapping(s).", [created, m.created_mappings || 0]);
+                if (skipped) {
+                    msg += " " + __("{0} row(s) skipped.", [skipped]);
+                }
+                frappe.show_alert({ message: msg, indicator: "blue" }, 7);
+                frm.reload_doc();
+            }
+        }
+    });
+}
+
 frappe.ui.form.on("Sync SAP Trial Balance", {
     refresh(frm) {
         frappe.db.get_single_value("FR Financial Settings", "sap_threshold_amount").then(setting_amount => {
@@ -16,6 +53,12 @@ frappe.ui.form.on("Sync SAP Trial Balance", {
                 });
             }
         });
+
+        // Also expose the Missing Account actions in the top button menu.
+        frm.add_custom_button(__('Load Missing Accounts'), () => load_missing_accounts(frm), __('Accounts'));
+        if ((frm.doc.missing_accounts || []).length) {
+            frm.add_custom_button(__('Create Accounts'), () => create_missing_accounts(frm), __('Accounts'));
+        }
 
         frm.add_custom_button(__('Sync SAP Data'), function () {
             frappe.call({
@@ -51,6 +94,12 @@ frappe.ui.form.on("Sync SAP Trial Balance", {
             }
         });
     },
+    load_missing_accounts_btn(frm) {
+        load_missing_accounts(frm);
+    },
+    create_accounts_btn(frm) {
+        create_missing_accounts(frm);
+    },
     setup(frm) {
         frm.fields_dict["details"].grid.get_field("account").get_query = function (doc, cdt, cdn) {
             return {
@@ -58,6 +107,17 @@ frappe.ui.form.on("Sync SAP Trial Balance", {
                     company: frm.doc.company,
                     is_group: 0,
                     disabled: 0
+                }
+            };
+        };
+
+        // In the Missing Accounts tab, restrict Parent Account to group accounts
+        // of this document's company.
+        frm.fields_dict["missing_accounts"].grid.get_field("parent_account").get_query = function (doc, cdt, cdn) {
+            return {
+                filters: {
+                    company: frm.doc.company,
+                    is_group: 1
                 }
             };
         };
