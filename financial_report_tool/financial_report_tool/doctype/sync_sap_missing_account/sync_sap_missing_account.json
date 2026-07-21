@@ -8,11 +8,13 @@
  "field_order": [
   "gl_code",
   "gl_description",
-  "amount",
   "parent_account",
   "primary_group",
   "secondary_group",
-  "higher_secondary_group"
+  "higher_secondary_group",
+  "suggested_parent",
+  "amount",
+  "confidence"
  ],
  "fields": [
   {
@@ -38,7 +40,24 @@
    "read_only": 1
   },
   {
-   "columns": 2,
+   "columns": 1,
+   "description": "Read-only model suggestion for the parent group. The chosen group is set in 'Parent Account'.",
+   "fieldname": "suggested_parent",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Suggested Parent",
+   "read_only": 1
+  },
+  {
+   "description": "Model confidence in the suggested parent (0-100).",
+   "fieldname": "confidence",
+   "fieldtype": "Percent",
+   "label": "Confidence",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "description": "Existing group to create the account under.",
    "fieldname": "parent_account",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -62,10 +81,8 @@
    "options": "Standalone Group"
   },
   {
-   "columns": 1,
    "fieldname": "higher_secondary_group",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Higher Secondary Group",
    "options": "Standalone Group"
   }

@@ -37,6 +37,11 @@ function create_missing_accounts(frm) {
 
 frappe.ui.form.on("Sync SAP Trial Balance", {
     refresh(frm) {
+        // Collapse the sidebar by default on this form (mirrors clicking the
+        // page-header "Toggle Sidebar"). Users can re-open it with that button.
+        frm.page.sidebar.toggle(false);
+        frm.page.update_sidebar_icon && frm.page.update_sidebar_icon();
+
         frappe.db.get_single_value("FR Financial Settings", "sap_threshold_amount").then(setting_amount => {
             if ((frm.doc.total_amount || 0) <= setting_amount && frm.doc.tb_created == 0) {
                 frm.add_custom_button(__('Create TB'), function () {

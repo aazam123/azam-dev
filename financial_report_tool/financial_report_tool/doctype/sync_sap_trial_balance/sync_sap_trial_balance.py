@@ -14,6 +14,14 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils.file_manager import save_file
 
+from financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance.parent_account_model import (
+	ParentAccountModel,
+)
+
+# Minimum share of sibling accounts that must agree on a parent for it to be taken
+# as a *confident* existing-group match (see ``_suggest_parent``).
+SIBLING_PURITY = 0.6
+
 
 class SyncSAPTrialBalance(Document):
 	def before_save(self):
@@ -225,8 +233,21 @@ class SyncSAPTrialBalance(Document):
 		Account by name). Any grouping already entered is preserved across reloads,
 		so a reload never discards in-progress selections; rows whose Account got
 		mapped since the last load simply drop off.
+
+		Empty fields are auto-suggested and only ever *filled*, never overwritten:
+
+		* Parent Account — an existing group inferred from sibling accounts and a
+		  local ML classifier trained on this company's Chart of Accounts
+		  (:class:`ParentAccountModel`). When nothing existing fits, the row is left
+		  without a parent for you to pick one manually.
+		* Standalone Groups — borrowed from sibling accounts via the heuristic
+		  :func:`_suggest_grouping`.
 		"""
 		existing_cfg = {_missing_key(r.gl_code, r.gl_description): r for r in self.missing_accounts}
+
+		model = ParentAccountModel(self.company)
+		group_cache = {}
+		suggested = 0
 
 		self.missing_accounts = []
 		for row in self.details:
@@ -236,36 +257,58 @@ class SyncSAPTrialBalance(Document):
 			desc = (row.gl_description or "").strip()
 			if not gl and not desc:
 				continue
+
 			prev = existing_cfg.get(_missing_key(gl, desc))
-			self.append("missing_accounts", {
-				"gl_code": gl,
-				"gl_description": row.gl_description,
-				"amount": row.amount,
+			values = {
 				"parent_account": prev.parent_account if prev else None,
 				"primary_group": prev.primary_group if prev else None,
 				"secondary_group": prev.secondary_group if prev else None,
 				"higher_secondary_group": prev.higher_secondary_group if prev else None,
-			})
+				"suggested_parent": None,
+				"confidence": None,
+			}
+
+			# Re-suggest a parent whenever none has been *chosen* (a set
+			# ``parent_account`` is a decision we keep). This recomputes stale
+			# auto-suggestions on reload.
+			if not values["parent_account"]:
+				parent_fields = _suggest_parent(model, self.company, gl, desc)
+				values.update(parent_fields)
+				if parent_fields.get("parent_account"):
+					suggested += 1
+
+			# Borrow Standalone Groups from sibling accounts (blanks only).
+			key = _missing_key(gl, desc)
+			if key not in group_cache:
+				group_cache[key] = _suggest_grouping(self.company, gl, desc)
+			for field in ("primary_group", "secondary_group", "higher_secondary_group"):
+				if group_cache[key].get(field) and not values.get(field):
+					values[field] = group_cache[key][field]
+
+			self.append("missing_accounts", dict(values, gl_code=gl, gl_description=row.gl_description, amount=row.amount))
 
 		self.save()
-		frappe.msgprint(
-			_("Loaded {0} missing account(s).").format(len(self.missing_accounts)),
-			indicator="blue",
-		)
-		return {"count": len(self.missing_accounts)}
+		message = _("Loaded {0} missing account(s).").format(len(self.missing_accounts))
+		if suggested:
+			message += " " + _("Suggested an existing parent for {0}.").format(suggested)
+		if not model.ok:
+			message += " " + _("(ML model unavailable — used the prefix heuristic.)")
+		frappe.msgprint(message, indicator="blue")
+		return {"count": len(self.missing_accounts), "suggested": suggested}
 
 	@frappe.whitelist()
 	def create_missing_accounts(self):
 		"""Create ERPNext Accounts + GL Group Mappings from the Missing Accounts tab.
 
-		Each row of ``missing_accounts`` carries the user's chosen ``parent_account``
-		and ``primary_group`` / ``secondary_group`` / ``higher_secondary_group`` for
-		one GL code. For every matching detail row we create the Account under its
-		parent group and a :doctype:`GL Group Mapping` from its Standalone Groups.
+		Each row of ``missing_accounts`` resolves to its chosen ``parent_account``
+		(an existing group); rows without one are skipped. The Account is created
+		there; a :doctype:`GL Group Mapping` is created too when the row has
+		Standalone Groups (blank groups just skip the mapping — the account is still
+		created).
 
 		``report_scope`` (``"Monthly"`` / ``"Yearly"`` / ``"Both"``) selects which GL
 		Group Mapping report types get created. The method is idempotent: existing
-		Accounts / mappings are reused, never duplicated.
+		Accounts / mappings / groups are reused, never duplicated.
 		"""
 		config_by_key = {}
 		for r in self.missing_accounts:
@@ -295,18 +338,13 @@ class SyncSAPTrialBalance(Document):
 				continue
 
 			cfg = config_by_key.get(_missing_key(gl, desc))
-			parent_account = (cfg or {}).get("parent_account")
-			primary_group = (cfg or {}).get("primary_group")
-			secondary_group = (cfg or {}).get("secondary_group")
-			higher_secondary_group = (cfg or {}).get("higher_secondary_group")
-
-			if not (parent_account and primary_group and secondary_group):
-				skipped.append(gl or desc)
+			if not cfg:
 				continue
 
-			if parent_account not in validated_parents:
-				_validate_parent_group(parent_account, self.company)
-				validated_parents.add(parent_account)
+			parent_account = _resolve_parent_account(cfg, self.company, validated_parents)
+			if not parent_account:
+				skipped.append(gl or desc)
+				continue
 
 			# GL code matches by account number; description-only rows match by name.
 			if gl:
@@ -328,12 +366,14 @@ class SyncSAPTrialBalance(Document):
 				row.account = _create_account(gl, row.gl_description, self.company, parent_account)
 				created_accounts.append(row.account)
 
-			for report_type in report_types:
-				if _ensure_gl_group_mapping(
-					row.account, self.company, report_type,
-					primary_group, secondary_group, higher_secondary_group,
-				):
-					created_mappings += 1
+			# Groups are optional — only map when both primary and secondary are set.
+			if cfg.primary_group and cfg.secondary_group:
+				for report_type in report_types:
+					if _ensure_gl_group_mapping(
+						row.account, self.company, report_type,
+						cfg.primary_group, cfg.secondary_group, cfg.higher_secondary_group,
+					):
+						created_mappings += 1
 
 		# Saving recomputes account auto-mapping + total_amount via before_save.
 		self.save()
@@ -349,6 +389,161 @@ class SyncSAPTrialBalance(Document):
 def _missing_key(gl_code, gl_description):
 	"""Stable identity for a missing row — GL codes may be blank (description-only)."""
 	return ((gl_code or "").strip(), (gl_description or "").strip())
+
+
+def _suggest_parent(model, company, gl_code, gl_description):
+	"""Suggest an existing Parent Account for one missing GL. Order of preference:
+
+	1. Sibling accounts sharing the GL-code prefix (or a description keyword) with
+	   a dominant parent — the strongest, most reliable signal that these accounts
+	   belong together.
+	2. The ML classifier's confident prediction.
+	3. A weaker sibling / ML signal — still an existing group.
+	4. Nothing to learn from (no siblings and no trained model) → return ``{}`` so
+	   the row is left without a parent for the user to pick one manually.
+	"""
+	siblings = _find_sibling_accounts(company, gl_code, gl_description)
+	sib_parent, purity = _dominant_parent(siblings)
+	prediction = model.predict(gl_code, gl_description) if model and model.ok else None
+
+	# 1) Confident existing group from (near-)unanimous siblings.
+	if sib_parent and purity >= SIBLING_PURITY:
+		return _existing(sib_parent, purity * 100)
+
+	# 2) Confident ML prediction — also an existing group.
+	if prediction and prediction["confident"]:
+		return _existing(prediction["parent_account"], prediction["confidence"] * 100)
+
+	# 3) Weaker signals still beat leaving it blank.
+	if sib_parent:
+		return _existing(sib_parent, purity * 100)
+	if prediction:
+		return _existing(prediction["parent_account"], prediction["confidence"] * 100)
+
+	# 4) Genuinely nothing fits → leave the parent blank for manual selection.
+	return {}
+
+
+def _existing(parent, confidence):
+	"""Child-row fields for mapping to an existing parent group."""
+	return {
+		"parent_account": parent,
+		"suggested_parent": parent,
+		"confidence": round(confidence, 1),
+	}
+
+
+def _dominant_parent(siblings):
+	"""Return ``(most_common_parent, purity)`` for a list of sibling accounts."""
+	parents = [s.parent_account for s in siblings if s.parent_account]
+	if not parents:
+		return None, 0.0
+	from collections import Counter
+
+	parent, count = Counter(parents).most_common(1)[0]
+	return parent, count / len(parents)
+
+
+def _resolve_parent_account(cfg, company, validated_parents):
+	"""Return the chosen existing parent group for ``cfg``, or ``None`` if unset.
+
+	Uses the chosen ``parent_account`` when set; rows without one are skipped by
+	the caller. Existing parents are validated once (cached in ``validated_parents``).
+	"""
+	if cfg.parent_account:
+		if cfg.parent_account not in validated_parents:
+			_validate_parent_group(cfg.parent_account, company)
+			validated_parents.add(cfg.parent_account)
+		return cfg.parent_account
+
+	return None
+
+
+def _suggest_grouping(company, gl_code, gl_description):
+	"""Best-effort grouping suggestion for a missing GL, learned from existing Accounts.
+
+	SAP GL codes are hierarchical, so accounts sharing the longest numeric prefix
+	almost always live under the same parent group. We take the majority parent of
+	the closest-matching siblings and, if a sibling already has a GL Group Mapping,
+	borrow its Standalone Groups too. Falls back to a description keyword when the
+	code yields nothing. Returns a dict with any of ``parent_account`` /
+	``primary_group`` / ``secondary_group`` / ``higher_secondary_group`` — or ``{}``.
+	"""
+	siblings = _find_sibling_accounts(company, gl_code, gl_description)
+	if not siblings:
+		return {}
+
+	suggestion = {}
+	parent = _majority([s.parent_account for s in siblings if s.parent_account])
+	if parent:
+		suggestion["parent_account"] = parent
+
+	# Borrow grouping from the first sibling that already has a GL Group Mapping.
+	for s in siblings:
+		mapping = frappe.db.get_value(
+			"GL Group Mapping",
+			{"gl_account": s.name, "company": company},
+			["primary_group", "secondary_group", "higher_secondary_group"],
+			as_dict=True,
+		)
+		if mapping and mapping.primary_group and mapping.secondary_group:
+			suggestion.setdefault("primary_group", mapping.primary_group)
+			suggestion.setdefault("secondary_group", mapping.secondary_group)
+			if mapping.higher_secondary_group:
+				suggestion.setdefault("higher_secondary_group", mapping.higher_secondary_group)
+			break
+
+	return suggestion
+
+
+def _find_sibling_accounts(company, gl_code, gl_description):
+	"""Existing non-group Accounts most likely to share ``gl_code``'s group.
+
+	Tries the account-number prefix from most to least specific (min 2 digits),
+	then falls back to the longest description keyword (min 4 chars).
+	"""
+	code = (gl_code or "").strip().lstrip("0")
+	for length in range(len(code) - 1, 1, -1):
+		rows = frappe.get_all(
+			"Account",
+			filters={
+				"company": company,
+				"is_group": 0,
+				"account_number": ["like", f"{code[:length]}%"],
+			},
+			fields=["name", "parent_account"],
+			limit=50,
+		)
+		if rows:
+			return rows
+
+	desc = (gl_description or "").strip()
+	if desc:
+		token = max(desc.split(), key=len, default="")
+		if len(token) >= 4:
+			rows = frappe.get_all(
+				"Account",
+				filters={
+					"company": company,
+					"is_group": 0,
+					"account_name": ["like", f"%{token}%"],
+				},
+				fields=["name", "parent_account"],
+				limit=50,
+			)
+			if rows:
+				return rows
+
+	return []
+
+
+def _majority(values):
+	"""Most common value in ``values`` (``None`` if empty)."""
+	if not values:
+		return None
+	from collections import Counter
+
+	return Counter(values).most_common(1)[0][0]
 
 
 def _validate_parent_group(parent_account, company):
