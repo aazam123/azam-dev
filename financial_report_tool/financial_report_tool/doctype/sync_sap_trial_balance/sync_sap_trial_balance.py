@@ -22,6 +22,42 @@ from financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance.
 # as a *confident* existing-group match (see ``_suggest_parent``).
 SIBLING_PURITY = 0.6
 
+# SAP GL codes are series-coded: the leading digit fixes the account's financial
+# nature (root type) and therefore which statement it lands on. When a GL code is
+# present we use this to pin the root type and only ever suggest parents of the
+# matching nature — a much stronger signal than prefix/name similarity alone.
+#
+#   GL Series   Root Type   Report Type
+#   1xxxxxxx    Liability    Balance Sheet
+#   2xxxxxxx    Asset        Balance Sheet
+#   3xxxxxxx    Income       Profit and Loss
+#   4xxxxxxx    Expense      Profit and Loss
+#   5xxxxxxx    Expense      Profit and Loss
+#   6xxxxxxx    Expense      Profit and Loss (not used)
+#   7xxxxxxx    Equity       Balance Sheet
+GL_SERIES_ROOT_TYPE = {
+	"1": "Liability",
+	"2": "Asset",
+	"3": "Income",
+	"4": "Expense",
+	"5": "Expense",
+	"6": "Expense",
+	"7": "Equity",
+}
+
+
+def _gl_series_root_type(gl_code):
+	"""Root type implied by a GL code's leading digit, or ``None`` if unknown.
+
+	GL codes are stored with leading zeros stripped (see ``apply_trial_balance_rows``),
+	so the first character is the series digit. Description-only rows (no code) and
+	codes outside the known series return ``None``, leaving suggestion unconstrained.
+	"""
+	code = (gl_code or "").strip().lstrip("0")
+	if not code:
+		return None
+	return GL_SERIES_ROOT_TYPE.get(code[0])
+
 
 class SyncSAPTrialBalance(Document):
 	def before_save(self):
@@ -401,10 +437,16 @@ def _suggest_parent(model, company, gl_code, gl_description):
 	3. A weaker sibling / ML signal — still an existing group.
 	4. Nothing to learn from (no siblings and no trained model) → return ``{}`` so
 	   the row is left without a parent for the user to pick one manually.
+
+	When the GL code carries a known series (see :data:`GL_SERIES_ROOT_TYPE`), both
+	the sibling search and the ML prediction are restricted to parents of the matching
+	root type, so a suggestion can never cross the Balance Sheet / Profit and Loss line
+	the code has already fixed.
 	"""
-	siblings = _find_sibling_accounts(company, gl_code, gl_description)
+	root_type = _gl_series_root_type(gl_code)
+	siblings = _find_sibling_accounts(company, gl_code, gl_description, root_type)
 	sib_parent, purity = _dominant_parent(siblings)
-	prediction = model.predict(gl_code, gl_description) if model and model.ok else None
+	prediction = model.predict(gl_code, gl_description, root_type) if model and model.ok else None
 
 	# 1) Confident existing group from (near-)unanimous siblings.
 	if sib_parent and purity >= SIBLING_PURITY:
@@ -469,7 +511,9 @@ def _suggest_grouping(company, gl_code, gl_description):
 	code yields nothing. Returns a dict with any of ``parent_account`` /
 	``primary_group`` / ``secondary_group`` / ``higher_secondary_group`` — or ``{}``.
 	"""
-	siblings = _find_sibling_accounts(company, gl_code, gl_description)
+	siblings = _find_sibling_accounts(
+		company, gl_code, gl_description, _gl_series_root_type(gl_code)
+	)
 	if not siblings:
 		return {}
 
@@ -496,21 +540,24 @@ def _suggest_grouping(company, gl_code, gl_description):
 	return suggestion
 
 
-def _find_sibling_accounts(company, gl_code, gl_description):
+def _find_sibling_accounts(company, gl_code, gl_description, root_type=None):
 	"""Existing non-group Accounts most likely to share ``gl_code``'s group.
 
 	Tries the account-number prefix from most to least specific (min 2 digits),
-	then falls back to the longest description keyword (min 4 chars).
+	then falls back to the longest description keyword (min 4 chars). When
+	``root_type`` is given (from the GL series), only accounts of that root type are
+	returned — this keeps a loose 2-digit prefix or a common keyword from dragging in
+	siblings that sit on the other financial statement.
 	"""
+	base = {"company": company, "is_group": 0}
+	if root_type:
+		base["root_type"] = root_type
+
 	code = (gl_code or "").strip().lstrip("0")
 	for length in range(len(code) - 1, 1, -1):
 		rows = frappe.get_all(
 			"Account",
-			filters={
-				"company": company,
-				"is_group": 0,
-				"account_number": ["like", f"{code[:length]}%"],
-			},
+			filters=dict(base, account_number=["like", f"{code[:length]}%"]),
 			fields=["name", "parent_account"],
 			limit=50,
 		)
@@ -523,11 +570,7 @@ def _find_sibling_accounts(company, gl_code, gl_description):
 		if len(token) >= 4:
 			rows = frappe.get_all(
 				"Account",
-				filters={
-					"company": company,
-					"is_group": 0,
-					"account_name": ["like", f"%{token}%"],
-				},
+				filters=dict(base, account_name=["like", f"%{token}%"]),
 				fields=["name", "parent_account"],
 				limit=50,
 			)

@@ -60,17 +60,27 @@ class ParentAccountModel:
 	def __init__(self, company):
 		self.company = company
 		self.ok = False
+		self.parent_root_type = {}
 		self._fit()
 
 	def _fit(self):
 		rows = frappe.get_all(
 			"Account",
 			filters={"company": self.company, "is_group": 0},
-			fields=["account_number", "account_name", "parent_account"],
+			fields=["account_number", "account_name", "parent_account", "root_type"],
 		)
 		samples = [r for r in rows if r.parent_account]
 		if len(samples) < MIN_SAMPLES or len({r.parent_account for r in samples}) < MIN_CLASSES:
 			return
+
+		# Root type of each candidate parent, so ``predict`` can honour the GL-series
+		# constraint (a Liability GL must not be parented under an Asset group). A
+		# child inherits its parent's root type in ERPNext, so the sample's own
+		# ``root_type`` is the parent's root type.
+		self.parent_root_type = {}
+		for r in samples:
+			if r.root_type:
+				self.parent_root_type.setdefault(r.parent_account, r.root_type)
 
 		try:
 			from sklearn.feature_extraction.text import TfidfVectorizer
@@ -109,16 +119,29 @@ class ParentAccountModel:
 			frappe.log_error(title=f"ParentAccountModel training failed — {self.company}")
 			self.ok = False
 
-	def predict(self, gl_code, gl_description):
-		"""Return ``{parent_account, confidence (0-1), confident}`` or ``None``."""
+	def predict(self, gl_code, gl_description, allowed_root_type=None):
+		"""Return ``{parent_account, confidence (0-1), confident}`` or ``None``.
+
+		When ``allowed_root_type`` is given (derived from the GL code's series), the
+		prediction is restricted to parents of that root type — the highest-probability
+		class whose parent matches. This keeps the classifier from ever crossing a
+		Balance Sheet / Profit and Loss boundary that the GL code has already fixed.
+		Parents of unknown root type are allowed through so the constraint only ever
+		filters, never blocks on missing data.
+		"""
 		if not self.ok:
 			return None
 
 		proba = self.pipeline.predict_proba([account_text(gl_code, gl_description)])[0]
-		idx = max(range(len(proba)), key=lambda i: proba[i])
-		confidence = float(proba[idx])
-		return {
-			"parent_account": str(self.classes_[idx]),
-			"confidence": confidence,
-			"confident": confidence >= CONFIDENCE_THRESHOLD,
-		}
+		for idx in sorted(range(len(proba)), key=lambda i: proba[i], reverse=True):
+			parent = str(self.classes_[idx])
+			parent_root = self.parent_root_type.get(parent)
+			if allowed_root_type and parent_root and parent_root != allowed_root_type:
+				continue
+			confidence = float(proba[idx])
+			return {
+				"parent_account": parent,
+				"confidence": confidence,
+				"confident": confidence >= CONFIDENCE_THRESHOLD,
+			}
+		return None
