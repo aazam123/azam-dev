@@ -184,6 +184,20 @@ doctype_js = {"Account" : "public/js/account.js"}
 # 	"frappe.desk.doctype.event.event.get_events": "financial_report_tool.event.get_events"
 # }
 #
+# SAP's z_f01_extract program appends the closing JSON quote of `callback_url`
+# to the outbound callback path, so it POSTs to
+# `.../sync_sap_trial_balance.receive_sap_trial_balance"` — Frappe then looks up
+# a method named `receive_sap_trial_balance"` (trailing quote) and fails with
+# AttributeError. Alias that mangled command back to the real callback so the
+# push succeeds without waiting on a SAP-side fix.
+_SAP_TB_CALLBACK = (
+	"financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance"
+	".sync_sap_trial_balance.receive_sap_trial_balance"
+)
+override_whitelisted_methods = {
+	_SAP_TB_CALLBACK + '"': _SAP_TB_CALLBACK,
+}
+#
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
