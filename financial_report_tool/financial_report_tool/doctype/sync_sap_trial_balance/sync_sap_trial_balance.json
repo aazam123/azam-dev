@@ -11,7 +11,9 @@
   "chartofacc",
   "column_break_keow",
   "sversion",
+  "ledger",
   "layout",
+  "output_format",
   "column_break_xslo",
   "repyear",
   "compyear",
@@ -176,9 +178,24 @@
    "label": "SVERSION"
   },
   {
+   "default": "0L",
+   "description": "SAP ledger (RLDNR). '0L' is the leading ledger.",
+   "fieldname": "ledger",
+   "fieldtype": "Data",
+   "label": "Ledger"
+  },
+  {
    "fieldname": "layout",
    "fieldtype": "Data",
    "label": "LAYOUT"
+  },
+  {
+   "default": "ALV Grid",
+   "description": "RFBILA output mode sent to SAP (s_billst / s_bilgrd / s_biltre).",
+   "fieldname": "output_format",
+   "fieldtype": "Select",
+   "label": "Output Format",
+   "options": "Classic List\nALV Grid\nALV Tree"
   },
   {
    "fieldname": "repyear",

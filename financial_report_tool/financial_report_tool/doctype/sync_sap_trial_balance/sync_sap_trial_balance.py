@@ -59,6 +59,49 @@ def _gl_series_root_type(gl_code):
 	return GL_SERIES_ROOT_TYPE.get(code[0])
 
 
+# Fully-qualified path of the inbound callback SAP pushes the generated report to.
+_CALLBACK_METHOD = (
+	"financial_report_tool.financial_report_tool.doctype."
+	"sync_sap_trial_balance.sync_sap_trial_balance.receive_sap_trial_balance"
+)
+
+# RFBILA offers three mutually-exclusive output modes; SAP's ``z_f01_extract``
+# takes them as a flag triplet where exactly one carries "X". Maps the doc's
+# ``output_format`` choice to the flag that gets set.
+OUTPUT_FLAG_FIELD = {
+	"Classic List": "s_billst",  # Bilanz List  (classic ABAP list)
+	"ALV Grid": "s_bilgrd",      # Bilanz Grid  (ALV grid)
+	"ALV Tree": "s_biltre",      # Bilanz Tree  (ALV tree)
+}
+
+
+def _period_range(low, high):
+	"""SAP select-option range table for a fiscal-period span.
+
+	Returns ``[{sign, option, low, high}]`` as ``z_f01_extract`` expects for
+	``s_rfper``/``s_cmpfmn``. Periods are zero-padded to two digits (SAP posting
+	periods run 01–16: 12 regular + 4 special). A single-period span collapses to
+	an ``EQ`` on ``low`` rather than a degenerate ``BT``.
+	"""
+	lo = str(low or "").strip().zfill(2)
+	hi = str(high or "").strip().zfill(2)
+	if lo == hi:
+		return [{"sign": "I", "option": "EQ", "low": lo, "high": ""}]
+	return [{"sign": "I", "option": "BT", "low": lo, "high": hi}]
+
+
+def _callback_url():
+	"""Absolute URL SAP posts the generated trial balance back to.
+
+	Uses the explicit override in FR Financial Settings when set, otherwise
+	derives it from the site URL so it works across environments without config.
+	"""
+	override = frappe.db.get_value("FR Financial Settings", None, "callback_url")
+	if override:
+		return override.strip()
+	return frappe.utils.get_url(f"/api/method/{_CALLBACK_METHOD}")
+
+
 class SyncSAPTrialBalance(Document):
 	def before_save(self):
 		"""Auto-map accounts + calculate total amount"""
@@ -150,11 +193,17 @@ class SyncSAPTrialBalance(Document):
 		}
 
 	def _send_sap_request(self):
-		"""Request half: ask SAP to generate the Trial Balance in *its* background.
+		"""Request half: ask SAP's ``z_f01_extract`` to generate the Trial Balance.
 
 		SAP responds with an acknowledgement only. We send our own document name
-		as ``REFERENCE_ID`` so SAP can echo it back on the callback and we can
-		match the pushed file to this exact record.
+		as ``reference_id`` and the absolute ``callback_url`` so SAP can push the
+		generated report back to :func:`receive_sap_trial_balance` and we can match
+		it to this exact record.
+
+		The request is a JSON ``POST`` (``sap-client`` stays on the query string).
+		Fiscal-period spans are sent as SAP select-option range tables, and the
+		RFBILA output mode is expressed via the ``s_billst``/``s_bilgrd``/``s_biltre``
+		flag triplet.
 
 		Runs inside the background job. Raising here marks the job Failed and the
 		error is surfaced on the form via ``sync_error`` (see ``do_sync_sap_data``).
@@ -165,23 +214,36 @@ class SyncSAPTrialBalance(Document):
 		fs = self.validate_sap_settings()
 		self.validate_required_fields()
 
-		params = {
-			"sap-client": self.sap_client,
-			"CHARTOFACC": self.chartofacc,
-			"COMPANY": self.company_code,
-			"SVERSION": self.sversion,
-			"REPYEAR": self.repyear,
-			"SREPMONTH": self.srepmonth,
-			"TREPMONTH": self.trepmonth,
-			"COMPYEAR": self.compyear,
-			"SCOMPMONTH": self.scompmonth,
-			"TCOMPMONTH": self.tcompmonth,
-			"LAYOUT": self.layout,
-			# So SAP can correlate its later callback with this document.
-			"REFERENCE_ID": self.name,
+		chosen = self.output_format or "ALV Grid"
+		flags = {
+			field: ("X" if field == OUTPUT_FLAG_FIELD[chosen] else "")
+			for field in ("s_billst", "s_bilgrd", "s_biltre")
 		}
 
-		response = requests.get(fs.api_end_point, params=params, auth=HTTPBasicAuth(fs.user_name, fs.password), verify=False, timeout=int(fs.timeout))
+		body = {
+			# So SAP can correlate its later callback with this document.
+			"reference_id": self.name,
+			"s_ktopl": self.chartofacc,
+			"p_bukrs": self.company_code,
+			"s_rldnr": self.ledger or "0L",
+			"s_versn": self.sversion,
+			"s_rpyear": self.repyear,
+			"s_rfper": _period_range(self.srepmonth, self.trepmonth),
+			"s_cmpyr": self.compyear,
+			"s_cmpfmn": _period_range(self.scompmonth, self.tcompmonth),
+			**flags,
+			"s_layout": self.layout,
+			"callback_url": _callback_url(),
+		}
+
+		response = requests.post(
+			fs.api_end_point,
+			params={"sap-client": self.sap_client},
+			json=body,
+			auth=HTTPBasicAuth(fs.user_name, fs.password),
+			verify=False,
+			timeout=int(fs.timeout),
+		)
 		response.raise_for_status()
 
 		# The request is now just a trigger; SAP acknowledges asynchronously.
@@ -681,25 +743,30 @@ def do_sync_sap_data(docname):
 
 
 @frappe.whitelist()
-def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=None):
+def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=None, items=None):
 	"""Inbound callback SAP calls once the Trial Balance has been generated.
 
-	This is the configurable "API Detail" to hand to SAP. SAP authenticates with
-	a Frappe **api_key:api_secret** (``Authorization: token <key>:<secret>``) and
-	pushes the generated report here.
+	This is the ``callback_url`` handed to ``z_f01_extract``. SAP authenticates
+	with a Frappe **api_key:api_secret** (``Authorization: token <key>:<secret>``)
+	and pushes the generated report here.
 
 	Endpoint::
 
 	    POST /api/method/financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance.sync_sap_trial_balance.receive_sap_trial_balance
 
-	Payload:
-	  * ``reference_id`` – the value we sent as ``REFERENCE_ID`` on the original
-	    request (the Sync SAP Trial Balance document name). Required.
-	  * The result file, either as a multipart ``file`` upload, or as base64
-	    ``file_content`` together with ``file_name`` (``.json`` or ``.csv``).
+	Payload (``reference_id`` is always required — the value we sent on the
+	original request, i.e. the Sync SAP Trial Balance document name). The rows may
+	arrive in either shape:
 
-	The pushed file is stored against the document, parsed, and its rows written
-	to ``details``; the doc is then marked ``Completed``.
+	  * **Inline** – ``{"reference_id": ..., "items": [{RACCT, TEXT, REPVAL}, ...]}``.
+	    This is what ``z_f01_extract`` posts to ``callback_url``. No file is stored;
+	    the raw JSON is kept on ``responce`` for traceability.
+	  * **File** – the result as a multipart ``file`` upload, or base64
+	    ``file_content`` + ``file_name`` (``.json``/``.csv``). The file is stored
+	    against the document.
+
+	Either way the rows are normalized (RACCT/TEXT/REPVAL), written to ``details``,
+	and the doc is marked ``Completed``.
 	"""
 	if not reference_id:
 		frappe.throw(_("reference_id is required"))
@@ -707,30 +774,46 @@ def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=No
 	if not frappe.db.exists("Sync SAP Trial Balance", reference_id):
 		frappe.throw(_("No Sync SAP Trial Balance found for reference_id {0}").format(reference_id))
 
-	raw_bytes, file_name = _read_inbound_file(file_name, file_content)
-	ext = os.path.splitext(file_name)[1].lower()
-	if ext not in (".csv", ".json"):
-		frappe.throw(_("Only .csv and .json files are supported"))
-
-	rows = _parse_sap_tb_file(raw_bytes, ext)
+	# Prefer inline rows (z_f01_extract posts them straight to callback_url); fall
+	# back to a stored file only when no inline list was sent.
+	has_file = bool(file_content) or bool(frappe.request and frappe.request.files.get("file"))
+	if items is not None and not has_file:
+		rows = frappe.parse_json(items) if isinstance(items, str) else items
+		if isinstance(rows, dict):
+			rows = rows.get("items")
+		if not isinstance(rows, list):
+			frappe.throw(_("'items' must be a list of trial balance rows"))
+		raw_bytes = None
+	else:
+		raw_bytes, file_name = _read_inbound_file(file_name, file_content)
+		ext = os.path.splitext(file_name)[1].lower()
+		if ext not in (".csv", ".json"):
+			frappe.throw(_("Only .csv and .json files are supported"))
+		rows = _parse_sap_tb_file(raw_bytes, ext)
 
 	doc = frappe.get_doc("Sync SAP Trial Balance", reference_id)
 	try:
-		saved = save_file(
-			fname=file_name,
-			content=raw_bytes,
-			dt="Sync SAP Trial Balance",
-			dn=doc.name,
-			decode=False,
-			is_private=1,
-		)
+		saved_url = None
+		if raw_bytes is not None:
+			saved = save_file(
+				fname=file_name,
+				content=raw_bytes,
+				dt="Sync SAP Trial Balance",
+				dn=doc.name,
+				decode=False,
+				is_private=1,
+			)
+			saved_url = saved.file_url
 
 		doc.sync_status = "Completed"
 		doc.sync_error = ""
-		try:
-			doc.responce = raw_bytes.decode("utf-8-sig")
-		except UnicodeDecodeError:
-			doc.responce = raw_bytes.decode("latin-1")
+		if raw_bytes is not None:
+			try:
+				doc.responce = raw_bytes.decode("utf-8-sig")
+			except UnicodeDecodeError:
+				doc.responce = raw_bytes.decode("latin-1")
+		else:
+			doc.responce = json.dumps(rows, ensure_ascii=False)
 
 		# apply_trial_balance_rows saves the doc (recomputes total_amount).
 		doc.apply_trial_balance_rows(rows)
@@ -743,7 +826,7 @@ def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=No
 		return {
 			"success": True,
 			"reference_id": doc.name,
-			"file": saved.file_url,
+			"file": saved_url,
 			"rows_imported": len(doc.details),
 			"message": f"Trial Balance received and populated for {doc.name}.",
 		}

@@ -21,6 +21,7 @@
   "sap_tab",
   "api_end_point",
   "timeout",
+  "callback_url",
   "column_break_phxe",
   "user_name",
   "password"
@@ -89,6 +90,13 @@
    "fieldname": "api_end_point",
    "fieldtype": "Small Text",
    "label": "API End Point",
+   "max_height": "30px"
+  },
+  {
+   "description": "Optional. Absolute URL SAP posts the trial balance back to. Leave blank to derive it from the site URL.",
+   "fieldname": "callback_url",
+   "fieldtype": "Small Text",
+   "label": "Callback URL",
    "max_height": "30px"
   },
   {
