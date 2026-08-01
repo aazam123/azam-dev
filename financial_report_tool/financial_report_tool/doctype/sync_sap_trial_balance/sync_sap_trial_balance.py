@@ -335,7 +335,22 @@ class SyncSAPTrialBalance(Document):
 			verify=False,
 			timeout=int(fs.timeout),
 		)
-		response.raise_for_status()
+
+		# On failure, surface SAP's *own* response body — a bare "403 Forbidden"
+		# from raise_for_status() hides the real reason (missing authorization,
+		# CSRF token required, wrong client, service inactive, ...). SAP usually
+		# spells it out in the body, so put that in the error the user sees.
+		if not response.ok:
+			detail = (response.text or "").strip()
+			frappe.throw(
+				_("SAP rejected the request ({0} {1}) at {2}: {3}").format(
+					response.status_code,
+					response.reason,
+					response.url,
+					(detail[:1800] + " …") if len(detail) > 1800 else (detail or "(empty response body)"),
+				),
+				title=_("SAP Request Failed"),
+			)
 
 		# The request is now just a trigger; SAP acknowledges asynchronously.
 		# Store whatever acknowledgement it returns for traceability.

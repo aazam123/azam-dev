@@ -6,24 +6,6 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "sap_details_section",
-  "company_code",
-  "chartofacc",
-  "column_break_keow",
-  "sversion",
-  "ledger",
-  "column_break_xslo",
-  "layout",
-  "output_format",
-  "sap_client",
-  "period_section",
-  "repyear",
-  "srepmonth",
-  "trepmonth",
-  "column_break_stpt",
-  "compyear",
-  "scompmonth",
-  "tcompmonth",
   "section_break_utex",
   "company",
   "column_break_tgls",
@@ -34,11 +16,32 @@
   "currency",
   "column_break_zhfi",
   "total_amount",
+  "sap_details_section",
+  "company_code",
+  "chartofacc",
+  "column_break_keow",
+  "sversion",
+  "ledger",
+  "column_break_xslo",
+  "layout",
+  "output_format",
+  "column_break_klfn",
+  "sap_client",
   "sync_status",
+  "period_section",
+  "repyear",
+  "compyear",
+  "column_break_stpt",
+  "srepmonth",
+  "scompmonth",
+  "column_break_kogx",
+  "trepmonth",
+  "tcompmonth",
+  "column_break_wbbh",
   "sync_error",
   "section_break_szef",
-  "responce",
   "details",
+  "responce",
   "tb_created",
   "missing_grouping_tab",
   "report_scope",
@@ -97,19 +100,19 @@
   {
    "fieldname": "sync_status",
    "fieldtype": "Select",
-   "label": "Sync Status",
-   "options": "\nQueued\nSyncing\nAwaiting SAP\nCompleted\nFailed",
-   "read_only": 1,
    "in_list_view": 1,
-   "no_copy": 1
+   "label": "Sync Status",
+   "no_copy": 1,
+   "options": "\nQueued\nSyncing\nAwaiting SAP\nCompleted\nFailed",
+   "read_only": 1
   },
   {
    "depends_on": "eval:doc.sync_status=='Failed'",
    "fieldname": "sync_error",
    "fieldtype": "Long Text",
    "label": "Sync Error",
-   "read_only": 1,
-   "no_copy": 1
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "fiscal_year",
@@ -205,14 +208,14 @@
    "read_only": 1
   },
   {
-   "description": "Auto-filled from Month — year-to-date start, always 01 (SREPMONTH).",
+   "description": "Auto-filled from Month \u2014 year-to-date start, always 01 (SREPMONTH).",
    "fieldname": "srepmonth",
    "fieldtype": "Data",
    "label": "Reporting Start Period",
    "read_only": 1
   },
   {
-   "description": "Auto-filled from Month — calendar period, e.g. June = 06 (TREPMONTH).",
+   "description": "Auto-filled from Month \u2014 calendar period, e.g. June = 06 (TREPMONTH).",
    "fieldname": "trepmonth",
    "fieldtype": "Data",
    "label": "Reporting End Period",
@@ -223,21 +226,21 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Auto-filled from Fiscal Year — reporting year minus one (COMPYEAR).",
+   "description": "Auto-filled from Fiscal Year \u2014 reporting year minus one (COMPYEAR).",
    "fieldname": "compyear",
    "fieldtype": "Data",
    "label": "Comparison Year",
    "read_only": 1
   },
   {
-   "description": "Auto-filled from Month — year-to-date start, always 01 (SCOMPMONTH).",
+   "description": "Auto-filled from Month \u2014 year-to-date start, always 01 (SCOMPMONTH).",
    "fieldname": "scompmonth",
    "fieldtype": "Data",
    "label": "Comparison Start Period",
    "read_only": 1
   },
   {
-   "description": "Auto-filled from Month — calendar period, e.g. June = 06 (TCOMPMONTH).",
+   "description": "Auto-filled from Month \u2014 calendar period, e.g. June = 06 (TCOMPMONTH).",
    "fieldname": "tcompmonth",
    "fieldtype": "Data",
    "label": "Comparison End Period",
@@ -278,16 +281,28 @@
    "fieldtype": "Table",
    "label": "Missing Accounts",
    "options": "Sync SAP Missing Account"
+  },
+  {
+   "fieldname": "column_break_klfn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_kogx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_wbbh",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-03 09:39:03.750713",
+ "modified": "2026-08-01 13:35:48.780293",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Sync SAP Trial Balance",
- "naming_rule": "Expression (old style)",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
