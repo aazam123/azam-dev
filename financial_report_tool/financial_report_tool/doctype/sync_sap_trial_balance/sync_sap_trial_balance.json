@@ -12,19 +12,18 @@
   "column_break_keow",
   "sversion",
   "ledger",
+  "column_break_xslo",
   "layout",
   "output_format",
-  "column_break_xslo",
+  "sap_client",
+  "period_section",
   "repyear",
-  "compyear",
-  "column_break_xbbg",
   "srepmonth",
   "trepmonth",
   "column_break_stpt",
+  "compyear",
   "scompmonth",
   "tcompmonth",
-  "column_break_tfgj",
-  "sap_client",
   "section_break_utex",
   "company",
   "column_break_tgls",
@@ -121,10 +120,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "column_break_xbbg",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "month",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -198,42 +193,55 @@
    "options": "Classic List\nALV Grid\nALV Tree"
   },
   {
+   "fieldname": "period_section",
+   "fieldtype": "Section Break",
+   "label": "Reporting & Comparison Periods"
+  },
+  {
+   "description": "Auto-filled from Fiscal Year (REPYEAR).",
    "fieldname": "repyear",
    "fieldtype": "Data",
-   "label": "REPYEAR"
+   "label": "Reporting Year",
+   "read_only": 1
   },
   {
-   "fieldname": "compyear",
-   "fieldtype": "Data",
-   "label": "COMPYEAR"
-  },
-  {
+   "description": "Auto-filled from Month — year-to-date start, always 01 (SREPMONTH).",
    "fieldname": "srepmonth",
    "fieldtype": "Data",
-   "label": "SREPMONTH"
+   "label": "Reporting Start Period",
+   "read_only": 1
   },
   {
+   "description": "Auto-filled from Month — calendar period, e.g. June = 06 (TREPMONTH).",
    "fieldname": "trepmonth",
    "fieldtype": "Data",
-   "label": "TREPMONTH"
+   "label": "Reporting End Period",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_stpt",
    "fieldtype": "Column Break"
   },
   {
+   "description": "Auto-filled from Fiscal Year — reporting year minus one (COMPYEAR).",
+   "fieldname": "compyear",
+   "fieldtype": "Data",
+   "label": "Comparison Year",
+   "read_only": 1
+  },
+  {
+   "description": "Auto-filled from Month — year-to-date start, always 01 (SCOMPMONTH).",
    "fieldname": "scompmonth",
    "fieldtype": "Data",
-   "label": "SCOMPMONTH"
+   "label": "Comparison Start Period",
+   "read_only": 1
   },
   {
+   "description": "Auto-filled from Month — calendar period, e.g. June = 06 (TCOMPMONTH).",
    "fieldname": "tcompmonth",
    "fieldtype": "Data",
-   "label": "TCOMPMONTH"
-  },
-  {
-   "fieldname": "column_break_tfgj",
-   "fieldtype": "Column Break"
+   "label": "Comparison End Period",
+   "read_only": 1
   },
   {
    "fieldname": "sap_client",

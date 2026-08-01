@@ -102,9 +102,51 @@ def _callback_url():
 	return frappe.utils.get_url(f"/api/method/{_CALLBACK_METHOD}")
 
 
+# Month name -> SAP fiscal period. The Sync SAP Trial Balance ``month`` Select is
+# calendar-ordered, and the observed data maps a month straight to its calendar
+# number (June -> 06), so the index into this list (+1) is the period.
+MONTHS = [
+	"January", "February", "March", "April", "May", "June",
+	"July", "August", "September", "October", "November", "December",
+]
+
+
+def _fiscal_start_year(fiscal_year):
+	"""Start year (int) of a Fiscal Year, or ``None``.
+
+	Reads the Fiscal Year's ``year_start_date`` (authoritative regardless of
+	naming), falling back to the leading ``YYYY`` of a ``YYYY-YYYY`` name.
+	"""
+	start = frappe.db.get_value("Fiscal Year", fiscal_year, "year_start_date")
+	if start:
+		return start.year
+	token = (fiscal_year or "").split("-")[0].strip()
+	return int(token) if token.isdigit() else None
+
+
+def _month_period(month):
+	"""Two-digit SAP period for a month name (``"June"`` -> ``"06"``), or ``None``."""
+	try:
+		return f"{MONTHS.index(month) + 1:02d}"
+	except ValueError:
+		return None
+
+
 class SyncSAPTrialBalance(Document):
 	def before_save(self):
-		"""Auto-map accounts + calculate total amount"""
+		"""Fill SAP params from the company/period, auto-map accounts, total up.
+
+		The fixed SAP parameters are never retyped per run: the company code /
+		chart of accounts / version / layout / client come from the company's
+		:doctype:`SAP Company Mapping`, the reporting & comparison years derive from
+		``fiscal_year``, and the period spans derive from ``month``. All of these
+		are *fill-if-empty* so a manual override on a given document is preserved
+		(the form's own onchange handlers refresh them when you switch company /
+		fiscal year / month).
+		"""
+		self._apply_company_template()
+		self._apply_period_defaults()
+
 		total = 0
 
 		for i in self.details:
@@ -126,6 +168,55 @@ class SyncSAPTrialBalance(Document):
 
 		self.total_amount = total
 
+	def _apply_company_template(self):
+		"""Fill the company-fixed SAP params from :doctype:`SAP Company Mapping`.
+
+		Only blank fields are filled, so a per-document override sticks. Missing
+		mapping (or missing values on it) simply leaves the fields as-is, and the
+		usual ``validate_required_fields`` guard still catches anything unset at
+		sync time.
+		"""
+		if not self.company:
+			return
+		tpl = frappe.db.get_value(
+			"SAP Company Mapping",
+			{"company": self.company},
+			["company_code", "chartofacc", "sversion", "layout", "sap_client"],
+			as_dict=True,
+		)
+		if not tpl:
+			return
+		for field in ("company_code", "chartofacc", "sversion", "layout", "sap_client"):
+			if tpl.get(field) and not self.get(field):
+				self.set(field, tpl.get(field))
+
+	def _apply_period_defaults(self):
+		"""Derive the year + period params from ``fiscal_year`` and ``month``.
+
+		``repyear`` is the fiscal year's start year and ``compyear`` the year
+		before it. The period spans are year-to-date: ``01`` through the calendar
+		number of the selected ``month`` (e.g. June -> 01..06), applied to both the
+		reporting and comparison ranges. Fill-if-empty, like the company template.
+		"""
+		if self.fiscal_year:
+			year = _fiscal_start_year(self.fiscal_year)
+			if year:
+				if not self.repyear:
+					self.repyear = str(year)
+				if not self.compyear:
+					self.compyear = str(year - 1)
+
+		if self.month:
+			mm = _month_period(self.month)
+			if mm:
+				if not self.srepmonth:
+					self.srepmonth = "01"
+				if not self.trepmonth:
+					self.trepmonth = mm
+				if not self.scompmonth:
+					self.scompmonth = "01"
+				if not self.tcompmonth:
+					self.tcompmonth = mm
 
 	def validate_sap_settings(self):
 		"""Ensure SAP API settings exist and are complete"""

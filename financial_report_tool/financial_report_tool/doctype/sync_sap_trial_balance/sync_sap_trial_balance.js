@@ -35,7 +35,61 @@ function create_missing_accounts(frm) {
     });
 }
 
+// Calendar-ordered, matching the Month select and the server MONTHS list.
+const SAP_MONTHS = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+
+// Pull the company-fixed SAP params from SAP Company Mapping onto the form.
+// Runs on explicit company change, so it overwrites (the chosen company wins).
+function apply_company_template(frm) {
+    if (!frm.doc.company) return;
+    frappe.db.get_value("SAP Company Mapping", { company: frm.doc.company },
+        ["company_code", "chartofacc", "sversion", "layout", "sap_client"]
+    ).then(r => {
+        const d = (r && r.message) || {};
+        if (!Object.keys(d).length) {
+            frappe.show_alert({
+                message: __("No SAP Company Mapping for {0} — fill the SAP params manually or create a mapping.", [frm.doc.company]),
+                indicator: "orange"
+            }, 7);
+            return;
+        }
+        ["company_code", "chartofacc", "sversion", "layout", "sap_client"].forEach(f => {
+            if (d[f]) frm.set_value(f, d[f]);
+        });
+    });
+}
+
+// Reporting year = fiscal year start; comparison year = one before.
+function apply_period_years(frm) {
+    if (!frm.doc.fiscal_year) return;
+    const y = parseInt(String(frm.doc.fiscal_year).split("-")[0], 10);
+    if (isNaN(y)) return;
+    frm.set_value("repyear", String(y));
+    frm.set_value("compyear", String(y - 1));
+}
+
+// Year-to-date span: 01 -> selected month's calendar number, for both ranges.
+function apply_period_months(frm) {
+    const i = SAP_MONTHS.indexOf(frm.doc.month);
+    if (i < 0) return;
+    const mm = String(i + 1).padStart(2, "0");
+    frm.set_value("srepmonth", "01");
+    frm.set_value("trepmonth", mm);
+    frm.set_value("scompmonth", "01");
+    frm.set_value("tcompmonth", mm);
+}
+
 frappe.ui.form.on("Sync SAP Trial Balance", {
+    company(frm) {
+        apply_company_template(frm);
+    },
+    fiscal_year(frm) {
+        apply_period_years(frm);
+    },
+    month(frm) {
+        apply_period_months(frm);
+    },
     refresh(frm) {
         // Collapse the sidebar by default on this form (mirrors clicking the
         // page-header "Toggle Sidebar"). Users can re-open it with that button.
