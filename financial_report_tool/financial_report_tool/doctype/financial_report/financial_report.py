@@ -691,6 +691,8 @@ class FinancialReport(Document):
 						i.section_description = self.get_monthly_investment_non_current_note_data(section_description)
 					if note_type == "Trade & Other receivables":
 						i.section_description = self.get_monthly_trade_and_other_receivables_note_data(section_description)
+					if note_type == "Trade Payable":
+						i.section_description = self.get_monthly_trade_payable_note_data(section_description)
 					if note_type == "Equity Share Capital":
 						i.section_description = self.get_monthly_equity_share_capital_note_data(section_description)
 					if note_type == "Other Equity":
@@ -8447,6 +8449,66 @@ class FinancialReport(Document):
 			'''
 		html += "</tbody></table>"
 		return section_description.replace("{{note_table}}", html)
+
+	def get_monthly_trade_payable_note_data(self, section_description):
+		"""Monthly trade payables note: MSME dues, other creditors and total, in the
+		standard monthly 3-column layout (mirrors the yearly note's content)."""
+		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		default_currency = frappe.get_value("Company", self.company, "default_currency")
+		current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
+		prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
+
+		def msme(month, year, fx):
+			return round((self.get_sum_grouping_amount("Trade payables", "Dues of MSME", month, year) or 0) * fx, self.show_decimal_value)
+
+		def creditor(month, year, fx):
+			return round(((self.get_sum_grouping_amount("Trade payables", "Trade payables", month, year) or 0)
+				+ (self.get_sum_grouping_amount("Trade payables", "Dues of Creditors Other Than MSME", month, year) or 0)) * fx, self.show_decimal_value)
+
+		msme_c = msme(self.current_month, self.fiscal_year, current_fx)
+		msme_p = msme(self.previous_month, self.fiscal_year, previous_fx)
+		msme_py = msme(cls_month, self.previous_fiscal_year, prev_year_fx)
+		cred_c = creditor(self.current_month, self.fiscal_year, current_fx)
+		cred_p = creditor(self.previous_month, self.fiscal_year, previous_fx)
+		cred_py = creditor(cls_month, self.previous_fiscal_year, prev_year_fx)
+
+		rows = [
+			("Total outstanding dues of micro enterprises and small enterprises", msme_c, msme_p, msme_py, False),
+			("Total outstanding dues of creditors other than micro enterprises and small enterprises", cred_c, cred_p, cred_py, False),
+			("Total", msme_c + cred_c, msme_p + cred_p, msme_py + cred_py, True),
+		]
+
+		html = f'''
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top:-25pt; border:1px solid #000;">
+			<thead>
+				<tr style="color: #4472C4; background-color: #E8F5E8;">
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; width:60%; padding:2px 5px; text-align:left;">Particulars</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center; background-color: #E8F5E8;">{month_end_label}</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center;">{current_fiscal_year_end_label}</th>
+					<th style="border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding:2px 5px; text-align:center;">{previous_fiscal_year_end_label}</th>
+				</tr>
+			</thead>
+			<tbody>
+		'''
+		for i, (label, cur, prev, prev_year, bold) in enumerate(rows):
+			is_last = i == len(rows) - 1
+			style = "font-weight:bold;" if bold else ""
+			if is_last:
+				border = "border:1px solid #222;"
+			else:
+				border = "border-left:1px solid #222; border-right:1px solid #222; border-top:none; border-bottom:none;"
+			html += f'''
+			<tr style="line-height: 1; border:none;">
+				<td style="{border} padding:2px 5px; text-align:left; {style}">{label}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{cur}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{prev}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{prev_year}</td>
+			</tr>
+			'''
+		html += "</tbody></table>"
+		return section_description.replace("{{note_table}}", html).replace("{{ note_table }}", html)
 
 	def get_monthly_investment_non_current_note_data(self, section_description, total=False, field=None):
 		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
