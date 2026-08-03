@@ -701,8 +701,8 @@ class FinancialReport(Document):
 						i.section_description = self.get_monthly_finished_goods_and_wip(section_description, total=False, field=None)
 					if note_type == "Cost of Materials Consumed":
 						i.section_description = self.get_monthly_cost_of_material_consumed(section_description, total=False, field=None)
-					if note_type == "Purchases of Stock-in-Trade":
-						i.section_description = self.get_monthly_purchases_of_stock_in_trade(section_description)
+					if note_type == "Purchases of Stock in Trade":
+						i.section_description = self.get_monthly_purchases_of_stock_in_trade(section_description, total=False)
 
 					context = {"company": self.company}
 					try:
@@ -7125,6 +7125,9 @@ class FinancialReport(Document):
 
 	@frappe.whitelist()
 	def get_monthly_purchases_of_stock_in_trade(self, section_description, total, field=None):
+		data = []
+		account = "Purchases of Stock in Trade"
+		indent = 0
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
 		opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, self.previous_fiscal_year)
