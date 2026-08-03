@@ -7521,7 +7521,7 @@ class FinancialReport(Document):
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		note_table = f'''
-		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top: 20pt; border:1px solid #000; background-color:#fff;">
+		<table style="width:100%; border-collapse:collapse; border-spacing:0; font-size:13px; margin-top: 0; border:1px solid #000; background-color:#fff;">
 			<thead>
 				<tr style="color: #4472C4; background-color:#fff;">
 					<th style='border:1px solid #222; text-align:left; padding: 2px 5px; width: 40%; background-color:#fff;'>Particulars</th>
