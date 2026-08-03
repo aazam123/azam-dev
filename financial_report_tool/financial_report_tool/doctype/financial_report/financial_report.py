@@ -551,11 +551,14 @@ class FinancialReport(Document):
 
 	def get_sum_grouping_amount(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
 		if getattr(self, '_caches_initialized', False):
-			cache_key = ("sum_grouping", primary_group, group, month, year, is_ftm, hg_sec_group)
+			cache_key = ("sum_grouping", primary_group, group, month, year, is_ftm, str(hg_sec_group))
 			if cache_key in self._sum_grouping_cache:
 				return self._sum_grouping_cache[cache_key]
 
-		filters = {"company": self.company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
+		filters = {"company": self.company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group}
+		# hg_sec_group may be a single value or a list of higher groups; a bare list is
+		# misread by frappe as [operator, value], so use the "in" operator for lists.
+		filters["higher_secondary_group"] = ["in", list(hg_sec_group)] if isinstance(hg_sec_group, (list, tuple)) else hg_sec_group
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts:
 			result = 0
@@ -582,7 +585,10 @@ class FinancialReport(Document):
 			if cache_key in self._sum_grouping_cache:
 				return self._sum_grouping_cache[cache_key]
 
-		filters = {"company": self.company, "report_type": "Yearly", "primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
+		filters = {"company": self.company, "report_type": "Yearly", "primary_group": primary_group,"secondary_group": group}
+		# hg_sec_group may be a single value or a list of higher groups; a bare list is
+		# misread by frappe as [operator, value], so use the "in" operator for lists.
+		filters["higher_secondary_group"] = ["in", list(hg_sec_group)] if isinstance(hg_sec_group, (list, tuple)) else hg_sec_group
 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts:
 			result = 0
