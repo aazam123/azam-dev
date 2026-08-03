@@ -1,7 +1,6 @@
 # Copyright (c) 2025, Hybrowlabs Pvt Ltd
 # For license information, please see license.txt
 
-import base64
 import csv
 import io
 import json
@@ -847,9 +846,8 @@ def do_sync_sap_data(docname):
 		frappe.log_error(title=f"SAP Trial Balance Sync Failed - {docname}")
 		raise
 
-
-@frappe.whitelist()
-def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=None, items=None):
+@frappe.whitelist(allow_guest=True)
+def receive_sap_trial_balance(reference_id=None, file_name=None):
 	"""Inbound callback SAP calls once the Trial Balance has been generated.
 
 	This is the ``callback_url`` handed to ``z_f01_extract``. SAP authenticates
@@ -860,19 +858,15 @@ def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=No
 
 	    POST /api/method/financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance.sync_sap_trial_balance.receive_sap_trial_balance
 
-	Payload (``reference_id`` is always required — the value we sent on the
-	original request, i.e. the Sync SAP Trial Balance document name). The rows may
-	arrive in either shape:
+	Payload: SAP posts the report as a multipart ``file`` upload — a ``.csv`` or
+	``.json`` attachment (``file_name`` optional; defaults to the upload's own
+	name). ``reference_id`` (the value we sent on the original request, i.e. the
+	Sync SAP Trial Balance document name) is required so we can match the file to
+	this exact record.
 
-	  * **Inline** – ``{"reference_id": ..., "items": [{RACCT, TEXT, REPVAL}, ...]}``.
-	    This is what ``z_f01_extract`` posts to ``callback_url``. No file is stored;
-	    the raw JSON is kept on ``responce`` for traceability.
-	  * **File** – the result as a multipart ``file`` upload, or base64
-	    ``file_content`` + ``file_name`` (``.json``/``.csv``). The file is stored
-	    against the document.
-
-	Either way the rows are normalized (RACCT/TEXT/REPVAL), written to ``details``,
-	and the doc is marked ``Completed``.
+	The file is stored against the document, its rows are normalized
+	(RACCT/TEXT/REPVAL), written to ``details``, and the doc is marked
+	``Completed``.
 	"""
 	if not reference_id:
 		frappe.throw(_("reference_id is required"))
@@ -880,46 +874,31 @@ def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=No
 	if not frappe.db.exists("Sync SAP Trial Balance", reference_id):
 		frappe.throw(_("No Sync SAP Trial Balance found for reference_id {0}").format(reference_id))
 
-	# Prefer inline rows (z_f01_extract posts them straight to callback_url); fall
-	# back to a stored file only when no inline list was sent.
-	has_file = bool(file_content) or bool(frappe.request and frappe.request.files.get("file"))
-	if items is not None and not has_file:
-		rows = frappe.parse_json(items) if isinstance(items, str) else items
-		if isinstance(rows, dict):
-			rows = rows.get("items")
-		if not isinstance(rows, list):
-			frappe.throw(_("'items' must be a list of trial balance rows"))
-		raw_bytes = None
-	else:
-		raw_bytes, file_name = _read_inbound_file(file_name, file_content)
-		ext = os.path.splitext(file_name)[1].lower()
-		if ext not in (".csv", ".json"):
-			frappe.throw(_("Only .csv and .json files are supported"))
-		rows = _parse_sap_tb_file(raw_bytes, ext)
+	# SAP pushes the report as a multipart .csv/.json file upload.
+	raw_bytes, file_name = _read_inbound_file(file_name)
+	ext = os.path.splitext(file_name)[1].lower()
+	if ext not in (".csv", ".json"):
+		frappe.throw(_("Only .csv and .json files are supported"))
+	rows = _parse_sap_tb_file(raw_bytes, ext)
 
 	doc = frappe.get_doc("Sync SAP Trial Balance", reference_id)
 	try:
-		saved_url = None
-		if raw_bytes is not None:
-			saved = save_file(
-				fname=file_name,
-				content=raw_bytes,
-				dt="Sync SAP Trial Balance",
-				dn=doc.name,
-				decode=False,
-				is_private=1,
-			)
-			saved_url = saved.file_url
+		saved = save_file(
+			fname=file_name,
+			content=raw_bytes,
+			dt="Sync SAP Trial Balance",
+			dn=doc.name,
+			decode=False,
+			is_private=1,
+		)
+		saved_url = saved.file_url
 
 		doc.sync_status = "Completed"
 		doc.sync_error = ""
-		if raw_bytes is not None:
-			try:
-				doc.responce = raw_bytes.decode("utf-8-sig")
-			except UnicodeDecodeError:
-				doc.responce = raw_bytes.decode("latin-1")
-		else:
-			doc.responce = json.dumps(rows, ensure_ascii=False)
+		try:
+			doc.responce = raw_bytes.decode("utf-8-sig")
+		except UnicodeDecodeError:
+			doc.responce = raw_bytes.decode("latin-1")
 
 		# apply_trial_balance_rows saves the doc (recomputes total_amount).
 		doc.apply_trial_balance_rows(rows)
@@ -952,22 +931,14 @@ def receive_sap_trial_balance(reference_id=None, file_name=None, file_content=No
 		raise
 
 
-def _read_inbound_file(file_name=None, file_content=None):
-	"""Return ``(raw_bytes, file_name)`` from a multipart upload or base64 body."""
+def _read_inbound_file(file_name=None):
+	"""Return ``(raw_bytes, file_name)`` from SAP's multipart ``file`` upload."""
 	uploaded = frappe.request.files.get("file") if frappe.request else None
-	if uploaded is not None:
-		file_name = file_name or uploaded.filename
-		return uploaded.stream.read(), file_name
+	if uploaded is None:
+		frappe.throw(_("A multipart 'file' upload (.csv or .json) is required"))
 
-	if file_content:
-		if not file_name:
-			frappe.throw(_("file_name is required when sending file_content"))
-		try:
-			return base64.b64decode(file_content), file_name
-		except (ValueError, TypeError) as e:
-			frappe.throw(_("file_content must be valid base64: {0}").format(e))
-
-	frappe.throw(_("Provide either a multipart 'file' or base64 'file_content'"))
+	file_name = file_name or uploaded.filename
+	return uploaded.stream.read(), file_name
 
 
 def _parse_sap_tb_file(raw_bytes, ext):

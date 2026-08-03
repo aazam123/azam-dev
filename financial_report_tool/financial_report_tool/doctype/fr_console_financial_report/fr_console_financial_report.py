@@ -21,7 +21,6 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 def do_generate_report(docname):
 	try:
 		doc = frappe.get_doc("FR Console Financial Report", docname)
-		frappe.publish_progress(5, title="Initializing report generation...")
 		doc._generate_report_internal()
 		frappe.publish_progress(100, title="Report generated successfully!")
 

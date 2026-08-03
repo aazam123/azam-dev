@@ -19,6 +19,7 @@
   "has_note_no",
   "show_reversed_value",
   "fetch_from_schedule",
+  "fetch_from_grouping_for_monthly",
   "is_purchase_of_stock_in_trade",
   "section_break_hygu",
   "primary_and_secondary_group_mapping"
@@ -90,6 +91,14 @@
    "fieldname": "fetch_from_schedule",
    "fieldtype": "Check",
    "label": "Fetch From Schedule"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval: doc.template_type == \"Balance Sheet\";",
+   "description": "For the Monthly Balance Sheet, fetch this particular's amount from Primary and Secondary Group. Applies only to leaf particulars with no Schedule / Fetch From Schedule.",
+   "fieldname": "fetch_from_grouping_for_monthly",
+   "fieldtype": "Check",
+   "label": "Fetch From Grouping for Monthly Format"
   },
   {
    "fieldname": "schedule",

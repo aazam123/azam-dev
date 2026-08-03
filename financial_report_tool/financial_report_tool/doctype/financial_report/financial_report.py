@@ -34,7 +34,6 @@ _DEFAULT_AMOUNT_UNIT = "Lakhs"
 def do_generate_report(docname):
 	try:
 		doc = frappe.get_doc("Financial Report", docname)
-		frappe.publish_progress(5, title="Initializing report generation...")
 		doc._generate_report_internal()
 		frappe.publish_progress(100, title="Report generated successfully!")
 
@@ -6992,14 +6991,14 @@ class FinancialReport(Document):
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", self.current_month, self.fiscal_year)
 			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip("Changes in inventories of Finished Goods and Work-In-Progress", total=True, field='net_increase_total'))
 			+ (closing_stock_current - opening_stock)
-			- curr_month_purchase_sit
+			# - curr_month_purchase_sit
 		)
 
 		purchases_previous = (
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", self.previous_month, self.fiscal_year)
 			- (0 if default_currency != "INR" else self.get_monthly_finished_goods_and_wip("Changes in inventories of Finished Goods and Work-In-Progress", total=True, field='previous_month_amt'))
 			+ (closing_stock_previous - opening_stock)
-			- prev_month_purchase_sit
+			# - prev_month_purchase_sit
 		)
 
 		# --- Cost of Materials Consumed ---
@@ -7031,7 +7030,7 @@ class FinancialReport(Document):
 			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", cls_month, self.previous_fiscal_year)
 			+ (0 if default_currency != "INR" else (prev_year_closing_wip - closing_wip_pre_previous))
 			+ (prev_year_closing_stock - closing_stock_pre_previous)
-			- pre_purchase_sit
+			# - pre_purchase_sit
 		)
 
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
@@ -8178,21 +8177,32 @@ class FinancialReport(Document):
 		bal_current_mnt = retained_tot_prev_year
 		bal_previous_mnt = retained_tot_prev_year
 
-		oci_current_mnt = round(self.get_sum_grouping_amount("OCI", "OCI", self.current_month, self.fiscal_year), self.show_decimal_value) or 0
-		oci_previous_mnt = round(self.get_sum_grouping_amount("OCI", "OCI", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0
+		oci_current_mnt = round(self.get_sum_grouping_amount("OCI", "OCI", self.current_month, self.fiscal_year), self.show_decimal_value) or 0 
+		oci_previous_mnt = round(self.get_sum_grouping_amount("OCI", "OCI", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0 # Example calculation, replace with actual logic
+
+		pre_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.previous_fiscal_year})
+		if pre_tax_master:
+			pre_tax_master_doc = frappe.get_doc("FR Tax Master", pre_tax_master)
+			pre_tax_rate = pre_tax_master_doc.profit_before_tax
+		else:
+			pre_tax_rate = 0
+
+		oci_previous_year = oci_previous_year - (oci_previous_year * pre_tax_rate / 100)
+		oci_current_mnt = oci_current_mnt - (oci_current_mnt * pre_tax_rate / 100)
+		oci_previous_mnt = oci_previous_mnt - (oci_previous_mnt * pre_tax_rate / 100)
 
 		retained_tot_current = round(bal_current_mnt + net_current_mnt + oci_current_mnt, self.show_decimal_value)
 		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
 
 		# --- Capital Contribution ---
-		cc_opening_previous_year = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0
-		cc_add_previous_year = (round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
+		cc_opening_previous_year = -(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0)
+		cc_add_previous_year = -(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
 		cc_closing_previous_year = round(cc_opening_previous_year + cc_add_previous_year, self.show_decimal_value)
 		cc_opening_current = cc_closing_previous_year
 		cc_opening_previous = cc_closing_previous_year
 
-		cc_add_current = round((self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", self.current_month, self.fiscal_year) or 0) - cc_opening_current, self.show_decimal_value)
-		cc_add_previous = round((self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", self.previous_month, self.fiscal_year) or 0) - cc_opening_previous, self.show_decimal_value)
+		cc_add_current = round((self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", self.current_month, self.fiscal_year) or 0) + cc_opening_current, self.show_decimal_value)
+		cc_add_previous = round((self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", self.previous_month, self.fiscal_year) or 0) + cc_opening_previous, self.show_decimal_value)
 
 		cc_closing_current = round(cc_opening_current + cc_add_current, self.show_decimal_value)
 		cc_closing_previous = round(cc_opening_previous + cc_add_previous, self.show_decimal_value)
