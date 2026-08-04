@@ -864,9 +864,11 @@ def receive_sap_trial_balance(reference_id=None, file_name=None):
 	Sync SAP Trial Balance document name) is required so we can match the file to
 	this exact record.
 
-	The file is stored against the document, its rows are normalized
-	(RACCT/TEXT/REPVAL), written to ``details``, and the doc is marked
-	``Completed``.
+	The file is stored against the document and the doc is marked ``Syncing``;
+	the callback then returns immediately. A background job
+	(:func:`process_sap_trial_balance_file`) normalizes the rows
+	(RACCT/TEXT/REPVAL) into ``details`` and marks the doc ``Completed`` (or
+	``Failed``). This keeps the callback fast even for large (~MB) files.
 	"""
 	if not reference_id:
 		frappe.throw(_("reference_id is required"))
@@ -874,61 +876,97 @@ def receive_sap_trial_balance(reference_id=None, file_name=None):
 	if not frappe.db.exists("Sync SAP Trial Balance", reference_id):
 		frappe.throw(_("No Sync SAP Trial Balance found for reference_id {0}").format(reference_id))
 
-	# SAP pushes the report as a multipart .csv/.json file upload.
+	# Persist the upload synchronously (fast), then hand parsing off to a
+	# background worker so the callback returns immediately instead of blocking
+	# SAP while a large file is parsed and thousands of detail rows are written.
 	raw_bytes, file_name = _read_inbound_file(file_name)
 	ext = os.path.splitext(file_name)[1].lower()
 	if ext not in (".csv", ".json"):
 		frappe.throw(_("Only .csv and .json files are supported"))
-	rows = _parse_sap_tb_file(raw_bytes, ext)
 
-	doc = frappe.get_doc("Sync SAP Trial Balance", reference_id)
+	saved = save_file(
+		fname=file_name,
+		content=raw_bytes,
+		dt="Sync SAP Trial Balance",
+		dn=reference_id,
+		decode=False,
+		is_private=1,
+	)
+
+	frappe.db.set_value(
+		"Sync SAP Trial Balance",
+		reference_id,
+		{"sync_status": "Syncing", "sync_error": ""},
+	)
+	frappe.db.commit()
+
+	frappe.enqueue(
+		"financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance.sync_sap_trial_balance.process_sap_trial_balance_file",
+		queue="long",
+		job_name=f"Parse SAP Trial Balance - {reference_id}",
+		timeout=1500,
+		reference_id=reference_id,
+		file_url=saved.file_url,
+		ext=ext,
+	)
+
+	return {
+		"success": True,
+		"reference_id": reference_id,
+		"file": saved.file_url,
+		"status": "Syncing",
+		"message": f"File received for {reference_id}; parsing has been queued.",
+	}
+
+
+def process_sap_trial_balance_file(reference_id, file_url, ext):
+	"""Background worker: parse a stored SAP file and populate the Trial Balance.
+
+	Enqueued by :func:`receive_sap_trial_balance` so the inbound callback can
+	store the file and return immediately. Marks the document ``Completed`` on
+	success, or ``Failed`` (with the traceback in ``sync_error``) on any error.
+	"""
 	try:
-		saved = save_file(
-			fname=file_name,
-			content=raw_bytes,
-			dt="Sync SAP Trial Balance",
-			dn=doc.name,
-			decode=False,
-			is_private=1,
-		)
-		saved_url = saved.file_url
+		raw_bytes = _read_stored_file(file_url)
+		rows = _parse_sap_tb_file(raw_bytes, ext)
 
+		doc = frappe.get_doc("Sync SAP Trial Balance", reference_id)
 		doc.sync_status = "Completed"
 		doc.sync_error = ""
-		try:
-			doc.responce = raw_bytes.decode("utf-8-sig")
-		except UnicodeDecodeError:
-			doc.responce = raw_bytes.decode("latin-1")
+		# The uploaded file is kept as an attachment (file_url); store only a
+		# compact pointer here so large (~MB) payloads don't overflow the column.
+		doc.responce = f"Stored file: {file_url} ({len(rows)} rows)"
 
 		# apply_trial_balance_rows saves the doc (recomputes total_amount).
 		doc.apply_trial_balance_rows(rows)
 		frappe.db.commit()
 
 		frappe.publish_realtime(
-			"sap_tb_sync_complete", {"docname": doc.name, "status": "Completed"}
+			"sap_tb_sync_complete", {"docname": reference_id, "status": "Completed"}
 		)
-
-		return {
-			"success": True,
-			"reference_id": doc.name,
-			"file": saved_url,
-			"rows_imported": len(doc.details),
-			"message": f"Trial Balance received and populated for {doc.name}.",
-		}
 	except Exception:
 		frappe.db.rollback()
 		error_message = frappe.get_traceback(with_context=True)
 		frappe.db.set_value(
 			"Sync SAP Trial Balance",
-			doc.name,
+			reference_id,
 			{"sync_status": "Failed", "sync_error": error_message},
 		)
 		frappe.db.commit()
 		frappe.publish_realtime(
-			"sap_tb_sync_complete", {"docname": doc.name, "status": "Failed"}
+			"sap_tb_sync_complete", {"docname": reference_id, "status": "Failed"}
 		)
-		frappe.log_error(title=f"SAP Trial Balance Callback Failed - {doc.name}")
+		frappe.log_error(title=f"SAP Trial Balance Parse Failed - {reference_id}")
 		raise
+
+
+def _read_stored_file(file_url):
+	"""Read the raw bytes of a stored File attachment by its ``file_url``."""
+	from frappe.utils.file_manager import get_file
+	content = get_file(file_url)[1]
+	if isinstance(content, str):
+		content = content.encode("utf-8")
+	return content
 
 
 def _read_inbound_file(file_name=None):
