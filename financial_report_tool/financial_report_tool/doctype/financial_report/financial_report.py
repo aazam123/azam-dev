@@ -8202,6 +8202,10 @@ class FinancialReport(Document):
 		oci_current_mnt = oci_current_mnt - (oci_current_mnt * pre_tax_rate / 100)
 		oci_previous_mnt = oci_previous_mnt - (oci_previous_mnt * pre_tax_rate / 100)
 
+		net_current_mnt = net_current_mnt + oci_current_mnt
+		net_previous_mnt = net_previous_mnt + oci_previous_mnt
+		net_previous_year = net_previous_year + oci_previous_year
+
 		retained_tot_current = round(bal_current_mnt + net_current_mnt + oci_current_mnt, self.show_decimal_value)
 		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
 
