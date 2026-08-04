@@ -8198,13 +8198,13 @@ class FinancialReport(Document):
 		else:
 			pre_tax_rate = 0
 
-		oci_previous_year = oci_previous_year - (oci_previous_year * pre_tax_rate / 100)
-		oci_current_mnt = oci_current_mnt - (oci_current_mnt * pre_tax_rate / 100)
-		oci_previous_mnt = oci_previous_mnt - (oci_previous_mnt * pre_tax_rate / 100)
+		oci_previous_year = round(oci_previous_year - (oci_previous_year * pre_tax_rate / 100), self.show_decimal_value)
+		oci_current_mnt = round(oci_current_mnt - (oci_current_mnt * pre_tax_rate / 100), self.show_decimal_value)
+		oci_previous_mnt = round(oci_previous_mnt - (oci_previous_mnt * pre_tax_rate / 100), self.show_decimal_value)
 
-		net_current_mnt = net_current_mnt + oci_current_mnt
-		net_previous_mnt = net_previous_mnt + oci_previous_mnt
-		net_previous_year = net_previous_year + oci_previous_year
+		net_current_mnt = round(net_current_mnt + oci_current_mnt, self.show_decimal_value)
+		net_previous_mnt = round(net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
+		net_previous_year = round(net_previous_year + oci_previous_year, self.show_decimal_value)
 
 		retained_tot_current = round(bal_current_mnt + net_current_mnt + oci_current_mnt, self.show_decimal_value)
 		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
