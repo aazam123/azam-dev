@@ -8183,10 +8183,6 @@ class FinancialReport(Document):
 
 		# --- Retained Earnings ---
 		oci_previous_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
-		retained_tot_prev_year = round(bal_previous_year + net_previous_year + oci_previous_year, self.show_decimal_value)
-
-		bal_current_mnt = retained_tot_prev_year
-		bal_previous_mnt = retained_tot_prev_year
 
 		oci_current_mnt = round(self.get_sum_grouping_amount("OCI", "OCI", self.current_month, self.fiscal_year), self.show_decimal_value) or 0 
 		oci_previous_mnt = round(self.get_sum_grouping_amount("OCI", "OCI", self.previous_month, self.fiscal_year), self.show_decimal_value) or 0 # Example calculation, replace with actual logic
@@ -8205,6 +8201,11 @@ class FinancialReport(Document):
 		net_current_mnt = round(net_current_mnt - oci_current_mnt, self.show_decimal_value)
 		net_previous_mnt = round(net_previous_mnt - oci_previous_mnt, self.show_decimal_value)
 		net_previous_year = round(net_previous_year - oci_previous_year, self.show_decimal_value)
+
+		retained_tot_prev_year = round(bal_previous_year + net_previous_year + oci_previous_year, self.show_decimal_value)
+
+		bal_current_mnt = retained_tot_prev_year
+		bal_previous_mnt = retained_tot_prev_year
 
 		retained_tot_current = round(bal_current_mnt + net_current_mnt + oci_current_mnt, self.show_decimal_value)
 		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
