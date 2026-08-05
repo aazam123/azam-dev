@@ -5072,20 +5072,29 @@ class FinancialReport(Document):
 			bal_prev_year = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Retained earnings", cls_month, previous_year), self.show_decimal_value)
 			add_sp_prev_year = add_sp_cur = 0
 
+		pre_tax_master = frappe.db.exists("FR Tax Master", {"company": self.company, "fiscal_year": self.previous_fiscal_year})
+		if pre_tax_master:
+			pre_tax_master_doc = frappe.get_doc("FR Tax Master", pre_tax_master)
+			pre_tax_rate = pre_tax_master_doc.profit_before_tax
+		else:
+			pre_tax_rate = 0
+
 		oci_prev_year = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, previous_year), self.show_decimal_value)
+		oci_prev_year = -round(oci_prev_year - (oci_prev_year * pre_tax_rate / 100), self.show_decimal_value)
 		retained_prev_year = round(bal_prev_year + net_prev_year + oci_prev_year, self.show_decimal_value)
 
 		oci_cur = round(self.get_sum_grouping_amount("OCI", "OCI", cls_month, current_year), self.show_decimal_value)
+		oci_cur = -round(oci_cur - (oci_cur * pre_tax_rate / 100), self.show_decimal_value)
 		retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
 
 		cc_open_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
-		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
+		cc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
 
 		fin_guar_cur = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, current_year), self.show_decimal_value)
 		fin_guar_prev = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, previous_year), self.show_decimal_value)
 
 		cc_close_prev = round(cc_open_prev + cc_add_prev + fin_guar_prev, self.show_decimal_value)
-		cc_add_cur = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) + cc_close_prev
+		cc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) + cc_close_prev
 		cc_close_cur = round(cc_close_prev + cc_add_cur + fin_guar_cur, self.show_decimal_value)
 		add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
 		add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
@@ -5334,8 +5343,8 @@ class FinancialReport(Document):
 			html += f"""
 			<tr style="line-height: 1; border:none;">
 				<td style="{border} padding:2px 5px; text-align:left; {style}">{label}</td>
-				<td style="{border} {short_border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{cur}</td>
-				<td style="{border} {short_border} padding:2px 5px; text-align:right; {style}">{prev}</td>
+				<td style="{border} {short_border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{self.fmt_num(cur)}</td>
+				<td style="{border} {short_border} padding:2px 5px; text-align:right; {style}">{self.fmt_num(prev)}</td>
 			</tr>
 			"""
 
@@ -5533,8 +5542,8 @@ class FinancialReport(Document):
 			html += f"""
 			<tr style="line-height: 1; border:none;">
 				<td style="{border} padding:2px 5px; text-align:left; {style}">{label}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{cur}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style}">{prev}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{self.fmt_num(cur)}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{self.fmt_num(prev)}</td>
 			</tr>
 			"""
 
@@ -5840,16 +5849,16 @@ class FinancialReport(Document):
 			note_table += f'''
 			<tr style="line-height: 1; border:none;">
 				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{indent}{row.get("account") or ""}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; background-color: #e8f5e8; {top_border} {bold}'>{current_month_amount if current_month_amount else 0}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{previous_year if previous_year else 0}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; background-color: #e8f5e8; {top_border} {bold}'>{self.fmt_num(current_month_amount)}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{self.fmt_num(previous_year)}</td>
 			</tr>
 			'''
 		# Add total row as footer
 		note_table += f'''
 			<tr style="line-height: 1;">
 				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold;'>Total</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{round(total_current_month, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold;'>{round(total_previous_year, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{self.fmt_num(total_current_month)}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:1px solid #222; font-weight: bold;'>{self.fmt_num(total_previous_year)}</td>
 			</tr>
 		'''
 		note_table += "</tbody></table>"
@@ -5934,8 +5943,8 @@ class FinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222 '>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -6328,8 +6337,8 @@ class FinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -7353,8 +7362,8 @@ class FinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222 '>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -7414,10 +7423,10 @@ class FinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{row.get("current_month_amount", 0) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("ftm_amount", 0) if row.get("ftm_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_month_amount", 0) if row.get("previous_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{row.get("previous_year", 0) if row.get("previous_year") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
+				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
 			</tr>
 			"""
 
@@ -7518,6 +7527,16 @@ class FinancialReport(Document):
 		html += "</tbody>\n</table>"
 		return html
 
+	def fmt_num(self, val):
+		"""Format a number with thousands separators, honoring show_decimal_value
+		(0 -> no digits after the decimal point)."""
+		try:
+			num = float(val or 0)
+		except (TypeError, ValueError):
+			return val
+		dp = int(self.show_decimal_value or 0)
+		return f"{num:,.{dp}f}"
+
 	def monthly_table_for_note_template_1(self, data):
 		"""Optimized monthly table for note template 1"""
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
@@ -7556,20 +7575,20 @@ class FinancialReport(Document):
 			note_table += f'''
 			<tr style="line-height: 1; border:none;">
 				<td style='text-align:left; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{indent}{row.get("account") or ""}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} background-color: #e8f5e8; {bold}'>{current_month_amount if current_month_amount else 0}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{ftm_amount if ftm_amount else 0}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{previous_month_amount if previous_month_amount else 0}</td>
-				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{previous_year if previous_year else 0}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(current_month_amount)}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{self.fmt_num(ftm_amount)}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{self.fmt_num(previous_month_amount)}</td>
+				<td style='text-align:right; padding: 2px 5px; border-left:1px solid #222; border-right:1px solid #222; border-bottom:none; {top_border} {bold}'>{self.fmt_num(previous_year)}</td>
 			</tr>
 			'''
 		# Add total row as footer
 		note_table += f'''
 			<tr style="line-height: 1;">
 				<td style='text-align:left; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>Total</td>
-				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{round(total_current_month, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{round(total_ftm, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_month, self.show_decimal_value)}</td>
-				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{round(total_previous_year, self.show_decimal_value)}</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold; background-color: #e8f5e8;'>{self.fmt_num(total_current_month)}</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{self.fmt_num(total_ftm)}</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{self.fmt_num(total_previous_month)}</td>
+				<td style='text-align:right; padding: 2px 5px; border:1px solid #222; font-weight: bold;'>{self.fmt_num(total_previous_year)}</td>
 			</tr>
 		'''
 		note_table += "</tbody></table>"
@@ -8447,9 +8466,9 @@ class FinancialReport(Document):
 			html += f'''
 			<tr style="line-height: 1; border:none;">
 				<td style="{border} padding:2px 5px; text-align:left; {style}">{row[0]}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{row[1]}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style}">{row[2]}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style}">{row[3]}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{self.fmt_num(row[1])}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{self.fmt_num(row[2])}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{self.fmt_num(row[3])}</td>
 			</tr>
 			'''
 		html += "</tbody></table>"
@@ -8507,9 +8526,9 @@ class FinancialReport(Document):
 			html += f'''
 			<tr style="line-height: 1; border:none;">
 				<td style="{border} padding:2px 5px; text-align:left; {style}">{label}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{cur}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style}">{prev}</td>
-				<td style="{border} padding:2px 5px; text-align:right; {style}">{prev_year}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style} background-color: #E8F5E8;">{self.fmt_num(cur)}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{self.fmt_num(prev)}</td>
+				<td style="{border} padding:2px 5px; text-align:right; {style}">{self.fmt_num(prev_year)}</td>
 			</tr>
 			'''
 		html += "</tbody></table>"
