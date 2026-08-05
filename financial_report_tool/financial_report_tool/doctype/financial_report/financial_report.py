@@ -5044,6 +5044,18 @@ class FinancialReport(Document):
 		data[0].table_data = json.dumps(table_data)
 		_, data[0].section_description = self.render_yearly_profit_and_loss(data[0].section, table_data)
 
+	def _format_schedule_amount(self, val):
+		"""Comma-grouped amount for Other Equity schedule tables.
+
+		Numeric cells are thousands-separated and rounded to ``show_decimal_value``
+		decimals (0 → no fractional part at all). Non-numeric cells — the blank
+		strings used for section-heading rows — pass through untouched.
+		"""
+		if not isinstance(val, (int, float)) or isinstance(val, bool):
+			return val
+		dp = int(self.show_decimal_value or 0)
+		return f"{val:,.{dp}f}"
+
 	def get_yearly_other_equity_note_data(self, current_year, previous_year, section_description="", total=False, field=None):
 		"""Generate yearly Other Equity note table"""
 		cls_month, pre_year = self.get_previous_year_cls_month(previous_year)
@@ -5164,6 +5176,8 @@ class FinancialReport(Document):
 		"""
 
 		for i, (p, c, py, b) in enumerate(rows):
+			c = self._format_schedule_amount(c)
+			py = self._format_schedule_amount(py)
 			style = "font-weight:bold;" if b else ""
 			# Only vertical borders for regular rows, full borders for bold/total rows
 			if b:
@@ -8317,6 +8331,9 @@ class FinancialReport(Document):
 		'''
 
 		for i, (particulars, amt_month, amt_current_fy, amt_previous_fy, is_bold) in enumerate(data):
+			amt_month = self._format_schedule_amount(amt_month)
+			amt_current_fy = self._format_schedule_amount(amt_current_fy)
+			amt_previous_fy = self._format_schedule_amount(amt_previous_fy)
 			bold = "font-weight: bold;" if is_bold else ""
 			# Only vertical borders for regular rows, full borders for bold/total rows
 			if is_bold:
