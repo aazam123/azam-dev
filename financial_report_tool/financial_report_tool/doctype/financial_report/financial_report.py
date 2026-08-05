@@ -5088,13 +5088,13 @@ class FinancialReport(Document):
 		retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
 
 		cc_open_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
-		cc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
+		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
 
 		fin_guar_cur = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, current_year), self.show_decimal_value)
 		fin_guar_prev = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, previous_year), self.show_decimal_value)
 
 		cc_close_prev = round(cc_open_prev + cc_add_prev + fin_guar_prev, self.show_decimal_value)
-		cc_add_cur = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) + cc_close_prev
+		cc_add_cur = -(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, current_year), self.show_decimal_value) + cc_close_prev)
 		cc_close_cur = round(cc_close_prev + cc_add_cur + fin_guar_cur, self.show_decimal_value)
 		add_sp_prev_year = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
 		add_sp_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year + add_sp_prev_year), self.show_decimal_value)
