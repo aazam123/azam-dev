@@ -940,7 +940,13 @@ def process_sap_trial_balance_file(reference_id, file_url, ext):
 	Enqueued by :func:`receive_sap_trial_balance` so the inbound callback can
 	store the file and return immediately. Marks the document ``Completed`` on
 	success, or ``Failed`` (with the traceback in ``sync_error``) on any error.
+
+	SAP posts the callback unauthenticated, so the enqueued job inherits the
+	``Guest`` user and ``doc.save()`` would raise ``PermissionError``. This is a
+	trusted server-side processor (the report was requested by us and SAP only
+	pushes it back), so run it as ``Administrator``.
 	"""
+	frappe.set_user("Administrator")
 	try:
 		raw_bytes = _read_stored_file(file_url)
 		rows = _parse_sap_tb_file(raw_bytes, ext)
