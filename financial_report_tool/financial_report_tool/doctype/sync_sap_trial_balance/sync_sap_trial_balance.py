@@ -847,7 +847,7 @@ def do_sync_sap_data(docname):
 		raise
 
 @frappe.whitelist(allow_guest=True)
-def receive_sap_trial_balance(reference_id=None, file_name=None):
+def receive_sap_trial_balance(reference_id=None, file_name=None, items=None):
 	"""Inbound callback SAP calls once the Trial Balance has been generated.
 
 	This is the ``callback_url`` handed to ``z_f01_extract``. SAP authenticates
@@ -858,17 +858,24 @@ def receive_sap_trial_balance(reference_id=None, file_name=None):
 
 	    POST /api/method/financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance.sync_sap_trial_balance.receive_sap_trial_balance
 
-	Payload: SAP posts the report as a multipart ``file`` upload — a ``.csv`` or
-	``.json`` attachment (``file_name`` optional; defaults to the upload's own
-	name). ``reference_id`` (the value we sent on the original request, i.e. the
-	Sync SAP Trial Balance document name) is required so we can match the file to
-	this exact record.
+	SAP delivers the report one of two ways, both handled here:
 
-	The file is stored against the document and the doc is marked ``Syncing``;
+	* **Inline JSON body** (what ``z_f01_extract`` actually posts) — a JSON object
+	  ``{"reference_id": "...", "items": [{RACCT, TEXT, REPVAL}, ...]}``. The rows
+	  arrive as the ``items`` argument.
+	* **Multipart ``file`` upload** — a ``.csv`` or ``.json`` attachment
+	  (``file_name`` optional; defaults to the upload's own name). Kept for manual
+	  re-pushes and CSV output.
+
+	``reference_id`` (the value we sent on the original request, i.e. the Sync SAP
+	Trial Balance document name) is required either way so we can match the report
+	to this exact record.
+
+	The payload is stored against the document and the doc is marked ``Syncing``;
 	the callback then returns immediately. A background job
 	(:func:`process_sap_trial_balance_file`) normalizes the rows
 	(RACCT/TEXT/REPVAL) into ``details`` and marks the doc ``Completed`` (or
-	``Failed``). This keeps the callback fast even for large (~MB) files.
+	``Failed``). This keeps the callback fast even for large (~MB) payloads.
 	"""
 	if not reference_id:
 		frappe.throw(_("reference_id is required"))
@@ -876,13 +883,21 @@ def receive_sap_trial_balance(reference_id=None, file_name=None):
 	if not frappe.db.exists("Sync SAP Trial Balance", reference_id):
 		frappe.throw(_("No Sync SAP Trial Balance found for reference_id {0}").format(reference_id))
 
-	# Persist the upload synchronously (fast), then hand parsing off to a
+	# Persist the payload synchronously (fast), then hand parsing off to a
 	# background worker so the callback returns immediately instead of blocking
-	# SAP while a large file is parsed and thousands of detail rows are written.
-	raw_bytes, file_name = _read_inbound_file(file_name)
-	ext = os.path.splitext(file_name)[1].lower()
-	if ext not in (".csv", ".json"):
-		frappe.throw(_("Only .csv and .json files are supported"))
+	# SAP while thousands of detail rows are parsed and written.
+	rows = _inline_items(items)
+	if rows is not None:
+		# Inline JSON push: materialize it as a .json payload so it flows through
+		# the same store-then-parse pipeline as an uploaded file.
+		raw_bytes = json.dumps({"items": rows}, ensure_ascii=False).encode("utf-8")
+		file_name = file_name or f"{reference_id}.json"
+		ext = ".json"
+	else:
+		raw_bytes, file_name = _read_inbound_file(file_name)
+		ext = os.path.splitext(file_name)[1].lower()
+		if ext not in (".csv", ".json"):
+			frappe.throw(_("Only .csv and .json files are supported"))
 
 	saved = save_file(
 		fname=file_name,
@@ -977,6 +992,38 @@ def _read_inbound_file(file_name=None):
 
 	file_name = file_name or uploaded.filename
 	return uploaded.stream.read(), file_name
+
+
+def _inline_items(items):
+	"""Rows from an inline JSON callback body, or ``None`` if it isn't one.
+
+	``z_f01_extract`` posts the report as ``{"reference_id": ..., "items": [...]}``.
+	Frappe maps the JSON body's ``items`` key straight to the whitelisted kwarg, but
+	we also peek at the raw request body so a stringified or otherwise-unbound payload
+	still resolves. Returns the row list (possibly empty) for an inline push, or
+	``None`` so the caller falls back to the multipart ``file`` upload path.
+	"""
+	if items is None and frappe.request is not None:
+		try:
+			body = frappe.request.get_json(silent=True)
+		except Exception:
+			body = None
+		if isinstance(body, dict):
+			items = body.get("items")
+
+	if items is None:
+		return None
+
+	if isinstance(items, str):
+		try:
+			items = json.loads(items)
+		except ValueError:
+			frappe.throw(_("Invalid 'items' JSON in SAP callback body"))
+
+	if not isinstance(items, list):
+		frappe.throw(_("SAP callback 'items' must be a list of rows"))
+
+	return items
 
 
 def _parse_sap_tb_file(raw_bytes, ext):
