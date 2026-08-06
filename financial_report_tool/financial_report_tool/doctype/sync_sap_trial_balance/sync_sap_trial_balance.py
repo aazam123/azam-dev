@@ -101,6 +101,27 @@ def _callback_url():
 	return frappe.utils.get_url(f"/api/method/{_CALLBACK_METHOD}")
 
 
+def _callback_token():
+	"""The ``p_token`` SAP requires to authenticate its callback to us.
+
+	SAP's ``z_f01_extract`` treats ``p_token`` as a mandatory selection-screen
+	field: without it the scheduled batch step cancels with *"Fill in all required
+	entry fields"* (Msg 055) even though the request itself is acknowledged. We send
+	the Frappe ``api_key:api_secret`` from FR Financial Settings' ``callback_token``,
+	formatted as the ``Authorization: token <key>:<secret>`` header value SAP replays
+	when POSTing back to :func:`receive_sap_trial_balance`.
+	"""
+	token = (frappe.db.get_value("FR Financial Settings", None, "callback_token") or "").strip()
+	if not token:
+		frappe.throw(
+			_("Please configure <b>Callback Token</b> in FR Financial Settings — "
+			  "SAP needs it (as p_token) to push the trial balance back."),
+			title=_("Callback Token missing"),
+		)
+	# Already prefixed (e.g. "token key:secret") → send as-is, else add the scheme.
+	return token if token.lower().startswith("token ") else f"token {token}"
+
+
 # Month name -> SAP fiscal period. The Sync SAP Trial Balance ``month`` Select is
 # calendar-ordered, and the observed data maps a month straight to its calendar
 # number (June -> 06), so the index into this list (+1) is the period.
@@ -324,6 +345,8 @@ class SyncSAPTrialBalance(Document):
 			**flags,
 			"s_layout": self.layout,
 			"callback_url": _callback_url(),
+			# Mandatory on SAP's side: the token SAP replays to authenticate its callback.
+			"p_token": _callback_token(),
 		}
 
 		response = requests.post(
