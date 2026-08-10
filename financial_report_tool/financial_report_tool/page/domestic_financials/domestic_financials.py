@@ -124,6 +124,93 @@ def _token(r):
 	)
 
 
+def _norm(s):
+	return (s or "").strip().lower()
+
+
+def _find_row(rows, pred):
+	"""Index of the first out-row whose (normalised) particular matches `pred`."""
+	for i, r in enumerate(rows):
+		if pred(_norm(r.get("particular"))):
+			return i
+	return -1
+
+
+def _insert_gross_margin(out_rows, measure_keys):
+	"""Insert derived Gross Margin / Gross Margin (%) rows into a P&L statement.
+
+	Placed directly below "Changes in inventories …". Computed per column
+	(company + Consolidate) and per measure from existing line items:
+
+	    Gross Margin      = Total Income - Cost of materials consumed
+	    Gross Margin (%)  = Gross Margin / Revenue from operations * 100
+
+	No-ops (returns unchanged) when the expected P&L rows are absent, so it is
+	safe to call for any statement.
+	"""
+	ti = _find_row(
+		out_rows,
+		lambda n: n.startswith("total")
+		and ("income" in n or "lncome" in n)  # OCR sometimes renders "Income" as "lncome"
+		and "comprehensive" not in n,
+	)
+	cost = _find_row(out_rows, lambda n: n.startswith("cost of material"))
+	rev = _find_row(out_rows, lambda n: n.startswith("revenue from operation"))
+	inv = _find_row(out_rows, lambda n: n.startswith("changes in inventor"))
+	if min(ti, cost, rev, inv) < 0:
+		return  # not the expected P&L structure
+
+	ncomp = len(out_rows[ti]["values"])
+
+	def _obj(idx, i):
+		"""Cell dict for row `idx`; i < 0 selects the Consolidate column."""
+		return out_rows[idx]["consolidate"] if i < 0 else out_rows[idx]["values"][i]
+
+	def _diff(i, k):
+		"""Gross Margin (amount) for column i, measure k; None when both absent."""
+		tv = (_obj(ti, i) or {}).get(k)
+		cv = (_obj(cost, i) or {}).get(k)
+		if tv is None and cv is None:
+			return None
+		return round((tv or 0) - (cv or 0), 2)
+
+	def _pct(i, k):
+		gm = _diff(i, k)
+		rv = (_obj(rev, i) or {}).get(k)
+		if gm is None or not rv:
+			return None
+		return round(gm / rv * 100, 2)
+
+	def _build(compute):
+		return {k: compute(-1, k) for k in measure_keys}, [
+			{k: compute(i, k) for k in measure_keys} for i in range(ncomp)
+		]
+
+	gm_consol, gm_values = _build(_diff)
+	pct_consol, pct_values = _build(_pct)
+
+	gross_margin = {
+		"particular": "Gross Margin",
+		"indent": 0,
+		"is_bold": 1,
+		"is_header": 0,
+		"kind": "derived",
+		"consolidate": gm_consol,
+		"values": gm_values,
+	}
+	gross_margin_pct = {
+		"particular": "Gross Margin (%)",
+		"indent": 0,
+		"is_bold": 1,
+		"is_header": 0,
+		"kind": "derived",
+		"value_format": "percent",
+		"consolidate": pct_consol,
+		"values": pct_values,
+	}
+	out_rows[inv + 1 : inv + 1] = [gross_margin, gross_margin_pct]
+
+
 @frappe.whitelist()
 def get_context(report_type="Yearly", fiscal_year=None):
 	"""Filter metadata: available fiscal years (and months for Monthly).
@@ -265,12 +352,12 @@ def get_consolidated_statement(
 
 	# Sub-columns (measures) per company depend on the report type.
 	#   Yearly  -> Current Year, Previous Year
-	#   Monthly -> Current Month, Previous Month, FTM  (no previous year)
+	#   Monthly -> Current Month, FTM, Previous Month  (no previous year)
 	if report_type == "Monthly":
 		measures = [
 			("cm", "current_month_amount", month or "Current Month"),
-			("pm", "previous_month_amount", _prev_month(month) or "Previous Month"),
 			("ftm", "ftm_amount", "FTM"),
+			("pm", "previous_month_amount", _prev_month(month) or "Previous Month"),
 		]
 	else:
 		measures = [
@@ -327,6 +414,10 @@ def get_consolidated_statement(
 				"values": values,
 			}
 		)
+
+	# Derived KPIs (Gross Margin, Gross Margin %) — P&L only; no-op elsewhere.
+	if statement == PROFIT_AND_LOSS:
+		_insert_gross_margin(out_rows, measure_keys)
 
 	return {
 		"statement": statement,

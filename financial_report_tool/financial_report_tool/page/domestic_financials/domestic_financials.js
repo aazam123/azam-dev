@@ -13,6 +13,7 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 		report_type: 'Yearly',
 		fiscal_year: null,
 		month: null,
+		show_kpi: false, // Gross Margin rows hidden until the user opts in
 	};
 
 	// ---- Body scaffold: in-body filter row + table ----------------------
@@ -34,6 +35,9 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 					<label>Month</label>
 					<select class="form-control input-sm" id="cfs-month"></select>
 				</div>
+				<button class="btn btn-sm cfs-kpi-toggle" id="cfs-kpi-toggle" type="button">
+					<span class="cfs-kpi-dot"></span><span class="cfs-kpi-label">Show Gross Margin</span>
+				</button>
 				<button class="btn btn-sm btn-default cfs-refresh" id="cfs-refresh">Refresh</button>
 			</div>
 			<div class="cfs-table-wrap" id="cfs-table">
@@ -59,9 +63,22 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 		load_statement(page, state);
 	});
 	$body.find('#cfs-refresh').on('click', () => load_statement(page, state));
+	$body.find('#cfs-kpi-toggle').on('click', function () {
+		state.show_kpi = !state.show_kpi;
+		apply_kpi_visibility(page, state);
+	});
 
 	load_context(page, state);
 };
+
+// --- Toggle the Gross Margin (derived KPI) rows on/off --------------------
+function apply_kpi_visibility(page, state) {
+	const $body = $(page.body);
+	$body.find('#cfs-table').toggleClass('cfs-kpi-on', !!state.show_kpi);
+	const $btn = $body.find('#cfs-kpi-toggle');
+	$btn.toggleClass('active', !!state.show_kpi);
+	$btn.find('.cfs-kpi-label').text(state.show_kpi ? 'Hide Gross Margin' : 'Show Gross Margin');
+}
 
 // --- Populate a native <select> with options -----------------------------
 function set_select(sel, options, selected) {
@@ -170,6 +187,14 @@ function fmt_num(v) {
 	return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
+// --- Percentage formatting (one decimal, % suffix) -----------------------
+function fmt_pct(v) {
+	if (v === null || v === undefined) return ''; // not applicable / undefined denominator
+	const n = Number(v);
+	if (!isFinite(n)) return '';
+	return n.toFixed(1) + '%';
+}
+
 // --- Build one statement's block (title + columnar table) ----------------
 function build_statement_block(title, data) {
 	const heading = `<div class="cfs-block-title">${frappe.utils.escape_html(title)}</div>`;
@@ -205,12 +230,12 @@ function build_statement_block(title, data) {
 			${companies.map(() => sub_head()).join('')}
 		</tr>`;
 
-	const num_cells = (obj, extra, blank) =>
+	const num_cells = (obj, extra, blank, fmt = fmt_num) =>
 		cols
 			.map((c, ci) => {
 				const cls = (ci === 0 ? 'cfs-group-start' : 'cfs-py') + (extra ? ' ' + extra : '');
 				const val = obj ? obj[c.key] : null;
-				return `<td class="cfs-num ${cls}">${blank ? '' : fmt_num(val)}</td>`;
+				return `<td class="cfs-num ${cls}">${blank ? '' : fmt(val)}</td>`;
 			})
 			.join('');
 
@@ -219,12 +244,15 @@ function build_statement_block(title, data) {
 			const indent = row.indent ? `padding-left:${12 + row.indent * 18}px;` : '';
 			// A row is blank (pure section header) when the server sent no totals.
 			const blank = !row.consolidate;
+			// Derived KPI rows (e.g. Gross Margin %) carry their own formatter.
+			const fmt = row.value_format === 'percent' ? fmt_pct : fmt_num;
 			const cls = [];
 			if (blank && row.is_header) cls.push('cfs-header-row'); // e.g. Income, Expenses
 			else if (row.is_bold) cls.push('cfs-bold-row'); // subtotals / grouped totals
+			if (row.kind === 'derived') cls.push('cfs-derived-row'); // computed KPI
 
-			const consol = num_cells(row.consolidate, 'cfs-consol-col', blank);
-			const cells = companies.map((c, i) => num_cells(row.values[i], '', blank)).join('');
+			const consol = num_cells(row.consolidate, 'cfs-consol-col', blank, fmt);
+			const cells = companies.map((c, i) => num_cells(row.values[i], '', blank, fmt)).join('');
 
 			return `
 				<tr class="${cls.join(' ')}">
@@ -336,6 +364,28 @@ function inject_styles() {
 		/* Bold subtotal / total rows */
 		.cfs-bold-row td { font-weight:700; border-top:1px solid #d7e3da; }
 		.cfs-bold-row td.cfs-consol-col { background:#e3f1e5; }
+
+		/* Derived KPI rows (Gross Margin, Gross Margin %) — hidden until toggled on */
+		.cfs-derived-row { display:none; }
+		.cfs-kpi-on .cfs-derived-row { display:table-row; }
+		.cfs-derived-row td { font-weight:700; font-style:italic; background:#f3f8ff; color:#123a63; }
+		.cfs-derived-row td.cfs-particular { font-style:normal; }
+		.cfs-derived-row td.cfs-consol-col { background:#e6f0fb; color:#0d2f52; }
+
+		/* Gross Margin toggle button */
+		.cfs-kpi-toggle {
+			display:inline-flex; align-items:center; gap:7px; height:26px; padding:2px 12px;
+			font-size:12px; font-weight:600; color:#0d2f52; margin-left:auto;
+			background:#eef4fc; border:1px solid #cfe0f5; border-radius:14px;
+		}
+		.cfs-kpi-toggle + .cfs-refresh { margin-left:8px; }
+		.cfs-kpi-toggle:hover { background:#e2edfb; }
+		.cfs-kpi-toggle .cfs-kpi-dot {
+			width:9px; height:9px; border-radius:50%; background:#b7c7db; flex:0 0 auto;
+			transition:background .15s;
+		}
+		.cfs-kpi-toggle.active { background:#0d6efd; border-color:#0d6efd; color:#fff; }
+		.cfs-kpi-toggle.active .cfs-kpi-dot { background:#fff; }
 
 		.cfs-table tbody tr:hover td { background:#fbfdfb; }
 		.cfs-table tbody tr:hover td.cfs-consol-col { background:#e3f1e5; }
