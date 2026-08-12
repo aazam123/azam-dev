@@ -228,6 +228,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 		"months": [],
 		"default_month": None,
 		"company_count": 0,
+		"companies": [],
 	}
 	if not companies:
 		return empty
@@ -298,12 +299,14 @@ def get_context(report_type="Yearly", fiscal_year=None):
 		"months": months,
 		"default_month": default_month,
 		"company_count": len(companies),
+		"companies": companies,
 	}
 
 
 @frappe.whitelist()
 def get_consolidated_statement(
-	fiscal_year=None, report_type="Yearly", statement=BALANCE_SHEET, month=None
+	fiscal_year=None, report_type="Yearly", statement=BALANCE_SHEET, month=None,
+	exclude_companies=None,
 ):
 	"""Return one statement as a Particular | Consolidate | <company> matrix.
 
@@ -311,6 +314,10 @@ def get_consolidated_statement(
 	line items are aligned to it by particular so figures land in the right row
 	even when a company omits a line. Amounts are the current-year figures.
 	For Monthly reports, `month` selects the report month.
+
+	`exclude_companies` (JSON list or list) drops those companies from the matrix
+	entirely, so the Consolidate total and the derived Gross Margin rows are
+	recomputed over only the remaining (visible) companies.
 	"""
 	frappe.has_permission("Financial Report", "read", throw=True)
 	if statement not in STATEMENTS:
@@ -318,9 +325,18 @@ def get_consolidated_statement(
 	if report_type != "Monthly":
 		month = None
 
+	if isinstance(exclude_companies, str):
+		try:
+			exclude_companies = json.loads(exclude_companies)
+		except (ValueError, TypeError):
+			exclude_companies = []
+	excluded = set(exclude_companies or [])
+
 	# Gather each domestic company's rows for this statement.
 	with_data, missing = [], []
 	for c in _domestic_companies():
+		if c.name in excluded:
+			continue  # hidden by the user — leave out of the matrix and totals
 		report = _pick_report(c.name, report_type, fiscal_year, month)
 		rows = _statement_rows(report.name, statement) if report else None
 		if rows:
@@ -429,4 +445,5 @@ def get_consolidated_statement(
 		"companies": company_names,
 		"rows": out_rows,
 		"missing_companies": missing,
+		"excluded_companies": sorted(excluded),
 	}

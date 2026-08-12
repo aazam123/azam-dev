@@ -4760,8 +4760,8 @@ class FinancialReport(Document):
 		for r in rows:
 			b = "font-weight:bold;" if r["st"] else ""
 			br = "border:1px solid #222; border-top:none; border-bottom:none;" if not r["st"] else "border:1px solid #222;"
-			cy = round(r["cy"], self.show_decimal_value) if r["cy"] else ""
-			py = round(r["py"], self.show_decimal_value) if r["py"] else ""
+			cy = self._format_schedule_amount(round(r["cy"], self.show_decimal_value)) if r["cy"] else ""
+			py = self._format_schedule_amount(round(r["py"], self.show_decimal_value)) if r["py"] else ""
 			html += f'''
 			<tr>
 				<td style="{br} text-align:left; padding:6px 8px; {b}">{r["p"]}</td>
@@ -4918,8 +4918,8 @@ class FinancialReport(Document):
 
 		for row in rows:
 			# Format amounts
-			current_month_amt_str = round(row['current_month_amt'], self.show_decimal_value) if row['current_month_amt'] else "-"
-			previous_year_amt = round(row['previous_year_amt'], self.show_decimal_value) if row['previous_year_amt'] else "-"
+			current_month_amt_str = self._format_schedule_amount(round(row['current_month_amt'], self.show_decimal_value)) if row['current_month_amt'] else "-"
+			previous_year_amt = self._format_schedule_amount(round(row['previous_year_amt'], self.show_decimal_value)) if row['previous_year_amt'] else "-"
 			
 			# Style for totals
 			bold_style = "border:1px solid #222; font-weight: bold;" if row["is_subtotal"] else ""
@@ -5190,7 +5190,7 @@ class FinancialReport(Document):
 				<td style='{border} border-left:1px solid #222; border-right:1px solid #222; padding:6px 8px; text-align:right; background-color:#fff; {style}'>{py}</td></tr>"""
 
 		html += "</tbody></table>"
-		return section_description.replace("{{note_table}}", html)
+		return section_description.replace("{{note_table}}", html).replace("{{ note_table }}", html)
 
 	def get_yearly_investment_non_current_note_data(self, total=False, field=None, section_description=""):
 		_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
@@ -6986,7 +6986,7 @@ class FinancialReport(Document):
 		'''
 
 		for r in rows:
-			cm, pm, ftm, py = [round(r[v], self.show_decimal_value) if r[v] else "" for v in ["current_month_amt", "previous_month_amt", "ftm_amt", "previous_year_amt"]]
+			cm, pm, ftm, py = [self._format_schedule_amount(round(r[v], self.show_decimal_value)) if r[v] else "" for v in ["current_month_amt", "previous_month_amt", "ftm_amt", "previous_year_amt"]]
 			bold = "font-weight:bold;" if r["is_subtotal"] else ""
 			br = "border:1px solid #222; border-top:none; border-bottom:none;" if not r["is_subtotal"] else "border:1px solid #222;"
 			html += f'''
@@ -7126,10 +7126,10 @@ class FinancialReport(Document):
 
 		for row in rows:
 			# Format amounts
-			current_month_amt_str = round(row['current_month_amt'], self.show_decimal_value) if row['current_month_amt'] else "-"
-			ftm_amt_str = round(row['ftm_amt'], self.show_decimal_value) if row['ftm_amt'] else "-"
-			previous_month_amt_str = round(row['previous_month_amt'], self.show_decimal_value) if row['previous_month_amt'] else "-"
-			previous_year_amt = round(row['previous_year_amt'], self.show_decimal_value) if row['previous_year_amt'] else "-"
+			current_month_amt_str = self._format_schedule_amount(round(row['current_month_amt'], self.show_decimal_value)) if row['current_month_amt'] else "-"
+			ftm_amt_str = self._format_schedule_amount(round(row['ftm_amt'], self.show_decimal_value)) if row['ftm_amt'] else "-"
+			previous_month_amt_str = self._format_schedule_amount(round(row['previous_month_amt'], self.show_decimal_value)) if row['previous_month_amt'] else "-"
+			previous_year_amt = self._format_schedule_amount(round(row['previous_year_amt'], self.show_decimal_value)) if row['previous_year_amt'] else "-"
 
 			# Style for totals
 			bold_style = "font-weight: bold;" if row["is_subtotal"] else ""
