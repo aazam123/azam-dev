@@ -13,7 +13,7 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 		report_type: 'Yearly',
 		fiscal_year: null,
 		month: null,
-		show_kpi: false, // Gross Margin rows hidden until the user opts in
+		show_kpi: true, // KPI rows (Gross Margin, EBITDA / Litigation) shown by default
 		hidden: new Set(), // companies the user crossed out of the matrix
 		all_companies: [], // full domestic company list (for the Company filter)
 	};
@@ -27,6 +27,7 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 					<select class="form-control input-sm" id="cfs-report-type">
 						<option value="Yearly">Yearly</option>
 						<option value="Monthly">Monthly</option>
+						<option value="FTM">FTM</option>
 					</select>
 				</div>
 				<div class="cfs-field">
@@ -45,8 +46,8 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 					</div>
 				</div>
 				<div class="cfs-field cfs-kpi-field">
-					<label>Gross Margin</label>
-					<button class="cfs-switch" id="cfs-kpi-toggle" type="button" role="switch" aria-checked="false" title="Show / hide Gross Margin rows">
+					<label>KPIs</label>
+					<button class="cfs-switch active" id="cfs-kpi-toggle" type="button" role="switch" aria-checked="true" title="Show / hide KPI rows (Gross Margin, EBITDA / Litigation)">
 						<span class="cfs-switch-knob"></span>
 					</button>
 				</div>
@@ -59,6 +60,7 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 	`);
 
 	inject_styles();
+	apply_kpi_visibility(page, state); // reflect the default KPI toggle state
 	page.cfs = { state };
 
 	const $body = $(page.body);
@@ -220,8 +222,8 @@ function load_context(page, state) {
 				fy
 			);
 
-			// Month filter: only relevant for Monthly.
-			const is_monthly = state.report_type === 'Monthly';
+			// Month filter: relevant for the Monthly-driven views (Monthly, FTM).
+			const is_monthly = state.report_type === 'Monthly' || state.report_type === 'FTM';
 			$body.find('#cfs-month-field').toggle(is_monthly);
 			let months = [];
 			if (is_monthly) {
@@ -254,7 +256,7 @@ function load_context(page, state) {
 // --- Load both statements: Profit & Loss first, then Balance Sheet -------
 function load_statement(page, state) {
 	if (!state.fiscal_year) return;
-	if (state.report_type === 'Monthly' && !state.month) return;
+	if ((state.report_type === 'Monthly' || state.report_type === 'FTM') && !state.month) return;
 	$('#cfs-table').html('<div class="cfs-loading">Loading…</div>');
 
 	// Guard against a slower earlier request overwriting a newer one.
@@ -310,6 +312,7 @@ function fmt_pct(v) {
 // --- Build one statement's block (title + columnar table) ----------------
 function build_statement_block(title, data, hidden) {
 	const heading = `<div class="cfs-block-title">${frappe.utils.escape_html(title)}</div>`;
+	const is_ftm = data.report_type === 'FTM'; // FTM: single column per company, centred
 	const companies = data.companies || [];
 	const rows = data.rows || [];
 	hidden = hidden || [];
@@ -415,7 +418,7 @@ function build_statement_block(title, data, hidden) {
 		<div class="cfs-block">
 			${heading}
 			<div class="cfs-scroll">
-				<table class="cfs-table">
+				<table class="cfs-table${is_ftm ? ' cfs-ftm' : ''}">
 					<thead>${thead}</thead>
 					<tbody>${tbody}</tbody>
 				</table>
@@ -495,6 +498,9 @@ function inject_styles() {
 		}
 		/* Numeric cells never wrap; they hold the figures. */
 		.cfs-num { text-align:right; font-variant-numeric:tabular-nums; min-width:104px; white-space:nowrap; }
+
+		/* FTM view: single movement column per company — centre the figures. */
+		.cfs-table.cfs-ftm th.cfs-num, .cfs-table.cfs-ftm td.cfs-num { text-align:center; }
 
 		/* Grouped (company / consolidate) header spanning CY | PY */
 		.cfs-group { text-align:center; border-bottom:1px solid #cdebd6; }

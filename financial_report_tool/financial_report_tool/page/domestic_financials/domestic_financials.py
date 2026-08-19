@@ -28,6 +28,21 @@ BALANCE_SHEET = "Balance Sheet"
 PROFIT_AND_LOSS = "Profit & Loss"
 STATEMENTS = (BALANCE_SHEET, PROFIT_AND_LOSS)
 
+
+def _storage_report_type(report_type):
+	"""Report Type as stored on Financial Report.
+
+	"FTM" is not a stored report type — it is a presentation of the Monthly
+	reports showing only the For-The-Month (movement) column, so it maps to the
+	stored "Monthly" reports.
+	"""
+	return "Monthly" if report_type in ("Monthly", "FTM") else report_type
+
+
+def _is_monthly_like(report_type):
+	"""True when the view is driven by Monthly reports (Monthly or FTM)."""
+	return _storage_report_type(report_type) == "Monthly"
+
 # Indian fiscal year runs April -> March; present months in that order.
 FISCAL_MONTH_ORDER = [
 	"April", "May", "June", "July", "August", "September",
@@ -128,6 +143,34 @@ def _norm(s):
 	return (s or "").strip().lower()
 
 
+# Source line-item labels (frequently OCR-derived from the uploaded statements)
+# mapped to the clean particulars used in the Excel statutory P&L / Balance
+# Sheet. Keyed by the normalised source label so whitespace/case never matter.
+# This is presentation-only — the underlying report data is left untouched.
+PARTICULAR_FIXES = {
+	"total lncome (l+ ll)": "Total Income (I + II)",
+	"total income (i+ ii)": "Total Income (I + II)",
+	"total income (i + ii)": "Total Income (I + II)",
+	"purchases of stock in trade": "Purchase of Stock-in-trade",
+	"employee benefits expenses": "Employee benefit expenses",
+	"depreciation and amortisation expenses": "Depreciation and amortisation expense",
+	"total expenses": "Total Expenses",
+	"excess provision for tax relating to prior years": "Short/(Excess) provision for tax relating to prior years",
+	"basic and diluted (in ruppe)": "Basic and diluted (in ₹)",
+	# Balance Sheet
+	"lnventories": "Inventories",
+	"capital work-in-progress": "Capital work-in-progress",
+	"financial assets": "Financial assets",
+	"trade payables": "Trade payables",
+	"deferred tax liabilities (net)": "Deferred tax liabilities (net)",
+}
+
+
+def _clean_particular(name):
+	"""Return the Excel-aligned particular for a (possibly OCR-garbled) label."""
+	return PARTICULAR_FIXES.get(_norm(name), name or "")
+
+
 def _find_row(rows, pred):
 	"""Index of the first out-row whose (normalised) particular matches `pred`."""
 	for i, r in enumerate(rows):
@@ -211,6 +254,106 @@ def _insert_gross_margin(out_rows, measure_keys):
 	out_rows[inv + 1 : inv + 1] = [gross_margin, gross_margin_pct]
 
 
+def _insert_ebitda(out_rows, measure_keys):
+	"""Insert the EBITDA / Litigation KPI block into a P&L statement.
+
+	Placed directly below "Total Expenses". Computed per column (each company +
+	Consolidate) and per measure from the statutory P&L line items, matching the
+	Excel "Dom" summary definitions:
+
+	    EBITDA Pre-Litigation      = Total Income - Total Expenses
+	                                 + Finance costs + Depreciation & amortisation
+	    EBITDA (%) Pre-Litigation  = EBITDA Pre-Litigation / Revenue from operations * 100
+	    Litigation Exp             = 0  (no per-company litigation source yet)
+	    EBITDA Post-Litigation     = EBITDA Pre-Litigation - Litigation Exp
+	    EBITDA (%) Post-Litigation = EBITDA Post-Litigation / Revenue from operations * 100
+
+	No-op (returns unchanged) when the expected P&L rows are absent, so it is safe
+	to call for any statement.
+	"""
+	ti = _find_row(
+		out_rows,
+		lambda n: n.startswith("total")
+		and ("income" in n or "lncome" in n)
+		and "comprehensive" not in n,
+	)
+	te = _find_row(out_rows, lambda n: n.startswith("total exp"))
+	fin = _find_row(out_rows, lambda n: n.startswith("finance cost"))
+	dep = _find_row(out_rows, lambda n: n.startswith("depreciation"))
+	rev = _find_row(out_rows, lambda n: n.startswith("revenue from operation"))
+	if min(ti, te, fin, dep, rev) < 0:
+		return  # not the expected P&L structure
+
+	ncomp = len(out_rows[ti]["values"])
+
+	def _obj(idx, i):
+		"""Cell dict for row `idx`; i < 0 selects the Consolidate column."""
+		return out_rows[idx]["consolidate"] if i < 0 else out_rows[idx]["values"][i]
+
+	def _cell(idx, i, k):
+		return (_obj(idx, i) or {}).get(k)
+
+	def _pre(i, k):
+		"""EBITDA (Pre-Litigation) for column i, measure k; None when all absent."""
+		parts = [_cell(ti, i, k), _cell(te, i, k), _cell(fin, i, k), _cell(dep, i, k)]
+		if all(v is None for v in parts):
+			return None
+		tiv, tev, finv, depv = (v or 0 for v in parts)
+		return round(tiv - tev + finv + depv, 2)
+
+	def _litigation(i, k):
+		# No per-company litigation figure in the source reports yet — keep the
+		# row (value 0) so it is visible and ready to be wired up later.
+		return 0.0
+
+	def _post(i, k):
+		pre = _pre(i, k)
+		if pre is None:
+			return None
+		return round(pre - (_litigation(i, k) or 0), 2)
+
+	def _pct(amount_fn, i, k):
+		amt = amount_fn(i, k)
+		rv = _cell(rev, i, k)
+		if amt is None or not rv:
+			return None
+		return round(amt / rv * 100, 2)
+
+	def _build(fn):
+		return {k: fn(-1, k) for k in measure_keys}, [
+			{k: fn(i, k) for k in measure_keys} for i in range(ncomp)
+		]
+
+	pre_consol, pre_values = _build(_pre)
+	pre_pct_consol, pre_pct_values = _build(lambda i, k: _pct(_pre, i, k))
+	lit_consol, lit_values = _build(_litigation)
+	post_consol, post_values = _build(_post)
+	post_pct_consol, post_pct_values = _build(lambda i, k: _pct(_post, i, k))
+
+	def _row(particular, consol, values, fmt=None):
+		row = {
+			"particular": particular,
+			"indent": 0,
+			"is_bold": 1,
+			"is_header": 0,
+			"kind": "derived",
+			"consolidate": consol,
+			"values": values,
+		}
+		if fmt:
+			row["value_format"] = fmt
+		return row
+
+	block = [
+		_row("EBITDA Pre-Litigation", pre_consol, pre_values),
+		_row("EBITDA (%) Pre-Litigation", pre_pct_consol, pre_pct_values, "percent"),
+		_row("Litigation Exp", lit_consol, lit_values),
+		_row("EBITDA Post-Litigation", post_consol, post_values),
+		_row("EBITDA (%) Post-Litigation", post_pct_consol, post_pct_values, "percent"),
+	]
+	out_rows[te + 1 : te + 1] = block
+
+
 @frappe.whitelist()
 def get_context(report_type="Yearly", fiscal_year=None):
 	"""Filter metadata: available fiscal years (and months for Monthly).
@@ -219,6 +362,9 @@ def get_context(report_type="Yearly", fiscal_year=None):
 	default) so the returned months always match the year the page will show.
 	"""
 	frappe.has_permission("Financial Report", "read", throw=True)
+
+	# FTM reads the Monthly reports (only its For-The-Month column differs).
+	storage_type = _storage_report_type(report_type)
 
 	companies = [c.name for c in _domestic_companies()]
 	empty = {
@@ -235,7 +381,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 
 	years = frappe.get_all(
 		"Financial Report",
-		filters={"company": ["in", companies], "report_type": report_type},
+		filters={"company": ["in", companies], "report_type": storage_type},
 		distinct=True,
 		pluck="fiscal_year",
 		order_by="fiscal_year desc",
@@ -248,7 +394,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 			"Financial Report",
 			{
 				"company": ["in", companies],
-				"report_type": report_type,
+				"report_type": storage_type,
 				"fiscal_year": y,
 				"report_status": "Successful",
 			},
@@ -260,9 +406,9 @@ def get_context(report_type="Yearly", fiscal_year=None):
 
 	resolved_year = fiscal_year if fiscal_year in years else default_year
 
-	# Months only apply to Monthly reports.
+	# Months apply to the Monthly-driven views (Monthly and FTM).
 	months, default_month = [], None
-	if report_type == "Monthly" and resolved_year:
+	if _is_monthly_like(report_type) and resolved_year:
 		months = frappe.get_all(
 			"Financial Report",
 			filters={
@@ -322,7 +468,9 @@ def get_consolidated_statement(
 	frappe.has_permission("Financial Report", "read", throw=True)
 	if statement not in STATEMENTS:
 		statement = BALANCE_SHEET
-	if report_type != "Monthly":
+	# FTM is served from the Monthly reports; only its column set differs.
+	storage_type = _storage_report_type(report_type)
+	if not _is_monthly_like(report_type):
 		month = None
 
 	if isinstance(exclude_companies, str):
@@ -337,7 +485,7 @@ def get_consolidated_statement(
 	for c in _domestic_companies():
 		if c.name in excluded:
 			continue  # hidden by the user — leave out of the matrix and totals
-		report = _pick_report(c.name, report_type, fiscal_year, month)
+		report = _pick_report(c.name, storage_type, fiscal_year, month)
 		rows = _statement_rows(report.name, statement) if report else None
 		if rows:
 			with_data.append(
@@ -369,7 +517,10 @@ def get_consolidated_statement(
 	# Sub-columns (measures) per company depend on the report type.
 	#   Yearly  -> Current Year, Previous Year
 	#   Monthly -> Current Month, FTM, Previous Month  (no previous year)
-	if report_type == "Monthly":
+	#   FTM     -> For-The-Month only (single movement column per company)
+	if report_type == "FTM":
+		measures = [("ftm", "ftm_amount", "FTM")]
+	elif report_type == "Monthly":
 		measures = [
 			("cm", "current_month_amount", month or "Current Month"),
 			("ftm", "ftm_amount", "FTM"),
@@ -422,7 +573,7 @@ def get_consolidated_statement(
 		blank = not has_value
 		out_rows.append(
 			{
-				"particular": r.get("account") or "",
+				"particular": _clean_particular(r.get("account")),
 				"indent": int(r.get("indent") or 0),
 				"is_bold": 1 if r.get("is_bold") else 0,
 				"is_header": 1 if is_header else 0,
@@ -431,9 +582,11 @@ def get_consolidated_statement(
 			}
 		)
 
-	# Derived KPIs (Gross Margin, Gross Margin %) — P&L only; no-op elsewhere.
+	# Derived KPIs — P&L only; no-ops elsewhere. Gross Margin first (it sits high
+	# in the statement), then the EBITDA / Litigation block below Total Expenses.
 	if statement == PROFIT_AND_LOSS:
 		_insert_gross_margin(out_rows, measure_keys)
+		_insert_ebitda(out_rows, measure_keys)
 
 	return {
 		"statement": statement,

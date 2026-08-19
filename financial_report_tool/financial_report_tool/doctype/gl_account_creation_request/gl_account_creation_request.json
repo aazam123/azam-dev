@@ -1,0 +1,238 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "GLACR-.#####",
+ "creation": "2025-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "request_section",
+  "company",
+  "requested_by",
+  "column_break_req",
+  "status",
+  "assigned_to",
+  "account_section",
+  "account_name",
+  "account_number",
+  "is_group",
+  "column_break_acc",
+  "root_type",
+  "report_type",
+  "parent_account",
+  "reason",
+  "grouping_section",
+  "grouping_help",
+  "primary_group",
+  "secondary_group",
+  "column_break_grp",
+  "higher_secondary_group",
+  "result_section",
+  "created_account",
+  "gl_group_mapping",
+  "rejection_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "request_section",
+   "fieldtype": "Section Break",
+   "label": "Request"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "default": "__user",
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_req",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Requested",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Requested\nAccount Created\nRejected",
+   "read_only": 1
+  },
+  {
+   "description": "Set automatically from GL Account Request Settings based on the Company.",
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Assigned To",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "account_section",
+   "fieldtype": "Section Break",
+   "label": "Requested Account"
+  },
+  {
+   "fieldname": "account_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Proposed Account Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "label": "Account Number"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_group",
+   "fieldtype": "Check",
+   "label": "Is Group Account"
+  },
+  {
+   "fieldname": "column_break_acc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "root_type",
+   "fieldtype": "Select",
+   "label": "Root Type",
+   "options": "\nAsset\nLiability\nIncome\nExpense\nEquity"
+  },
+  {
+   "default": "Monthly",
+   "fieldname": "report_type",
+   "fieldtype": "Select",
+   "label": "Report Type (for Grouping)",
+   "options": "Monthly\nYearly\nConsole Monthly\nConsole Yearly\nMIS"
+  },
+  {
+   "description": "The ERPNext parent account under which the new account will be created.",
+   "fieldname": "parent_account",
+   "fieldtype": "Link",
+   "label": "Parent Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason / Notes"
+  },
+  {
+   "fieldname": "grouping_section",
+   "fieldtype": "Section Break",
+   "label": "Grouping"
+  },
+  {
+   "fieldname": "grouping_help",
+   "fieldtype": "HTML",
+   "options": "<p class='text-muted'>To be filled by the assigned user before creating the account.</p>"
+  },
+  {
+   "fieldname": "primary_group",
+   "fieldtype": "Link",
+   "label": "Primary Group",
+   "options": "Standalone Group"
+  },
+  {
+   "fieldname": "secondary_group",
+   "fieldtype": "Link",
+   "label": "Secondary Group",
+   "options": "Standalone Group"
+  },
+  {
+   "fieldname": "column_break_grp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "higher_secondary_group",
+   "fieldtype": "Link",
+   "label": "Higher Secondary Group",
+   "options": "Standalone Group"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "result_section",
+   "fieldtype": "Section Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "created_account",
+   "fieldtype": "Link",
+   "label": "Created Account",
+   "options": "Account",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gl_group_mapping",
+   "fieldtype": "Link",
+   "label": "GL Group Mapping",
+   "options": "GL Group Mapping",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rejection_reason",
+   "fieldtype": "Small Text",
+   "label": "Rejection Reason",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "GL Account Creation Request",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "account_name"
+}
