@@ -70,6 +70,18 @@ def _prev_month(m):
 	return CALENDAR_MONTHS[(CALENDAR_MONTHS.index(m) - 1) % 12]
 
 
+def _fiscal_months_upto(end_month):
+	"""Fiscal-order months from April up to and including `end_month`.
+
+	Used by the "All FTM" view to show every month's movement from the start of
+	the fiscal year through the selected month. Falls back to the full fiscal
+	year when `end_month` is missing or unrecognised.
+	"""
+	if end_month in FISCAL_MONTH_ORDER:
+		return FISCAL_MONTH_ORDER[: FISCAL_MONTH_ORDER.index(end_month) + 1]
+	return list(FISCAL_MONTH_ORDER)
+
+
 def _domestic_companies():
 	"""Return domestic companies as [{name, currency}], ordered by name."""
 	return frappe.get_all(
@@ -180,12 +192,16 @@ def _find_row(rows, pred):
 
 
 def _insert_gross_margin(out_rows, measure_keys):
-	"""Insert derived Gross Margin / Gross Margin (%) rows into a P&L statement.
+	"""Insert derived Total RMC / Gross Margin / Gross Margin (%) rows into a P&L.
 
 	Placed directly below "Changes in inventories …". Computed per column
-	(company + Consolidate) and per measure from existing line items:
+	(company + Consolidate) and per measure from existing line items, matching the
+	Excel model (Summary!RMC = SUM('Profit & Loss'!row 13:15)):
 
-	    Gross Margin      = Total Income - Cost of materials consumed
+	    Total RMC         = Cost of materials consumed
+	                        + Purchases of Stock-in-Trade
+	                        + Changes in inventories of finished goods & WIP
+	    Gross Margin      = Total Income - Total RMC
 	    Gross Margin (%)  = Gross Margin / Revenue from operations * 100
 
 	No-ops (returns unchanged) when the expected P&L rows are absent, so it is
@@ -198,10 +214,16 @@ def _insert_gross_margin(out_rows, measure_keys):
 		and "comprehensive" not in n,
 	)
 	cost = _find_row(out_rows, lambda n: n.startswith("cost of material"))
+	purch = _find_row(out_rows, lambda n: n.startswith("purchase") and "stock" in n)
 	rev = _find_row(out_rows, lambda n: n.startswith("revenue from operation"))
 	inv = _find_row(out_rows, lambda n: n.startswith("changes in inventor"))
+	# Purchases of Stock-in-Trade is optional (some companies omit it); the other
+	# three rows define the expected P&L structure.
 	if min(ti, cost, rev, inv) < 0:
 		return  # not the expected P&L structure
+
+	# Rows summed into RMC — mirrors the Excel SUM over the three material lines.
+	rmc_rows = [cost, inv] + ([purch] if purch >= 0 else [])
 
 	ncomp = len(out_rows[ti]["values"])
 
@@ -209,13 +231,20 @@ def _insert_gross_margin(out_rows, measure_keys):
 		"""Cell dict for row `idx`; i < 0 selects the Consolidate column."""
 		return out_rows[idx]["consolidate"] if i < 0 else out_rows[idx]["values"][i]
 
+	def _rmc(i, k):
+		"""Total RMC for column i, measure k; None only when every source is absent."""
+		cells = [(_obj(idx, i) or {}).get(k) for idx in rmc_rows]
+		if all(v is None for v in cells):
+			return None
+		return round(sum(v or 0 for v in cells), 2)
+
 	def _diff(i, k):
 		"""Gross Margin (amount) for column i, measure k; None when both absent."""
 		tv = (_obj(ti, i) or {}).get(k)
-		cv = (_obj(cost, i) or {}).get(k)
-		if tv is None and cv is None:
+		rmc = _rmc(i, k)
+		if tv is None and rmc is None:
 			return None
-		return round((tv or 0) - (cv or 0), 2)
+		return round((tv or 0) - (rmc or 0), 2)
 
 	def _pct(i, k):
 		gm = _diff(i, k)
@@ -229,9 +258,19 @@ def _insert_gross_margin(out_rows, measure_keys):
 			{k: compute(i, k) for k in measure_keys} for i in range(ncomp)
 		]
 
+	rmc_consol, rmc_values = _build(_rmc)
 	gm_consol, gm_values = _build(_diff)
 	pct_consol, pct_values = _build(_pct)
 
+	total_rmc = {
+		"particular": "Total RMC",
+		"indent": 0,
+		"is_bold": 1,
+		"is_header": 0,
+		"kind": "derived",
+		"consolidate": rmc_consol,
+		"values": rmc_values,
+	}
 	gross_margin = {
 		"particular": "Gross Margin",
 		"indent": 0,
@@ -251,7 +290,7 @@ def _insert_gross_margin(out_rows, measure_keys):
 		"consolidate": pct_consol,
 		"values": pct_values,
 	}
-	out_rows[inv + 1 : inv + 1] = [gross_margin, gross_margin_pct]
+	out_rows[inv + 1 : inv + 1] = [total_rmc, gross_margin, gross_margin_pct]
 
 
 def _insert_ebitda(out_rows, measure_keys):
@@ -354,6 +393,39 @@ def _insert_ebitda(out_rows, measure_keys):
 	out_rows[te + 1 : te + 1] = block
 
 
+def _reorder_pbt_drivers(out_rows):
+	"""Move Depreciation and Finance costs to just below the EBITDA block.
+
+	Mirrors the Excel "Summary" layout, where EBITDA is struck first and then
+	Depreciation (r21) and Finance Cost (r22) are deducted to reach Profit before
+	tax. Purely positional: the rows keep their figures, Total Expenses still
+	sums them, and EBITDA still adds them back — only their display position
+	changes. No-op when the EBITDA block or either row is absent.
+	"""
+	# Anchor = last row of the EBITDA block (its rows all start with "ebitda").
+	anchor = -1
+	for i, r in enumerate(out_rows):
+		if _norm(r.get("particular")).startswith("ebitda"):
+			anchor = i
+	if anchor < 0:
+		return  # EBITDA block absent — leave the statutory layout untouched
+
+	fin = _find_row(out_rows, lambda n: n.startswith("finance cost"))
+	dep = _find_row(out_rows, lambda n: n.startswith("depreciation"))
+	if fin < 0 or dep < 0:
+		return
+
+	dep_row, fin_row = out_rows[dep], out_rows[fin]
+	# Remove both (highest index first so the other index stays valid), tracking
+	# how the anchor shifts as earlier rows are pulled out.
+	for i in sorted([fin, dep], reverse=True):
+		out_rows.pop(i)
+		if i <= anchor:
+			anchor -= 1
+	# Re-insert below the EBITDA block in Excel order: Depreciation, then Finance.
+	out_rows[anchor + 1 : anchor + 1] = [dep_row, fin_row]
+
+
 @frappe.whitelist()
 def get_context(report_type="Yearly", fiscal_year=None):
 	"""Filter metadata: available fiscal years (and months for Monthly).
@@ -452,7 +524,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 @frappe.whitelist()
 def get_consolidated_statement(
 	fiscal_year=None, report_type="Yearly", statement=BALANCE_SHEET, month=None,
-	exclude_companies=None,
+	exclude_companies=None, all_ftm=None,
 ):
 	"""Return one statement as a Particular | Consolidate | <company> matrix.
 
@@ -479,6 +551,14 @@ def get_consolidated_statement(
 		except (ValueError, TypeError):
 			exclude_companies = []
 	excluded = set(exclude_companies or [])
+
+	# "All FTM" is an FTM-only view: instead of one For-The-Month column per
+	# company, it shows one FTM column per month from April up to the selected
+	# month, for every company.
+	all_ftm = str(all_ftm).lower() in ("1", "true", "yes") and report_type == "FTM"
+
+	if all_ftm:
+		return _all_ftm_statement(statement, fiscal_year, month, excluded)
 
 	# Gather each domestic company's rows for this statement.
 	with_data, missing = [], []
@@ -552,6 +632,30 @@ def get_consolidated_statement(
 		aligned[p["company"]] = vals
 
 	company_names = [p["company"] for p in with_data]
+	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement)
+
+	return {
+		"statement": statement,
+		"fiscal_year": fiscal_year,
+		"previous_fiscal_year": previous_fiscal_year,
+		"report_type": report_type,
+		"month": month,
+		"columns": [{"key": key, "label": lbl} for key, _f, lbl in measures],
+		"companies": company_names,
+		"rows": out_rows,
+		"missing_companies": missing,
+		"excluded_companies": sorted(excluded),
+	}
+
+
+def _build_out_rows(canonical, company_names, aligned, measure_keys, statement):
+	"""Assemble the Particular | Consolidate | <company> rows from aligned data.
+
+	`aligned[company][idx]` is either None (row absent for that company) or a
+	dict of per-measure figures; a figure may itself be None when only some
+	measures apply to a company/row (e.g. a month missing in the All-FTM view).
+	Totals ignore Nones, and a row is blank only when every measure is empty.
+	"""
 	out_rows = []
 	for idx, r in enumerate(canonical):
 		is_header = bool(r.get("header") or r.get("group"))
@@ -561,14 +665,17 @@ def get_consolidated_statement(
 			if cell is None:
 				values.append({k: None for k in measure_keys})
 			else:
-				values.append({k: round(cell[k], 2) for k in measure_keys})
+				values.append(
+					{k: (round(cell[k], 2) if cell[k] is not None else None) for k in measure_keys}
+				)
 				for k in measure_keys:
-					totals[k] += cell[k]
+					if cell[k] is not None:
+						totals[k] += cell[k]
 				# A row carries figures if any measure is non-zero. This keeps
 				# grouped total rows (e.g. "Profit for the year") — which are
 				# flagged group=1 but hold real amounts — from being blanked,
 				# while genuine section headers (all-zero) stay blank.
-				if any(abs(cell[k]) > 1e-6 for k in measure_keys):
+				if any(cell[k] is not None and abs(cell[k]) > 1e-6 for k in measure_keys):
 					has_value = True
 		blank = not has_value
 		out_rows.append(
@@ -587,13 +694,80 @@ def get_consolidated_statement(
 	if statement == PROFIT_AND_LOSS:
 		_insert_gross_margin(out_rows, measure_keys)
 		_insert_ebitda(out_rows, measure_keys)
+		_reorder_pbt_drivers(out_rows)
+	return out_rows
+
+
+def _all_ftm_statement(statement, fiscal_year, month, excluded):
+	"""All-FTM view: one For-The-Month column per month (April -> selected month)
+	for every domestic company, served from that month's Monthly report.
+	"""
+	# Columns run most-recent first: selected month -> April.
+	month_range = list(reversed(_fiscal_months_upto(month)))
+	measures = [(m.lower(), "ftm_amount", m) for m in month_range]
+	measure_keys = [k for k, _f, _l in measures]
+
+	# Per company, gather each month's rows (only months that have a report).
+	company_month_rows, missing, row_sets = {}, [], []
+	for c in _domestic_companies():
+		if c.name in excluded:
+			continue
+		per_month = {}
+		for m in month_range:
+			report = _pick_report(c.name, "Monthly", fiscal_year, m)
+			rows = _statement_rows(report.name, statement) if report else None
+			if rows:
+				per_month[m] = rows
+				row_sets.append(rows)
+		if per_month:
+			company_month_rows[c.name] = per_month
+		else:
+			missing.append(c.name)
+
+	if not row_sets:
+		return {
+			"statement": statement,
+			"fiscal_year": fiscal_year,
+			"previous_fiscal_year": None,
+			"report_type": "FTM",
+			"month": month,
+			"all_ftm": 1,
+			"columns": [],
+			"companies": [],
+			"rows": [],
+			"missing_companies": missing,
+		}
+
+	# Canonical structure = the fullest row set across all companies/months.
+	canonical = max(row_sets, key=len)
+	canon_tokens = [_token(r) for r in canonical]
+
+	# Align each company's per-month rows onto the canonical indices, filling
+	# that month's measure with its For-The-Month figure.
+	aligned = {}
+	for cn, per_month in company_month_rows.items():
+		vals = [{k: None for k in measure_keys} for _ in canonical]
+		for m, rows in per_month.items():
+			mk = m.lower()
+			comp_tokens = [_token(r) for r in rows]
+			matcher = difflib.SequenceMatcher(None, canon_tokens, comp_tokens, autojunk=False)
+			for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+				if tag == "equal":
+					for off in range(i2 - i1):
+						src = rows[j1 + off]
+						vals[i1 + off][mk] = flt(src.get("ftm_amount") or 0)
+		aligned[cn] = vals
+
+	company_names = list(company_month_rows.keys())
+	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement)
 
 	return {
 		"statement": statement,
 		"fiscal_year": fiscal_year,
-		"previous_fiscal_year": previous_fiscal_year,
-		"report_type": report_type,
+		"previous_fiscal_year": None,
+		"report_type": "FTM",
 		"month": month,
+		"all_ftm": 1,
 		"columns": [{"key": key, "label": lbl} for key, _f, lbl in measures],
 		"companies": company_names,
 		"rows": out_rows,

@@ -13,6 +13,7 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 		report_type: 'Yearly',
 		fiscal_year: null,
 		month: null,
+		all_ftm: false, // FTM view: show every month (April -> selected) instead of one
 		show_kpi: true, // KPI rows (Gross Margin, EBITDA / Litigation) shown by default
 		hidden: new Set(), // companies the user crossed out of the matrix
 		all_companies: [], // full domestic company list (for the Company filter)
@@ -44,6 +45,12 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 						<button class="form-control input-sm cfs-company-btn" id="cfs-company-btn" type="button">All companies</button>
 						<div class="cfs-company-menu" id="cfs-company-menu" style="display:none;"></div>
 					</div>
+				</div>
+				<div class="cfs-field" id="cfs-allftm-field" style="display:none;">
+					<label>All FTM</label>
+					<button class="cfs-switch" id="cfs-allftm-toggle" type="button" role="switch" aria-checked="false" title="Show FTM for every month from April to the selected month">
+						<span class="cfs-switch-knob"></span>
+					</button>
 				</div>
 				<div class="cfs-field cfs-kpi-field">
 					<label>KPIs</label>
@@ -80,6 +87,11 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 	$body.find('#cfs-kpi-toggle').on('click', function () {
 		state.show_kpi = !state.show_kpi;
 		apply_kpi_visibility(page, state);
+	});
+	$body.find('#cfs-allftm-toggle').on('click', function () {
+		state.all_ftm = !state.all_ftm;
+		$(this).toggleClass('active', state.all_ftm).attr('aria-checked', state.all_ftm ? 'true' : 'false');
+		load_statement(page, state);
 	});
 
 	// Cross out a company column — recompute the matrix without it.
@@ -225,6 +237,15 @@ function load_context(page, state) {
 			// Month filter: relevant for the Monthly-driven views (Monthly, FTM).
 			const is_monthly = state.report_type === 'Monthly' || state.report_type === 'FTM';
 			$body.find('#cfs-month-field').toggle(is_monthly);
+
+			// "All FTM" toggle only applies to the FTM view; reset it otherwise.
+			const is_ftm = state.report_type === 'FTM';
+			$body.find('#cfs-allftm-field').toggle(is_ftm);
+			if (!is_ftm) state.all_ftm = false;
+			$body
+				.find('#cfs-allftm-toggle')
+				.toggleClass('active', state.all_ftm)
+				.attr('aria-checked', state.all_ftm ? 'true' : 'false');
 			let months = [];
 			if (is_monthly) {
 				months = ctx.months || [];
@@ -272,6 +293,7 @@ function load_statement(page, state) {
 					report_type: state.report_type,
 					statement: statement,
 					month: state.month,
+					all_ftm: state.all_ftm ? 1 : 0,
 					exclude_companies: JSON.stringify(Array.from(state.hidden)),
 				},
 			})
@@ -312,7 +334,9 @@ function fmt_pct(v) {
 // --- Build one statement's block (title + columnar table) ----------------
 function build_statement_block(title, data, hidden) {
 	const heading = `<div class="cfs-block-title">${frappe.utils.escape_html(title)}</div>`;
-	const is_ftm = data.report_type === 'FTM'; // FTM: single column per company, centred
+	// Single-column FTM is centred; All-FTM has many month columns, so keep them
+	// right-aligned like the Monthly view.
+	const is_ftm = data.report_type === 'FTM' && !data.all_ftm;
 	const companies = data.companies || [];
 	const rows = data.rows || [];
 	hidden = hidden || [];
@@ -490,7 +514,7 @@ function inject_styles() {
 		.cfs-scroll { overflow-x:auto; border:1px solid #e6ebf1; border-radius:12px; background:#fff; }
 		table.cfs-table { border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px; }
 		.cfs-table th, .cfs-table td {
-			padding:7px 12px; border-bottom:1px solid #eef2f4;
+			padding:3px 12px; border-bottom:1px solid #eef2f4;
 		}
 		.cfs-table thead th {
 			background:#f4f8f5; color:#14351b; font-weight:600;
