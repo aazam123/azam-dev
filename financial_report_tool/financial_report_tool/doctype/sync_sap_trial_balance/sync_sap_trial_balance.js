@@ -60,6 +60,10 @@ function apply_company_template(frm) {
     });
 }
 
+// April, the standard Indian fiscal-year start — used when a Fiscal Year has no
+// stored start date to read (mirrors DEFAULT_FY_START_MONTH on the server).
+const DEFAULT_FY_START_MONTH = 4;
+
 // Reporting year = fiscal year start; comparison year = one before.
 function apply_period_years(frm) {
     if (!frm.doc.fiscal_year) return;
@@ -69,15 +73,33 @@ function apply_period_years(frm) {
     frm.set_value("compyear", String(y - 1));
 }
 
-// Year-to-date span: 01 -> selected month's calendar number, for both ranges.
+// SAP counts posting periods from the fiscal-year start, not the calendar year:
+// with an April fiscal year August is period 05, not 08. Resolve the fiscal
+// year's start month, then map the selected month onto the period.
 function apply_period_months(frm) {
     const i = SAP_MONTHS.indexOf(frm.doc.month);
     if (i < 0) return;
-    const mm = String(i + 1).padStart(2, "0");
-    frm.set_value("srepmonth", "01");
-    frm.set_value("trepmonth", mm);
-    frm.set_value("scompmonth", "01");
-    frm.set_value("tcompmonth", mm);
+    const cal = i + 1; // 1..12 calendar month
+
+    const set_span = (startMonth) => {
+        const period = (((cal - startMonth) % 12) + 12) % 12 + 1;
+        const mm = String(period).padStart(2, "0");
+        frm.set_value("srepmonth", "01");
+        frm.set_value("trepmonth", mm);
+        frm.set_value("scompmonth", "01");
+        frm.set_value("tcompmonth", mm);
+    };
+
+    if (!frm.doc.fiscal_year) {
+        set_span(DEFAULT_FY_START_MONTH);
+        return;
+    }
+    frappe.db.get_value("Fiscal Year", frm.doc.fiscal_year, "year_start_date").then(r => {
+        const start = r && r.message && r.message.year_start_date;
+        // JS months are 0-based; year_start_date is "YYYY-MM-DD".
+        const startMonth = start ? parseInt(String(start).slice(5, 7), 10) : DEFAULT_FY_START_MONTH;
+        set_span(startMonth || DEFAULT_FY_START_MONTH);
+    });
 }
 
 frappe.ui.form.on("Sync SAP Trial Balance", {
@@ -86,6 +108,9 @@ frappe.ui.form.on("Sync SAP Trial Balance", {
     },
     fiscal_year(frm) {
         apply_period_years(frm);
+        // The fiscal-year start month drives the SAP period, so re-derive the
+        // month spans whenever the fiscal year changes.
+        apply_period_months(frm);
     },
     month(frm) {
         apply_period_months(frm);

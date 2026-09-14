@@ -122,13 +122,18 @@ def _callback_token():
 	return token if token.lower().startswith("token ") else f"token {token}"
 
 
-# Month name -> SAP fiscal period. The Sync SAP Trial Balance ``month`` Select is
-# calendar-ordered, and the observed data maps a month straight to its calendar
-# number (June -> 06), so the index into this list (+1) is the period.
+# The Sync SAP Trial Balance ``month`` Select is calendar-ordered, so a month's
+# index (+1) is its *calendar* number. That is NOT the SAP posting period: SAP
+# counts periods from the fiscal-year start, so for an April-starting fiscal year
+# August is period 05, not 08 (see ``_month_period``).
 MONTHS = [
 	"January", "February", "March", "April", "May", "June",
 	"July", "August", "September", "October", "November", "December",
 ]
+
+# Fallback fiscal-year start month when a Fiscal Year has no stored start date —
+# April, the standard Indian fiscal year these companies run on.
+DEFAULT_FY_START_MONTH = 4
 
 
 def _fiscal_start_year(fiscal_year):
@@ -144,12 +149,32 @@ def _fiscal_start_year(fiscal_year):
 	return int(token) if token.isdigit() else None
 
 
-def _month_period(month):
-	"""Two-digit SAP period for a month name (``"June"`` -> ``"06"``), or ``None``."""
+def _fiscal_start_month(fiscal_year):
+	"""Calendar month (1-12) the Fiscal Year begins in, from ``year_start_date``.
+
+	This is what turns a calendar month into a SAP posting period. Defaults to
+	:data:`DEFAULT_FY_START_MONTH` (April) when the Fiscal Year is missing or has
+	no stored start date, so an unconfigured record still lands on the usual
+	Indian fiscal calendar rather than the (wrong) calendar-year one.
+	"""
+	start = frappe.db.get_value("Fiscal Year", fiscal_year, "year_start_date")
+	return start.month if start else DEFAULT_FY_START_MONTH
+
+
+def _month_period(month, fy_start_month=DEFAULT_FY_START_MONTH):
+	"""Two-digit SAP posting period for a month name, or ``None``.
+
+	SAP numbers periods from the fiscal-year start, not the calendar year: with
+	an April-starting fiscal year (``fy_start_month=4``) April is period 01,
+	August is 05, and January is 10. ``fy_start_month=1`` (a calendar-year fiscal
+	year) reproduces the plain month number (August -> 08).
+	"""
 	try:
-		return f"{MONTHS.index(month) + 1:02d}"
+		cal = MONTHS.index(month) + 1
 	except ValueError:
 		return None
+	period = ((cal - fy_start_month) % 12) + 1
+	return f"{period:02d}"
 
 
 class SyncSAPTrialBalance(Document):
@@ -214,9 +239,11 @@ class SyncSAPTrialBalance(Document):
 		"""Derive the year + period params from ``fiscal_year`` and ``month``.
 
 		``repyear`` is the fiscal year's start year and ``compyear`` the year
-		before it. The period spans are year-to-date: ``01`` through the calendar
-		number of the selected ``month`` (e.g. June -> 01..06), applied to both the
-		reporting and comparison ranges. Fill-if-empty, like the company template.
+		before it. The period spans are year-to-date: ``01`` through the selected
+		``month``'s SAP posting period (counted from the fiscal-year start, so for
+		an April fiscal year August -> 01..05), applied to both the reporting and
+		comparison ranges. Fill-if-empty, like the company template — so a manual
+		override of any period field on the document is preserved.
 		"""
 		if self.fiscal_year:
 			year = _fiscal_start_year(self.fiscal_year)
@@ -227,7 +254,7 @@ class SyncSAPTrialBalance(Document):
 					self.compyear = str(year - 1)
 
 		if self.month:
-			mm = _month_period(self.month)
+			mm = _month_period(self.month, _fiscal_start_month(self.fiscal_year))
 			if mm:
 				if not self.srepmonth:
 					self.srepmonth = "01"
