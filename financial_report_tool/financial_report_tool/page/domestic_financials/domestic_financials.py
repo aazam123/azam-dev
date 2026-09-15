@@ -15,6 +15,7 @@ documents, so this page never triggers a fresh report generation.
 
 import difflib
 import json
+import re
 from collections import Counter
 
 import frappe
@@ -137,6 +138,269 @@ def _statement_rows(report_name, section_type):
 		rows = json.loads(detail[0].table_data)
 	except (ValueError, TypeError):
 		return None
+	return rows or None
+
+
+# Section name of the note that bifurcates "Revenue from operations".
+REVENUE_NOTE_SECTION = "Revenue from operations"
+
+# User-entered "Strategic Expense" figures (per company / fiscal year / month).
+STRATEGIC_DOCTYPE = "Strategic Expense Entry"
+
+
+def _fetch_strategic(companies, fiscal_years):
+	"""Return {(company, fiscal_year, month): amount} summed from user entries."""
+	companies = [c for c in (companies or [])]
+	fiscal_years = [y for y in (fiscal_years or []) if y]
+	if not companies or not fiscal_years:
+		return {}
+	if not frappe.db.exists("DocType", STRATEGIC_DOCTYPE):
+		return {}  # DocType not installed yet — treat as no data
+	rows = frappe.get_all(
+		STRATEGIC_DOCTYPE,
+		filters={"company": ["in", companies], "fiscal_year": ["in", fiscal_years]},
+		fields=["company", "fiscal_year", "month", "amount"],
+	)
+	agg = {}
+	for r in rows:
+		key = (r.company, r.fiscal_year, r.month)
+		agg[key] = agg.get(key, 0.0) + flt(r.amount)
+	return agg
+
+
+def _strategic_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year):
+	"""Per-company Strategic Expense mapped onto the P&L measures for this view.
+
+	Entries are monthly amounts, so: Yearly sums the fiscal year; Monthly gives
+	the cumulative-to-month (cm), the month itself (ftm) and cumulative-to-prev
+	(pm); FTM gives the single month.
+	"""
+	raw = _fetch_strategic(company_names, [fiscal_year, previous_fiscal_year])
+
+	def m_amt(c, fy, m):
+		return raw.get((c, fy, m), 0.0)
+
+	def cum(c, fy, upto):
+		return sum(m_amt(c, fy, m) for m in _fiscal_months_upto(upto))
+
+	def year_total(c, fy):
+		return sum(m_amt(c, fy, m) for m in FISCAL_MONTH_ORDER) if fy else 0.0
+
+	out = {}
+	for c in company_names:
+		if report_type == "FTM":
+			out[c] = {"ftm": m_amt(c, fiscal_year, month)}
+		elif report_type == "Monthly":
+			months_up = _fiscal_months_upto(month)
+			out[c] = {
+				"cm": cum(c, fiscal_year, month),
+				"ftm": m_amt(c, fiscal_year, month),
+				"pm": sum(m_amt(c, fiscal_year, m) for m in months_up[:-1]),
+			}
+		else:  # Yearly
+			out[c] = {
+				"cy": year_total(c, fiscal_year),
+				"py": year_total(c, previous_fiscal_year),
+			}
+	return out
+
+
+def _strategic_amounts_all_ftm(company_names, month_range, fiscal_year):
+	"""All-FTM Strategic Expense: one month's amount per month column."""
+	raw = _fetch_strategic(company_names, [fiscal_year])
+	return {
+		c: {m.lower(): raw.get((c, fiscal_year, m), 0.0) for m in month_range}
+		for c in company_names
+	}
+
+
+def _adjust_row(row, company_names, measure_keys, strategic, sign):
+	"""Add (sign=+1) or subtract (sign=-1) Strategic Expense from an existing row."""
+	consol = row.get("consolidate")
+	if consol:
+		for k in measure_keys:
+			delta = sign * sum(strategic.get(c, {}).get(k, 0.0) for c in company_names)
+			consol[k] = round((consol.get(k) or 0) + delta, 2)
+	for i, c in enumerate(company_names):
+		cell = row["values"][i]
+		if cell is None:
+			continue
+		for k in measure_keys:
+			if cell.get(k) is not None:
+				cell[k] = round((cell.get(k) or 0) + sign * strategic.get(c, {}).get(k, 0.0), 2)
+
+
+def _insert_strategic_expense(out_rows, company_names, measure_keys, strategic):
+	"""Insert the "Strategic Expense" row below Finance costs and deduct from profit.
+
+	The amount is added into Total Expenses and subtracted from the profit rows
+	(Profit before tax / Profit for the year / Total comprehensive income), so the
+	statement still foots. EBITDA is computed earlier from the pre-Strategic Total
+	Expenses, so it is intentionally left unchanged (Strategic is a below-EBITDA,
+	strategic-in-nature deduction). No-op when Finance costs is absent.
+	"""
+	fin = _find_row(out_rows, lambda n: n.startswith("finance cost"))
+	if fin < 0:
+		return
+
+	consol = {
+		k: round(sum(strategic.get(c, {}).get(k, 0.0) for c in company_names), 2) for k in measure_keys
+	}
+	values = [
+		{k: round(strategic.get(c, {}).get(k, 0.0), 2) for k in measure_keys} for c in company_names
+	]
+	row = {
+		"particular": "Strategic Expense",
+		"indent": 0,
+		"is_bold": 0,
+		"is_header": 0,
+		"consolidate": consol,
+		"values": values,
+	}
+	out_rows[fin + 1 : fin + 1] = [row]
+
+	te = _find_row(out_rows, lambda n: n.startswith("total exp"))
+	if te >= 0:
+		_adjust_row(out_rows[te], company_names, measure_keys, strategic, sign=+1)
+	for r in out_rows:
+		n = _norm(r.get("particular"))
+		if (
+			n.startswith("profit before tax")
+			or n.startswith("profit for the")
+			or n.startswith("total comprehensive")
+		):
+			_adjust_row(r, company_names, measure_keys, strategic, sign=-1)
+
+
+@frappe.whitelist()
+def get_strategic_entries(fiscal_year=None, month=None):
+	"""Existing Strategic Expense amounts for a fiscal year + month, per company.
+
+	Powers the in-page entry grid: returns the domestic company list plus the
+	current amount for each (0 when none), so the dialog can pre-fill inputs.
+	"""
+	frappe.has_permission(STRATEGIC_DOCTYPE, "read", throw=True)
+	companies = [c.name for c in _domestic_companies()]
+	amounts = {}
+	if fiscal_year and month:
+		rows = frappe.get_all(
+			STRATEGIC_DOCTYPE,
+			filters={"fiscal_year": fiscal_year, "month": month, "company": ["in", companies]},
+			fields=["company", "amount"],
+		)
+		amounts = {r.company: flt(r.amount) for r in rows}
+	return {"companies": companies, "amounts": amounts}
+
+
+@frappe.whitelist()
+def save_strategic_entries(fiscal_year=None, month=None, amounts=None):
+	"""Upsert Strategic Expense amounts for a fiscal year + month.
+
+	`amounts` is a {company: amount} map. A zero/blank amount deletes any existing
+	entry for that company/period; a non-zero one creates or updates it. Returns
+	counts so the caller can confirm.
+	"""
+	frappe.has_permission(STRATEGIC_DOCTYPE, "create", throw=True)
+	if not fiscal_year or not month:
+		frappe.throw("Fiscal Year and Month are required.")
+	if isinstance(amounts, str):
+		try:
+			amounts = json.loads(amounts)
+		except (ValueError, TypeError):
+			amounts = {}
+	valid = {c.name for c in _domestic_companies()}
+
+	saved = deleted = 0
+	for company, amt in (amounts or {}).items():
+		if company not in valid:
+			continue
+		existing = frappe.db.get_value(
+			STRATEGIC_DOCTYPE,
+			{"company": company, "fiscal_year": fiscal_year, "month": month},
+			"name",
+		)
+		val = flt(amt)
+		if not val:
+			if existing:
+				frappe.delete_doc(STRATEGIC_DOCTYPE, existing)
+				deleted += 1
+			continue
+		if existing:
+			doc = frappe.get_doc(STRATEGIC_DOCTYPE, existing)
+			doc.amount = val
+			doc.save()
+		else:
+			frappe.get_doc(
+				{
+					"doctype": STRATEGIC_DOCTYPE,
+					"company": company,
+					"fiscal_year": fiscal_year,
+					"month": month,
+					"amount": val,
+				}
+			).insert()
+		saved += 1
+	frappe.db.commit()
+	return {"saved": saved, "deleted": deleted}
+
+
+def _note_html(report_name, section):
+	"""Return the rendered `table_data` HTML for a Consolidation Note section."""
+	detail = frappe.get_all(
+		"Financial Report Details",
+		filters={
+			"parent": report_name,
+			"parenttype": "Financial Report",
+			"section_type": "Consolidation Note",
+			"section": section,
+		},
+		fields=["table_data"],
+		order_by="idx asc",
+		limit=1,
+	)
+	if not detail:
+		return None
+	return (detail[0].table_data or "").strip() or None
+
+
+def _num(text):
+	"""Parse a numeric cell; returns None when it is not a number."""
+	t = re.sub(r"<[^>]+>", "", text or "")
+	t = t.replace("&nbsp;", "").replace(" ", "").replace(",", "").strip()
+	if t in ("", "-"):
+		return None
+	try:
+		return float(t)
+	except ValueError:
+		return None
+
+
+def _parse_note_html(html):
+	"""Parse a note's HTML table into structured line items.
+
+	Returns a list of {particular, indent, is_bold, nums:[...]} — one per body
+	row, in document order, excluding the "Particulars" header row. Indentation
+	is inferred from leading &nbsp; in the label cell (4 per level), matching how
+	the note tables are rendered. `nums` holds the numeric columns left-to-right.
+	"""
+	if not html:
+		return None
+	rows = []
+	for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S | re.I):
+		cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S | re.I)
+		if not cells:
+			continue
+		if re.search(r"<th", tr, re.I):
+			continue  # header row ("Particulars | <dates>")
+		raw = cells[0]
+		lead = re.match(r"((?:&nbsp;| |\s)*)", raw).group(1)
+		indent = (lead.count("&nbsp;") + lead.count(" ")) // 4
+		label = re.sub(r"<[^>]+>", "", raw).replace("&nbsp;", " ").replace(" ", " ").strip()
+		if not label:
+			continue
+		is_bold = bool(re.search(r"font-weight:\s*bold", tr, re.I))
+		nums = [_num(c) for c in cells[1:]]
+		rows.append({"particular": label, "indent": indent, "is_bold": 1 if is_bold else 0, "nums": nums})
 	return rows or None
 
 
@@ -632,7 +896,12 @@ def get_consolidated_statement(
 		aligned[p["company"]] = vals
 
 	company_names = [p["company"] for p in with_data]
-	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement)
+	strategic = (
+		_strategic_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year)
+		if statement == PROFIT_AND_LOSS
+		else None
+	)
+	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement, strategic)
 
 	return {
 		"statement": statement,
@@ -648,7 +917,182 @@ def get_consolidated_statement(
 	}
 
 
-def _build_out_rows(canonical, company_names, aligned, measure_keys, statement):
+@frappe.whitelist()
+def get_revenue_bifurcation(
+	fiscal_year=None, report_type="Yearly", month=None,
+	exclude_companies=None, all_ftm=None,
+):
+	"""Breakdown ("bifurcation") of Revenue from operations, per company.
+
+	Read from each domestic company's "Revenue from operations" note and aligned
+	into the same Particular | Consolidate | <company> shape the P&L face uses, so
+	the page can expand the Revenue row inline. Columns mirror the P&L face for
+	the same filters.
+	"""
+	frappe.has_permission("Financial Report", "read", throw=True)
+	storage_type = _storage_report_type(report_type)
+	if not _is_monthly_like(report_type):
+		month = None
+
+	if isinstance(exclude_companies, str):
+		try:
+			exclude_companies = json.loads(exclude_companies)
+		except (ValueError, TypeError):
+			exclude_companies = []
+	excluded = set(exclude_companies or [])
+
+	all_ftm = str(all_ftm).lower() in ("1", "true", "yes") and report_type == "FTM"
+	if all_ftm:
+		return _revenue_bifurcation_all_ftm(fiscal_year, month, excluded)
+
+	# Parse each visible company's revenue note.
+	parsed, missing = [], []
+	for c in _domestic_companies():
+		if c.name in excluded:
+			continue
+		report = _pick_report(c.name, storage_type, fiscal_year, month)
+		rows = _parse_note_html(_note_html(report.name, REVENUE_NOTE_SECTION)) if report else None
+		if rows:
+			parsed.append({"company": c.name, "rows": rows, "report": report})
+		else:
+			missing.append(c.name)
+
+	if not parsed:
+		return {"columns": [], "companies": [], "rows": [], "missing_companies": missing}
+
+	prev_years = [p["report"].get("previous_fiscal_year") for p in parsed]
+	prev_years = [y for y in prev_years if y]
+	previous_fiscal_year = Counter(prev_years).most_common(1)[0][0] if prev_years else None
+
+	# (measure_key, label, note_column_index): the note's numeric columns map onto
+	# the same measures the P&L face shows for this report type. The Monthly note
+	# also carries a trailing previous-year column, which the face omits.
+	if report_type == "FTM":
+		measures = [("ftm", "FTM", 1)]
+	elif report_type == "Monthly":
+		measures = [
+			("cm", month or "Current Month", 0),
+			("ftm", "FTM", 1),
+			("pm", _prev_month(month) or "Previous Month", 2),
+		]
+	else:
+		measures = [
+			("cy", fiscal_year or "Current Year", 0),
+			("py", previous_fiscal_year or "Previous Year", 1),
+		]
+
+	company_names = [p["company"] for p in parsed]
+	# Canonical line-item order = the company with the most note rows.
+	canonical = max(parsed, key=lambda p: len(p["rows"]))["rows"]
+	lookups = {p["company"]: {_norm(r["particular"]): r for r in p["rows"]} for p in parsed}
+
+	out_rows = _build_bifurcation_rows(canonical, company_names, lookups, measures)
+	return {
+		"columns": [{"key": k, "label": lbl} for k, lbl, _ci in measures],
+		"companies": company_names,
+		"rows": out_rows,
+		"missing_companies": missing,
+	}
+
+
+def _build_bifurcation_rows(canonical, company_names, lookups, measures):
+	"""Align parsed note line items across companies onto the canonical order."""
+	measure_keys = [m[0] for m in measures]
+	out = []
+	for cr in canonical:
+		key = _norm(cr["particular"])
+		values, totals, has_value = [], {k: 0.0 for k in measure_keys}, False
+		for cn in company_names:
+			src = lookups[cn].get(key)
+			if not src:
+				values.append({k: None for k in measure_keys})
+				continue
+			cell = {}
+			for mk, _lbl, ci in measures:
+				v = src["nums"][ci] if ci < len(src["nums"]) else None
+				cell[mk] = round(v, 2) if v is not None else None
+				if v is not None:
+					totals[mk] += v
+					if abs(v) > 1e-6:
+						has_value = True
+			values.append(cell)
+		blank = not has_value
+		out.append(
+			{
+				"particular": cr["particular"],
+				"indent": int(cr.get("indent") or 0),
+				"is_bold": int(cr.get("is_bold") or 0),
+				"is_header": 1 if blank else 0,
+				"consolidate": None if blank else {k: round(totals[k], 2) for k in measure_keys},
+				"values": values,
+			}
+		)
+	return out
+
+
+def _revenue_bifurcation_all_ftm(fiscal_year, month, excluded):
+	"""All-FTM view of the Revenue breakdown: one FTM column per month."""
+	month_range = list(reversed(_fiscal_months_upto(month)))
+	measures = [(m.lower(), m, 1) for m in month_range]  # note FTM column = index 1
+	measure_keys = [k for k, _l, _c in measures]
+
+	company_month_rows, missing, row_sets = {}, [], []
+	for c in _domestic_companies():
+		if c.name in excluded:
+			continue
+		per_month = {}
+		for m in month_range:
+			report = _pick_report(c.name, "Monthly", fiscal_year, m)
+			rows = _parse_note_html(_note_html(report.name, REVENUE_NOTE_SECTION)) if report else None
+			if rows:
+				per_month[m] = rows
+				row_sets.append(rows)
+		if per_month:
+			company_month_rows[c.name] = per_month
+		else:
+			missing.append(c.name)
+
+	if not row_sets:
+		return {"columns": [], "companies": [], "rows": [], "missing_companies": missing}
+
+	canonical = max(row_sets, key=len)
+	company_names = list(company_month_rows.keys())
+
+	out = []
+	for cr in canonical:
+		key = _norm(cr["particular"])
+		values, totals, has_value = [], {k: 0.0 for k in measure_keys}, False
+		for cn in company_names:
+			cell = {k: None for k in measure_keys}
+			for m, rows in company_month_rows[cn].items():
+				src = next((r for r in rows if _norm(r["particular"]) == key), None)
+				v = src["nums"][1] if src and len(src["nums"]) > 1 else None
+				if v is not None:
+					cell[m.lower()] = round(v, 2)
+					totals[m.lower()] += v
+					if abs(v) > 1e-6:
+						has_value = True
+			values.append(cell)
+		blank = not has_value
+		out.append(
+			{
+				"particular": cr["particular"],
+				"indent": int(cr.get("indent") or 0),
+				"is_bold": int(cr.get("is_bold") or 0),
+				"is_header": 1 if blank else 0,
+				"consolidate": None if blank else {k: round(totals[k], 2) for k in measure_keys},
+				"values": values,
+			}
+		)
+	return {
+		"columns": [{"key": k, "label": lbl} for k, lbl, _c in measures],
+		"companies": company_names,
+		"rows": out,
+		"missing_companies": missing,
+	}
+
+
+def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, strategic=None):
 	"""Assemble the Particular | Consolidate | <company> rows from aligned data.
 
 	`aligned[company][idx]` is either None (row absent for that company) or a
@@ -695,6 +1139,10 @@ def _build_out_rows(canonical, company_names, aligned, measure_keys, statement):
 		_insert_gross_margin(out_rows, measure_keys)
 		_insert_ebitda(out_rows, measure_keys)
 		_reorder_pbt_drivers(out_rows)
+		# Strategic Expense (user-entered) goes below Finance costs and deducts from
+		# profit — done last so EBITDA above keeps its pre-Strategic figures.
+		if strategic:
+			_insert_strategic_expense(out_rows, company_names, measure_keys, strategic)
 	return out_rows
 
 
@@ -759,7 +1207,12 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 		aligned[cn] = vals
 
 	company_names = list(company_month_rows.keys())
-	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement)
+	strategic = (
+		_strategic_amounts_all_ftm(company_names, month_range, fiscal_year)
+		if statement == PROFIT_AND_LOSS
+		else None
+	)
+	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement, strategic)
 
 	return {
 		"statement": statement,

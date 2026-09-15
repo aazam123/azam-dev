@@ -70,6 +70,13 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 	apply_kpi_visibility(page, state); // reflect the default KPI toggle state
 	page.cfs = { state };
 
+	// Top-of-page action: enter Strategic Expense amounts (per company) in a dialog.
+	page.set_primary_action(
+		__('Strategic Expense'),
+		() => open_strategic_dialog(page, state),
+		'add'
+	);
+
 	const $body = $(page.body);
 	$body.find('#cfs-report-type').on('change', function () {
 		state.report_type = this.value || 'Yearly';
@@ -155,6 +162,29 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 	// Any other click closes open "+"/Company menus.
 	$body.on('click', () => $body.find('.cfs-add-menu, #cfs-company-menu').hide());
 
+	// Expand / collapse the Revenue from operations breakdown (note bifurcation).
+	$body.on('click', '.cfs-bif-toggle', function (e) {
+		e.stopPropagation();
+		toggle_revenue_bifurcation(page, state, $(this));
+	});
+
+	// Keep the gutter "+" aligned to its row when the layout reflows — on window
+	// resize, on browser/page zoom (visualViewport), and on any block reflow
+	// (ResizeObserver catches zoom-driven wraps that don't fire a resize event).
+	let _rev_rz;
+	const reposition = () => {
+		clearTimeout(_rev_rz);
+		_rev_rz = setTimeout(() => position_rev_button(page), 60);
+	};
+	$(window).on('resize.cfs', reposition);
+	if (window.visualViewport) {
+		window.visualViewport.addEventListener('resize', reposition);
+		window.visualViewport.addEventListener('scroll', reposition);
+	}
+	if (typeof ResizeObserver !== 'undefined') {
+		page.cfs._revObs = new ResizeObserver(reposition);
+	}
+
 	load_context(page, state);
 };
 
@@ -218,6 +248,7 @@ function load_context(page, state) {
 
 			// Company filter list (stable across report type / year changes).
 			state.all_companies = ctx.companies || [];
+			state.fiscal_years = ctx.fiscal_years || []; // for the Strategic Expense dialog
 			// Drop any stale hidden names no longer in the master list.
 			state.hidden.forEach((c) => {
 				if (!state.all_companies.includes(c)) state.hidden.delete(c);
@@ -304,10 +335,12 @@ function load_statement(page, state) {
 		.then(([pl, bs]) => {
 			if (seq !== page.cfs.load_seq) return; // a newer load superseded this one
 			const hidden = Array.from(state.hidden);
+			page.cfs.pl_data = pl; // kept for aligning the Revenue breakdown to these columns
 			const html =
 				build_statement_block('Profit & Loss', pl, hidden) +
 				build_statement_block('Balance Sheet', bs, hidden);
 			$('#cfs-table').html(html);
+			position_rev_button(page); // align the gutter "+" to the Revenue row
 		})
 		.catch(() => {
 			if (seq !== page.cfs.load_seq) return;
@@ -341,6 +374,13 @@ function build_statement_block(title, data, hidden) {
 	const rows = data.rows || [];
 	hidden = hidden || [];
 	const show_plus = hidden.length > 0; // "+" column appears once something is crossed out
+	// Revenue from operations gets a "+" in the block's left gutter (outside the
+	// table) to expand its note breakdown; positioned vertically by JS after render.
+	const has_rev =
+		title === 'Profit & Loss' && rows.some((r) => /^revenue from operation/i.test(r.particular || ''));
+	const rev_btn = has_rev
+		? '<button type="button" class="cfs-bif-toggle" aria-expanded="false" title="Show revenue breakdown" style="display:none;">+</button>'
+		: '';
 	if (!companies.length || !rows.length) {
 		return `<div class="cfs-block">${heading}<div class="cfs-empty">No data available for the selected filters.</div></div>`;
 	}
@@ -418,10 +458,17 @@ function build_statement_block(title, data, hidden) {
 			else if (row.is_bold) cls.push('cfs-bold-row'); // subtotals / grouped totals
 			if (row.kind === 'derived') cls.push('cfs-derived-row'); // computed KPI
 
+			// Revenue from operations (P&L only) gets a "+" to expand its note breakdown.
+			const is_rev =
+				title === 'Profit & Loss' && /^revenue from operation/i.test(row.particular || '');
+			if (is_rev) cls.push('cfs-rev-row');
+
 			const consol = num_cells(row.consolidate, 'cfs-consol-col', blank, fmt);
 			const cells = companies.map((c, i) => num_cells(row.values[i], '', blank, fmt)).join('');
 			const plus = show_plus ? '<td class="cfs-plus-col"></td>' : '';
 
+			// The Revenue "+" lives in the block's left gutter (outside the table),
+			// not in this cell — see the button appended to .cfs-block below.
 			return `
 				<tr class="${cls.join(' ')}">
 					<td class="cfs-particular cfs-sticky" style="${indent}">${frappe.utils.escape_html(row.particular)}</td>
@@ -439,8 +486,9 @@ function build_statement_block(title, data, hidden) {
 	const col_labels = cols.map((c) => frappe.utils.escape_html(c.label)).join(', ');
 
 	return `
-		<div class="cfs-block">
+		<div class="cfs-block${has_rev ? ' cfs-has-gutter' : ''}">
 			${heading}
+			${rev_btn}
 			<div class="cfs-scroll">
 				<table class="cfs-table${is_ftm ? ' cfs-ftm' : ''}">
 					<thead>${thead}</thead>
@@ -452,6 +500,266 @@ function build_statement_block(title, data, hidden) {
 				<b>Consolidate</b> = arithmetic total of the companies shown (no intercompany eliminations)${miss_note}.
 			</div>
 		</div>`;
+}
+
+// --- Vertically align the gutter "+" with the Revenue from operations row --
+function position_rev_button(page) {
+	const $body = $(page.body);
+	const $block = $body.find('.cfs-block.cfs-has-gutter').first();
+	if (!$block.length) return;
+	const $btn = $block.find('.cfs-bif-toggle').first();
+	const $row = $block.find('.cfs-rev-row').first();
+	if (!$btn.length || !$row.length) {
+		$btn.hide();
+		return;
+	}
+	const br = $row[0].getBoundingClientRect();
+	const kr = $block[0].getBoundingClientRect();
+	const top = br.top - kr.top + (br.height - $btn.outerHeight()) / 2;
+	$btn.css('top', Math.max(0, Math.round(top)) + 'px').show();
+
+	// Watch this block so any reflow (incl. zoom) re-runs the alignment.
+	if (page.cfs && page.cfs._revObs) {
+		page.cfs._revObs.disconnect();
+		page.cfs._revObs.observe($block[0]);
+	}
+}
+
+// --- Revenue from operations: expand / collapse the note breakdown -------
+function toggle_revenue_bifurcation(page, state, $btn) {
+	// The button lives in the block gutter (outside the table), so reach the
+	// Revenue row through the block rather than a DOM ancestor.
+	const $row = $btn.closest('.cfs-block').find('.cfs-rev-row').first();
+	if (!$row.length) return;
+	const expanded = $row.attr('data-bif') === '1';
+
+	// Remove any breakdown rows already sitting directly beneath this row.
+	$row.nextUntil(':not(.cfs-bif-row)').remove();
+	if (expanded) {
+		$row.removeAttr('data-bif');
+		$btn.attr('aria-expanded', 'false').text('+').attr('title', 'Show revenue breakdown');
+		return;
+	}
+
+	$btn.prop('disabled', true).text('…');
+	const pl = page.cfs.pl_data || {};
+	frappe
+		.call({
+			method:
+				'financial_report_tool.financial_report_tool.page.domestic_financials.domestic_financials.get_revenue_bifurcation',
+			args: {
+				fiscal_year: state.fiscal_year,
+				report_type: state.report_type,
+				month: state.month,
+				all_ftm: state.all_ftm ? 1 : 0,
+				exclude_companies: JSON.stringify(Array.from(state.hidden)),
+			},
+		})
+		.then((r) => {
+			$btn.prop('disabled', false);
+			const bif = r.message || {};
+			// Align the breakdown to the P&L face's columns and company order.
+			const cols = pl.columns && pl.columns.length ? pl.columns : bif.columns || [{ key: 'cy', label: '' }];
+			const face_companies = pl.companies || bif.companies || [];
+			const show_plus = state.hidden.size > 0;
+			const ncell = 1 + (1 + face_companies.length) * cols.length + (show_plus ? 1 : 0);
+			const html = build_bif_rows_html(bif, face_companies, cols, show_plus);
+			$row.after(
+				html ||
+					`<tr class="cfs-bif-row cfs-bif-empty"><td class="cfs-particular cfs-sticky">Revenue breakdown</td><td class="cfs-bif-note" colspan="${ncell - 1}">No breakdown available for the selected filters.</td></tr>`
+			);
+			$row.attr('data-bif', '1');
+			$btn.attr('aria-expanded', 'true').text('−').attr('title', 'Hide revenue breakdown');
+		})
+		.catch(() => {
+			$btn.prop('disabled', false).attr('aria-expanded', 'false').text('+');
+		});
+}
+
+// Build the breakdown <tr>s, one per note line item, aligned to the face columns.
+function build_bif_rows_html(bif, face_companies, cols, show_plus) {
+	const rows = (bif && bif.rows) || [];
+	if (!rows.length) return '';
+	const bif_companies = bif.companies || [];
+	const idx_of = {};
+	bif_companies.forEach((c, i) => (idx_of[c] = i));
+
+	const num_cells = (obj, extra, blank) =>
+		cols
+			.map((c, ci) => {
+				const cls = (ci === 0 ? 'cfs-group-start' : 'cfs-py') + (extra ? ' ' + extra : '');
+				const val = obj ? obj[c.key] : null;
+				return `<td class="cfs-num ${cls}">${blank ? '' : fmt_num(val)}</td>`;
+			})
+			.join('');
+
+	return rows
+		.map((row) => {
+			const blank = !row.consolidate;
+			const pad = 12 + (Number(row.indent || 0) + 1) * 18; // sit under the Revenue row
+			const cls = ['cfs-bif-row'];
+			if (blank && row.is_header) cls.push('cfs-bif-head');
+			else if (row.is_bold) cls.push('cfs-bif-total');
+
+			const consol = num_cells(row.consolidate, 'cfs-consol-col', blank);
+			const cells = face_companies
+				.map((c) => {
+					const i = idx_of[c];
+					// A company shown on the face but absent from the note renders blank.
+					if (i === undefined) return num_cells(null, '', true);
+					return num_cells(row.values[i] || null, '', blank);
+				})
+				.join('');
+			const plus = show_plus ? '<td class="cfs-plus-col"></td>' : '';
+
+			return `
+				<tr class="${cls.join(' ')}">
+					<td class="cfs-particular cfs-sticky" style="padding-left:${pad}px;">${frappe.utils.escape_html(row.particular)}</td>
+					${consol}
+					${cells}
+					${plus}
+				</tr>`;
+		})
+		.join('');
+}
+
+// --- Strategic Expense entry dialog --------------------------------------
+// Fiscal-order months (April -> March), matching the Strategic Expense DocType.
+const CFS_FISCAL_MONTHS = [
+	'April', 'May', 'June', 'July', 'August', 'September',
+	'October', 'November', 'December', 'January', 'February', 'March',
+];
+
+function open_strategic_dialog(page, state) {
+	const companies = state.all_companies || [];
+	if (!companies.length) {
+		frappe.msgprint(__('No domestic companies found.'));
+		return;
+	}
+	const fys =
+		state.fiscal_years && state.fiscal_years.length
+			? state.fiscal_years
+			: state.fiscal_year
+				? [state.fiscal_year]
+				: [];
+	// Yearly view has no month concept — default the entry month to March (year-end).
+	const default_month = state.report_type === 'Yearly' ? 'March' : state.month || 'April';
+
+	const d = new frappe.ui.Dialog({
+		title: __('Enter Strategic Expense'),
+		size: 'large',
+		fields: [
+			{
+				fieldtype: 'Select',
+				fieldname: 'fiscal_year',
+				label: __('Fiscal Year'),
+				options: fys.join('\n'),
+				default: state.fiscal_year || fys[0] || '',
+				reqd: 1,
+			},
+			{ fieldtype: 'Column Break' },
+			{
+				fieldtype: 'Select',
+				fieldname: 'month',
+				label: __('Month'),
+				options: CFS_FISCAL_MONTHS.join('\n'),
+				default: default_month,
+				reqd: 1,
+			},
+			{ fieldtype: 'Section Break' },
+			{ fieldtype: 'HTML', fieldname: 'grid' },
+		],
+		primary_action_label: __('Save'),
+		primary_action: () => save_strategic_dialog(page, state, d),
+	});
+	d.show();
+
+	const reload = () => load_strategic_grid(d);
+	d.fields_dict.fiscal_year.$input.on('change', reload);
+	d.fields_dict.month.$input.on('change', reload);
+	reload();
+}
+
+// Fetch existing amounts for the chosen FY+month and render the editable grid.
+function load_strategic_grid(d) {
+	const fy = d.get_value('fiscal_year');
+	const month = d.get_value('month');
+	const $wrap = $(d.fields_dict.grid.wrapper);
+	$wrap.html('<div class="cfs-se-loading">Loading…</div>');
+	frappe
+		.call({
+			method:
+				'financial_report_tool.financial_report_tool.page.domestic_financials.domestic_financials.get_strategic_entries',
+			args: { fiscal_year: fy, month: month },
+		})
+		.then((r) => {
+			const data = r.message || {};
+			const companies = data.companies || [];
+			const amounts = data.amounts || {};
+			const rows = companies
+				.map((c) => {
+					const e = frappe.utils.escape_html(c);
+					const val = amounts[c] ? amounts[c] : '';
+					return `<tr>
+						<td class="cfs-se-comp" title="${e}">${e}</td>
+						<td class="cfs-se-amt"><input type="number" step="any" class="cfs-se-input" data-company="${e}" value="${val}" placeholder="0"></td>
+					</tr>`;
+				})
+				.join('');
+			$wrap.html(`
+				<div class="cfs-se-hint">Monthly amount per company, in ₹ Lacs. Blank or 0 removes the entry. The Consolidated total updates live.</div>
+				<div class="cfs-se-table-wrap">
+					<table class="cfs-se-table">
+						<thead><tr><th>Company</th><th class="cfs-se-amt">Amount (₹ Lacs)</th></tr></thead>
+						<tbody>${rows}</tbody>
+						<tfoot><tr><td class="cfs-se-total-label">Consolidated Total</td><td class="cfs-se-amt cfs-se-total">-</td></tr></tfoot>
+					</table>
+				</div>`);
+			const recompute = () => {
+				let t = 0;
+				$wrap.find('.cfs-se-input').each(function () {
+					t += Number(this.value) || 0;
+				});
+				$wrap
+					.find('.cfs-se-total')
+					.text(t ? t.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '-');
+			};
+			$wrap.find('.cfs-se-input').on('input', recompute);
+			recompute();
+		})
+		.catch(() => $wrap.html('<div class="cfs-se-loading">Failed to load. Try again.</div>'));
+}
+
+function save_strategic_dialog(page, state, d) {
+	const fy = d.get_value('fiscal_year');
+	const month = d.get_value('month');
+	if (!fy || !month) {
+		frappe.msgprint(__('Please select Fiscal Year and Month.'));
+		return;
+	}
+	const amounts = {};
+	$(d.fields_dict.grid.wrapper)
+		.find('.cfs-se-input')
+		.each(function () {
+			amounts[$(this).attr('data-company')] = Number(this.value) || 0;
+		});
+	const $btn = d.get_primary_btn().prop('disabled', true);
+	frappe
+		.call({
+			method:
+				'financial_report_tool.financial_report_tool.page.domestic_financials.domestic_financials.save_strategic_entries',
+			args: { fiscal_year: fy, month: month, amounts: JSON.stringify(amounts) },
+		})
+		.then((r) => {
+			const m = r.message || {};
+			frappe.show_alert(
+				{ message: __('Strategic Expense saved ({0} updated, {1} removed)', [m.saved || 0, m.deleted || 0]), indicator: 'green' },
+				4
+			);
+			d.hide();
+			load_statement(page, state); // refresh so the Strategic Expense row updates
+		})
+		.catch(() => $btn.prop('disabled', false));
 }
 
 function render_empty(page, msg) {
@@ -467,7 +775,9 @@ function inject_styles() {
 		.cfs-wrap { padding: 4px 2px 60px; }
 
 		/* Stacked statement blocks (P&L, then Balance Sheet) */
-		.cfs-block { margin-bottom:28px; }
+		/* Left gutter (padding-left) reserves room for the Revenue "+" button,
+		   kept on every block so both tables stay left-aligned. */
+		.cfs-block { margin-bottom:28px; position:relative; padding-left:30px; }
 		.cfs-block-title {
 			font-size:15px; font-weight:700; color:#14351b;
 			margin:4px 2px 10px; padding-bottom:6px; border-bottom:2px solid #cdebd6;
@@ -511,7 +821,7 @@ function inject_styles() {
 		.cfs-company-item:hover { background:#eef7ef; }
 		.cfs-company-item input { margin:0; cursor:pointer; }
 
-		.cfs-scroll { overflow-x:auto; border:1px solid #e6ebf1; border-radius:12px; background:#fff; }
+		.cfs-scroll { overflow-x:auto; border:1px solid #e6ebf1; border-radius:12px; background:#fff; margin-left:-30px; }
 		table.cfs-table { border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px; }
 		.cfs-table th, .cfs-table td {
 			padding:3px 12px; border-bottom:1px solid #eef2f4;
@@ -616,6 +926,49 @@ function inject_styles() {
 		.cfs-table tbody tr:hover td { background:#fbfdfb; }
 		.cfs-table tbody tr:hover td.cfs-consol-col { background:#e3f1e5; }
 		.cfs-table tbody tr:hover td.cfs-sticky { background:#fbfdfb; }
+
+		/* Revenue from operations breakdown ("+" toggle + note rows) */
+		/* The "+" sits in the block's left gutter, outside the table border. */
+		.cfs-bif-toggle {
+			position:absolute; left:2px; margin-left:-30px; z-index:3;
+			border:1px solid #cfe0f5; background:#eef4fc; color:#0d6efd; font-weight:700;
+			font-size:13px; line-height:1; cursor:pointer; width:22px; height:22px; border-radius:5px;
+			padding:0; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.08);
+		}
+		.cfs-bif-toggle:hover { background:#0d6efd; color:#fff; }
+		.cfs-bif-toggle[disabled] { opacity:.5; cursor:default; }
+		.cfs-rev-row > td.cfs-particular { font-weight:600; }
+		.cfs-bif-row td { background:#f7fbff; font-size:12px; color:#334; }
+		.cfs-bif-row td.cfs-particular { color:#334; font-style:italic; }
+		.cfs-bif-row td.cfs-sticky { background:#f7fbff; }
+		.cfs-bif-row td.cfs-consol-col { background:#eaf3fb; }
+		.cfs-bif-head td, .cfs-bif-head td.cfs-particular { font-weight:600; font-style:normal; color:#123a63; }
+		.cfs-bif-total td { font-weight:700; border-top:1px solid #d3e4f4; border-bottom:1px solid #d3e4f4; }
+		.cfs-bif-note { text-align:left; color:#8a94a6; font-style:italic; }
+
+		/* Strategic Expense entry dialog grid */
+		.cfs-se-hint { font-size:12px; color:#6b7684; margin:0 0 10px; }
+		.cfs-se-loading { padding:24px; text-align:center; color:#78849a; }
+		.cfs-se-table-wrap { max-height:46vh; overflow-y:auto; border:1px solid #e6ebf1; border-radius:8px; }
+		table.cfs-se-table { width:100%; border-collapse:separate; border-spacing:0; font-size:13px; }
+		.cfs-se-table th, .cfs-se-table td { padding:7px 12px; border-bottom:1px solid #eef2f4; }
+		.cfs-se-table thead th {
+			position:sticky; top:0; z-index:1; background:#f4f8f5; color:#14351b;
+			font-weight:600; border-bottom:2px solid #cdebd6; text-align:left;
+		}
+		.cfs-se-table th.cfs-se-amt, .cfs-se-table td.cfs-se-amt { text-align:right; width:180px; }
+		.cfs-se-comp { color:#22303c; }
+		.cfs-se-input {
+			width:150px; text-align:right; font-variant-numeric:tabular-nums;
+			padding:4px 8px; border:1px solid #d5dee7; border-radius:6px; background:#fff;
+		}
+		.cfs-se-input:focus { border-color:#0d6efd; outline:none; box-shadow:0 0 0 2px rgba(13,110,253,.12); }
+		.cfs-se-table tbody tr:hover td { background:#fbfdfb; }
+		.cfs-se-table tfoot td {
+			position:sticky; bottom:0; background:#eef7ef; font-weight:700; color:#1B5E20;
+			border-top:2px solid #cdebd6; border-bottom:none;
+		}
+		.cfs-se-total-label { text-align:left; }
 
 		.cfs-foot { font-size:11.5px; color:#8a94a6; padding:10px 4px 0; }
 		.cfs-loading, .cfs-empty { padding:40px; text-align:center; color:#78849a; font-size:14px; }
