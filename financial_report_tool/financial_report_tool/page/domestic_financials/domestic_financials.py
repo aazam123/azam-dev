@@ -15,7 +15,6 @@ documents, so this page never triggers a fresh report generation.
 
 import difflib
 import json
-import re
 from collections import Counter
 
 import frappe
@@ -141,8 +140,13 @@ def _statement_rows(report_name, section_type):
 	return rows or None
 
 
-# Section name of the note that bifurcates "Revenue from operations".
-REVENUE_NOTE_SECTION = "Revenue from operations"
+# "Revenue from operations" is bifurcated from the GL grouping: accounts mapped
+# under this primary group, split by these secondary groups (in this order).
+REVENUE_PRIMARY_GROUP = "Revenue from Operations"
+REVENUE_SECONDARY_GROUPS = ["Domestic Sales", "Export Sales"]
+# Trial-balance amounts are raw rupees and Income carries a credit (negative)
+# sign; the page shows positive ₹ Lacs, so display = -amount / LACS.
+LACS = 100000.0
 
 # User-entered "Strategic Expense" figures (per company / fiscal year / month).
 STRATEGIC_DOCTYPE = "Strategic Expense Entry"
@@ -344,64 +348,144 @@ def save_strategic_entries(fiscal_year=None, month=None, amounts=None):
 	return {"saved": saved, "deleted": deleted}
 
 
-def _note_html(report_name, section):
-	"""Return the rendered `table_data` HTML for a Consolidation Note section."""
-	detail = frappe.get_all(
-		"Financial Report Details",
-		filters={
-			"parent": report_name,
-			"parenttype": "Financial Report",
-			"section_type": "Consolidation Note",
-			"section": section,
-		},
-		fields=["table_data"],
-		order_by="idx asc",
-		limit=1,
-	)
-	if not detail:
-		return None
-	return (detail[0].table_data or "").strip() or None
+def _grouping_report_type(report_type):
+	"""domestic-financials report type -> GL Group Mapping report_type."""
+	return "Monthly" if report_type in ("Monthly", "FTM") else "Yearly"
 
 
-def _num(text):
-	"""Parse a numeric cell; returns None when it is not a number."""
-	t = re.sub(r"<[^>]+>", "", text or "")
-	t = t.replace("&nbsp;", "").replace(" ", "").replace(",", "").strip()
-	if t in ("", "-"):
-		return None
-	try:
-		return float(t)
-	except ValueError:
-		return None
+def _revenue_split_accounts(companies, map_report_type):
+	"""{company: {gl_account: secondary_group}} for revenue Domestic/Export accounts.
 
-
-def _parse_note_html(html):
-	"""Parse a note's HTML table into structured line items.
-
-	Returns a list of {particular, indent, is_bold, nums:[...]} — one per body
-	row, in document order, excluding the "Particulars" header row. Indentation
-	is inferred from leading &nbsp; in the label cell (4 per level), matching how
-	the note tables are rendered. `nums` holds the numeric columns left-to-right.
+	Reads GL Group Mapping for the given companies where the primary group is the
+	revenue group and the secondary group is one we bifurcate on. Falls back to the
+	other mapping report type if none are configured for the requested one.
 	"""
-	if not html:
-		return None
+	def _query(rt):
+		return frappe.get_all(
+			"GL Group Mapping",
+			filters={
+				"company": ["in", companies],
+				"report_type": rt,
+				"primary_group": REVENUE_PRIMARY_GROUP,
+				"secondary_group": ["in", REVENUE_SECONDARY_GROUPS],
+			},
+			fields=["company", "gl_account", "secondary_group"],
+		)
+
+	rows = _query(map_report_type)
+	if not rows:
+		rows = _query("Yearly" if map_report_type != "Yearly" else "Monthly")
+	out = {}
+	for r in rows:
+		out.setdefault(r.company, {})[r.gl_account] = r.secondary_group
+	return out
+
+
+def _revenue_split_grouped(companies, acct_map, fiscal_years):
+	"""{(company, secondary_group, fiscal_year, month): raw_amount} from trial balance."""
+	accounts = {a for m in acct_map.values() for a in m}
+	fiscal_years = [y for y in fiscal_years if y]
+	if not accounts or not fiscal_years:
+		return {}
+	rows = frappe.get_all(
+		"FR Trial Balance Entry",
+		filters={
+			"company": ["in", companies],
+			"fiscal_year": ["in", fiscal_years],
+			"gl_account": ["in", list(accounts)],
+		},
+		fields=["company", "gl_account", "fiscal_year", "month", "amount"],
+		limit_page_length=0,
+	)
+	grouped = {}
+	for r in rows:
+		grp = acct_map.get(r.company, {}).get(r.gl_account)
+		if not grp:
+			continue
+		key = (r.company, grp, r.fiscal_year, r.month)
+		grouped[key] = grouped.get(key, 0.0) + flt(r.amount)
+	return grouped
+
+
+def _revenue_split_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year):
+	"""{company: {secondary_group: {measure_key: value}}} in positive Rs Lacs.
+
+	Trial-balance amounts are monthly deltas (raw rupees, credit sign for income),
+	so the display value is -sum / LACS. Measures follow the P&L view: Yearly sums
+	the fiscal year (cy/py); Monthly gives cumulative-to-month, month, cumulative-
+	to-prev; FTM gives the single month.
+	"""
+	acct_map = _revenue_split_accounts(company_names, _grouping_report_type(report_type))
+	grouped = _revenue_split_grouped(company_names, acct_map, [fiscal_year, previous_fiscal_year])
+
+	def disp(c, g, fy, months):
+		return round(-sum(grouped.get((c, g, fy, m), 0.0) for m in months) / LACS, 2)
+
+	out = {}
+	for c in company_names:
+		out[c] = {}
+		for g in REVENUE_SECONDARY_GROUPS:
+			if report_type == "FTM":
+				out[c][g] = {"ftm": disp(c, g, fiscal_year, [month])}
+			elif report_type == "Monthly":
+				up = _fiscal_months_upto(month)
+				out[c][g] = {
+					"cm": disp(c, g, fiscal_year, up),
+					"ftm": disp(c, g, fiscal_year, [month]),
+					"pm": disp(c, g, fiscal_year, up[:-1]),
+				}
+			else:  # Yearly
+				out[c][g] = {
+					"cy": disp(c, g, fiscal_year, FISCAL_MONTH_ORDER),
+					"py": disp(c, g, previous_fiscal_year, FISCAL_MONTH_ORDER)
+					if previous_fiscal_year
+					else 0.0,
+				}
+	return out
+
+
+def _bif_measures(report_type, fiscal_year, month, previous_fiscal_year):
+	"""Breakdown columns (key, label) -- mirror the P&L face for this view."""
+	if report_type == "FTM":
+		return [("ftm", "FTM")]
+	if report_type == "Monthly":
+		return [
+			("cm", month or "Current Month"),
+			("ftm", "FTM"),
+			("pm", _prev_month(month) or "Previous Month"),
+		]
+	return [
+		("cy", fiscal_year or "Current Year"),
+		("py", previous_fiscal_year or "Previous Year"),
+	]
+
+
+def _build_split_rows(company_names, measures, split):
+	"""One row per secondary group (Domestic/Export), aligned + consolidated."""
+	measure_keys = [m[0] for m in measures]
 	rows = []
-	for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S | re.I):
-		cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S | re.I)
-		if not cells:
-			continue
-		if re.search(r"<th", tr, re.I):
-			continue  # header row ("Particulars | <dates>")
-		raw = cells[0]
-		lead = re.match(r"((?:&nbsp;| |\s)*)", raw).group(1)
-		indent = (lead.count("&nbsp;") + lead.count(" ")) // 4
-		label = re.sub(r"<[^>]+>", "", raw).replace("&nbsp;", " ").replace(" ", " ").strip()
-		if not label:
-			continue
-		is_bold = bool(re.search(r"font-weight:\s*bold", tr, re.I))
-		nums = [_num(c) for c in cells[1:]]
-		rows.append({"particular": label, "indent": indent, "is_bold": 1 if is_bold else 0, "nums": nums})
-	return rows or None
+	for g in REVENUE_SECONDARY_GROUPS:
+		values, totals = [], {k: 0.0 for k in measure_keys}
+		for c in company_names:
+			cell = (split.get(c) or {}).get(g) or {}
+			vv = {}
+			for k in measure_keys:
+				v = cell.get(k)
+				vv[k] = v
+				if v is not None:
+					totals[k] += v
+			values.append(vv)
+		rows.append(
+			{
+				"particular": g,
+				"indent": 0,
+				"is_bold": 0,
+				"is_header": 0,
+				"consolidate": {k: round(totals[k], 2) for k in measure_keys},
+				"values": values,
+			}
+		)
+	return rows
 
 
 def _token(r):
@@ -924,10 +1008,10 @@ def get_revenue_bifurcation(
 ):
 	"""Breakdown ("bifurcation") of Revenue from operations, per company.
 
-	Read from each domestic company's "Revenue from operations" note and aligned
-	into the same Particular | Consolidate | <company> shape the P&L face uses, so
-	the page can expand the Revenue row inline. Columns mirror the P&L face for
-	the same filters.
+	Sourced from the GL grouping: accounts mapped under the revenue primary group,
+	split by the Domestic Sales / Export Sales secondary groups, summed from the
+	trial balance. Returned in the Particular | Consolidate | <company> shape the
+	P&L face uses, with columns mirroring the face for the same filters.
 	"""
 	frappe.has_permission("Financial Report", "read", throw=True)
 	storage_type = _storage_report_type(report_type)
@@ -945,151 +1029,61 @@ def get_revenue_bifurcation(
 	if all_ftm:
 		return _revenue_bifurcation_all_ftm(fiscal_year, month, excluded)
 
-	# Parse each visible company's revenue note.
-	parsed, missing = [], []
-	for c in _domestic_companies():
-		if c.name in excluded:
-			continue
-		report = _pick_report(c.name, storage_type, fiscal_year, month)
-		rows = _parse_note_html(_note_html(report.name, REVENUE_NOTE_SECTION)) if report else None
-		if rows:
-			parsed.append({"company": c.name, "rows": rows, "report": report})
-		else:
-			missing.append(c.name)
+	# Visible domestic companies, in the same order as the P&L face.
+	company_names = [c.name for c in _domestic_companies() if c.name not in excluded]
+	if not company_names:
+		return {"columns": [], "companies": [], "rows": [], "missing_companies": []}
 
-	if not parsed:
-		return {"columns": [], "companies": [], "rows": [], "missing_companies": missing}
+	# Previous fiscal year (for the Yearly py column) resolved like the face does.
+	previous_fiscal_year = _previous_fiscal_year(company_names, storage_type, fiscal_year, month)
 
-	prev_years = [p["report"].get("previous_fiscal_year") for p in parsed]
-	prev_years = [y for y in prev_years if y]
-	previous_fiscal_year = Counter(prev_years).most_common(1)[0][0] if prev_years else None
-
-	# (measure_key, label, note_column_index): the note's numeric columns map onto
-	# the same measures the P&L face shows for this report type. The Monthly note
-	# also carries a trailing previous-year column, which the face omits.
-	if report_type == "FTM":
-		measures = [("ftm", "FTM", 1)]
-	elif report_type == "Monthly":
-		measures = [
-			("cm", month or "Current Month", 0),
-			("ftm", "FTM", 1),
-			("pm", _prev_month(month) or "Previous Month", 2),
-		]
-	else:
-		measures = [
-			("cy", fiscal_year or "Current Year", 0),
-			("py", previous_fiscal_year or "Previous Year", 1),
-		]
-
-	company_names = [p["company"] for p in parsed]
-	# Canonical line-item order = the company with the most note rows.
-	canonical = max(parsed, key=lambda p: len(p["rows"]))["rows"]
-	lookups = {p["company"]: {_norm(r["particular"]): r for r in p["rows"]} for p in parsed}
-
-	out_rows = _build_bifurcation_rows(canonical, company_names, lookups, measures)
+	measures = _bif_measures(report_type, fiscal_year, month, previous_fiscal_year)
+	split = _revenue_split_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year)
+	rows = _build_split_rows(company_names, measures, split)
 	return {
-		"columns": [{"key": k, "label": lbl} for k, lbl, _ci in measures],
+		"columns": [{"key": k, "label": lbl} for k, lbl in measures],
 		"companies": company_names,
-		"rows": out_rows,
-		"missing_companies": missing,
+		"rows": rows,
+		"missing_companies": [],
 	}
 
 
-def _build_bifurcation_rows(canonical, company_names, lookups, measures):
-	"""Align parsed note line items across companies onto the canonical order."""
-	measure_keys = [m[0] for m in measures]
-	out = []
-	for cr in canonical:
-		key = _norm(cr["particular"])
-		values, totals, has_value = [], {k: 0.0 for k in measure_keys}, False
-		for cn in company_names:
-			src = lookups[cn].get(key)
-			if not src:
-				values.append({k: None for k in measure_keys})
-				continue
-			cell = {}
-			for mk, _lbl, ci in measures:
-				v = src["nums"][ci] if ci < len(src["nums"]) else None
-				cell[mk] = round(v, 2) if v is not None else None
-				if v is not None:
-					totals[mk] += v
-					if abs(v) > 1e-6:
-						has_value = True
-			values.append(cell)
-		blank = not has_value
-		out.append(
-			{
-				"particular": cr["particular"],
-				"indent": int(cr.get("indent") or 0),
-				"is_bold": int(cr.get("is_bold") or 0),
-				"is_header": 1 if blank else 0,
-				"consolidate": None if blank else {k: round(totals[k], 2) for k in measure_keys},
-				"values": values,
-			}
-		)
-	return out
+def _previous_fiscal_year(company_names, storage_type, fiscal_year, month):
+	"""Most common previous_fiscal_year across the companies' picked reports."""
+	prevs = []
+	for c in company_names:
+		rep = _pick_report(c, storage_type, fiscal_year, month)
+		if rep and rep.get("previous_fiscal_year"):
+			prevs.append(rep["previous_fiscal_year"])
+	return Counter(prevs).most_common(1)[0][0] if prevs else None
 
 
 def _revenue_bifurcation_all_ftm(fiscal_year, month, excluded):
-	"""All-FTM view of the Revenue breakdown: one FTM column per month."""
+	"""All-FTM revenue split: one For-The-Month column per month (April -> selected)."""
+	company_names = [c.name for c in _domestic_companies() if c.name not in excluded]
+	if not company_names:
+		return {"columns": [], "companies": [], "rows": [], "missing_companies": []}
+
 	month_range = list(reversed(_fiscal_months_upto(month)))
-	measures = [(m.lower(), m, 1) for m in month_range]  # note FTM column = index 1
-	measure_keys = [k for k, _l, _c in measures]
+	measures = [(m.lower(), m) for m in month_range]
 
-	company_month_rows, missing, row_sets = {}, [], []
-	for c in _domestic_companies():
-		if c.name in excluded:
-			continue
-		per_month = {}
-		for m in month_range:
-			report = _pick_report(c.name, "Monthly", fiscal_year, m)
-			rows = _parse_note_html(_note_html(report.name, REVENUE_NOTE_SECTION)) if report else None
-			if rows:
-				per_month[m] = rows
-				row_sets.append(rows)
-		if per_month:
-			company_month_rows[c.name] = per_month
-		else:
-			missing.append(c.name)
-
-	if not row_sets:
-		return {"columns": [], "companies": [], "rows": [], "missing_companies": missing}
-
-	canonical = max(row_sets, key=len)
-	company_names = list(company_month_rows.keys())
-
-	out = []
-	for cr in canonical:
-		key = _norm(cr["particular"])
-		values, totals, has_value = [], {k: 0.0 for k in measure_keys}, False
-		for cn in company_names:
-			cell = {k: None for k in measure_keys}
-			for m, rows in company_month_rows[cn].items():
-				src = next((r for r in rows if _norm(r["particular"]) == key), None)
-				v = src["nums"][1] if src and len(src["nums"]) > 1 else None
-				if v is not None:
-					cell[m.lower()] = round(v, 2)
-					totals[m.lower()] += v
-					if abs(v) > 1e-6:
-						has_value = True
-			values.append(cell)
-		blank = not has_value
-		out.append(
-			{
-				"particular": cr["particular"],
-				"indent": int(cr.get("indent") or 0),
-				"is_bold": int(cr.get("is_bold") or 0),
-				"is_header": 1 if blank else 0,
-				"consolidate": None if blank else {k: round(totals[k], 2) for k in measure_keys},
-				"values": values,
-			}
-		)
-	return {
-		"columns": [{"key": k, "label": lbl} for k, lbl, _c in measures],
-		"companies": company_names,
-		"rows": out,
-		"missing_companies": missing,
+	acct_map = _revenue_split_accounts(company_names, "Monthly")
+	grouped = _revenue_split_grouped(company_names, acct_map, [fiscal_year])
+	split = {
+		c: {
+			g: {m.lower(): round(-grouped.get((c, g, fiscal_year, m), 0.0) / LACS, 2) for m in month_range}
+			for g in REVENUE_SECONDARY_GROUPS
+		}
+		for c in company_names
 	}
+	rows = _build_split_rows(company_names, measures, split)
+	return {
+		"columns": [{"key": k, "label": lbl} for k, lbl in measures],
+		"companies": company_names,
+		"rows": rows,
+		"missing_companies": [],
+	}
+
 
 
 def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, strategic=None):
