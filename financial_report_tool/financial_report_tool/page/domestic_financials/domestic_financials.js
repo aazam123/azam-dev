@@ -9,6 +9,17 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
+	// This wide statement reads best full-width, so default to it here — remembering
+	// the user's global choice on entry and restoring it when they leave the page.
+	let cfs_prev_fullwidth;
+	$(wrapper).on('show', () => {
+		cfs_prev_fullwidth = $(document.body).hasClass('full-width');
+		$(document.body).addClass('full-width');
+	});
+	$(wrapper).on('hide', () => {
+		$(document.body).toggleClass('full-width', !!cfs_prev_fullwidth);
+	});
+
 	const state = {
 		report_type: 'Yearly',
 		fiscal_year: null,
@@ -166,6 +177,22 @@ frappe.pages['domestic-financials'].on_page_load = function (wrapper) {
 	$body.on('click', '.cfs-bif-toggle', function (e) {
 		e.stopPropagation();
 		toggle_revenue_bifurcation(page, state, $(this));
+	});
+
+	// Expand / collapse a section (Expenses / Tax expense / OCI): show or hide its
+	// detail lines, leaving the header and total row visible either way.
+	$body.on('click', '.cfs-sec-toggle', function (e) {
+		e.stopPropagation();
+		const grp = $(this).attr('data-grp');
+		const expand = $(this).attr('aria-expanded') !== 'true';
+		$(this)
+			.closest('table')
+			.find('tr.cfs-grp-' + grp)
+			.toggleClass('cfs-collapsed', !expand);
+		$(this)
+			.attr('aria-expanded', expand ? 'true' : 'false')
+			.attr('title', expand ? 'Hide details' : 'Show details')
+			.text(expand ? '−' : '+');
 	});
 
 	// Keep the gutter "+" aligned to its row when the layout reflows — on window
@@ -374,13 +401,6 @@ function build_statement_block(title, data, hidden) {
 	const rows = data.rows || [];
 	hidden = hidden || [];
 	const show_plus = hidden.length > 0; // "+" column appears once something is crossed out
-	// Revenue from operations gets a "+" in the block's left gutter (outside the
-	// table) to expand its note breakdown; positioned vertically by JS after render.
-	const has_rev =
-		title === 'Profit & Loss' && rows.some((r) => /^revenue from operation/i.test(r.particular || ''));
-	const rev_btn = has_rev
-		? '<button type="button" class="cfs-bif-toggle" aria-expanded="false" title="Show revenue breakdown" style="display:none;">+</button>'
-		: '';
 	if (!companies.length || !rows.length) {
 		return `<div class="cfs-block">${heading}<div class="cfs-empty">No data available for the selected filters.</div></div>`;
 	}
@@ -463,15 +483,28 @@ function build_statement_block(title, data, hidden) {
 				title === 'Profit & Loss' && /^revenue from operation/i.test(row.particular || '');
 			if (is_rev) cls.push('cfs-rev-row');
 
+			// Collapsible sections (Expenses / Tax expense / OCI): detail lines are
+			// tagged so they hide by default and toggle from the section header's "+".
+			if (row.collapse_member) cls.push('cfs-collapsed', 'cfs-grp-' + row.collapse_member);
+
 			const consol = num_cells(row.consolidate, 'cfs-consol-col', blank, fmt);
 			const cells = companies.map((c, i) => num_cells(row.values[i], '', blank, fmt)).join('');
 			const plus = show_plus ? '<td class="cfs-plus-col"></td>' : '';
 
-			// The Revenue "+" lives in the block's left gutter (outside the table),
-			// not in this cell — see the button appended to .cfs-block below.
+			// A section header ("Income", "Expenses", …) carries a "+" toggle before
+			// its label; Revenue from operations carries an inline "+" for its note
+			// breakdown. Both render inline in the Particular cell (no left gutter).
+			const label = frappe.utils.escape_html(row.particular);
+			const sec_btn = row.collapse_id
+				? `<button type="button" class="cfs-sec-toggle" data-grp="${frappe.utils.escape_html(row.collapse_id)}" aria-expanded="false" title="Show details">+</button>`
+				: '';
+			const rev_btn = is_rev
+				? '<button type="button" class="cfs-bif-toggle" aria-expanded="false" title="Show revenue breakdown">+</button>'
+				: '';
+
 			return `
 				<tr class="${cls.join(' ')}">
-					<td class="cfs-particular cfs-sticky" style="${indent}">${frappe.utils.escape_html(row.particular)}</td>
+					<td class="cfs-particular cfs-sticky" style="${indent}">${sec_btn}${rev_btn}${label}</td>
 					${consol}
 					${cells}
 					${plus}
@@ -486,9 +519,8 @@ function build_statement_block(title, data, hidden) {
 	const col_labels = cols.map((c) => frappe.utils.escape_html(c.label)).join(', ');
 
 	return `
-		<div class="cfs-block${has_rev ? ' cfs-has-gutter' : ''}">
+		<div class="cfs-block">
 			${heading}
-			${rev_btn}
 			<div class="cfs-scroll">
 				<table class="cfs-table${is_ftm ? ' cfs-ftm' : ''}">
 					<thead>${thead}</thead>
@@ -775,9 +807,7 @@ function inject_styles() {
 		.cfs-wrap { padding: 4px 2px 60px; }
 
 		/* Stacked statement blocks (P&L, then Balance Sheet) */
-		/* Left gutter (padding-left) reserves room for the Revenue "+" button,
-		   kept on every block so both tables stay left-aligned. */
-		.cfs-block { margin-bottom:28px; position:relative; padding-left:30px; }
+		.cfs-block { margin-bottom:28px; position:relative; }
 		.cfs-block-title {
 			font-size:15px; font-weight:700; color:#14351b;
 			margin:4px 2px 10px; padding-bottom:6px; border-bottom:2px solid #cdebd6;
@@ -821,7 +851,7 @@ function inject_styles() {
 		.cfs-company-item:hover { background:#eef7ef; }
 		.cfs-company-item input { margin:0; cursor:pointer; }
 
-		.cfs-scroll { overflow-x:auto; border:1px solid #e6ebf1; border-radius:12px; background:#fff; margin-left:-30px; }
+		.cfs-scroll { overflow-x:auto; border:1px solid #e6ebf1; border-radius:12px; background:#fff; }
 		table.cfs-table { border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px; }
 		.cfs-table th, .cfs-table td {
 			padding:3px 12px; border-bottom:1px solid #eef2f4;
@@ -927,13 +957,25 @@ function inject_styles() {
 		.cfs-table tbody tr:hover td.cfs-consol-col { background:#e3f1e5; }
 		.cfs-table tbody tr:hover td.cfs-sticky { background:#fbfdfb; }
 
-		/* Revenue from operations breakdown ("+" toggle + note rows) */
-		/* The "+" sits in the block's left gutter, outside the table border. */
-		.cfs-bif-toggle {
-			position:absolute; left:2px; margin-left:-30px; z-index:3;
+		/* Collapsible section rows (Expenses / Tax expense / OCI) */
+		/* Hidden until the section header's "+" is clicked; !important so it also
+		   overrides the derived-KPI display rule for any KPI row inside the section. */
+		tr.cfs-collapsed { display:none !important; }
+		.cfs-sec-toggle {
 			border:1px solid #cfe0f5; background:#eef4fc; color:#0d6efd; font-weight:700;
-			font-size:13px; line-height:1; cursor:pointer; width:22px; height:22px; border-radius:5px;
-			padding:0; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.08);
+			font-size:12px; line-height:1; cursor:pointer; width:18px; height:18px; border-radius:4px;
+			padding:0; text-align:center; margin-right:7px; vertical-align:middle;
+			display:inline-flex; align-items:center; justify-content:center;
+		}
+		.cfs-sec-toggle:hover { background:#0d6efd; color:#fff; }
+
+		/* Revenue from operations breakdown ("+" toggle + note rows) */
+		/* The "+" renders inline before the Revenue label, matching section toggles. */
+		.cfs-bif-toggle {
+			border:1px solid #cfe0f5; background:#eef4fc; color:#0d6efd; font-weight:700;
+			font-size:12px; line-height:1; cursor:pointer; width:18px; height:18px; border-radius:4px;
+			padding:0; text-align:center; margin-right:7px; vertical-align:middle;
+			display:inline-flex; align-items:center; justify-content:center;
 		}
 		.cfs-bif-toggle:hover { background:#0d6efd; color:#fff; }
 		.cfs-bif-toggle[disabled] { opacity:.5; cursor:default; }

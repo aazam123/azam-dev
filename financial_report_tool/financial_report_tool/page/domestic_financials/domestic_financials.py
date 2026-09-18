@@ -20,9 +20,9 @@ from collections import Counter
 import frappe
 from frappe.utils import flt
 
-# A "domestic" company is one whose functional/default currency matches the
-# group's reporting currency. For this deployment that is INR.
-DOMESTIC_CURRENCY = "INR"
+# Companies shown on this page are chosen explicitly via a checkbox on the Company
+# master ("Include in Consolidated Financials") rather than inferred from currency.
+INCLUDE_FIELD = "custom_include_in_consolidated_financials"
 
 BALANCE_SHEET = "Balance Sheet"
 PROFIT_AND_LOSS = "Profit & Loss"
@@ -83,10 +83,16 @@ def _fiscal_months_upto(end_month):
 
 
 def _domestic_companies():
-	"""Return domestic companies as [{name, currency}], ordered by name."""
+	"""Return the companies flagged for this statement as [{name, currency}].
+
+	Selection is the "Include in Consolidated Financials" checkbox on the Company
+	master (falls back to nothing if the field is not installed yet).
+	"""
+	if not frappe.db.has_column("Company", INCLUDE_FIELD):
+		return []
 	return frappe.get_all(
 		"Company",
-		filters={"default_currency": DOMESTIC_CURRENCY},
+		filters={INCLUDE_FIELD: 1},
 		fields=["name", "default_currency as currency"],
 		order_by="name asc",
 	)
@@ -738,7 +744,22 @@ def _insert_ebitda(out_rows, measure_keys):
 		_row("EBITDA Post-Litigation", post_consol, post_values),
 		_row("EBITDA (%) Post-Litigation", post_pct_consol, post_pct_values, "percent"),
 	]
-	out_rows[te + 1 : te + 1] = block
+	# Collapsible "EBITDA" header above the block: a "+" hides/shows the KPI lines.
+	# Kept KPI-gated (kind=derived) like the rows it groups, and blank so it reads
+	# as a section header. The five KPI rows collapse under it.
+	for r in block:
+		r["collapse_member"] = "ebitda"
+	ebitda_header = {
+		"particular": "EBITDA",
+		"indent": 0,
+		"is_bold": 1,
+		"is_header": 1,
+		"kind": "derived",
+		"collapse_id": "ebitda",
+		"consolidate": None,
+		"values": [{k: None for k in measure_keys} for _ in range(ncomp)],
+	}
+	out_rows[te + 1 : te + 1] = [ebitda_header] + block
 
 
 def _reorder_pbt_drivers(out_rows):
@@ -1137,7 +1158,57 @@ def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, 
 		# profit — done last so EBITDA above keeps its pre-Strategic figures.
 		if strategic:
 			_insert_strategic_expense(out_rows, company_names, measure_keys, strategic)
+		# Drop the Earnings-per-share block — not shown on this consolidated face.
+		out_rows[:] = [
+			r for r in out_rows
+			if not _norm(r.get("particular")).startswith(DROP_PARTICULARS)
+		]
+		# Mark the collapsible sections (Expenses / Tax expense / OCI) so the page can
+		# hide their detail lines behind a "+" and show only the section total.
+		_mark_collapsible_sections(out_rows)
 	return out_rows
+
+
+# P&L rows hidden from the consolidated face (matched by normalised label prefix).
+DROP_PARTICULARS = ("earnings per equity share", "basic and diluted")
+
+
+# Sections whose detail lines collapse behind a "+" on the desk page, leaving only
+# the section header (with the toggle) and its total row visible. Each entry is
+# (group-id, header-match, total-match); both matchers take a normalised label.
+# Header labels are matched exactly so "Expenses" never catches "Other expenses"
+# or "Total Expenses"; the total is the first matching bold-style row after it.
+COLLAPSIBLE_SECTIONS = [
+	("income", lambda n: n == "income", lambda n: n.startswith("total income") or n.startswith("total lncome")),
+	("expenses", lambda n: n == "expenses", lambda n: n.startswith("total exp")),
+	("tax-expense", lambda n: n == "tax expense", lambda n: n.startswith("total tax")),
+	(
+		"oci",
+		lambda n: n == "other comprehensive income",
+		lambda n: n.startswith("total other comprehensive"),
+	),
+]
+
+
+def _mark_collapsible_sections(out_rows):
+	"""Tag each collapsible section's header (collapse_id) and its detail rows
+	(collapse_member) so the client can toggle them. The header and total rows
+	stay visible; only the lines strictly between them collapse. No-op for any
+	section whose header or total is absent."""
+	for gid, is_head, is_total in COLLAPSIBLE_SECTIONS:
+		head = _find_row(out_rows, is_head)
+		if head < 0:
+			continue
+		total = -1
+		for j in range(head + 1, len(out_rows)):
+			if is_total(_norm(out_rows[j].get("particular"))):
+				total = j
+				break
+		if total < 0:
+			continue
+		out_rows[head]["collapse_id"] = gid
+		for j in range(head + 1, total):
+			out_rows[j]["collapse_member"] = gid
 
 
 def _all_ftm_statement(statement, fiscal_year, month, excluded):

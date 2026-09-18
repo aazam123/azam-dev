@@ -282,6 +282,10 @@ fixtures = [
     {
         "dt": "Custom DocPerm",
         "filters": [["role", "in", ["Financial Report User", "Financial Report Manager"]]]
+    },
+    {
+        "dt": "Custom Field",
+        "filters": [["name", "in", ["Company-custom_include_in_consolidated_financials"]]]
     }
 ]
 
