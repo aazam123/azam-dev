@@ -82,20 +82,42 @@ def _fiscal_months_upto(end_month):
 	return list(FISCAL_MONTH_ORDER)
 
 
+def _company_order():
+	"""Return the user-configured company display order from FR Financial Settings.
+
+	[{name -> ordinal}] built from the "Company Order" child table; companies not
+	listed there sort after the listed ones, alphabetically.
+	"""
+	rows = frappe.get_all(
+		"FR Company Order",
+		filters={"parent": "FR Financial Settings"},
+		fields=["company"],
+		order_by="idx asc",
+	)
+	return {r.company: i for i, r in enumerate(rows)}
+
+
 def _domestic_companies():
 	"""Return the companies flagged for this statement as [{name, currency}].
 
 	Selection is the "Include in Consolidated Financials" checkbox on the Company
-	master (falls back to nothing if the field is not installed yet).
+	master (falls back to nothing if the field is not installed yet). Display
+	order follows FR Financial Settings' "Company Order" table when set, with
+	unlisted companies sorted alphabetically after the listed ones.
 	"""
 	if not frappe.db.has_column("Company", INCLUDE_FIELD):
 		return []
-	return frappe.get_all(
+	companies = frappe.get_all(
 		"Company",
 		filters={INCLUDE_FIELD: 1},
 		fields=["name", "default_currency as currency"],
 		order_by="name asc",
 	)
+	order = _company_order()
+	if not order:
+		return companies
+	companies.sort(key=lambda c: (order.get(c.name, len(order)), c.name))
+	return companies
 
 
 def _pick_report(company, report_type, fiscal_year=None, month=None):

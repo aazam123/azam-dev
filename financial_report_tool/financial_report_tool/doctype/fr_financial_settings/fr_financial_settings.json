@@ -14,8 +14,10 @@
   "amount_display_unit",
   "console_details_section",
   "console_tb_threshold_amount",
-  "set_previous_fiscal_year_section",
-  "previous_fiscal_year",
+ "set_previous_fiscal_year_section",
+ "previous_fiscal_year",
+ "company_order_section",
+ "company_order",
   "schedule_settings_tab",
   "trade_payables_turnover_ratio_grouping",
   "sap_tab",
@@ -47,6 +49,18 @@
    "label": "Previous Fiscal Year",
    "options": "FR Previous Fiscal Year"
   },
+ {
+  "fieldname": "company_order_section",
+  "fieldtype": "Section Break",
+  "label": "Company Order"
+ },
+ {
+  "description": "Order companies appear in on the Consolidated Financial Statement page. Companies not listed here fall back to alphabetical order, after the ones listed.",
+  "fieldname": "company_order",
+  "fieldtype": "Table",
+  "label": "Company Order",
+  "options": "FR Company Order"
+ },
   {
    "fieldname": "closing_month_section",
    "fieldtype": "Section Break",
