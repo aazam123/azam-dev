@@ -151,7 +151,10 @@ frappe.query_reports["GL Account Group Report"] = {
                             report_type: filters.report_type,
                             primary_group: values.primary_group || "",
                             secondary_group: values.secondary_group || "",
-                            higher_secondary_group: values.higher_secondary_group || ""
+                            higher_secondary_group: values.higher_secondary_group || "",
+                            company: filters.company,
+                            fiscal_year: filters.fiscal_year,
+                            month: filters.month
                         },
                         freeze: true,
                         freeze_message: __("Updating grouping..."),
@@ -159,6 +162,8 @@ frappe.query_reports["GL Account Group Report"] = {
                             if (r.message) {
                                 let updated = r.message.updated || [];
                                 let errors = r.message.errors || [];
+                                let regenerated = r.message.regenerated || [];
+                                let rf = r.message.redirect_filters || {};
 
                                 if (updated.length > 0) {
                                     frappe.show_alert({
@@ -175,7 +180,29 @@ frappe.query_reports["GL Account Group Report"] = {
                                 }
 
                                 d.hide();
-                                window.location.reload();
+
+                                if (regenerated.length > 0) {
+                                    // Grouping changed -> matching reports are regenerating.
+                                    // Take the user to the filtered Financial Report list to watch progress.
+                                    frappe.show_alert({
+                                        message: __("Regenerating {0} Financial Report(s) in the background...", [regenerated.length]),
+                                        indicator: "blue"
+                                    });
+                                    frappe.set_route("List", "Financial Report", {
+                                        company: rf.company,
+                                        fiscal_year: rf.fiscal_year,
+                                        report_type: rf.report_type
+                                    });
+                                } else {
+                                    // No matching report to regenerate - just refresh the grouping columns.
+                                    if (updated.length > 0) {
+                                        frappe.show_alert({
+                                            message: __("No matching draft Financial Report found to regenerate."),
+                                            indicator: "orange"
+                                        });
+                                    }
+                                    window.location.reload();
+                                }
                             }
                         }
                     });

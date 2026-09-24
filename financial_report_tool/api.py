@@ -465,7 +465,7 @@ def create_gl_group_mapping(gl_account, company, report_type, primary_group, sec
 
 
 @frappe.whitelist()
-def bulk_update_gl_group_mappings(items, report_type, primary_group=None, secondary_group=None, higher_secondary_group=None):
+def bulk_update_gl_group_mappings(items, report_type, primary_group=None, secondary_group=None, higher_secondary_group=None, company=None, fiscal_year=None, month=None):
     if isinstance(items, str):
         items = json.loads(items)
 
@@ -507,7 +507,67 @@ def bulk_update_gl_group_mappings(items, report_type, primary_group=None, second
 
     frappe.db.commit()
 
+    # Grouping drives the numbers in every generated Financial Report, so any report
+    # built on the old grouping is now stale. Re-run generation for the matching
+    # draft (non-approved) reports so they reflect the updated grouping.
+    regenerated = []
+    if updated and company and fiscal_year and report_type:
+        regenerated = trigger_financial_report_regeneration(company, fiscal_year, report_type, month)
+
     return {
         "updated": updated,
-        "errors": errors
+        "errors": errors,
+        "regenerated": regenerated,
+        "redirect_filters": {
+            "company": company,
+            "fiscal_year": fiscal_year,
+            "report_type": report_type,
+        },
     }
+
+
+def trigger_financial_report_regeneration(company, fiscal_year, report_type, month=None):
+    """Re-enqueue generation for draft Financial Reports matching the given filters.
+
+    Mirrors Financial Report.generate_report: flips report_status to
+    "Under Generation" and enqueues the same background job. Approved reports are
+    skipped (they must not be regenerated, matching the form's own guard).
+    """
+    filters = {
+        "company": company,
+        "fiscal_year": fiscal_year,
+        "report_type": report_type,
+        "docstatus": 0,
+    }
+    if month:
+        filters["current_month"] = month
+
+    reports = frappe.get_all(
+        "Financial Report",
+        filters=filters,
+        fields=["name", "workflow_state"],
+    )
+
+    triggered = []
+    for r in reports:
+        if r.get("workflow_state") == "Approved":
+            continue
+
+        frappe.db.set_value("Financial Report", r.name, {
+            "report_status": "Under Generation",
+            "report_error": "",
+            "report_generated_on": None,
+        })
+        frappe.enqueue(
+            "financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+            docname=r.name,
+            queue="long",
+            job_name=f"Generate Financial Report - {r.name}",
+            timeout=600,
+        )
+        triggered.append(r.name)
+
+    if triggered:
+        frappe.db.commit()
+
+    return triggered
