@@ -263,16 +263,17 @@ def _adjust_row(row, company_names, measure_keys, strategic, sign):
 
 
 def _insert_strategic_expense(out_rows, company_names, measure_keys, strategic):
-	"""Insert the "Strategic Expense" row below Finance costs and deduct from profit.
+	"""Insert the "Strategic Expense" row below Litigation Exp and deduct from profit.
 
 	The amount is added into Total Expenses and subtracted from the profit rows
 	(Profit before tax / Profit for the year / Total comprehensive income), so the
 	statement still foots. EBITDA is computed earlier from the pre-Strategic Total
 	Expenses, so it is intentionally left unchanged (Strategic is a below-EBITDA,
-	strategic-in-nature deduction). No-op when Finance costs is absent.
+	strategic-in-nature deduction). Tagged into the EBITDA collapse group since it
+	now sits inside that block. No-op when Litigation Exp is absent.
 	"""
-	fin = _find_row(out_rows, lambda n: n.startswith("finance cost"))
-	if fin < 0:
+	lit = _find_row(out_rows, lambda n: n.startswith("litigation exp"))
+	if lit < 0:
 		return
 
 	consol = {
@@ -286,10 +287,12 @@ def _insert_strategic_expense(out_rows, company_names, measure_keys, strategic):
 		"indent": 0,
 		"is_bold": 0,
 		"is_header": 0,
+		"kind": "derived",
+		"collapse_member": "ebitda",
 		"consolidate": consol,
 		"values": values,
 	}
-	out_rows[fin + 1 : fin + 1] = [row]
+	out_rows[lit + 1 : lit + 1] = [row]
 
 	te = _find_row(out_rows, lambda n: n.startswith("total exp"))
 	if te >= 0:
@@ -817,6 +820,26 @@ def _reorder_pbt_drivers(out_rows):
 	out_rows[anchor + 1 : anchor + 1] = [dep_row, fin_row]
 
 
+def _move_total_expenses_after_finance_costs(out_rows):
+	"""Move Total Expenses to sit directly below Finance costs.
+
+	Purely positional, run after the collapsible-section tagging so the
+	"expenses" section's detail-line tags (computed from the original
+	Expenses -> Total Expenses adjacency) are unaffected; only the Total
+	Expenses row itself — untagged, since it's the section's total marker —
+	relocates. No-op when either row is absent.
+	"""
+	te = _find_row(out_rows, lambda n: n.startswith("total exp"))
+	if te < 0:
+		return
+	te_row = out_rows.pop(te)
+	fin = _find_row(out_rows, lambda n: n.startswith("finance cost"))
+	if fin < 0:
+		out_rows.insert(te, te_row)  # Finance costs absent — restore original spot
+		return
+	out_rows.insert(fin + 1, te_row)
+
+
 @frappe.whitelist()
 def get_context(report_type="Yearly", fiscal_year=None):
 	"""Filter metadata: available fiscal years (and months for Monthly).
@@ -1176,8 +1199,8 @@ def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, 
 		_insert_gross_margin(out_rows, measure_keys)
 		_insert_ebitda(out_rows, measure_keys)
 		_reorder_pbt_drivers(out_rows)
-		# Strategic Expense (user-entered) goes below Finance costs and deducts from
-		# profit — done last so EBITDA above keeps its pre-Strategic figures.
+		# Strategic Expense (user-entered) goes below Litigation Exp and deducts
+		# from profit — done last so EBITDA above keeps its pre-Strategic figures.
 		if strategic:
 			_insert_strategic_expense(out_rows, company_names, measure_keys, strategic)
 		# Drop the Earnings-per-share block — not shown on this consolidated face.
@@ -1186,8 +1209,11 @@ def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, 
 			if not _norm(r.get("particular")).startswith(DROP_PARTICULARS)
 		]
 		# Mark the collapsible sections (Expenses / Tax expense / OCI) so the page can
-		# hide their detail lines behind a "+" and show only the section total.
+		# hide their detail lines behind a "+" and show only the section total, then
+		# relocate Total Expenses below Finance costs (purely positional; the
+		# "expenses" section's tagged detail lines are unaffected).
 		_mark_collapsible_sections(out_rows)
+		_move_total_expenses_after_finance_costs(out_rows)
 	return out_rows
 
 
