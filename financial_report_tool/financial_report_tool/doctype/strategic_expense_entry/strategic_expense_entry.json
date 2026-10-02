@@ -10,6 +10,7 @@
   "fiscal_year",
   "column_break_setup",
   "month",
+  "secondary_group",
   "amount"
  ],
  "fields": [
@@ -42,6 +43,16 @@
    "in_standard_filter": 1,
    "label": "Month",
    "options": "\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember\nJanuary\nFebruary\nMarch",
+   "reqd": 1
+  },
+  {
+   "description": "Secondary group of Other expenses this amount is reclassified out of.",
+   "fieldname": "secondary_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Secondary Group (Other Expenses)",
+   "options": "Standalone Group",
    "reqd": 1
   },
   {

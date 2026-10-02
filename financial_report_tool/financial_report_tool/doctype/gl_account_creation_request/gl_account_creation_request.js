@@ -60,7 +60,7 @@ frappe.ui.form.on('GL Account Creation Request', {
 		}
 
 		// Only the assignee / managers should edit the grouping fields.
-		['primary_group', 'secondary_group', 'higher_secondary_group'].forEach((f) =>
+		['primary_group', 'secondary_group'].forEach((f) =>
 			frm.set_df_property(f, 'read_only', frm.doc.status !== 'Requested' || !can_act ? 1 : 0)
 		);
 	},
@@ -68,5 +68,25 @@ frappe.ui.form.on('GL Account Creation Request', {
 	company(frm) {
 		// Restrict grouping pickers to the request's company + report type.
 		frm.set_query('parent_account', () => ({ filters: { company: frm.doc.company } }));
+
+		// Fetch and assign the Receiver's Mail ID configured for this company.
+		if (!frm.doc.company) {
+			frm.set_value('assigned_to', '');
+			frm.set_value('receiver_email', '');
+			return;
+		}
+		frappe.call({
+			method: 'financial_report_tool.financial_report_tool.financial_report_tool.doctype.gl_account_creation_request.gl_account_creation_request.get_receiver_for_company',
+			args: { company: frm.doc.company },
+		}).then((r) => {
+			frm.set_value('assigned_to', (r.message && r.message.assigned_to) || '');
+			frm.set_value('receiver_email', (r.message && r.message.receiver_email) || '');
+			if (!r.message || !r.message.receiver_email) {
+				frappe.msgprint(
+					__('No assignee is configured for {0}. Set one in GL Account Request Settings.', [frm.doc.company]),
+					__('No Assignee')
+				);
+			}
+		});
 	},
 });

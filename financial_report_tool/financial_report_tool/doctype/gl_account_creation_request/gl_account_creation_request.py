@@ -17,21 +17,29 @@ class GLAccountCreationRequest(Document):
 			self.requested_by = frappe.session.user
 		if not self.status:
 			self.status = "Requested"
-		# Route to the user responsible for this company (from Settings).
-		if self.company and not self.assigned_to:
-			assignee, def_report_type, def_parent = get_company_assignee(self.company)
-			self.assigned_to = assignee
-			if def_report_type and not self.report_type:
-				self.report_type = def_report_type
-			if def_parent and not self.parent_account:
-				self.parent_account = def_parent
+		self.set_receiver_from_company()
+
+	def set_receiver_from_company(self):
+		"""Assign the request and its notification to the Receiver's Mail ID
+		configured for this Company in GL Account Request Settings."""
+		if not self.company:
+			self.assigned_to = None
+			self.receiver_email = None
+			return
+		assignee, def_report_type, def_parent = get_company_assignee(self.company)
+		self.assigned_to = assignee
+		self.receiver_email = frappe.db.get_value("User", assignee, "email") if assignee else None
+		if def_report_type and not self.report_type:
+			self.report_type = def_report_type
+		if def_parent and not self.parent_account:
+			self.parent_account = def_parent
 
 	def after_insert(self):
 		self.notify_assignee()
 
 	# ------------------------------------------------------------------ emails
 	def notify_assignee(self):
-		if not self.assigned_to:
+		if not self.receiver_email:
 			frappe.msgprint(
 				_("No assignee is configured for {0}. Set one in GL Account Request Settings.").format(
 					self.company
@@ -42,15 +50,13 @@ class GLAccountCreationRequest(Document):
 			return
 		url = get_url_to_form(self.doctype, self.name)
 		self._safe_sendmail(
-			recipients=[self.assigned_to],
+			recipients=[self.receiver_email],
 			subject=_("GL Account creation requested for {0} ({1})").format(self.company, self.name),
 			message=_(
 				"<p>{requester} has requested a new GL Account for <b>{company}</b>.</p>"
 				"<table cellpadding='4'>"
 				"<tr><td><b>Proposed account</b></td><td>{account}</td></tr>"
-				"<tr><td><b>Account number</b></td><td>{number}</td></tr>"
-				"<tr><td><b>Root type</b></td><td>{root}</td></tr>"
-				"<tr><td><b>Reason</b></td><td>{reason}</td></tr>"
+				"<tr><td><b>Reference GL</b></td><td>{reference}</td></tr>"
 				"</table>"
 				"<p>Please open the request, set the <b>Primary</b> and <b>Secondary</b> grouping, "
 				"and click <b>Create Account &amp; Grouping</b>:</p>"
@@ -59,9 +65,7 @@ class GLAccountCreationRequest(Document):
 				requester=get_fullname(self.requested_by),
 				company=self.company,
 				account=frappe.utils.escape_html(self.account_name or "-"),
-				number=frappe.utils.escape_html(self.account_number or "-"),
-				root=self.root_type or "-",
-				reason=frappe.utils.escape_html(self.reason or "-"),
+				reference=frappe.utils.escape_html(self.reference_gl or "-"),
 				url=url,
 				name=self.name,
 			),
@@ -174,13 +178,8 @@ class GLAccountCreationRequest(Document):
 		account = frappe.new_doc("Account")
 		account.account_name = self.account_name
 		account.company = self.company
-		account.is_group = self.is_group or 0
-		if self.account_number:
-			account.account_number = self.account_number
 		if self.parent_account:
 			account.parent_account = self.parent_account
-		if self.root_type:
-			account.root_type = self.root_type
 		account.insert(ignore_permissions=True)
 		return account
 
@@ -191,6 +190,15 @@ class GLAccountCreationRequest(Document):
 		mapping.report_type = self.report_type or "Monthly"
 		mapping.primary_group = self.primary_group
 		mapping.secondary_group = self.secondary_group
-		mapping.higher_secondary_group = self.higher_secondary_group
 		mapping.insert(ignore_permissions=True)
 		return mapping
+
+
+@frappe.whitelist()
+def get_receiver_for_company(company):
+	"""Return {assigned_to, receiver_email} for the given Company, so the
+	client can preview it immediately on selecting Company. `validate()`
+	re-derives the same values authoritatively on save regardless."""
+	assignee, _report_type, _parent = get_company_assignee(company)
+	email = frappe.db.get_value("User", assignee, "email") if assignee else None
+	return {"assigned_to": assignee, "receiver_email": email}

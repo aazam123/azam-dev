@@ -7,11 +7,12 @@ from frappe.model.document import Document
 
 class StrategicExpenseEntry(Document):
 	def validate(self):
-		# One amount per company / fiscal year / month.
+		# One amount per company / secondary group / fiscal year / month.
 		dup = frappe.db.exists(
 			"Strategic Expense Entry",
 			{
 				"company": self.company,
+				"secondary_group": self.secondary_group,
 				"fiscal_year": self.fiscal_year,
 				"month": self.month,
 				"name": ["!=", self.name],
@@ -20,5 +21,5 @@ class StrategicExpenseEntry(Document):
 		if dup:
 			frappe.throw(
 				f"A Strategic Expense entry already exists for {self.company} — "
-				f"{self.fiscal_year} {self.month} ({dup})."
+				f"{self.secondary_group} — {self.fiscal_year} {self.month} ({dup})."
 			)
