@@ -608,16 +608,235 @@ def _bif_measures(report_type, fiscal_year, month, previous_fiscal_year):
 	]
 
 
-def _build_split_rows(company_names, measures, split, groups, drop_zero_groups=False):
+# --- Consolidation adjustments (Elimination / Regrouping) ------------------
+# Consol Adjustment Entry rows are shown as two extra columns after Consolidate.
+# They are NOT netted into Consolidate. Entries are monthly amounts (like the
+# trial balance and Strategic Expense): Yearly sums the fiscal year, Monthly
+# gives cumulative-to-month / the month / cumulative-to-prev, FTM the month.
+# net = debit - credit carries the trial-balance sign (income credit-negative,
+# expense debit-positive), so a line's value is net/LACS, flipped when its FR
+# Particular has "Show Reversed Value" -- the same rule the face applies.
+ADJUSTMENT_DOCTYPE = "Consol Adjustment Entry"
+ADJUSTMENT_TYPES = {"Elimination": "elimination", "Regrouping": "regrouping"}
+ADJUSTMENT_FIELDS = tuple(ADJUSTMENT_TYPES.values())
+ADJUSTMENT_PREFIX = "__adj__"  # pseudo-company names used while building rows
+
+# Statement rows that pool every primary group of one Standalone Group type on
+# the face. For adjustments each row takes only primaries of its OWN type, so an
+# entry is never counted on both the Other Income and Other Expense rows.
+POOLED_GROUP_TYPES = ("Other Income", "Other Expense", "Current Tax Liabilities", "Income Tax Assets")
+
+
+def _adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year, month_range=None):
+	"""{measure_key: (fiscal_year, [months])} -- which entry months feed each column."""
+	if month_range is not None:  # All-FTM: one month per column
+		return {m.lower(): (fiscal_year, [m]) for m in month_range}
+	if report_type == "FTM":
+		return {"ftm": (fiscal_year, [month])}
+	if report_type == "Monthly":
+		up = _fiscal_months_upto(month)
+		return {"cm": (fiscal_year, up), "ftm": (fiscal_year, [month]), "pm": (fiscal_year, up[:-1])}
+	return {
+		"cy": (fiscal_year, FISCAL_MONTH_ORDER),
+		"py": (previous_fiscal_year, FISCAL_MONTH_ORDER) if previous_fiscal_year else (None, []),
+	}
+
+
+def _load_adjustments(company_names, fiscal_years):
+	"""{"elimination"|"regrouping": {(primary, secondary, fiscal_year, month): net}}.
+
+	Only entries between companies shown on the page count: From Company must be
+	shown, and To Company (when set) too, so hiding a company drops its entries.
+	"""
+	book = {f: {} for f in ADJUSTMENT_FIELDS}
+	fiscal_years = [y for y in fiscal_years if y]
+	if not fiscal_years or not frappe.db.exists("DocType", ADJUSTMENT_DOCTYPE):
+		return book
+	if not frappe.has_permission(ADJUSTMENT_DOCTYPE, "read"):
+		return book
+	shown = set(company_names)
+	rows = frappe.get_all(
+		ADJUSTMENT_DOCTYPE,
+		filters={"fiscal_year": ["in", fiscal_years]},
+		fields=[
+			"adj_type", "from_company", "to_company", "primary_group", "secondary_group",
+			"fiscal_year", "month", "debit", "credit",
+		],
+		limit_page_length=0,
+	)
+	for r in rows:
+		field = ADJUSTMENT_TYPES.get(r.adj_type)
+		if not field or r.from_company not in shown:
+			continue
+		if r.to_company and r.to_company not in shown:
+			continue
+		key = (r.primary_group, r.secondary_group, r.fiscal_year, r.month)
+		book[field][key] = book[field].get(key, 0.0) + flt(r.debit) - flt(r.credit)
+	return book
+
+
+class _AdjustmentResolver:
+	"""Maps adjustment entries onto statement line items (FR Particulars).
+
+	A leaf line takes the entries whose (primary, secondary) group feeds it --
+	its FR Particular's group mapping, or, for a "fetch from trial balance"
+	schedule, every secondary group under the schedule's primary group. A total
+	line is rebuilt from its children, exactly as the face builds it.
+	"""
+
+	def __init__(self, statement, book, periods):
+		self.statement = statement
+		self.book = book
+		self.periods = periods
+		self._memo = {}
+		self._leaf_cache = {}
+		self._particulars = {}
+		self.selectors_seen = set()
+
+	def _leaf(self, p):
+		"""(selectors, sign): selectors are (primary, secondary|None-for-any) pairs."""
+		if p.name in self._leaf_cache:
+			return self._leaf_cache[p.name]
+		sels = set()
+		if p.fetch_from_schedule and not p.is_purchase_of_stock_in_trade:
+			pass  # sourced from FAR / other schedules, not from GL groups
+		else:
+			section = frappe.get_cached_doc("FR Section", p.schedule) if p.schedule else None
+			if section and section.fetch_data_from_trial_balance:
+				pg = section.primary_consolidation_group
+				gtype = frappe.get_cached_value("Standalone Group", pg, "group_type") if pg else None
+				if gtype in POOLED_GROUP_TYPES:
+					pgs = set(
+						frappe.get_all(
+							"Standalone Group",
+							filters={"is_primary_group": 1, "group_type": gtype},
+							pluck="name",
+						)
+					)
+				else:
+					pgs = {pg} if pg else set()
+				sels = {(g, None) for g in pgs}
+			else:
+				sels = {
+					(m.primary_group, m.secondary_group or "")
+					for m in (p.get("primary_and_secondary_group_mapping") or [])
+					if m.primary_group
+				}
+		out = (frozenset(sels), -1.0 if p.show_reversed_value else 1.0)
+		self.selectors_seen |= sels
+		self._leaf_cache[p.name] = out
+		return out
+
+	def amount(self, pid, field, key):
+		"""Adjustment for particular `pid` in display units (Rs Lacs)."""
+		if not pid:
+			return 0.0
+		ck = (pid, field, key)
+		if ck in self._memo:
+			return self._memo[ck]
+		# Stored table_data can reference a deleted FR Particular. Check existence
+		# first: get_cached_doc would queue a "not found" message for the user.
+		if pid not in self._particulars:
+			self._particulars[pid] = (
+				frappe.get_cached_doc("FR Particular", pid) if frappe.db.exists("FR Particular", pid) else None
+			)
+		p = self._particulars[pid]
+		if p is None:
+			self._memo[ck] = 0.0
+			return 0.0
+
+		if p.is_total:
+			total = 0.0
+			for idx, c in enumerate(p.get("particulars") or []):
+				child = self.amount(c.particular, field, key)
+				# Only the P&L face honours "To Subtract" (first child minus the rest).
+				if self.statement == PROFIT_AND_LOSS and p.to_subtract:
+					total = child if idx == 0 else total - child
+				else:
+					total += child
+			val = -total if p.show_reversed_value else total  # the face reverses totals too
+		else:
+			sels, sign = self._leaf(p)
+			fy, months = self.periods[key]
+			net = 0.0
+			for (pg, sg, efy, em), amt in self.book[field].items():
+				if efy == fy and em in months and any(
+					spg == pg and (ssg is None or ssg == (sg or "")) for spg, ssg in sels
+				):
+					net += amt
+			val = sign * net / LACS
+		val = round(val, 2)
+		self._memo[ck] = val
+		return val
+
+	def unmapped(self):
+		"""Entry groups of this statement that no line item picks up (sorted labels)."""
+		out = set()
+		for entries in self.book.values():
+			for pg, sg, _fy, _m in entries:
+				if frappe.get_cached_value("Standalone Group", pg, "report_type") != self.statement:
+					continue
+				if not any(
+					spg == pg and (ssg is None or ssg == (sg or "")) for spg, ssg in self.selectors_seen
+				):
+					out.add(f"{pg} > {sg}")
+		return sorted(out)
+
+
+def _statement_adjustments(statement, canonical, company_names, periods, fiscal_years):
+	"""({pseudo_company: per-canonical-row cells}, unmapped_labels) for a statement.
+
+	The pseudo columns are fed through `_build_out_rows` alongside the companies
+	so totals and derived KPI rows (Gross Margin, EBITDA ...) follow the same
+	arithmetic for Elimination / Regrouping as for every other column.
+	"""
+	resolver = _AdjustmentResolver(statement, _load_adjustments(company_names, fiscal_years), periods)
+	aligned = {
+		ADJUSTMENT_PREFIX + f: [
+			{k: resolver.amount(r.get("id"), f, k) for k in periods} for r in canonical
+		]
+		for f in ADJUSTMENT_FIELDS
+	}
+	return aligned, resolver.unmapped()
+
+
+def _adjustment_split(company_names, periods, fiscal_years, primary_group, sign):
+	"""{field: {secondary_group: {measure_key: value}}} for one primary group (Rs Lacs)."""
+	out = {}
+	for field, entries in _load_adjustments(company_names, fiscal_years).items():
+		per = {}
+		for (pg, sg, efy, em), net in entries.items():
+			if pg != primary_group:
+				continue
+			for key, (fy, months) in periods.items():
+				if efy == fy and em in months:
+					cell = per.setdefault(sg, {k: 0.0 for k in periods})
+					cell[key] += sign * net / LACS
+		out[field] = {sg: {k: round(v, 2) for k, v in cell.items()} for sg, cell in per.items()}
+	return out
+
+
+def _with_adjustment_groups(groups, adj_split):
+	"""`groups` plus any secondary group that only appears in adjustments, so the
+	breakdown still foots to the face row."""
+	extra = {g for cells in adj_split.values() for g in cells} - set(groups)
+	return list(groups) + sorted(extra)
+
+
+def _build_split_rows(company_names, measures, split, groups, drop_zero_groups=False, adj_split=None):
 	"""One row per secondary group, aligned + consolidated.
 
 	When `drop_zero_groups` is set, a secondary group whose Consolidate value is
-	zero (or absent) across every measure column is left out entirely -- used
-	for Other expenses, where the configured secondary-group set is large and
-	mostly zero for any given company/period; Revenue keeps its fixed two rows
-	regardless.
+	zero (or absent) across every measure column -- and that carries no
+	Elimination / Regrouping -- is left out entirely: used for Other expenses,
+	where the configured secondary-group set is large and mostly zero for any
+	given company/period; Revenue keeps its fixed two rows regardless.
+
+	`adj_split` ({field: {group: {measure_key: value}}}) fills each row's
+	Elimination / Regrouping cells.
 	"""
 	measure_keys = [m[0] for m in measures]
+	adj_split = adj_split or {}
 	rows = []
 	for g in groups:
 		values, totals = [], {k: 0.0 for k in measure_keys}
@@ -630,7 +849,15 @@ def _build_split_rows(company_names, measures, split, groups, drop_zero_groups=F
 				if v is not None:
 					totals[k] += v
 			values.append(vv)
-		if drop_zero_groups and all(abs(totals[k]) < 1e-6 for k in measure_keys):
+		adj = {
+			f: {k: (adj_split.get(f, {}).get(g) or {}).get(k, 0.0) for k in measure_keys}
+			for f in ADJUSTMENT_FIELDS
+		}
+		if (
+			drop_zero_groups
+			and all(abs(totals[k]) < 1e-6 for k in measure_keys)
+			and all(abs(v) < 1e-6 for cell in adj.values() for v in cell.values())
+		):
 			continue
 		rows.append(
 			{
@@ -640,6 +867,7 @@ def _build_split_rows(company_names, measures, split, groups, drop_zero_groups=F
 				"is_header": 0,
 				"consolidate": {k: round(totals[k], 2) for k in measure_keys},
 				"values": values,
+				**adj,
 			}
 		)
 	return rows
@@ -1179,7 +1407,15 @@ def get_consolidated_statement(
 		if statement == PROFIT_AND_LOSS
 		else None
 	)
-	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement, strategic)
+	adj_aligned, adj_unmapped = _statement_adjustments(
+		statement, canonical, company_names,
+		_adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year),
+		[fiscal_year, previous_fiscal_year],
+	)
+	aligned.update(adj_aligned)
+	out_rows = _build_out_rows(
+		canonical, company_names, aligned, measure_keys, statement, strategic, adjustments=True
+	)
 
 	return {
 		"statement": statement,
@@ -1192,6 +1428,7 @@ def get_consolidated_statement(
 		"rows": out_rows,
 		"missing_companies": missing,
 		"excluded_companies": sorted(excluded),
+		"adjustment_unmapped": adj_unmapped,
 	}
 
 
@@ -1238,7 +1475,15 @@ def get_revenue_bifurcation(
 		company_names, report_type, fiscal_year, month, previous_fiscal_year,
 		REVENUE_PRIMARY_GROUP, REVENUE_SECONDARY_GROUPS, sign=-1,
 	)
-	rows = _build_split_rows(company_names, measures, split, groups)
+	adj_split = _adjustment_split(
+		company_names,
+		_adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year),
+		[fiscal_year, previous_fiscal_year],
+		REVENUE_PRIMARY_GROUP,
+		sign=-1,
+	)
+	groups = _with_adjustment_groups(groups, adj_split)
+	rows = _build_split_rows(company_names, measures, split, groups, adj_split=adj_split)
 	return {
 		"columns": [{"key": k, "label": lbl} for k, lbl in measures],
 		"companies": company_names,
@@ -1297,7 +1542,15 @@ def get_other_expenses_bifurcation(
 		groups,
 		_strategic_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year),
 	)
-	rows = _build_split_rows(company_names, measures, split, groups, drop_zero_groups=True)
+	adj_split = _adjustment_split(
+		company_names,
+		_adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year),
+		[fiscal_year, previous_fiscal_year],
+		OTHER_EXPENSES_PRIMARY_GROUP,
+		sign=1,
+	)
+	groups = _with_adjustment_groups(groups, adj_split)
+	rows = _build_split_rows(company_names, measures, split, groups, drop_zero_groups=True, adj_split=adj_split)
 	return {
 		"columns": [{"key": k, "label": lbl} for k, lbl in measures],
 		"companies": company_names,
@@ -1345,7 +1598,17 @@ def _gl_bifurcation_all_ftm(
 		groups = _subtract_strategic_from_split(
 			split, groups, _strategic_amounts_all_ftm(company_names, month_range, fiscal_year)
 		)
-	rows = _build_split_rows(company_names, measures, split, groups, drop_zero_groups=drop_zero_groups)
+	adj_split = _adjustment_split(
+		company_names,
+		_adjustment_periods("FTM", fiscal_year, month, None, month_range),
+		[fiscal_year],
+		primary_group,
+		sign,
+	)
+	groups = _with_adjustment_groups(groups, adj_split)
+	rows = _build_split_rows(
+		company_names, measures, split, groups, drop_zero_groups=drop_zero_groups, adj_split=adj_split
+	)
 	return {
 		"columns": [{"key": k, "label": lbl} for k, lbl in measures],
 		"companies": company_names,
@@ -1355,19 +1618,30 @@ def _gl_bifurcation_all_ftm(
 
 
 
-def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, strategic=None):
+def _build_out_rows(
+	canonical, company_names, aligned, measure_keys, statement, strategic=None, adjustments=False
+):
 	"""Assemble the Particular | Consolidate | <company> rows from aligned data.
 
 	`aligned[company][idx]` is either None (row absent for that company) or a
 	dict of per-measure figures; a figure may itself be None when only some
 	measures apply to a company/row (e.g. a month missing in the All-FTM view).
 	Totals ignore Nones, and a row is blank only when every measure is empty.
+
+	With `adjustments`, `aligned` also carries one pseudo-company per
+	ADJUSTMENT_FIELDS entry (prefixed ADJUSTMENT_PREFIX). They run through the
+	same derived-row logic as the companies but are left out of the Consolidate
+	total, and come back on each row as `row["elimination"]` / `row["regrouping"]`
+	instead of in `row["values"]`.
 	"""
+	ncomp = len(company_names)
+	adj_names = [ADJUSTMENT_PREFIX + f for f in ADJUSTMENT_FIELDS] if adjustments else []
+	company_names = list(company_names) + adj_names
 	out_rows = []
 	for idx, r in enumerate(canonical):
 		is_header = bool(r.get("header") or r.get("group"))
 		values, totals, has_value = [], {k: 0.0 for k in measure_keys}, False
-		for cn in company_names:
+		for j, cn in enumerate(company_names):
 			cell = aligned[cn][idx]
 			if cell is None:
 				values.append({k: None for k in measure_keys})
@@ -1375,6 +1649,8 @@ def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, 
 				values.append(
 					{k: (round(cell[k], 2) if cell[k] is not None else None) for k in measure_keys}
 				)
+				if j >= ncomp:
+					continue  # adjustment column: never part of Consolidate
 				for k in measure_keys:
 					if cell[k] is not None:
 						totals[k] += cell[k]
@@ -1425,6 +1701,15 @@ def _build_out_rows(canonical, company_names, aligned, measure_keys, statement, 
 		# "expenses" section's tagged detail lines are unaffected).
 		_mark_collapsible_sections(out_rows)
 		_move_total_expenses_after_finance_costs(out_rows)
+	if adj_names:
+		for r in out_rows:
+			cells = r["values"][ncomp:]
+			r["values"] = r["values"][:ncomp]
+			for field, cell in zip(ADJUSTMENT_FIELDS, cells):
+				# A ratio of adjustment columns is meaningless -- leave it blank.
+				if r.get("value_format") == "percent":
+					cell = {k: None for k in cell}
+				r[field] = cell
 	return out_rows
 
 
@@ -1536,7 +1821,15 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 		if statement == PROFIT_AND_LOSS
 		else None
 	)
-	out_rows = _build_out_rows(canonical, company_names, aligned, measure_keys, statement, strategic)
+	adj_aligned, adj_unmapped = _statement_adjustments(
+		statement, canonical, company_names,
+		_adjustment_periods("FTM", fiscal_year, month, None, month_range),
+		[fiscal_year],
+	)
+	aligned.update(adj_aligned)
+	out_rows = _build_out_rows(
+		canonical, company_names, aligned, measure_keys, statement, strategic, adjustments=True
+	)
 
 	return {
 		"statement": statement,
@@ -1550,4 +1843,5 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 		"rows": out_rows,
 		"missing_companies": missing,
 		"excluded_companies": sorted(excluded),
+		"adjustment_unmapped": adj_unmapped,
 	}

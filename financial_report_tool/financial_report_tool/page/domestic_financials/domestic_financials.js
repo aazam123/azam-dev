@@ -498,11 +498,15 @@ function build_statement_block(title, data, hidden) {
 		<tr>
 			<th rowspan="2" class="cfs-particular cfs-sticky">Particular</th>
 			${group_head('Consolidate', 'cfs-consol-col')}
+			${group_head('Elimination', 'cfs-adj-col')}
+			${group_head('Regrouping', 'cfs-adj-col')}
 			${companies.map((c) => comp_head(c)).join('')}
 			${plus_head}
 		</tr>
 		<tr class="cfs-subhead">
 			${sub_head('cfs-consol-col')}
+			${sub_head('cfs-adj-col')}
+			${sub_head('cfs-adj-col')}
 			${companies.map(() => sub_head()).join('')}
 		</tr>`;
 
@@ -542,6 +546,9 @@ function build_statement_block(title, data, hidden) {
 			if (row.collapse_member) cls.push('cfs-collapsed', 'cfs-grp-' + row.collapse_member);
 
 			const consol = num_cells(row.consolidate, 'cfs-consol-col', blank, fmt);
+			const adj =
+				num_cells(row.elimination, 'cfs-adj-col', blank, fmt) +
+				num_cells(row.regrouping, 'cfs-adj-col', blank, fmt);
 			const cells = companies.map((c, i) => num_cells(row.values[i], '', blank, fmt)).join('');
 			const plus = show_plus ? '<td class="cfs-plus-col"></td>' : '';
 
@@ -562,6 +569,7 @@ function build_statement_block(title, data, hidden) {
 				<tr class="${cls.join(' ')}">
 					<td class="cfs-particular cfs-sticky" style="${indent}">${sec_btn}${rev_btn}${oe_btn}${label}</td>
 					${consol}
+					${adj}
 					${cells}
 					${plus}
 				</tr>`;
@@ -571,6 +579,10 @@ function build_statement_block(title, data, hidden) {
 	const missing = data.missing_companies || [];
 	const miss_note = missing.length
 		? ` • <span title="${frappe.utils.escape_html(missing.join(', '))}">${missing.length} company(ies) without a report excluded</span>`
+		: '';
+	const unmapped = data.adjustment_unmapped || [];
+	const unmapped_note = unmapped.length
+		? ` • <span class="cfs-warn" title="${frappe.utils.escape_html(unmapped.join('\n'))}">${unmapped.length} adjustment group(s) not mapped to any line</span>`
 		: '';
 	const col_labels = cols.map((c) => frappe.utils.escape_html(c.label)).join(', ');
 
@@ -585,7 +597,8 @@ function build_statement_block(title, data, hidden) {
 			</div>
 			<div class="cfs-foot">
 				Columns per company: ${col_labels} •
-				<b>Consolidate</b> = arithmetic total of the companies shown (no intercompany eliminations)${miss_note}.
+				<b>Consolidate</b> = arithmetic total of the companies shown (no intercompany eliminations);
+				<b>Elimination</b> / <b>Regrouping</b> are shown separately from Consol Adjustment Entry and are not netted into Consolidate${miss_note}${unmapped_note}.
 			</div>
 		</div>`;
 }
@@ -665,7 +678,7 @@ function toggle_bifurcation(page, state, $btn) {
 			const cols = pl.columns && pl.columns.length ? pl.columns : bif.columns || [{ key: 'cy', label: '' }];
 			const face_companies = pl.companies || bif.companies || [];
 			const show_plus = state.hidden.size > 0;
-			const ncell = 1 + (1 + face_companies.length) * cols.length + (show_plus ? 1 : 0);
+			const ncell = 1 + (3 + face_companies.length) * cols.length + (show_plus ? 1 : 0);
 			const html = build_bif_rows_html(bif, face_companies, cols, show_plus);
 			$row.after(
 				html ||
@@ -705,6 +718,9 @@ function build_bif_rows_html(bif, face_companies, cols, show_plus) {
 			else if (row.is_bold) cls.push('cfs-bif-total');
 
 			const consol = num_cells(row.consolidate, 'cfs-consol-col', blank);
+			const adj =
+				num_cells(row.elimination, 'cfs-adj-col', blank) +
+				num_cells(row.regrouping, 'cfs-adj-col', blank);
 			const cells = face_companies
 				.map((c) => {
 					const i = idx_of[c];
@@ -719,6 +735,7 @@ function build_bif_rows_html(bif, face_companies, cols, show_plus) {
 				<tr class="${cls.join(' ')}">
 					<td class="cfs-particular cfs-sticky" style="padding-left:${pad}px;">${frappe.utils.escape_html(row.particular)}</td>
 					${consol}
+					${adj}
 					${cells}
 					${plus}
 				</tr>`;
@@ -1018,6 +1035,15 @@ function inject_styles() {
 		/* Highlighted Consolidate column */
 		.cfs-consol-col { background:#eef7ef; font-weight:600; color:#1B5E20; }
 		.cfs-table thead th.cfs-consol-col { background:#e3f1e5; }
+
+		/* Elimination / Regrouping columns (from Consol Adjustment Entry) */
+		.cfs-adj-col { background:#fff8e8; color:#6b4a00; }
+		.cfs-table thead th.cfs-adj-col { background:#fdf0d0; }
+		.cfs-header-row td.cfs-adj-col { background:#fbf1d9; }
+		.cfs-bold-row td.cfs-adj-col { background:#fdf0d0; }
+		.cfs-derived-row td.cfs-adj-col { background:#fdf0d0; color:#6b4a00; }
+		.cfs-bif-row td.cfs-adj-col { background:#fff5dc; }
+		.cfs-warn { color:#b45309; cursor:help; }
 
 		/* Header / group rows */
 		.cfs-header-row td { background:#f7faf8; font-weight:700; color:#14351b; text-transform:none; }
