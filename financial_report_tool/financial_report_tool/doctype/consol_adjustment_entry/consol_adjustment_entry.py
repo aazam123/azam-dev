@@ -31,9 +31,12 @@ class ConsolAdjustmentEntry(Document):
 		if self.primary_group:
 			if not frappe.db.get_value("Standalone Group", self.primary_group, "is_primary_group"):
 				frappe.throw(_("{0} is not a Primary Group.").format(self.primary_group))
-			if self.secondary_group and frappe.db.get_value(
-				"Standalone Group", self.secondary_group, "parent_standalone_group"
-			) != self.primary_group:
+			if (
+				self.secondary_group
+				and self.secondary_group != self.primary_group
+				and frappe.db.get_value("Standalone Group", self.secondary_group, "parent_standalone_group")
+				!= self.primary_group
+			):
 				frappe.throw(
 					_("{0} is not a secondary group under {1}.").format(self.secondary_group, self.primary_group)
 				)

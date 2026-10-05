@@ -121,7 +121,9 @@ def _validate(t, companies, group_subs, fiscal_years):
 def get_masters():
 	"""Company list and Primary -> [Secondary] group hierarchy, sourced from
 	the existing Company and Standalone Group masters (the same ones GL Group
-	Mapping and the Consolidated Financial Statement page use)."""
+	Mapping and the Consolidated Financial Statement page use). The primary
+	group itself is always the first secondary option, so a primary with no
+	child groups can still be used."""
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	companies = frappe.get_all("Company", fields=["name"], order_by="name asc", pluck="name")
 	primaries = frappe.get_all(
@@ -140,7 +142,7 @@ def get_masters():
 	for s in subs:
 		by_parent[s.parent_standalone_group].append(s.name)
 	groups = [
-		{"name": p.name, "st": p.report_type or "Unmapped", "subs": by_parent.get(p.name, [])}
+		{"name": p.name, "st": p.report_type or "Unmapped", "subs": [p.name] + by_parent.get(p.name, [])}
 		for p in primaries
 	]
 	fiscal_years = frappe.get_all("Fiscal Year", fields=["name"], order_by="year_start_date desc", pluck="name")
