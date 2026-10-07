@@ -59,31 +59,26 @@ frappe.pages['consol-adjustments'].on_page_load = function (wrapper) {
 						<div class="ca-hd"><h2 id="ca-form-title">New transaction</h2><span class="ca-txid" id="ca-txid"></span></div>
 						<div class="ca-bd">
 							<form id="ca-form" autocomplete="off" novalidate>
-								<div class="ca-sec">Transaction details</div>
 								<div class="ca-row2">
 									<div class="ca-fld"><label for="ca-f-from">From company <span class="ca-req">*</span></label><select id="ca-f-from"></select></div>
 									<div class="ca-fld"><label for="ca-f-to">To company <span class="ca-muted">(optional)</span></label><select id="ca-f-to"></select></div>
 								</div>
 								<div class="ca-row2" style="margin-top:10px"><div class="ca-fld"><label for="ca-f-fy">Fiscal year <span class="ca-req">*</span></label><select id="ca-f-fy"></select></div><div class="ca-fld"><label for="ca-f-month">Month <span class="ca-req">*</span></label><select id="ca-f-month"></select></div></div>
-								<div class="ca-sec">Accounting classification</div>
 								<div class="ca-fld"><label for="ca-f-pg">Primary group <span class="ca-req">*</span></label><select id="ca-f-pg"></select></div>
-								<div class="ca-fld" style="margin-top:10px"><label for="ca-f-sg">Secondary group <span class="ca-req">*</span></label><select id="ca-f-sg"></select></div>
-								<div class="ca-sec">Amount (₹, full value)</div>
+								<div class="ca-fld"><label for="ca-f-sg">Secondary group <span class="ca-req">*</span></label><select id="ca-f-sg"></select></div>
 								<div class="ca-row2">
 									<div class="ca-fld"><label for="ca-f-dr">Debit <span class="ca-req">*</span> <span class="ca-muted">(or Credit)</span></label><input id="ca-f-dr" class="ca-num" inputmode="decimal" placeholder="0"></div>
 									<div class="ca-fld"><label for="ca-f-cr">Credit <span class="ca-req">*</span> <span class="ca-muted">(or Debit)</span></label><input id="ca-f-cr" class="ca-num" inputmode="decimal" placeholder="0"></div>
 								</div>
-								<div class="ca-netline"><span>Net impact (Dr − Cr)</span><b id="ca-net-out">–</b></div>
-								<div class="ca-sec">Adjustment</div>
 								<div class="ca-fld"><label for="ca-f-type">Adjustment type <span class="ca-req">*</span></label>
 									<select id="ca-f-type"><option>Elimination</option><option>Regrouping</option></select></div>
-								<div class="ca-fld" style="margin-top:10px"><label for="ca-f-narr">Description / narration</label><textarea id="ca-f-narr" placeholder="e.g. MLSPL sales to Meril India eliminated"></textarea></div>
-								<div class="ca-fld" style="margin-top:10px"><label for="ca-f-ref">Reference <span class="ca-muted">(optional)</span></label><input id="ca-f-ref" placeholder="e.g. IC confirmation Mar-26, JV 1042"></div>
-								<div id="ca-form-err" class="ca-errs" hidden></div>
+								<div class="ca-fld"><label for="ca-f-narr">Description / narration</label><textarea id="ca-f-narr" rows="1" placeholder="e.g. MLSPL sales to Meril India eliminated"></textarea></div>
+								<div class="ca-fld"><label for="ca-f-ref">Reference <span class="ca-muted">(optional)</span></label><input id="ca-f-ref" placeholder="e.g. IC confirmation Mar-26, JV 1042"></div>
 								<div class="ca-btns">
 									<button type="submit" class="ca-btn pri" id="ca-save-btn">Add transaction</button>
 									<button type="button" class="ca-btn" id="ca-reset-btn">Clear</button>
 								</div>
+								<div id="ca-form-err" class="ca-errs" hidden></div>
 							</form>
 						</div>
 					</div>
@@ -97,16 +92,17 @@ frappe.pages['consol-adjustments'].on_page_load = function (wrapper) {
 							</div>
 						</div>
 						<div class="ca-filters2">
-							<input id="ca-q-search" placeholder="Search narration, ref, ID">
-							<select id="ca-q-type"><option value="">All types</option><option>Elimination</option><option>Regrouping</option></select>
-							<select id="ca-q-from"></select>
-							<select id="ca-q-pg"></select>
-							<select id="ca-q-fy"></select>
-							<select id="ca-q-month"></select>
+							${ca_ms_html('ca-q-type', 'All types', 'Type')}
+							${ca_ms_html('ca-q-from', 'All From companies', 'From company')}
+							${ca_ms_html('ca-q-pg', 'All primary groups', 'Primary group')}
+							${ca_ms_html('ca-q-sg', 'All secondary groups', 'Secondary group')}
+							${ca_ms_html('ca-q-fy', 'All fiscal years', 'Fiscal year')}
+							${ca_ms_html('ca-q-month', 'All months', 'Month')}
+							<button type="button" class="ca-reset" id="ca-q-reset" hidden>Clear filters</button>
 						</div>
 						<div class="ca-tblwrap" style="max-height:70vh;overflow:auto">
 							<table id="ca-reg">
-								<thead><tr><th>ID</th><th>From → To</th><th>FY</th><th>Month</th><th>Primary group</th><th>Secondary group</th><th>Type</th><th class="n" id="ca-th-dr">Debit</th><th class="n" id="ca-th-cr">Credit</th><th></th></tr></thead>
+								<thead><tr><th>ID</th><th>From → To</th><th>FY / Month</th><th>Primary group</th><th>Secondary group</th><th>Type</th><th class="n" id="ca-th-dr">Debit</th><th class="n" id="ca-th-cr">Credit</th><th></th></tr></thead>
 								<tbody id="ca-reg-body"></tbody>
 								<tfoot id="ca-reg-foot"></tfoot>
 							</table>
@@ -116,20 +112,21 @@ frappe.pages['consol-adjustments'].on_page_load = function (wrapper) {
 			</div>
 			<div id="ca-view-reports" hidden>
 				<div class="ca-panel" style="margin-top:16px">
-					<div class="ca-hd">
-						<h2 id="ca-rep-title">Report</h2>
-						<div class="ca-repctl">
+					<div class="ca-filters2">
+						<div class="ca-ff ca-ff-kind"><span class="ca-ms-lab">Report</span>
 							<select id="ca-r-kind" aria-label="Report">
 								<option value="tb">Adjustment TB – Primary / Secondary group</option>
 								<option value="matrix">Company-to-company matrix</option>
 								<option value="recon">Inter-company reconciliation</option>
 								<option value="entity">Entity-wise summary</option>
 							</select>
-							<select id="ca-r-type" aria-label="Adjustment type"><option value="">Elimination + Regrouping</option><option>Elimination</option><option>Regrouping</option></select>
-							<select id="ca-r-pg" aria-label="Primary group"></select>
-							<select id="ca-r-fy" aria-label="Fiscal year"></select>
-							<select id="ca-r-month" aria-label="Month"></select>
 						</div>
+						${ca_ms_html('ca-r-type', 'All types', 'Type')}
+						${ca_ms_html('ca-r-pg', 'All primary groups', 'Primary group')}
+						${ca_ms_html('ca-r-sg', 'All secondary groups', 'Secondary group')}
+						${ca_ms_html('ca-r-fy', 'All fiscal years', 'Fiscal year')}
+						${ca_ms_html('ca-r-month', 'All months', 'Month')}
+						<button type="button" class="ca-reset" id="ca-r-reset" hidden>Clear filters</button>
 					</div>
 					<div class="ca-tblwrap" id="ca-rep-out"></div>
 				</div>
@@ -158,12 +155,26 @@ frappe.pages['consol-adjustments'].on_page_load = function (wrapper) {
 	$body.find('#ca-f-type').on('change', () => update_ca_txid(page));
 	$body.find('#ca-form').on('submit', (ev) => submit_ca_form(ev, page));
 	$body.find('#ca-reset-btn').on('click', () => reset_ca_form(page));
-	['ca-q-search', 'ca-q-type', 'ca-q-from', 'ca-q-pg', 'ca-q-fy', 'ca-q-month'].forEach((id) => {
-		$body.find('#' + id).on(id === 'ca-q-search' ? 'input' : 'change', () => render_ca_register(page));
+	const ca_types = ['Elimination', 'Regrouping'];
+	['q', 'r'].forEach((scope) => {
+		const rerender = () => (scope === 'q' ? render_ca_register(page) : render_ca_reports(page));
+		CA_FILTER_IDS[scope].forEach((id) => {
+			ca_ms_init(
+				$body,
+				id,
+				() => {
+					// Secondary-group choices follow the picked Primary groups.
+					if (id === `ca-${scope}-pg`) ca_refresh_sg(page, scope);
+					ca_filters_sync(page, scope);
+					rerender();
+				},
+				id.endsWith('-type') ? ca_types : null
+			);
+		});
+		$body.find(`#ca-${scope}-reset`).on('click', () => ca_filters_reset(page, scope));
 	});
-	['ca-r-kind', 'ca-r-type', 'ca-r-pg', 'ca-r-fy', 'ca-r-month'].forEach((id) => {
-		$body.find('#' + id).on('change', () => render_ca_reports(page));
-	});
+	$body.find('#ca-r-kind').on('change', () => render_ca_reports(page));
+	$(document).on('click.ca_ms', ca_ms_close_all); // click outside closes an open filter
 	$body.find('#ca-reg-body').on('click', '[data-act]', (ev) => ca_register_click(ev, page));
 	$body.find('#ca-import-btn').on('click', () => open_ca_import_dialog(page));
 	$body.find('#ca-tmpl-btn').on('click', () => {
@@ -220,6 +231,130 @@ function set_ca_view(page, v) {
 	$body.find('#ca-tab-input').attr('aria-selected', v === 'input' ? 'true' : 'false');
 	$body.find('#ca-tab-reports').attr('aria-selected', v === 'reports' ? 'true' : 'false');
 	if (v === 'reports') render_ca_reports(page);
+}
+
+// --- Multi-select filter: search box + checkboxes ------------------------
+// A labelled dropdown replacing a single-value <select> in the filter bars.
+// Empty selection means "no filter" (shows the "All ..." text); otherwise the
+// picked values are OR-ed. Several picks show the first plus a "+N" badge.
+const CA_CARET = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const CA_SEARCH_ICO = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m10.5 10.5 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+function ca_ms_html(id, allLabel, fieldLabel) {
+	const esc = frappe.utils.escape_html;
+	return `<div class="ca-ff ca-ms" id="${id}" data-all="${esc(allLabel)}">
+		<span class="ca-ms-lab">${esc(fieldLabel)}</span>
+		<button type="button" class="ca-ms-btn" aria-haspopup="listbox" aria-expanded="false">
+			<span class="ca-ms-txt"></span><span class="ca-ms-badge" hidden></span><span class="ca-ms-car">${CA_CARET}</span>
+		</button>
+		<div class="ca-ms-menu" hidden>
+			<div class="ca-ms-sw">${CA_SEARCH_ICO}<input type="search" class="ca-ms-search" placeholder="${esc(__('Search…'))}" autocomplete="off"></div>
+			<div class="ca-ms-tools"><span class="ca-ms-count"></span><span><button type="button" data-a="all">${esc(__('Select all'))}</button><button type="button" data-a="clear">${esc(__('Clear'))}</button></span></div>
+			<div class="ca-ms-list" role="listbox" aria-multiselectable="true"></div>
+		</div>
+	</div>`;
+}
+function ca_ms_val($body, id) {
+	return ($body.find('#' + id).data('sel') || []).slice();
+}
+function ca_ms_close_all() {
+	$('.ca-ms-menu:not([hidden])').prop('hidden', true).closest('.ca-ms').find('.ca-ms-btn').attr('aria-expanded', 'false');
+}
+function ca_ms_paint_button($el) {
+	const sel = $el.data('sel');
+	const $txt = $el.find('.ca-ms-txt');
+	$txt.text(sel.length ? sel[0] : $el.attr('data-all'));
+	$el.find('.ca-ms-btn').attr('title', sel.length ? sel.join(', ') : $el.attr('data-all'));
+	$el.find('.ca-ms-badge').text('+' + (sel.length - 1)).prop('hidden', sel.length < 2);
+	$el.toggleClass('has', sel.length > 0);
+}
+function ca_ms_mark(text, q) {
+	const esc = frappe.utils.escape_html;
+	const i = q ? text.toLowerCase().indexOf(q) : -1;
+	if (i < 0) return esc(text);
+	return esc(text.slice(0, i)) + '<mark>' + esc(text.slice(i, i + q.length)) + '</mark>' + esc(text.slice(i + q.length));
+}
+function ca_ms_render($el) {
+	const esc = frappe.utils.escape_html;
+	const sel = new Set($el.data('sel'));
+	const q = $el.find('.ca-ms-search').val().trim().toLowerCase();
+	const shown = $el.data('opts').filter((o) => !q || o.toLowerCase().includes(q));
+	$el.find('.ca-ms-list').html(
+		shown.length
+			? shown
+					.map(
+						(o) =>
+							`<label class="ca-ms-opt${sel.has(o) ? ' on' : ''}"><input type="checkbox" value="${esc(o)}"${sel.has(o) ? ' checked' : ''}><span>${ca_ms_mark(o, q)}</span></label>`
+					)
+					.join('')
+			: `<div class="ca-ms-none">${esc(__('No match'))}</div>`
+	);
+	$el.find('.ca-ms-count').text(__('{0} of {1} selected', [sel.size, $el.data('opts').length]));
+	ca_ms_paint_button($el);
+}
+function ca_ms_set($el, list) {
+	const opts = [...list];
+	$el.data('opts', opts);
+	// Drop picks that are no longer offered, keep the rest across refreshes.
+	$el.data('sel', $el.data('sel').filter((v) => opts.includes(v)));
+	ca_ms_render($el);
+}
+function ca_ms_init($body, id, onchange, options) {
+	const $el = $body.find('#' + id);
+	$el.data({ opts: [], sel: [] });
+	const $btn = $el.find('.ca-ms-btn');
+	const changed = () => {
+		ca_ms_paint_button($el);
+		onchange();
+	};
+	const close = () => {
+		ca_ms_close_all();
+		$btn.trigger('focus');
+	};
+	$btn.on('click', (ev) => {
+		ev.stopPropagation();
+		const $menu = $el.find('.ca-ms-menu');
+		const opening = $menu.prop('hidden');
+		ca_ms_close_all();
+		if (opening) {
+			$menu.prop('hidden', false).removeClass('right');
+			// Keep the menu inside the viewport for controls near the right edge.
+			if ($menu[0].getBoundingClientRect().right > window.innerWidth - 8) $menu.addClass('right');
+			$btn.attr('aria-expanded', 'true');
+			$el.find('.ca-ms-search').val('');
+			ca_ms_render($el);
+			$el.find('.ca-ms-search').trigger('focus');
+		}
+	});
+	$el.find('.ca-ms-menu').on('click', (ev) => ev.stopPropagation());
+	$el.find('.ca-ms-search').on('input', () => ca_ms_render($el));
+	$el.find('.ca-ms-search').on('keydown', (ev) => {
+		if (ev.key === 'Escape') close();
+	});
+	$el.on('change', '.ca-ms-opt input', function () {
+		const sel = new Set($el.data('sel'));
+		if (this.checked) sel.add(this.value);
+		else sel.delete(this.value);
+		// Keep the master option order so the label/title read naturally.
+		$el.data('sel', $el.data('opts').filter((o) => sel.has(o)));
+		$(this).closest('.ca-ms-opt').toggleClass('on', this.checked);
+		$el.find('.ca-ms-count').text(__('{0} of {1} selected', [$el.data('sel').length, $el.data('opts').length]));
+		changed();
+	});
+	$el.find('.ca-ms-tools').on('click', 'button', function () {
+		if ($(this).data('a') === 'clear') {
+			$el.data('sel', []);
+		} else {
+			// "Select all" applies to what the search currently shows.
+			const q = $el.find('.ca-ms-search').val().trim().toLowerCase();
+			const sel = new Set($el.data('sel'));
+			$el.data('opts').filter((o) => !q || o.toLowerCase().includes(q)).forEach((o) => sel.add(o));
+			$el.data('sel', $el.data('opts').filter((o) => sel.has(o)));
+		}
+		ca_ms_render($el);
+		changed();
+	});
+	if (options) ca_ms_set($el, options);
+	else ca_ms_render($el);
 }
 
 // --- Masters / selects --------------------------------------------------
@@ -282,27 +417,59 @@ function fill_ca_subs(page, sel) {
 function fill_ca_filter_selects(page) {
 	const $body = $(page.body);
 	const M = page.ca.state.masters;
-	const cur = {
-		f: $body.find('#ca-q-from').val(),
-		p: $body.find('#ca-q-pg').val(),
-		y: $body.find('#ca-q-fy').val(),
-		m: $body.find('#ca-q-month').val(),
-		rp: $body.find('#ca-r-pg').val(),
-		ry: $body.find('#ca-r-fy').val(),
-		rm: $body.find('#ca-r-month').val(),
-	};
 	const txns = page.ca.state.txns || [];
+	const set = (id, list) => ca_ms_set($body.find('#' + id), list);
 	const cos = [...new Set([...M.companies, ...txns.map((t) => t.from).filter(Boolean)])];
-	$body.find('#ca-q-from').html(ca_opts(cos, cur.f, 'All From companies'));
+	set('ca-q-from', cos);
 	const pgs = [...new Set([...M.groups.map((g) => g.name), ...txns.map((t) => t.pg)])];
-	$body.find('#ca-q-pg').html(ca_opts(pgs, cur.p, 'All primary groups'));
-	$body.find('#ca-r-pg').html(ca_opts(pgs, cur.rp, 'All primary groups'));
+	set('ca-q-pg', pgs);
+	set('ca-r-pg', pgs);
 	const fys = [...new Set([...M.fiscal_years, ...txns.map((t) => t.fy).filter(Boolean)])];
-	$body.find('#ca-q-fy').html(ca_opts(fys, cur.y, 'All fiscal years'));
-	$body.find('#ca-r-fy').html(ca_opts(fys, cur.ry, 'All fiscal years'));
+	set('ca-q-fy', fys);
+	set('ca-r-fy', fys);
 	const months = [...new Set([...(M.months || []), ...txns.map((t) => t.month).filter(Boolean)])];
-	$body.find('#ca-q-month').html(ca_opts(months, cur.m, 'All months'));
-	$body.find('#ca-r-month').html(ca_opts(months, cur.rm, 'All months'));
+	set('ca-q-month', months);
+	set('ca-r-month', months);
+	ca_refresh_sg(page, 'q');
+	ca_refresh_sg(page, 'r');
+	ca_filters_sync(page, 'q');
+	ca_filters_sync(page, 'r');
+}
+// Secondary-group choices follow the Primary groups picked in the same filter
+// bar (all of them when none is picked). Picks no longer offered are dropped.
+function ca_refresh_sg(page, scope) {
+	const $body = $(page.body);
+	const M = page.ca.state.masters;
+	const txns = page.ca.state.txns || [];
+	const pgs = ca_ms_val($body, `ca-${scope}-pg`);
+	const inScope = (name) => !pgs.length || pgs.includes(name);
+	const subs = [
+		...M.groups.filter((g) => inScope(g.name)).flatMap((g) => g.subs),
+		...txns.filter((t) => inScope(t.pg)).map((t) => t.sg),
+	].filter(Boolean);
+	ca_ms_set($body.find(`#ca-${scope}-sg`), [...new Set(subs)]);
+}
+const CA_FILTER_IDS = {
+	q: ['ca-q-type', 'ca-q-from', 'ca-q-pg', 'ca-q-sg', 'ca-q-fy', 'ca-q-month'],
+	r: ['ca-r-type', 'ca-r-pg', 'ca-r-sg', 'ca-r-fy', 'ca-r-month'],
+};
+// Show "Clear filters" only while something is filtered.
+function ca_filters_sync(page, scope) {
+	const $body = $(page.body);
+	let active = CA_FILTER_IDS[scope].some((id) => ca_ms_val($body, id).length);
+	$body.find(`#ca-${scope}-reset`).prop('hidden', !active);
+}
+function ca_filters_reset(page, scope) {
+	const $body = $(page.body);
+	CA_FILTER_IDS[scope].forEach((id) => {
+		const $el = $body.find('#' + id);
+		$el.data('sel', []);
+		ca_ms_render($el);
+	});
+	ca_refresh_sg(page, scope);
+	ca_filters_sync(page, scope);
+	if (scope === 'q') render_ca_register(page);
+	else render_ca_reports(page);
 }
 
 // --- Form -----------------------------------------------------------
@@ -312,8 +479,6 @@ function sync_ca_amounts(page) {
 	const cr = ca_parse_amt($body.find('#ca-f-cr').val());
 	$body.find('#ca-f-cr').prop('disabled', dr > 0);
 	$body.find('#ca-f-dr').prop('disabled', cr > 0);
-	const n = (isNaN(dr) ? 0 : dr) - (isNaN(cr) ? 0 : cr);
-	$body.find('#ca-net-out').text(n ? ca_nf2.format(Math.abs(n)) + (n > 0 ? ' Dr' : ' Cr') : '–');
 }
 function fmt_ca_input(el) {
 	const v = ca_parse_amt(el.value);
@@ -468,20 +633,20 @@ function delete_ca_txn(page, id) {
 function ca_filtered(page) {
 	const { state } = page.ca;
 	const $body = $(page.body);
-	const q = $body.find('#ca-q-search').val().trim().toLowerCase();
-	const ty = $body.find('#ca-q-type').val();
-	const fr = $body.find('#ca-q-from').val();
-	const pg = $body.find('#ca-q-pg').val();
-	const fy = $body.find('#ca-q-fy').val();
-	const mo = $body.find('#ca-q-month').val();
+	const ty = ca_ms_val($body, 'ca-q-type');
+	const fr = ca_ms_val($body, 'ca-q-from');
+	const pg = ca_ms_val($body, 'ca-q-pg');
+	const sg = ca_ms_val($body, 'ca-q-sg');
+	const fy = ca_ms_val($body, 'ca-q-fy');
+	const mo = ca_ms_val($body, 'ca-q-month');
 	return state.txns.filter(
 		(t) =>
-			(!ty || t.type === ty) &&
-			(!fr || t.from === fr) &&
-			(!pg || t.pg === pg) &&
-			(!fy || t.fy === fy) &&
-			(!mo || t.month === mo) &&
-			(!q || [ca_txn_label(t), t.narration, t.ref, t.to, t.sg].join(' ').toLowerCase().includes(q))
+			(!ty.length || ty.includes(t.type)) &&
+			(!fr.length || fr.includes(t.from)) &&
+			(!pg.length || pg.includes(t.pg)) &&
+			(!sg.length || sg.includes(t.sg)) &&
+			(!fy.length || fy.includes(t.fy)) &&
+			(!mo.length || mo.includes(t.month))
 	);
 }
 function render_ca_register(page) {
@@ -492,12 +657,12 @@ function render_ca_register(page) {
 	$body.find('#ca-th-cr').text('Credit (' + u + ')');
 	const rows = ca_filtered(page);
 	if (!state.txns.length) {
-		$body.find('#ca-reg-body').html(`<tr><td colspan="10" class="ca-empty">No transactions yet. Add the first one with the form, or import your elimination sheet.</td></tr>`);
+		$body.find('#ca-reg-body').html(`<tr><td colspan="9" class="ca-empty">No transactions yet. Add the first one with the form, or import your elimination sheet.</td></tr>`);
 		$body.find('#ca-reg-foot').html('');
 		return;
 	}
 	if (!rows.length) {
-		$body.find('#ca-reg-body').html(`<tr><td colspan="10" class="ca-empty">No transactions match these filters.</td></tr>`);
+		$body.find('#ca-reg-body').html(`<tr><td colspan="9" class="ca-empty">No transactions match these filters.</td></tr>`);
 		$body.find('#ca-reg-foot').html('');
 		return;
 	}
@@ -510,14 +675,14 @@ function render_ca_register(page) {
 					state.confirmDel === t.id
 						? `<button class="ca-btn sm danger" data-act="delok" data-id="${t.id}">Delete</button><button class="ca-icon" data-act="delno">Keep</button>`
 						: `<button class="ca-icon" data-act="edit" data-id="${t.id}" aria-label="Edit ${ca_txn_label(t)}">Edit</button><button class="ca-icon del" data-act="del" data-id="${t.id}" aria-label="Delete ${ca_txn_label(t)}">Delete</button>`;
+				const esc = frappe.utils.escape_html;
 				return `<tr class="${state.editing === t.id ? 'editing' : ''}">
 					<td class="ca-txid">${ca_txn_label(t)}</td>
-					<td>${frappe.utils.escape_html(t.from)} <span class="ca-muted">→</span> ${t.to ? frappe.utils.escape_html(t.to) : '<span class="ca-muted">N/A</span>'}${t.narration ? `<span class="ca-sub">${frappe.utils.escape_html(t.narration)}</span>` : ''}</td>
-					<td>${frappe.utils.escape_html(t.fy || '')}</td>
-					<td>${frappe.utils.escape_html(t.month || '')}</td>
-					<td>${frappe.utils.escape_html(t.pg)}</td>
-					<td>${frappe.utils.escape_html(t.sg)}${bad ? '<span class="ca-sub neg">Not in current master</span>' : ''}${t.ref ? `<span class="ca-sub">Ref: ${frappe.utils.escape_html(t.ref)}</span>` : ''}</td>
-					<td><span class="ca-pill ${frappe.utils.escape_html(t.type)}">${frappe.utils.escape_html(t.type)}</span></td>
+					<td class="c-ft"><span class="ca-ft" title="${esc(t.from)}${t.to ? ' → ' + esc(t.to) : ''}"><b>${esc(t.from)}</b>${t.to ? ` <span class="ca-arrow">→</span> ${esc(t.to)}` : ' <span class="ca-muted">(no counterparty)</span>'}</span>${t.narration ? `<span class="ca-sub" title="${esc(t.narration)}">${esc(t.narration)}</span>` : ''}</td>
+					<td class="ca-nw">${esc(t.fy || '')}<span class="ca-sub">${esc((t.month || '').slice(0, 3))}</span></td>
+					<td class="c-pg" title="${esc(t.pg)}">${esc(t.pg)}</td>
+					<td class="c-sg" title="${esc(t.sg)}">${esc(t.sg)}${bad ? '<span class="ca-sub neg">Not in current master</span>' : ''}${t.ref ? `<span class="ca-sub" title="${esc(t.ref)}">Ref: ${esc(t.ref)}</span>` : ''}</td>
+					<td><span class="ca-pill ${esc(t.type)}">${esc(t.type)}</span></td>
 					<td class="n">${ca_fmt(state, t.debit)}</td><td class="n">${ca_fmt(state, t.credit)}</td>
 					<td><div class="ca-acts">${acts}</div></td></tr>`;
 			})
@@ -526,7 +691,7 @@ function render_ca_register(page) {
 	const dr = rows.reduce((a, t) => a + (t.debit || 0), 0);
 	const cr = rows.reduce((a, t) => a + (t.credit || 0), 0);
 	$body.find('#ca-reg-foot').html(
-		`<tr class="tot"><td colspan="7">${rows.length} of ${state.txns.length} transactions · Net ${ca_fmt_net(state, dr - cr)}</td><td class="n">${ca_fmt(state, dr)}</td><td class="n">${ca_fmt(state, cr)}</td><td></td></tr>`
+		`<tr class="tot"><td colspan="6">${rows.length} of ${state.txns.length} transactions · Net ${ca_fmt_net(state, dr - cr)}</td><td class="n">${ca_fmt(state, dr)}</td><td class="n">${ca_fmt(state, cr)}</td><td></td></tr>`
 	);
 }
 function ca_register_click(ev, page) {
@@ -594,11 +759,16 @@ function render_ca_kpis(page) {
 // --- Reports (server-computed) ------------------------------------------
 function ca_rep_args(page) {
 	const $body = $(page.body);
+	const val = (id) => {
+		const v = ca_ms_val($body, id);
+		return v.length ? v : undefined;
+	};
 	return {
-		adj_type: $body.find('#ca-r-type').val() || undefined,
-		primary_group: $body.find('#ca-r-pg').val() || undefined,
-		fiscal_year: $body.find('#ca-r-fy').val() || undefined,
-		month: $body.find('#ca-r-month').val() || undefined,
+		adj_type: val('ca-r-type'),
+		primary_group: val('ca-r-pg'),
+		secondary_group: val('ca-r-sg'),
+		fiscal_year: val('ca-r-fy'),
+		month: val('ca-r-month'),
 	};
 }
 function render_ca_reports(page) {
@@ -606,7 +776,6 @@ function render_ca_reports(page) {
 	const $body = $(page.body);
 	const kind = $body.find('#ca-r-kind').val();
 	const u = CA_UNITS[state.unit].lab;
-	$body.find('#ca-rep-title').text($body.find('#ca-r-kind option:selected').text());
 	const out = $body.find('#ca-rep-out');
 	out.html('<div class="ca-loading">Loading…</div>');
 	const args = ca_rep_args(page);
@@ -838,78 +1007,183 @@ function inject_ca_styles() {
 		--ca-ok:#6cc28f; --ca-ok-bg:#16301f; --ca-bad:#ee7b71; --ca-bad-bg:#3a1c1a;
 		--ca-row-alt:#131b22;
 	}
-	.ca-wrap{color:var(--ca-ink);font-size:14px;line-height:1.45}
-	.ca-filters{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;padding:8px 2px;margin-bottom:6px}
-	.ca-field{display:flex;align-items:center;gap:8px}
-	.ca-field label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ca-muted);font-weight:600}
+	.ca-wrap{--ca-shadow:0 1px 2px rgba(15,32,46,.05),0 1px 3px rgba(15,32,46,.04);--ca-r:10px;color:var(--ca-ink);font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums}
+	.dark .ca-wrap,[data-theme="dark"] .ca-wrap{--ca-shadow:0 1px 2px rgba(0,0,0,.35)}
+	.ca-wrap *{box-sizing:border-box}
+
+	/* ---- top bar: unit switch + view tabs ---- */
+	.ca-filters{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;padding:4px 0 0;margin-bottom:14px;border-bottom:1px solid var(--ca-line)}
+	.ca-field{display:flex;align-items:center;gap:10px;padding-bottom:6px}
+	.ca-field label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ca-muted);font-weight:600;margin:0}
 	.ca-spacer{flex:1}
-	.ca-seg{display:inline-flex;border:1px solid var(--ca-line-strong);border-radius:6px;overflow:hidden;background:var(--ca-surface)}
-	.ca-seg button{border:0;background:transparent;color:var(--ca-muted);font:500 12px inherit;padding:6px 10px;cursor:pointer}
-	.ca-seg button+button{border-left:1px solid var(--ca-line)}
-	.ca-seg button[aria-pressed="true"]{background:var(--ca-accent);color:var(--ca-accent-ink)}
-	nav.ca-tabs{display:flex;gap:4px;border-bottom:1px solid var(--ca-line)}
-	nav.ca-tabs button{border:0;background:none;color:var(--ca-muted);font:500 13px inherit;padding:8px 14px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
-	nav.ca-tabs button[aria-selected="true"]{color:var(--ca-ink);border-bottom-color:var(--ca-accent)}
-	.ca-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0}
-	.ca-kpi{background:var(--ca-surface);border:1px solid var(--ca-line);border-radius:8px;padding:10px 14px}
-	.ca-kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ca-muted)}
-	.ca-kpi .v{font:500 18px monospace;margin-top:2px}
-	.ca-kpi .s{font-size:12px;color:var(--ca-muted)}
+	.ca-seg{display:inline-flex;padding:3px;gap:2px;border:1px solid var(--ca-line);border-radius:9px;background:var(--ca-row-alt)}
+	.ca-seg button{border:0;background:transparent;color:var(--ca-muted);font:500 12.5px inherit;padding:5px 12px;border-radius:6px;cursor:pointer;transition:background .12s,color .12s}
+	.ca-seg button:hover{color:var(--ca-ink)}
+	.ca-seg button[aria-pressed="true"]{background:var(--ca-surface);color:var(--ca-accent);font-weight:600;box-shadow:0 1px 2px rgba(15,32,46,.12)}
+	nav.ca-tabs{display:flex;gap:2px}
+	nav.ca-tabs button{border:0;background:none;color:var(--ca-muted);font:500 14px inherit;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s,border-color .12s}
+	nav.ca-tabs button:hover{color:var(--ca-ink)}
+	nav.ca-tabs button[aria-selected="true"]{color:var(--ca-accent);font-weight:600;border-bottom-color:var(--ca-accent)}
+
+	/* ---- KPI cards ---- */
+	.ca-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 16px}
+	.ca-kpi{position:relative;background:var(--ca-surface);border:1px solid var(--ca-line);border-radius:var(--ca-r);padding:12px 16px 12px 19px;box-shadow:var(--ca-shadow);overflow:hidden}
+	.ca-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ca-line-strong)}
+	.ca-kpi.ok::before{background:var(--ca-ok)} .ca-kpi.bad::before{background:var(--ca-bad)}
+	.ca-kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ca-muted);font-weight:600}
+	.ca-kpi .v{font:600 20px/1.25 inherit;margin-top:4px;letter-spacing:-.01em}
+	.ca-kpi .s{font-size:12px;color:var(--ca-muted);margin-top:1px}
 	.ca-kpi.bad .v{color:var(--ca-bad)} .ca-kpi.ok .v{color:var(--ca-ok)}
-	.ca-grid{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:16px;align-items:start}
-	@media (max-width:900px){.ca-grid{grid-template-columns:minmax(0,1fr)}}
-	.ca-panel{background:var(--ca-surface);border:1px solid var(--ca-line);border-radius:8px;min-width:0}
-	.ca-hd{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--ca-line)}
-	.ca-hd h2{font-weight:600;font-size:16px;margin:0}
-	.ca-bd{padding:14px}
-	.ca-sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ca-muted);margin:14px 0 6px;font-weight:600}
-	.ca-sec:first-child{margin-top:0}
+
+	/* ---- layout + panels ---- */
+	.ca-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+	/* The entry form always sits above the register as a wide 4-column grid, so the
+	   register keeps the full width. .ca-row2 wrappers are flattened; each .ca-fld
+	   keeps its label above the control. Row 2 holds Primary group, Secondary group,
+	   Debit and Credit on a single line. */
+	.ca-grid>.ca-panel:first-child form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 16px;align-items:start}
+	.ca-grid>.ca-panel:first-child .ca-row2{display:contents}
+	.ca-grid>.ca-panel:first-child .ca-fld{margin-top:0!important}
+	.ca-grid>.ca-panel:first-child .ca-fld label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+	.ca-grid>.ca-panel:first-child .ca-errs{grid-column:1/-1;margin-top:0}
+	/* Last row: Adjustment type, Description, Reference and the buttons share one line. */
+	.ca-grid>.ca-panel:first-child .ca-btns{margin:0;align-self:end;flex-wrap:nowrap}
+	.ca-grid>.ca-panel:first-child .ca-btns .ca-btn{height:38px;white-space:nowrap}
+	.ca-grid>.ca-panel:first-child .ca-btns .ca-btn.pri{flex:1}
+	#ca-f-narr{min-height:38px;height:38px}
+	/* Below 1100px the buttons no longer fit beside the three fields: they get their own row. */
+	@media (max-width:1099px){.ca-grid>.ca-panel:first-child .ca-btns{grid-column:1/-1;margin-top:4px}.ca-grid>.ca-panel:first-child .ca-btns .ca-btn.pri{flex:none;min-width:160px}}
+	/* Four columns hold down to tablet width so Primary / Secondary group and
+	   Debit / Credit stay on one line; the "(or Credit)" hints drop out first. */
+	@media (max-width:900px){.ca-grid>.ca-panel:first-child form{gap:12px 10px}.ca-grid>.ca-panel:first-child .ca-fld label .ca-muted{display:none}}
+	@media (max-width:700px){.ca-grid>.ca-panel:first-child form{grid-template-columns:repeat(2,minmax(0,1fr))}.ca-grid>.ca-panel:first-child .ca-fld label .ca-muted{display:inline}}
+	@media (max-width:560px){.ca-grid>.ca-panel:first-child form{grid-template-columns:minmax(0,1fr)}}
+	.ca-panel{background:var(--ca-surface);border:1px solid var(--ca-line);border-radius:var(--ca-r);box-shadow:var(--ca-shadow);min-width:0}
+	.ca-panel>.ca-hd:first-child,.ca-panel>.ca-filters2:first-child{border-top-left-radius:var(--ca-r);border-top-right-radius:var(--ca-r)}
+	.ca-hd{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--ca-line)}
+	.ca-hd h2{font-weight:600;font-size:15px;margin:0;letter-spacing:-.005em}
+	.ca-bd{padding:16px}
+
+	/* ---- entry form ---- */
 	.ca-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-	.ca-fld{display:flex;flex-direction:column;gap:4px;min-width:0}
-	.ca-fld label{font-size:12px;color:var(--ca-muted);font-weight:500}
+	.ca-fld{display:flex;flex-direction:column;gap:5px;min-width:0}
+	.ca-fld label{font-size:12px;color:var(--ca-muted);font-weight:500;margin:0}
 	.ca-req{color:var(--ca-bad);font-weight:700}
-	.ca-wrap input,.ca-wrap select,.ca-wrap textarea{font:14px inherit;color:var(--ca-ink);background:var(--ca-surface);border:1px solid var(--ca-line-strong);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
-	.ca-wrap input.ca-num{font-family:monospace;text-align:right}
-	.ca-wrap input:disabled{background:var(--ca-row-alt);color:var(--ca-muted)}
-	.ca-wrap textarea{resize:vertical;min-height:54px}
-	.ca-netline{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding:8px 10px;border-radius:6px;background:var(--ca-row-alt);font-size:12px;color:var(--ca-muted)}
-	.ca-netline b{font:500 14px monospace;color:var(--ca-ink)}
-	.ca-txid{font:500 12px monospace;color:var(--ca-muted)}
-	.ca-errs{margin-top:10px;padding:8px 10px;border-radius:6px;background:var(--ca-bad-bg);color:var(--ca-bad);font-size:13px}
+	.ca-wrap input:not([type=checkbox]),.ca-wrap select,.ca-wrap textarea{font:14px inherit;color:var(--ca-ink);background-color:var(--ca-surface);border:1px solid var(--ca-line-strong);border-radius:8px;padding:8px 10px;width:100%;min-width:0;height:auto;box-shadow:none;transition:border-color .12s,box-shadow .12s}
+	.ca-wrap input:not([type=checkbox]):hover,.ca-wrap select:hover,.ca-wrap textarea:hover{border-color:var(--ca-muted)}
+	.ca-wrap input:not([type=checkbox]):focus,.ca-wrap select:focus,.ca-wrap textarea:focus{outline:none;border-color:var(--ca-accent);box-shadow:0 0 0 3px var(--ca-accent-soft)}
+	.ca-wrap select{-webkit-appearance:none;appearance:none;padding-right:30px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%2393a2af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+	.ca-wrap select:disabled{cursor:not-allowed}
+	.ca-wrap input.ca-num{text-align:right;font-weight:500}
+	.ca-wrap input::placeholder,.ca-wrap textarea::placeholder{color:var(--ca-muted);opacity:.6}
+	.ca-wrap input:disabled,.ca-wrap select:disabled{background-color:var(--ca-row-alt);color:var(--ca-muted)}
+	.ca-wrap textarea{resize:vertical;min-height:60px}
+	.ca-txid{font:600 12px inherit;color:var(--ca-muted);letter-spacing:.02em}
+	.ca-errs{margin-top:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--ca-bad);background:var(--ca-bad-bg);color:var(--ca-bad);font-size:13px}
 	.ca-errs ul{margin:0;padding-left:18px}
-	.ca-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-	.ca-btn{font:500 13px inherit;padding:8px 14px;border-radius:6px;border:1px solid var(--ca-line-strong);background:var(--ca-surface);color:var(--ca-ink);cursor:pointer}
-	.ca-btn.pri{background:var(--ca-accent);border-color:var(--ca-accent);color:var(--ca-accent-ink)}
+	.ca-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+	.ca-btn{font:500 13px inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--ca-line-strong);background:var(--ca-surface);color:var(--ca-ink);cursor:pointer;line-height:1.2;transition:background .12s,border-color .12s,box-shadow .12s}
+	.ca-btn:hover{background:var(--ca-row-alt);border-color:var(--ca-muted)}
+	.ca-btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ca-accent-soft);border-color:var(--ca-accent)}
+	.ca-btn.pri{background:var(--ca-accent);border-color:var(--ca-accent);color:var(--ca-accent-ink);font-weight:600}
+	.ca-btn.pri:hover{filter:brightness(1.08);background:var(--ca-accent)}
 	.ca-btn.danger{background:var(--ca-bad);border-color:var(--ca-bad);color:#fff}
-	.ca-btn.sm{padding:5px 10px;font-size:12px}
+	.ca-btn.danger:hover{background:var(--ca-bad);filter:brightness(1.08)}
+	.ca-btn.sm{padding:6px 11px;font-size:12px}
 	.ca-btn:disabled{opacity:.5;cursor:not-allowed}
-	.ca-filters2{display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;border-bottom:1px solid var(--ca-line)}
-	.ca-filters2>*{flex:1 1 130px;max-width:220px}
+	.ca-hd .ca-btns{gap:6px}
+
+	/* ---- filter bar ---- */
+	.ca-filters2{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 14px;align-items:end;padding:14px 16px;background:var(--ca-row-alt);border-bottom:1px solid var(--ca-line)}
+	.ca-ff{display:flex;flex-direction:column;gap:5px;min-width:0}
+	.ca-ff-kind{grid-column:span 2}
+	@media (max-width:700px){.ca-ff-kind{grid-column:auto}}
+	.ca-ms-lab{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ca-muted)}
+	.ca-reset{align-self:end;justify-self:start;border:1px dashed var(--ca-line-strong);background:transparent;color:var(--ca-accent);font:600 12px inherit;border-radius:8px;padding:9px 12px;cursor:pointer;line-height:1.2;transition:background .12s,border-color .12s}
+	.ca-reset:hover{background:var(--ca-accent-soft);border-color:var(--ca-accent)}
+	.ca-reset[hidden]{display:none}
+
+	/* ---- tables (register + reports) ---- */
 	.ca-tblwrap{overflow-x:auto}
-	.ca-wrap table{border-collapse:collapse;width:100%;font-size:13px}
-	.ca-wrap th,.ca-wrap td{padding:7px 10px;border-bottom:1px solid var(--ca-line);text-align:left;vertical-align:top}
-	.ca-wrap th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ca-muted);font-weight:600;background:var(--ca-row-alt);position:sticky;top:0;white-space:nowrap}
-	.ca-wrap td.n,.ca-wrap th.n{text-align:right;font-family:monospace;white-space:nowrap}
+	.ca-wrap table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+	.ca-wrap th,.ca-wrap td{padding:10px 12px;border-bottom:1px solid var(--ca-line);text-align:left;vertical-align:top}
+	.ca-wrap th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ca-muted);font-weight:600;background:var(--ca-row-alt);position:sticky;top:0;z-index:2;white-space:nowrap;border-bottom:1px solid var(--ca-line-strong)}
+	.ca-wrap td.n,.ca-wrap th.n{text-align:right;white-space:nowrap}
+	.ca-wrap td.n{font-weight:500}
 	.ca-wrap tbody tr:hover td{background:var(--ca-row-alt)}
-	.ca-wrap tr.editing td{background:var(--ca-accent-soft)!important}
-	.ca-sub{display:block;color:var(--ca-muted);font-size:12px;margin-top:2px;max-width:320px}
+	.ca-wrap tr.editing td{background:var(--ca-accent-soft)!important;box-shadow:inset 3px 0 0 var(--ca-accent)}
+	.ca-wrap tbody tr:last-child td{border-bottom:0}
+	.ca-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:var(--ca-muted);font-size:12px;margin-top:3px;max-width:340px;font-weight:400}
 	.ca-wrap tr.grp td{font-weight:600;background:var(--ca-row-alt)}
-	.ca-wrap tr.stmt td{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--ca-accent);background:var(--ca-surface);padding-top:14px}
-	.ca-wrap tr.tot td{font-weight:600;border-top:2px solid var(--ca-line-strong)}
-	.ca-pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+	.ca-wrap tr.stmt td{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ca-accent);font-weight:700;background:var(--ca-surface);padding-top:18px;border-bottom:1px solid var(--ca-line-strong)}
+	.ca-wrap tr.tot td{font-weight:700;background:var(--ca-row-alt);border-top:1px solid var(--ca-line-strong);border-bottom:0}
+	.ca-wrap tfoot td{position:sticky;bottom:0;z-index:1}
+	/* register: fixed-ish column sizing keeps every row to one or two lines */
+	#ca-reg{table-layout:auto}
+	#ca-reg th,#ca-reg td{padding:9px 8px;vertical-align:middle}
+	#ca-reg th:first-child,#ca-reg td:first-child{padding-left:14px}
+	#ca-reg td:nth-child(1),#ca-reg td:nth-child(3),#ca-reg td:nth-child(6),#ca-reg td:nth-child(9),.ca-nw{white-space:nowrap}
+	#ca-reg td.c-ft{min-width:200px;max-width:280px}
+	#ca-reg td.c-pg{min-width:110px;max-width:170px}
+	#ca-reg td.c-sg{min-width:130px;max-width:190px}
+	#ca-reg .ca-icon{padding:4px 6px}
+	#ca-reg .ca-pill{padding:3px 8px}
+	#ca-reg td.c-pg,#ca-reg td.c-sg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+	.ca-ft{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+	.ca-ft b{font-weight:600}
+	.ca-arrow{color:var(--ca-muted);margin:0 2px}
+	#ca-reg .ca-sub{max-width:none;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:unset}
+	#ca-reg td.ca-txid{color:var(--ca-accent);font-weight:600}
+	.ca-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;line-height:1.2}
+	.ca-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7}
 	.ca-pill.Elimination{background:var(--ca-elim-bg);color:var(--ca-elim-fg)}
 	.ca-pill.Regrouping{background:var(--ca-reg-bg);color:var(--ca-reg-fg)}
 	.ca-pill.ok{background:var(--ca-ok-bg);color:var(--ca-ok)} .ca-pill.bad{background:var(--ca-bad-bg);color:var(--ca-bad)}
-	.ca-acts{display:flex;gap:4px;white-space:nowrap}
-	.ca-icon{border:1px solid transparent;background:none;color:var(--ca-muted);cursor:pointer;padding:3px 7px;border-radius:5px;font:500 12px inherit}
-	.ca-icon:hover{border-color:var(--ca-line-strong);color:var(--ca-ink)}
-	.ca-icon.del:hover{color:var(--ca-bad)}
-	.ca-empty,.ca-loading{padding:28px 14px;text-align:center;color:var(--ca-muted)}
+	.ca-acts{display:flex;gap:2px;white-space:nowrap}
+	.ca-icon{border:1px solid transparent;background:none;color:var(--ca-muted);cursor:pointer;padding:4px 9px;border-radius:6px;font:500 12px inherit;transition:background .12s,color .12s}
+	.ca-icon:hover{background:var(--ca-accent-soft);color:var(--ca-accent)}
+	.ca-icon.del:hover{background:var(--ca-bad-bg);color:var(--ca-bad)}
+	.ca-icon:focus-visible{outline:none;border-color:var(--ca-accent)}
+	.ca-empty,.ca-loading{padding:40px 16px;text-align:center;color:var(--ca-muted)}
 	.ca-muted{color:var(--ca-muted)} .neg{color:var(--ca-bad)}
-	.ca-repctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-	.ca-repctl select{width:auto;min-width:150px}
+
+	/* ---- multi-select filter ---- */
+	.ca-ms{position:relative}
+	.ca-ms-btn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font:14px inherit;color:var(--ca-ink);background:var(--ca-surface);border:1px solid var(--ca-line-strong);border-radius:8px;padding:8px 10px;cursor:pointer;line-height:1.35;transition:border-color .12s,box-shadow .12s,background .12s}
+	.ca-ms-btn:hover{border-color:var(--ca-muted)}
+	.ca-ms-btn:focus-visible,.ca-ms-btn[aria-expanded="true"]{outline:none;border-color:var(--ca-accent);box-shadow:0 0 0 3px var(--ca-accent-soft)}
+	.ca-ms-txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ca-muted)}
+	.ca-ms.has .ca-ms-btn{background:var(--ca-accent-soft);border-color:var(--ca-accent)}
+	.ca-ms.has .ca-ms-txt{color:var(--ca-ink);font-weight:500}
+	.ca-ms-badge{flex:none;font:600 11px inherit;line-height:1;padding:3px 7px;border-radius:999px;background:var(--ca-accent);color:var(--ca-accent-ink)}
+	.ca-ms-badge[hidden]{display:none}
+	.ca-ms-car{flex:none;display:flex;color:var(--ca-muted);transition:transform .15s}
+	.ca-ms-btn[aria-expanded="true"] .ca-ms-car{transform:rotate(180deg)}
+	.ca-ms-menu{position:absolute;z-index:30;top:calc(100% + 6px);left:0;min-width:max(100%,260px);width:max-content;max-width:min(380px,92vw);background:var(--ca-surface);border:1px solid var(--ca-line-strong);border-radius:10px;box-shadow:0 12px 32px rgba(15,32,46,.18);padding:10px}
+	.ca-ms-menu.right{left:auto;right:0}
+	.ca-ms-menu[hidden]{display:none}
+	.ca-ms-sw{position:relative;display:flex;align-items:center}
+	.ca-ms-sw svg{position:absolute;left:10px;color:var(--ca-muted);pointer-events:none}
+	.ca-wrap .ca-ms-sw input{padding-left:30px}
+	.ca-ms-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 2px 4px;font-size:12px;color:var(--ca-muted)}
+	.ca-ms-tools button{border:0;background:none;color:var(--ca-accent);font:600 12px inherit;cursor:pointer;padding:2px 6px;border-radius:5px}
+	.ca-ms-tools button:hover{background:var(--ca-accent-soft)}
+	.ca-ms-list{max-height:260px;overflow:auto;margin:0 -4px;padding:0 4px}
+	.ca-ms-opt{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px;line-height:1.3;margin:0;font-weight:400;color:var(--ca-ink)}
+	.ca-ms-opt:hover{background:var(--ca-row-alt)}
+	.ca-ms-opt.on{background:var(--ca-accent-soft);font-weight:500}
+	.ca-ms-opt mark{background:#ffe9a8;color:#15202b;border-radius:2px;padding:0 1px}
+	.ca-wrap .ca-ms-opt input[type=checkbox]{-webkit-appearance:none;appearance:none;position:relative;flex:none;width:16px;height:16px;min-width:16px;margin:0;padding:0;border:1.5px solid var(--ca-line-strong);border-radius:3px;background:var(--ca-surface);cursor:pointer;transition:background .1s,border-color .1s}
+	.ca-wrap .ca-ms-opt input[type=checkbox]:hover{border-color:var(--ca-accent)}
+	.ca-wrap .ca-ms-opt input[type=checkbox]:checked{background:var(--ca-accent);border-color:var(--ca-accent)}
+	.ca-wrap .ca-ms-opt input[type=checkbox]:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid var(--ca-accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
+	.ca-wrap .ca-ms-opt input[type=checkbox]:focus-visible{outline:2px solid var(--ca-accent);outline-offset:2px}
+	.ca-ms-none{padding:14px 8px;color:var(--ca-muted);font-size:13px;text-align:center}
+
+	/* ---- report extras / footer / import dialog ---- */
 	.ca-matrix td,.ca-matrix th{font-size:12px}
 	.ca-matrix th.rh,.ca-matrix td.rh{position:sticky;left:0;background:var(--ca-surface);z-index:1}
+	.ca-matrix th.rh{z-index:3;background:var(--ca-row-alt)}
 	.ca-foot{margin-top:18px;color:var(--ca-muted);font-size:12px}
 	.ca-import-hint{font-size:12px;color:var(--ca-muted);margin-bottom:10px}
 	.ca-import-summary{font-size:13px}

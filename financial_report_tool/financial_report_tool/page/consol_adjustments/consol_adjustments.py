@@ -156,19 +156,17 @@ def _get_masters_maps():
 
 # ------------------------------------------------------------ transactions --
 @frappe.whitelist()
-def list_transactions(adj_type=None, from_company=None, primary_group=None, fiscal_year=None, month=None):
+def list_transactions(
+	adj_type=None, from_company=None, primary_group=None, fiscal_year=None, month=None, secondary_group=None
+):
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	filters = {}
-	if adj_type:
-		filters["adj_type"] = adj_type
-	if from_company:
-		filters["from_company"] = from_company
-	if primary_group:
-		filters["primary_group"] = primary_group
-	if fiscal_year:
-		filters["fiscal_year"] = fiscal_year
-	if month:
-		filters["month"] = month
+	_in_filter(filters, "adj_type", adj_type)
+	_in_filter(filters, "from_company", from_company)
+	_in_filter(filters, "primary_group", primary_group)
+	_in_filter(filters, "secondary_group", secondary_group)
+	_in_filter(filters, "fiscal_year", fiscal_year)
+	_in_filter(filters, "month", month)
 	rows = frappe.get_all(DOCTYPE, filters=filters, fields=ROW_FIELDS, order_by="creation asc")
 	return [_out(r) for r in rows]
 
@@ -238,26 +236,48 @@ def bulk_create(rows):
 
 
 # ----------------------------------------------------------------- reports --
-def _base_filters(adj_type=None, primary_group=None, fiscal_year=None, month=None):
+def _as_list(v):
+	"""Normalise a filter value to a list of non-empty strings.
+
+	The page sends multi-select filters as JSON arrays (frappe.call stringifies
+	them); a bare string (single value / API caller) is still accepted."""
+	if v is None or v == "":
+		return []
+	if isinstance(v, str):
+		try:
+			parsed = json.loads(v)
+		except ValueError:
+			return [v]
+		v = parsed if isinstance(parsed, list) else [v]
+	elif not isinstance(v, (list, tuple)):
+		v = [v]
+	return [str(x) for x in v if x not in (None, "")]
+
+
+def _in_filter(f, field, v):
+	"""Add `field IN (values)` to filters `f` when any value is given."""
+	vals = _as_list(v)
+	if vals:
+		f[field] = ["in", vals]
+
+
+def _base_filters(adj_type=None, primary_group=None, fiscal_year=None, month=None, secondary_group=None):
 	f = {}
-	if adj_type:
-		f["adj_type"] = adj_type
-	if primary_group:
-		f["primary_group"] = primary_group
-	if fiscal_year:
-		f["fiscal_year"] = fiscal_year
-	if month:
-		f["month"] = month
+	_in_filter(f, "adj_type", adj_type)
+	_in_filter(f, "primary_group", primary_group)
+	_in_filter(f, "secondary_group", secondary_group)
+	_in_filter(f, "fiscal_year", fiscal_year)
+	_in_filter(f, "month", month)
 	return f
 
 
 @frappe.whitelist()
-def report_adjustment_tb(adj_type=None, fiscal_year=None, month=None):
+def report_adjustment_tb(adj_type=None, primary_group=None, fiscal_year=None, month=None, secondary_group=None):
 	"""Totals by statement (P&L, then BS), primary group, secondary group and
 	type, in master order -- mirrors the P&L/BS face layout."""
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	rows = frappe.get_all(
-		DOCTYPE, filters=_base_filters(adj_type, None, fiscal_year, month),
+		DOCTYPE, filters=_base_filters(adj_type, primary_group, fiscal_year, month, secondary_group),
 		fields=["primary_group", "secondary_group", "adj_type", "debit", "credit"],
 	)
 	masters = get_masters()
@@ -295,11 +315,11 @@ def report_adjustment_tb(adj_type=None, fiscal_year=None, month=None):
 
 
 @frappe.whitelist()
-def report_company_matrix(adj_type=None, primary_group=None, fiscal_year=None, month=None):
+def report_company_matrix(adj_type=None, primary_group=None, fiscal_year=None, month=None, secondary_group=None):
 	"""Net by From x To company; only entries with a To company are included."""
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	rows = frappe.get_all(
-		DOCTYPE, filters={**_base_filters(adj_type, primary_group, fiscal_year, month), "to_company": ["!=", ""]},
+		DOCTYPE, filters={**_base_filters(adj_type, primary_group, fiscal_year, month, secondary_group), "to_company": ["!=", ""]},
 		fields=["from_company", "to_company", "debit", "credit"],
 	)
 	by = defaultdict(float)
@@ -312,12 +332,12 @@ def report_company_matrix(adj_type=None, primary_group=None, fiscal_year=None, m
 
 
 @frappe.whitelist()
-def report_ic_reconciliation(adj_type=None, primary_group=None, fiscal_year=None, month=None):
+def report_ic_reconciliation(adj_type=None, primary_group=None, fiscal_year=None, month=None, secondary_group=None):
 	"""Company-pair reconciliation: for each {A, B} (A < B alphabetically),
 	A->B net + B->A net should be zero."""
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	rows = frappe.get_all(
-		DOCTYPE, filters={**_base_filters(adj_type, primary_group, fiscal_year, month), "to_company": ["!=", ""]},
+		DOCTYPE, filters={**_base_filters(adj_type, primary_group, fiscal_year, month, secondary_group), "to_company": ["!=", ""]},
 		fields=["from_company", "to_company", "debit", "credit"],
 	)
 	pairs = defaultdict(lambda: {"ab": 0.0, "ba": 0.0, "entries": 0})
@@ -342,12 +362,12 @@ def report_ic_reconciliation(adj_type=None, primary_group=None, fiscal_year=None
 
 
 @frappe.whitelist()
-def report_entity_summary(adj_type=None, primary_group=None, fiscal_year=None, month=None):
+def report_entity_summary(adj_type=None, primary_group=None, fiscal_year=None, month=None, secondary_group=None):
 	"""Per company: entries, Dr, Cr and net as originator, plus the net that
 	counterparties recorded against it."""
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	rows = frappe.get_all(
-		DOCTYPE, filters=_base_filters(adj_type, primary_group, fiscal_year, month),
+		DOCTYPE, filters=_base_filters(adj_type, primary_group, fiscal_year, month, secondary_group),
 		fields=["from_company", "to_company", "debit", "credit"],
 	)
 	by = defaultdict(lambda: {"entries": 0, "debit": 0.0, "credit": 0.0, "counterparty_net": 0.0})
