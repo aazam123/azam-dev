@@ -568,7 +568,7 @@ function init_link_fields(page, idx) {
         df: {
             fieldtype: 'Link',
             fieldname: `primary_group_${idx}`,
-            options: 'Standalone Group',
+            options: 'FR Standalone Group',
             placeholder: 'Select Primary',
             reqd: 1,
             get_query: function() {
@@ -595,7 +595,7 @@ function init_link_fields(page, idx) {
         df: {
             fieldtype: 'Link',
             fieldname: `secondary_group_${idx}`,
-            options: 'Standalone Group',
+            options: 'FR Standalone Group',
             placeholder: 'Select Secondary',
             reqd: 1,
             get_query: function() {
@@ -620,7 +620,7 @@ function init_link_fields(page, idx) {
         df: {
             fieldtype: 'Link',
             fieldname: `higher_secondary_group_${idx}`,
-            options: 'Standalone Group',
+            options: 'FR Standalone Group',
             placeholder: 'Optional',
             get_query: function() {
                 return {

@@ -46,7 +46,7 @@
    "fieldname": "financial_report_template",
    "fieldtype": "Link",
    "label": "Financial Report Template",
-   "options": "Financial Report Template"
+   "options": "FR Financial Report Template"
   },
   {
    "fieldname": "section_break_nrwe",
@@ -56,7 +56,7 @@
    "fieldname": "financial_report_details",
    "fieldtype": "Table",
    "label": "Financial Report Details",
-   "options": "Financial Report Details"
+   "options": "FR Financial Report Details"
   },
   {
    "fetch_from": "fiscal_year.year_end_date",

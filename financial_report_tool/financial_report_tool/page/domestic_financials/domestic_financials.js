@@ -323,7 +323,7 @@ function load_context(page, state) {
 
 			// Company filter list (stable across report type / year changes).
 			state.all_companies = ctx.companies || [];
-			state.fiscal_years = ctx.fiscal_years || []; // for the Strategic Expense dialog
+			state.strategic_fiscal_years = ctx.strategic_fiscal_years || []; // Strategic Expense tab Fiscal Year list
 			// Drop any stale hidden names no longer in the master list.
 			state.hidden.forEach((c) => {
 				if (!state.all_companies.includes(c)) state.hidden.delete(c);
@@ -598,7 +598,7 @@ function build_statement_block(title, data, hidden) {
 			<div class="cfs-foot">
 				Columns per company: ${col_labels} •
 				<b>Consolidate</b> = arithmetic total of the companies shown (no intercompany eliminations);
-				<b>Elimination</b> / <b>Regrouping</b> are shown separately from Consol Adjustment Entry and are not netted into Consolidate${miss_note}${unmapped_note}.
+				<b>Elimination</b> / <b>Regrouping</b> are shown separately from FR Console Adjustment Entry and are not netted into Consolidate${miss_note}${unmapped_note}.
 			</div>
 		</div>`;
 }
@@ -766,22 +766,21 @@ function set_cfs_view(page, state, view) {
 // Fill the tab's Fiscal Year / Month selects (first open only), then load the grid.
 function init_strategic_tab(page, state) {
 	const $body = $(page.body);
-	const fys =
-		state.fiscal_years && state.fiscal_years.length
-			? state.fiscal_years
-			: state.fiscal_year
-				? [state.fiscal_year]
-				: [];
+	// Every Fiscal Year that has a Financial Report (Yearly or Monthly), not just
+	// the years of the statement's current Report Type.
+	const fys = state.strategic_fiscal_years || [];
 	if (!fys.length) {
 		$body.find('#cfs-se-grid').html('<div class="cfs-empty">No fiscal years available yet.</div>');
 		return;
 	}
 	const $fy = $body.find('#cfs-se-fy');
 	const keep_fy = $fy.val();
+	// Keep the user's pick; else follow the statement's year; else the newest.
+	const selected_fy = [keep_fy, state.fiscal_year].find((y) => y && fys.includes(y)) || fys[0];
 	set_select(
 		$fy,
 		fys.map((y) => ({ value: y, label: 'FY ' + y })),
-		keep_fy && fys.includes(keep_fy) ? keep_fy : state.fiscal_year || fys[0]
+		selected_fy
 	);
 	const $m = $body.find('#cfs-se-month');
 	if (!$m.children().length) {
@@ -808,37 +807,45 @@ function load_strategic_grid(page, state) {
 			if (seq !== page.cfs.se_seq) return; // superseded by a newer selection
 			const data = r.message || {};
 			const companies = data.companies || [];
-			const groups = data.groups || [];
+			const sections = (data.sections || []).filter((s) => (s.groups || []).length);
 			const amounts = data.amounts || {};
 			if (!companies.length) {
 				$wrap.html('<div class="cfs-empty">No domestic companies found.</div>');
 				return;
 			}
-			if (!groups.length) {
+			if (!sections.length) {
 				$wrap.html(
-					'<div class="cfs-empty">No secondary groups are mapped under Other expenses in GL Group Mapping.</div>'
+					'<div class="cfs-empty">No secondary groups are mapped under Other expenses or Employee Emoluments in GL Group Mapping.</div>'
 				);
 				return;
 			}
 			const esc = frappe.utils.escape_html;
 			const head = companies.map((c) => `<th class="cfs-num" title="${esc(c)}">${esc(c)}</th>`).join('');
-			const rows = groups
-				.map((g) => {
-					const cells = companies
-						.map((c) => {
-							const v = (amounts[c] || {})[g];
-							return `<td class="cfs-num"><input type="number" step="any" class="cfs-se-input" data-company="${esc(c)}" data-group="${esc(g)}" value="${v ? v : ''}" placeholder="0"></td>`;
+			const ncols = companies.length + 2;
+			const rows = sections
+				.map((s) => {
+					const pg = s.primary_group;
+					const section_row = `<tr class="cfs-se-section"><td class="cfs-particular" colspan="${ncols}"><b>${esc(pg)}</b></td></tr>`;
+					const group_rows = s.groups
+						.map((g) => {
+							const cells = companies
+								.map((c) => {
+									const v = ((amounts[c] || {})[pg] || {})[g];
+									return `<td class="cfs-num"><input type="number" step="any" class="cfs-se-input" data-company="${esc(c)}" data-primary="${esc(pg)}" data-group="${esc(g)}" value="${v ? v : ''}" placeholder="0"></td>`;
+								})
+								.join('');
+							return `<tr data-primary="${esc(pg)}" data-group="${esc(g)}"><td class="cfs-particular">${esc(g)}</td>${cells}<td class="cfs-num cfs-consol-col cfs-se-row-total">-</td></tr>`;
 						})
 						.join('');
-					return `<tr data-group="${esc(g)}"><td class="cfs-particular">${esc(g)}</td>${cells}<td class="cfs-num cfs-consol-col cfs-se-row-total">-</td></tr>`;
+					return section_row + group_rows;
 				})
 				.join('');
 			const foot = companies.map((c) => `<td class="cfs-num cfs-se-col-total" data-company="${esc(c)}">-</td>`).join('');
 			$wrap.html(`
-				<div class="cfs-se-hint">Monthly amount in ₹ Lacs, reclassified out of each Other-expenses secondary group into Strategic Expense. Blank or 0 removes the entry.</div>
+				<div class="cfs-se-hint">Monthly amount in ₹ Lacs, reclassified out of each secondary group of Other expenses / Employee Emoluments into Strategic Expense. Blank or 0 removes the entry.</div>
 				<div class="cfs-scroll">
 					<table class="cfs-table cfs-se-table">
-						<thead><tr><th class="cfs-particular">Secondary Group (Other expenses)</th>${head}<th class="cfs-num cfs-consol-col">Consolidate</th></tr></thead>
+						<thead><tr><th class="cfs-particular">Secondary Group</th>${head}<th class="cfs-num cfs-consol-col">Consolidate</th></tr></thead>
 						<tbody>${rows}</tbody>
 						<tfoot><tr class="cfs-bold-row"><td class="cfs-particular">Strategic Expense (Total)</td>${foot}<td class="cfs-num cfs-consol-col cfs-se-grand">-</td></tr></tfoot>
 					</table>
@@ -885,7 +892,9 @@ function save_strategic(page, state) {
 	const amounts = {};
 	$body.find('#cfs-se-grid .cfs-se-input').each(function () {
 		const c = $(this).attr('data-company');
-		(amounts[c] = amounts[c] || {})[$(this).attr('data-group')] = Number(this.value) || 0;
+		const pg = $(this).attr('data-primary');
+		const per_primary = (amounts[c] = amounts[c] || {});
+		(per_primary[pg] = per_primary[pg] || {})[$(this).attr('data-group')] = Number(this.value) || 0;
 	});
 	if (!Object.keys(amounts).length) return;
 	const $btn = $body.find('#cfs-se-save').prop('disabled', true);
@@ -1036,7 +1045,7 @@ function inject_styles() {
 		.cfs-consol-col { background:#eef7ef; font-weight:600; color:#1B5E20; }
 		.cfs-table thead th.cfs-consol-col { background:#e3f1e5; }
 
-		/* Elimination / Regrouping columns (from Consol Adjustment Entry) */
+		/* Elimination / Regrouping columns (from FR Console Adjustment Entry) */
 		.cfs-adj-col { background:#fff8e8; color:#6b4a00; }
 		.cfs-table thead th.cfs-adj-col { background:#fdf0d0; }
 		.cfs-header-row td.cfs-adj-col { background:#fbf1d9; }
@@ -1126,6 +1135,11 @@ function inject_styles() {
 			padding:3px 8px; border:1px solid #d5dee7; border-radius:6px; background:#fff;
 		}
 		.cfs-se-input:focus { border-color:#0d6efd; outline:none; box-shadow:0 0 0 2px rgba(13,110,253,.12); }
+		/* No up/down spinner arrows on the amount inputs (type in the value). */
+		.cfs-se-input::-webkit-outer-spin-button,
+		.cfs-se-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+		.cfs-se-input { -moz-appearance:textfield; appearance:textfield; }
+		.cfs-se-section td { background:#f1f5f2; color:#1B5E20; padding:6px 10px; }
 
 		.cfs-foot { font-size:11.5px; color:#8a94a6; padding:10px 4px 0; }
 		.cfs-loading, .cfs-empty { padding:40px; text-align:center; color:#78849a; font-size:14px; }

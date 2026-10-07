@@ -87,18 +87,18 @@ frappe.ui.form.on("FR Console Financial Report", {
     }
 });
 
-frappe.ui.form.on("Financial Report Details", {
+frappe.ui.form.on("FR Financial Report Details", {
 	section_type(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
 		if(row.section_type == "Consolidation Note"){
 			frappe.model.set_value(cdt, cdn, "doctype_name", "FR Section");
 		} else if(row.section_type == "Profit & Loss"){
-			frappe.model.set_value(cdt, cdn, "doctype_name", "Profit And Loss Template");
+			frappe.model.set_value(cdt, cdn, "doctype_name", "FR Profit And Loss Template");
 		} else if(row.section_type == "Balance Sheet"){
-			frappe.model.set_value(cdt, cdn, "doctype_name", "Balance Sheet Template");
+			frappe.model.set_value(cdt, cdn, "doctype_name", "FR Balance Sheet Template");
 		} else if(row.section_type == "Cash Flow"){
-			frappe.model.set_value(cdt, cdn, "doctype_name", "Cash Flow Template");
+			frappe.model.set_value(cdt, cdn, "doctype_name", "FR Cash Flow Template");
 		} else if(row.section_type == "Equity"){
             frappe.model.set_value(cdt, cdn, "section", "Equity");
 			frappe.model.set_value(cdt, cdn, "doctype_name", "");
@@ -199,7 +199,7 @@ async function generateFinancialReport(frm) {
     }
 
     const progress_dialog = new frappe.ui.Dialog({
-        title: "Generating FR Console Financial Report",
+        title: "Generating Console Financial Report",
         size: 'large',
         fields: [
             {

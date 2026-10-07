@@ -70,13 +70,13 @@ def fetch_companies_for_table(company, table_type):
 	if not company:
 		frappe.throw("Please select a Company first.")
 
-	hierarchy_name = frappe.db.exists("Company Hierarchy", {"company": company})
+	hierarchy_name = frappe.db.exists("FR Company Hierarchy", {"company": company})
 	if not hierarchy_name:
 		frappe.throw(f"No Company Hierarchy entry found for {company}")
 
 	results = []
 
-	hierarchy_doc = frappe.get_doc("Company Hierarchy", hierarchy_name)
+	hierarchy_doc = frappe.get_doc("FR Company Hierarchy", hierarchy_name)
 	if hierarchy_doc.company_hierarchy_relation:
 		for row in hierarchy_doc.company_hierarchy_relation:
 			results.append({"company": row.company, "relation": row.relation})
@@ -100,7 +100,7 @@ def calculate_rpt_transactions(company, fiscal_year, fr_rpt_entry_name=None):
 	if not fr_rpt_entry_name:
 		fr_rpt_entry_name = frappe.db.exists("FR RPT Entry", {"company": company, "fiscal_year": fiscal_year})
 	if not fr_rpt_entry_name:
-		frappe.throw(f"No FR RPT Entry found for {company} / {fiscal_year}")
+		frappe.throw(f"No RPT Entry found for {company} / {fiscal_year}")
 
 	fr_rpt_entry_doc = frappe.get_doc("FR RPT Entry", fr_rpt_entry_name)
 	if not fr_rpt_entry_doc.get("names_of_replated"):

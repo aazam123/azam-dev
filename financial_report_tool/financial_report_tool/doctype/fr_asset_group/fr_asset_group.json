@@ -54,7 +54,7 @@
    "fieldname": "parent_fr_asset_group",
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
-   "label": "Parent FR Asset Group",
+   "label": "Parent Asset Group",
    "options": "FR Asset Group"
   },
   {

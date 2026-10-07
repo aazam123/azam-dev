@@ -44,7 +44,7 @@ app_license = "mit"
 
 # include js in doctype views
 doctype_js = {"Account" : "public/js/account.js"}
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_list_js = {"DocType" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -191,8 +191,8 @@ doctype_js = {"Account" : "public/js/account.js"}
 # AttributeError. Alias that mangled command back to the real callback so the
 # push succeeds without waiting on a SAP-side fix.
 _SAP_TB_CALLBACK = (
-	"financial_report_tool.financial_report_tool.doctype.sync_sap_trial_balance"
-	".sync_sap_trial_balance.receive_sap_trial_balance"
+	"financial_report_tool.financial_report_tool.doctype.fr_sync_sap_trial_balance"
+	".fr_sync_sap_trial_balance.receive_sap_trial_balance"
 )
 override_whitelisted_methods = {
 	_SAP_TB_CALLBACK + '"': _SAP_TB_CALLBACK,

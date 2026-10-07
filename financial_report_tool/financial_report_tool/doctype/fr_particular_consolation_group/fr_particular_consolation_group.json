@@ -16,8 +16,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Primary Group",
-   "link_filters": "[[\"Standalone Group\",\"is_primary_group\",\"=\",1]]",
-   "options": "Standalone Group"
+   "link_filters": "[[\"FR Standalone Group\",\"is_primary_group\",\"=\",1]]",
+   "options": "FR Standalone Group"
   },
   {
    "fieldname": "column_break_ilbc",
@@ -28,7 +28,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Secondary Group",
-   "options": "Standalone Group"
+   "options": "FR Standalone Group"
   }
  ],
  "grid_page_length": 50,

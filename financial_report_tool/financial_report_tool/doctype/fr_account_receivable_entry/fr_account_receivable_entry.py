@@ -114,7 +114,7 @@ class FRAccountReceivableEntry(Document):
 def import_from_sync_sap(sync_sap_doc, fiscal_year):
 
     sync_doc = frappe.get_doc(
-        "Sync SAP",
+        "FR Sync SAP",
         sync_sap_doc
     )
 

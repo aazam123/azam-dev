@@ -36,7 +36,7 @@ class FRForeignExchangeRate(Document):
 			self.average_rate = round((prev_year_closing + self.closing_rate)/2, 6)
 		
 		if not closing_month:
-			frappe.throw("Update The FR Financial Settings.")
+			frappe.throw("Update The Financial Settings.")
 
 		if not previous_fiscal_year:
-			frappe.msgprint("Opening FR Foreign Exchange Rate is saved.")
+			frappe.msgprint("Opening Foreign Exchange Rate is saved.")

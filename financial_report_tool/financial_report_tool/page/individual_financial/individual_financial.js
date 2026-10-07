@@ -12,7 +12,7 @@ frappe.pages['individual-financial'].on_page_load = function(wrapper) {
         label: 'Financial Report ID',
         fieldname: 'financial_report_id',
         fieldtype: 'Link',
-        options: 'Financial Report',
+        options: 'FR Financial Report',
         change() {
             selected_financial_report_id = this.get_value();
             if (selected_financial_report_id) {
@@ -488,7 +488,7 @@ frappe.pages['individual-financial'].on_page_load = function(wrapper) {
 function load_financial_report(report_id, page) {
     frappe.call({
         method:"frappe.client.get",
-        args:{ doctype:"Financial Report", name:report_id },
+        args:{ doctype:"FR Financial Report", name:report_id },
         callback:function(r){
             if(r.message) render_financial_report(r.message,page);
             else $(page.body).find(".financial-report-container").html(`<p style="color:red;">No data found for report ${report_id}</p>`);
@@ -565,7 +565,7 @@ function enhanceTablesForRowComments() {
                 frappe.call({
                     method: "frappe.client.get_list",
                     args: {
-                        doctype: "Financial Report Comments",
+                        doctype: "FR Financial Report Comments",
                         filters: {
                             financial_report: selected_financial_report_id,
                             note_no: noteId,
@@ -658,7 +658,7 @@ function showCommentsRightPanel(noteId, sectionType, sectionName, rowIndex, canA
         frappe.call({
             method:'frappe.client.insert',
             args:{ doc:{
-                doctype:'Financial Report Comments',
+                doctype:'FR Financial Report Comments',
                 financial_report:selected_financial_report_id,
                 comment_added_by:frappe.session.user,
                 note_no:noteId,
@@ -783,7 +783,7 @@ function loadExistingComments(noteId, sectionType, rowIndex, rowEl, panel) {
     frappe.call({
         method:"frappe.client.get_list",
         args:{
-            doctype:"Financial Report Comments",
+            doctype:"FR Financial Report Comments",
             filters:{
                 financial_report:selected_financial_report_id,
                 note_no:noteId,

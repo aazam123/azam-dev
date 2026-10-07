@@ -55,21 +55,21 @@ def get_columns():
             "label": _("Primary Group"),
             "fieldname": "primary_group",
             "fieldtype": "Link",
-            "options": "Standalone Group",
+            "options": "FR Standalone Group",
             "width": 240
         },
         {
             "label": _("Secondary Group"),
             "fieldname": "secondary_group",
             "fieldtype": "Link",
-            "options": "Standalone Group",
+            "options": "FR Standalone Group",
             "width": 240
         },
         {
             "label": _("Higher Secondary Group"),
             "fieldname": "higher_secondary_group",
             "fieldtype": "Link",
-            "options": "Standalone Group",
+            "options": "FR Standalone Group",
             "width": 200
         },
         {
@@ -108,7 +108,7 @@ def get_data(filters):
             t.fiscal_year AS fiscal_year,
             t.company AS company
         FROM `tabFR Trial Balance Entry` t
-        INNER JOIN `tabGL Group Mapping` gm
+        INNER JOIN `tabFR GL Group Mapping` gm
             ON t.gl_account = gm.gl_account
             AND t.company = gm.company
         INNER JOIN `tabAccount` acc

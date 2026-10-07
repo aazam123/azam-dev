@@ -138,7 +138,7 @@
    "fieldname": "trade_payables_turnover_ratio_grouping",
    "fieldtype": "Table",
    "label": "Trade Payables Turnover Ratio Grouping",
-   "options": "Trade Payables Turnover Ratio Grouping"
+   "options": "FR Trade Payables Turnover Ratio Grouping"
   },
   {
    "fieldname": "erp_type",
@@ -152,7 +152,7 @@
    "fieldname": "print_format",
    "fieldtype": "Link",
    "label": "Print Format",
-   "link_filters": "[[\"Print Format\",\"doc_type\",\"=\",\"Financial Report\"]]",
+   "link_filters": "[[\"Print Format\",\"doc_type\",\"=\",\"FR Financial Report\"]]",
    "options": "Print Format",
    "reqd": 1
   },

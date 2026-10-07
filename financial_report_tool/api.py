@@ -5,7 +5,7 @@ import os
 import frappe
 from frappe.utils.file_manager import save_file
 
-from financial_report_tool.financial_report_tool.doctype.sync_sap.sync_sap import (
+from financial_report_tool.financial_report_tool.doctype.fr_sync_sap.fr_sync_sap import (
 	ALLOWED_DOCUMENT_TYPES,
 )
 
@@ -76,7 +76,7 @@ def _upload_for_type(document_type, file_name=None, file_content=None, preview_o
         }
 
     # already_exists = frappe.db.exists(
-    #     "Sync SAP",
+    #     "FR Sync SAP",
     #     {
     #         "document_type":document_type,
     #         "file":["like", f"%{os.path.splitext(file_name)[0]}%"]
@@ -101,7 +101,7 @@ def _upload_for_type(document_type, file_name=None, file_content=None, preview_o
 
     json_data = _parse_bytes(raw_bytes, ext)
 
-    doc = frappe.new_doc("Sync SAP")
+    doc = frappe.new_doc("FR Sync SAP")
     doc.document_type = document_type
     doc.file = saved.file_url
     doc.json_data = json_data
@@ -114,7 +114,7 @@ def _upload_for_type(document_type, file_name=None, file_content=None, preview_o
         saved.name,
         {
             "attached_to_doctype":
-                "Sync SAP",
+                "FR Sync SAP",
 
             "attached_to_name":
                 doc.name,
@@ -152,7 +152,7 @@ def upload_purchase_register(file_name=None, file_content=None, preview_only=0):
 def process_import_in_background(sync_sap_doc):
 
     sync_doc = frappe.get_doc(
-        "Sync SAP",
+        "FR Sync SAP",
         sync_sap_doc
     )
 
@@ -277,7 +277,7 @@ def process_import_in_background(sync_sap_doc):
         frappe.db.rollback()
 
         frappe.db.set_value(
-            "Sync SAP",
+            "FR Sync SAP",
             sync_doc.name,
             {
                 "import_status":
@@ -424,12 +424,12 @@ def create_gl_group_mapping(gl_account, company, report_type, primary_group, sec
 		"report_type": report_type,
 	}
 
-	existing = frappe.db.exists("GL Group Mapping", filters)
+	existing = frappe.db.exists("FR GL Group Mapping", filters)
 
 	if existing:
 		if update_existing == 1:
 			# Update existing entry
-			doc = frappe.get_doc("GL Group Mapping", existing)
+			doc = frappe.get_doc("FR GL Group Mapping", existing)
 			doc.primary_group = primary_group
 			doc.secondary_group = secondary_group
 			doc.higher_secondary_group = higher_secondary_group or ""
@@ -437,7 +437,7 @@ def create_gl_group_mapping(gl_account, company, report_type, primary_group, sec
 			return {"success": True, "name": doc.name, "updated": True}
 		else:
 			# Return existing info for confirmation
-			existing_doc = frappe.get_doc("GL Group Mapping", existing)
+			existing_doc = frappe.get_doc("FR GL Group Mapping", existing)
 			return {
 				"success": False,
 				"exists": True,
@@ -451,7 +451,7 @@ def create_gl_group_mapping(gl_account, company, report_type, primary_group, sec
 
 	# Create new entry
 	doc = frappe.get_doc({
-		"doctype": "GL Group Mapping",
+		"doctype": "FR GL Group Mapping",
 		"gl_account": gl_account,
 		"company": company,
 		"report_type": report_type,
@@ -496,7 +496,7 @@ def bulk_update_gl_group_mappings(items, report_type, primary_group=None, second
                 update_values["higher_secondary_group"] = higher_secondary_group
 
             if update_values:
-                frappe.db.set_value("GL Group Mapping", filters, update_values)
+                frappe.db.set_value("FR GL Group Mapping", filters, update_values)
                 updated.append(gl_account)
 
         except Exception as e:
@@ -543,7 +543,7 @@ def trigger_financial_report_regeneration(company, fiscal_year, report_type, mon
         filters["current_month"] = month
 
     reports = frappe.get_all(
-        "Financial Report",
+        "FR Financial Report",
         filters=filters,
         fields=["name", "workflow_state"],
     )
@@ -553,13 +553,13 @@ def trigger_financial_report_regeneration(company, fiscal_year, report_type, mon
         if r.get("workflow_state") == "Approved":
             continue
 
-        frappe.db.set_value("Financial Report", r.name, {
+        frappe.db.set_value("FR Financial Report", r.name, {
             "report_status": "Under Generation",
             "report_error": "",
             "report_generated_on": None,
         })
         frappe.enqueue(
-            "financial_report_tool.financial_report_tool.doctype.financial_report.financial_report.do_generate_report",
+            "financial_report_tool.financial_report_tool.doctype.fr_financial_report.fr_financial_report.do_generate_report",
             docname=r.name,
             queue="long",
             job_name=f"Generate Financial Report - {r.name}",

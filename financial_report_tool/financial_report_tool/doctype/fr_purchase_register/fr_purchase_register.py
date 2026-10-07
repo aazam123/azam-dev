@@ -21,7 +21,7 @@ class FRPurchaseRegister(Document):
 
 		settings = frappe.db.exists("FR RPT Master", self.company)
 		if not settings:
-			frappe.throw("Please set the Related and Internal Customer List in FR RPT Master")
+			frappe.throw("Please set the Related and Internal Customer List in RPT Master")
 
 		settings = frappe.get_doc("FR RPT Master", self.company)
 		related_supplier = {row.supplier_code for row in settings.related_party_supplier}
@@ -39,7 +39,7 @@ class FRPurchaseRegister(Document):
 @frappe.whitelist()
 def import_from_sync_sap(sync_sap_doc, fiscal_year):
     sync_doc = frappe.get_doc(
-        "Sync SAP",
+        "FR Sync SAP",
         sync_sap_doc
     )
 

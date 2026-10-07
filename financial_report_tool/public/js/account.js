@@ -23,21 +23,21 @@ function open_grouping_dialog(frm) {
 				fieldname: "primary_group",
 				fieldtype: "Link",
 				label: __("Primary Group"),
-				options: "Standalone Group",
+				options: "FR Standalone Group",
 				reqd: 1
 			},
 			{
 				fieldname: "secondary_group",
 				fieldtype: "Link",
 				label: __("Secondary Group"),
-				options: "Standalone Group",
+				options: "FR Standalone Group",
 				reqd: 1
 			},
 			{
 				fieldname: "higher_secondary_group",
 				fieldtype: "Link",
 				label: __("Higher Secondary Group"),
-				options: "Standalone Group"
+				options: "FR Standalone Group"
 			}
 		],
 		primary_action_label: __("Create"),

@@ -8,8 +8,8 @@
     
 # 	default_currency = frappe.get_value("Company", self.company, 'default_currency')
 # 	if default_currency != self.currency:
-# 		sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr')) or 0
-# 		bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr')) or 0
+# 		sp_previous_year = round(frappe.get_value("FR Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr')) or 0
+# 		bal_previous_year = round(frappe.get_value("FR Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr')) or 0
 # 		tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account = frappe.get_value("FR Particular", {'particular_type': 'Total Assets'}, 'name'))
 # 		curr_mnt_tot_asset = tot_asset['current_month_amount']
 # 		prev_mnt_tot_asset = tot_asset['previous_month_amount']
@@ -113,7 +113,7 @@
 
 # def get_monthly_balance_sheet_data(self, template_name, for_other_equity=False, account = None):
 # 	"""Get monthly balance sheet data with current month, previous month, and FTM amounts"""
-# 	balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
+# 	balance_sheet_doc = frappe.get_doc("FR Balance Sheet Template", template_name)
 # 	amount_cache = {}
 # 	group_mapping_cache = {}
 # 	standalone_group_cache = {}
@@ -132,12 +132,12 @@
 
 # 	def get_standalone_group(name):
 # 		if name not in standalone_group_cache:
-# 			standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
+# 			standalone_group_cache[name] = frappe.get_value("FR Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True)
 # 		return standalone_group_cache[name]
 
 # 	def get_secondary_groups(primary_group):
 # 		if primary_group not in group_mapping_cache:
-# 			group_mapping_cache[primary_group] = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
+# 			group_mapping_cache[primary_group] = sorted(set(g for g in frappe.get_list("FR GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g))
 # 		return group_mapping_cache[primary_group]
 
 # 	def get_grouped_gl_amount(gl_accounts, year, month=None):
@@ -184,7 +184,7 @@
 # 			if fr_section.fetch_data_from_trial_balance:
 # 				group_info = get_standalone_group(fr_section.primary_consolidation_group)
 # 				group_type = group_info.group_type
-# 				primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name")) if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
+# 				primary_groups = (set(frappe.get_list("FR Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name")) if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group})
 # 				for pg in primary_groups:
 # 					for sec in get_secondary_groups(pg):
 # 						face_amount = self.sum_group_amt_monthly(pg, sec, month, year)
@@ -193,14 +193,14 @@
 # 			else:
 # 				gl_accounts = []
 # 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
-# 					gl_accounts.extend(frappe.get_list("GL Group Mapping",{"company": self.company, "report_type": self.report_type,"primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
+# 					gl_accounts.extend(frappe.get_list("FR GL Group Mapping",{"company": self.company, "report_type": self.report_type,"primary_group": g.primary_group, "secondary_group": g.secondary_group},pluck='gl_account'))
 # 				amount = get_grouped_gl_amount(gl_accounts, year, month)
 
 # 		else:
 # 			gl_accounts = []
 # 			for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
 # 				gl_accounts.extend(frappe.get_list(
-# 					"GL Group Mapping",
+# 					"FR GL Group Mapping",
 # 					{"company": self.company, "report_type": self.report_type,
 # 					"primary_group": g.primary_group, "secondary_group": g.secondary_group},
 # 					pluck='gl_account'
@@ -571,8 +571,8 @@
 # 	default_currency = frappe.get_value("Company", self.company, "default_currency")
 
 # 	if default_currency != self.currency:
-# 		sp_prev_year = round(frappe.get_value("Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
-# 		bal_prev_year = round(frappe.get_value("Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "pl_inr") or 0, self.show_decimal_value)
+# 		sp_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
+# 		bal_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "pl_inr") or 0, self.show_decimal_value)
 
 # 		tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Assets"}, "name"))
 # 		tot_cur_liab = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Current Liabilities"}, "name"))

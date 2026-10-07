@@ -39,7 +39,7 @@ frappe.query_reports["GL Account Group Report"] = {
             label: __("Primary Group"),
             fieldtype: "MultiSelectList",
             get_data: function(txt) {
-                return frappe.db.get_link_options("Standalone Group", txt, {
+                return frappe.db.get_link_options("FR Standalone Group", txt, {
                     disable: 0
                 });
             }
@@ -49,7 +49,7 @@ frappe.query_reports["GL Account Group Report"] = {
             label: __("Secondary Group"),
             fieldtype: "MultiSelectList",
             get_data: function(txt) {
-                return frappe.db.get_link_options("Standalone Group", txt, {
+                return frappe.db.get_link_options("FR Standalone Group", txt, {
                     disable: 0
                 });
             }
@@ -59,7 +59,7 @@ frappe.query_reports["GL Account Group Report"] = {
             label: __("Higher Secondary Group"),
             fieldtype: "MultiSelectList",
             get_data: function(txt) {
-                return frappe.db.get_link_options("Standalone Group", txt, {
+                return frappe.db.get_link_options("FR Standalone Group", txt, {
                     disable: 0
                 });
             }
@@ -114,21 +114,21 @@ frappe.query_reports["GL Account Group Report"] = {
                         fieldname: "primary_group",
                         fieldtype: "Link",
                         label: __("Primary Group"),
-                        options: "Standalone Group",
+                        options: "FR Standalone Group",
                         description: __("Leave blank to keep existing value")
                     },
                     {
                         fieldname: "secondary_group",
                         fieldtype: "Link",
                         label: __("Secondary Group"),
-                        options: "Standalone Group",
+                        options: "FR Standalone Group",
                         description: __("Leave blank to keep existing value")
                     },
                     {
                         fieldname: "higher_secondary_group",
                         fieldtype: "Link",
                         label: __("Higher Secondary Group"),
-                        options: "Standalone Group",
+                        options: "FR Standalone Group",
                         description: __("Leave blank to keep existing value")
                     }
                 ],
@@ -188,7 +188,7 @@ frappe.query_reports["GL Account Group Report"] = {
                                         message: __("Regenerating {0} Financial Report(s) in the background...", [regenerated.length]),
                                         indicator: "blue"
                                     });
-                                    frappe.set_route("List", "Financial Report", {
+                                    frappe.set_route("List", "FR Financial Report", {
                                         company: rf.company,
                                         fiscal_year: rf.fiscal_year,
                                         report_type: rf.report_type

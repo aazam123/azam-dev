@@ -55,7 +55,7 @@
    "fieldname": "names_of_replated",
    "fieldtype": "Table",
    "label": "Names of related parties and description of relationship, where transactions have taken place",
-   "options": "Company Hierarchy Relation"
+   "options": "FR Company Hierarchy Relation"
   },
   {
    "fieldname": "fetch_companies_for_related_parties",

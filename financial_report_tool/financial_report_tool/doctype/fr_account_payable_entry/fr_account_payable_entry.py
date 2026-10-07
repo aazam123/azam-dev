@@ -33,7 +33,7 @@ class FRAccountPayableEntry(Document):
 		self.ap = "Payable" if self.amount_in_lc < 0 else "Advance"
 		if self.ap == "Advance":
 			if self.special_gl_ind:
-				sp_gl_grouping = frappe.get_all("Special GL Indicator Grouping", {"parent": self.company, "special_gl_indicator": self.special_gl_ind}, ["nature", "e_ne", "currency", "grouping"])
+				sp_gl_grouping = frappe.get_all("FR Special GL Indicator Grouping", {"parent": self.company, "special_gl_indicator": self.special_gl_ind}, ["nature", "e_ne", "currency", "grouping"])
 				for sp_grouping in sp_gl_grouping:
 					if sp_grouping:
 						nature, e_ne, currency, grouping = sp_grouping.get("nature"), sp_grouping.get("e_ne"), sp_grouping.get("currency"), sp_grouping.get("grouping")
@@ -54,7 +54,7 @@ class FRAccountPayableEntry(Document):
 									self.grouping = grouping
 									self.grouping_remark = f"Advance + Special GL Ind '{self.special_gl_ind}', nature='{nature}' (no currency filter) → {grouping}"
 			else:
-				po_series = frappe.get_all("Purchase Order Series For Grouping", filters={"parent": self.company}, fields=["po_series_start_from", "grouping", "ap"])
+				po_series = frappe.get_all("FR Purchase Order Series For Grouping", filters={"parent": self.company}, fields=["po_series_start_from", "grouping", "ap"])
 				for po_s in po_series:
 					if str(self.purchase_order).startswith(po_s.po_series_start_from) and self.ap == po_s.ap:
 						self.grouping = po_s.grouping
@@ -62,14 +62,14 @@ class FRAccountPayableEntry(Document):
 						break
 		elif self.ap == "Payable":
 			if self.purchase_order:
-				po_series = frappe.get_all("Purchase Order Series For Grouping", filters={"parent": self.company}, fields=["po_series_start_from", "grouping", "ap"])
+				po_series = frappe.get_all("FR Purchase Order Series For Grouping", filters={"parent": self.company}, fields=["po_series_start_from", "grouping", "ap"])
 				for po_s in po_series:
 					if str(self.purchase_order).startswith(po_s.po_series_start_from) and self.ap == po_s.ap:
 						self.grouping = po_s.grouping
 						self.grouping_remark = f"Payable + PO '{self.purchase_order}' matched series '{po_s.po_series_start_from}' → {po_s.grouping}"
 						break
 			else:
-				sp_gl_grouping = frappe.get_all("Special GL Indicator Grouping", {"parent": self.company, "special_gl_indicator": self.special_gl_ind}, ["nature", "e_ne", "currency", "grouping"])
+				sp_gl_grouping = frappe.get_all("FR Special GL Indicator Grouping", {"parent": self.company, "special_gl_indicator": self.special_gl_ind}, ["nature", "e_ne", "currency", "grouping"])
 				for sp_grouping in sp_gl_grouping:
 					if sp_grouping:
 						nature, e_ne, currency, grouping = sp_grouping.get("nature"), sp_grouping.get("e_ne"), sp_grouping.get("currency"), sp_grouping.get("grouping")
@@ -89,7 +89,7 @@ class FRAccountPayableEntry(Document):
 									self.grouping = grouping
 									self.grouping_remark = f"Payable (no PO) + Special GL Ind '{self.special_gl_ind}', nature='{nature}' (no currency filter) → {grouping}"
 
-		voucher_series = frappe.get_all("Vendor Series For Nature", filters={"parent": self.company}, fields=["series_start_from", "nature"])
+		voucher_series = frappe.get_all("FR Vendor Series For Nature", filters={"parent": self.company}, fields=["series_start_from", "nature"])
 		for v_series in voucher_series:
 			if str(self.supplier).startswith(v_series.series_start_from):
 				self.nature = v_series.nature
@@ -144,7 +144,7 @@ class FRAccountPayableEntry(Document):
 		if not self.nature:
 			self.nature = self.ap
 
-		gl_account_grouping = frappe.get_value("GL Account For Grouping",{"parent": self.company, "gl_account": self.reconciliation_account},"grouping")
+		gl_account_grouping = frappe.get_value("FR GL Account For Grouping",{"parent": self.company, "gl_account": self.reconciliation_account},"grouping")
 		if gl_account_grouping and not self.grouping:
 			self.grouping = gl_account_grouping
 			self.grouping_remark = f"Recon Account '{self.reconciliation_account}' → GL Account Grouping → {gl_account_grouping}"
@@ -201,7 +201,7 @@ def get_or_create_reconciliation_account(doc):
 @frappe.whitelist()
 def import_from_sync_sap(sync_sap_doc, fiscal_year):
     sync_doc = frappe.get_doc(
-        "Sync SAP",
+        "FR Sync SAP",
         sync_sap_doc
     )
 

@@ -31,7 +31,7 @@ frappe.query_reports["Consol Trial Balance"] = {
             label: __("Primary Group"),
             fieldtype: "MultiSelectList",
             get_data: function(txt) {
-                return frappe.db.get_link_options("Standalone Group", txt, {
+                return frappe.db.get_link_options("FR Standalone Group", txt, {
                     disable: 0
                 });
             }
@@ -41,7 +41,7 @@ frappe.query_reports["Consol Trial Balance"] = {
             label: __("Secondary Group"),
             fieldtype: "MultiSelectList",
             get_data: function(txt) {
-                return frappe.db.get_link_options("Standalone Group", txt, {
+                return frappe.db.get_link_options("FR Standalone Group", txt, {
                     disable: 0
                 });
             }
@@ -51,7 +51,7 @@ frappe.query_reports["Consol Trial Balance"] = {
             label: __("Higher Secondary Group"),
             fieldtype: "MultiSelectList",
             get_data: function(txt) {
-                return frappe.db.get_link_options("Standalone Group", txt, {
+                return frappe.db.get_link_options("FR Standalone Group", txt, {
                     disable: 0
                 });
             }
@@ -120,21 +120,21 @@ frappe.query_reports["Consol Trial Balance"] = {
                         fieldname: "primary_group",
                         fieldtype: "Link",
                         label: __("Primary Group"),
-                        options: "Standalone Group",
+                        options: "FR Standalone Group",
                         description: __("Leave blank to keep existing value")
                     },
                     {
                         fieldname: "secondary_group",
                         fieldtype: "Link",
                         label: __("Secondary Group"),
-                        options: "Standalone Group",
+                        options: "FR Standalone Group",
                         description: __("Leave blank to keep existing value")
                     },
                     {
                         fieldname: "higher_secondary_group",
                         fieldtype: "Link",
                         label: __("Higher Secondary Group"),
-                        options: "Standalone Group",
+                        options: "FR Standalone Group",
                         description: __("Leave blank to keep existing value")
                     }
                 ],

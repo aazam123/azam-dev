@@ -14,7 +14,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Standalone Group",
-   "options": "Standalone Group"
+   "options": "FR Standalone Group"
   }
  ],
  "grid_page_length": 50,

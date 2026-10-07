@@ -23,7 +23,7 @@ class FRTaxMaster(Document):
 	# def set_profit_before_tax(self):
 	# 	# Company, Fiscal Year ane Currency na base parthi Yearly Financial Report fetch karo
 	# 	financial_report = frappe.get_value(
-	# 		"Financial Report",
+	# 		"FR Financial Report",
 	# 		filters={"company": self.company, "report_type": "Yearly", "fiscal_year": self.fiscal_year, "currency": self.currency},
 	# 		fieldname="name"
 	# 	)
@@ -33,8 +33,8 @@ class FRTaxMaster(Document):
 
 	# 	# Financial Report Details ma thi Profit & Loss section ni table_data fetch karo
 	# 	table_data = frappe.get_value(
-	# 		"Financial Report Details",
-	# 		{"parent": financial_report, "parenttype": "Financial Report", "section_type": "Profit & Loss"},
+	# 		"FR Financial Report Details",
+	# 		{"parent": financial_report, "parenttype": "FR Financial Report", "section_type": "Profit & Loss"},
 	# 		"table_data"
 	# 	)
 

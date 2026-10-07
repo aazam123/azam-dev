@@ -1,0 +1,93 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2026-07-31 10:00:00.000000",
+ "description": "Per-Company SAP connection template. The fixed SAP parameters for a company (company code, chart of accounts, version, layout, client) are entered once here and auto-filled onto every Sync SAP Trial Balance for that company.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "company_code",
+  "chartofacc",
+  "column_break_main",
+  "sversion",
+  "layout",
+  "sap_client"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "SAP company code (BUKRS), e.g. 9000.",
+   "fieldname": "company_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Company Code",
+   "reqd": 1
+  },
+  {
+   "description": "SAP chart of accounts (KTOPL / s_ktopl).",
+   "fieldname": "chartofacc",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Chart of Accounts"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "SAP version (s_versn).",
+   "fieldname": "sversion",
+   "fieldtype": "Data",
+   "label": "Version"
+  },
+  {
+   "description": "ALV layout variant (s_layout), e.g. ANAPLAN_DATA.",
+   "fieldname": "layout",
+   "fieldtype": "Data",
+   "label": "Layout"
+  },
+  {
+   "description": "SAP client, e.g. 900.",
+   "fieldname": "sap_client",
+   "fieldtype": "Data",
+   "label": "SAP Client"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-31 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR SAP Company Mapping",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

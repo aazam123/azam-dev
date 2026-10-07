@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:company",
+ "creation": "2026-03-03 13:04:32.418480",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_pf3n",
+  "is_group",
+  "company",
+  "parent_company",
+  "column_break_jrxo",
+  "lft",
+  "rgt",
+  "old_parent",
+  "parent_company_tree",
+  "section_break_cufg",
+  "fetch_all_companies",
+  "company_hierarchy_relation"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_pf3n",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "lft",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Left",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "rgt",
+   "fieldtype": "Int",
+   "hidden": 1,
+   "label": "Right",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_group",
+   "fieldtype": "Check",
+   "label": "Is Group"
+  },
+  {
+   "fieldname": "old_parent",
+   "fieldtype": "Link",
+   "label": "Old Parent",
+   "options": "FR Company Hierarchy"
+  },
+  {
+   "fieldname": "parent_company_tree",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Parent Company Tree",
+   "options": "FR Company Hierarchy"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "parent_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Parent Company",
+   "link_filters": "[[\"Company\",\"is_group\",\"=\",1]]",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_jrxo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_cufg",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "company_hierarchy_relation",
+   "fieldtype": "Table",
+   "label": "Company Hierarchy Relation",
+   "options": "FR Company Hierarchy Relation"
+  },
+  {
+   "fieldname": "fetch_all_companies",
+   "fieldtype": "Button",
+   "label": "Fetch All Companies"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_tree": 1,
+ "links": [],
+ "modified": "2026-03-11 16:34:50.720525",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Company Hierarchy",
+ "naming_rule": "By fieldname",
+ "nsm_parent_field": "parent_company_tree",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

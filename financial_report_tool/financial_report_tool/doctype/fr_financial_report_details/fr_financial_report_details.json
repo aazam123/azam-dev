@@ -1,0 +1,123 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-07-05 12:49:38.770390",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "column_break_lrdb",
+  "section_type",
+  "doctype_name",
+  "column_break_uwlt",
+  "note_no",
+  "column_break_evum",
+  "section",
+  "section_name",
+  "column_break_fvni",
+  "subsection",
+  "section_break_fzud",
+  "section_description",
+  "subsection_description",
+  "table_data"
+ ],
+ "fields": [
+  {
+   "fieldname": "column_break_lrdb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 3,
+   "fieldname": "section_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Section Type",
+   "options": "\nProfit & Loss\nBalance Sheet\nCash Flow\nEquity\nConsolidation Note"
+  },
+  {
+   "fieldname": "column_break_evum",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 3,
+   "fieldname": "section",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Section",
+   "options": "doctype_name"
+  },
+  {
+   "fieldname": "column_break_fvni",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 3,
+   "fieldname": "subsection",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Subsection",
+   "options": "FR Subsection"
+  },
+  {
+   "fieldname": "section_break_fzud",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_description",
+   "fieldtype": "Text Editor",
+   "label": "Section Description",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "subsection.subsection_type_description",
+   "fieldname": "subsection_description",
+   "fieldtype": "Text Editor",
+   "label": "Subsection Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "table_data",
+   "fieldtype": "Code",
+   "label": "Table Data",
+   "read_only": 1
+  },
+  {
+   "fieldname": "doctype_name",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Doctype Name",
+   "options": "\nFR Section\nFR Profit And Loss Template\nFR Balance Sheet Template\nFR Cash Flow Template\nFR Equity Template"
+  },
+  {
+   "fieldname": "column_break_uwlt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "note_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Note No."
+  },
+  {
+   "fieldname": "section_name",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Section Name"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-15 11:02:08.640602",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Financial Report Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

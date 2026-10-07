@@ -34,7 +34,7 @@ def get_missing_gl_accounts(company, report_type):
 
     # Get all mapped GL accounts
     mapped_gls = frappe.get_all(
-        "GL Group Mapping",
+        "FR GL Group Mapping",
         filters=mapped_filters,
         pluck="gl_account",
         distinct=True
@@ -78,14 +78,14 @@ def get_missing_gl_accounts(company, report_type):
 
     # Get standalone groups for dropdowns
     primary_groups = frappe.get_all(
-        "Standalone Group",
+        "FR Standalone Group",
         filters={"is_primary_group": 1, "disable": 0},
         fields=["name", "standalone_group_name"],
         order_by="standalone_group_name"
     )
 
     secondary_groups = frappe.get_all(
-        "Standalone Group",
+        "FR Standalone Group",
         filters={"is_group": 0, "is_primary_group": 0, "disable": 0},
         fields=["name", "standalone_group_name", "parent_standalone_group"],
         order_by="standalone_group_name"
@@ -127,11 +127,11 @@ def create_bulk_gl_group_mappings(mappings, company, report_type):
             continue
 
         try:
-            if frappe.db.exists("GL Group Mapping", {"gl_account": gl_account, "company": company, "report_type": report_type}):
+            if frappe.db.exists("FR GL Group Mapping", {"gl_account": gl_account, "company": company, "report_type": report_type}):
                 errors.append({"gl_account": gl_account, "error": "Mapping already exists"})
                 continue
 
-            doc = frappe.new_doc("GL Group Mapping")
+            doc = frappe.new_doc("FR GL Group Mapping")
             doc.gl_account = gl_account
             doc.company = company
             doc.report_type = report_type
@@ -155,10 +155,10 @@ def create_single_gl_group_mapping(gl_account, company, report_type, primary_gro
         if not gl_account or not primary_group or not secondary_group:
             return {"success": False, "error": "Missing required fields"}
 
-        if frappe.db.exists("GL Group Mapping", {"gl_account": gl_account, "company": company, "report_type": report_type}):
+        if frappe.db.exists("FR GL Group Mapping", {"gl_account": gl_account, "company": company, "report_type": report_type}):
             return {"success": False, "error": "Mapping already exists"}
 
-        doc = frappe.new_doc("GL Group Mapping")
+        doc = frappe.new_doc("FR GL Group Mapping")
         doc.gl_account = gl_account
         doc.company = company
         doc.report_type = report_type
@@ -209,17 +209,17 @@ def parse_excel_mappings(file_url):
                 continue  # Skip empty rows
 
             # Validate Primary Group exists (if provided)
-            if primary_group and not frappe.db.exists("Standalone Group", primary_group):
+            if primary_group and not frappe.db.exists("FR Standalone Group", primary_group):
                 errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Primary Group '{primary_group}' not found"})
                 continue
 
             # Validate Secondary Group exists (if provided)
-            if secondary_group and not frappe.db.exists("Standalone Group", secondary_group):
+            if secondary_group and not frappe.db.exists("FR Standalone Group", secondary_group):
                 errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Secondary Group '{secondary_group}' not found"})
                 continue
 
             # Validate Higher Secondary Group exists (if provided)
-            if higher_secondary_group and not frappe.db.exists("Standalone Group", higher_secondary_group):
+            if higher_secondary_group and not frappe.db.exists("FR Standalone Group", higher_secondary_group):
                 errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Higher Secondary Group '{higher_secondary_group}' not found"})
                 higher_secondary_group = ""  # Clear invalid value but continue
 
@@ -326,22 +326,22 @@ def upload_mappings(file_url, company, report_type):
                 continue
 
             # Validate Primary Group exists
-            if not frappe.db.exists("Standalone Group", primary_group):
+            if not frappe.db.exists("FR Standalone Group", primary_group):
                 errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Primary Group '{primary_group}' not found"})
                 continue
 
             # Validate Secondary Group exists
-            if not frappe.db.exists("Standalone Group", secondary_group):
+            if not frappe.db.exists("FR Standalone Group", secondary_group):
                 errors.append({"row": row_idx, "gl_account": gl_account, "error": f"Secondary Group '{secondary_group}' not found"})
                 continue
 
             # Check if mapping already exists
-            if frappe.db.exists("GL Group Mapping", {"gl_account": gl_account, "company": company, "report_type": report_type}):
+            if frappe.db.exists("FR GL Group Mapping", {"gl_account": gl_account, "company": company, "report_type": report_type}):
                 skipped.append({"row": row_idx, "gl_account": gl_account, "reason": "Mapping already exists"})
                 continue
 
             try:
-                doc = frappe.new_doc("GL Group Mapping")
+                doc = frappe.new_doc("FR GL Group Mapping")
                 doc.gl_account = gl_account
                 doc.company = company
                 doc.report_type = report_type

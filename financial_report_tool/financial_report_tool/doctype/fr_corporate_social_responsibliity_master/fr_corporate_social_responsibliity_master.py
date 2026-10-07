@@ -8,7 +8,7 @@ from frappe.utils import flt
 class FRCorporateSocialResponsibliityMaster(Document):
 	def before_save(self):
 		if not self.allow_manually_input:
-			template = frappe.get_doc("Balance Sheet Template", "Balance Sheet")
+			template = frappe.get_doc("FR Balance Sheet Template", "Balance Sheet")
 			first_year = self.fiscal_year
 			_, second_year = self.get_previous_fiscal_year(first_year)
 			_, third_year = self.get_previous_fiscal_year(second_year) if second_year else (None, None)
@@ -138,7 +138,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 
 	def get_sum_grouping_amount(self, primary_group, group, month, year, is_ftm=False, hg_sec_group=""):
 		filters = {"company": self.company,"report_type": "Yearly","primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
-		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
+		gl_accounts = frappe.get_list("FR GL Group Mapping", filters, pluck="gl_account")
 		if not gl_accounts: return 0
 		field = "amount" if is_ftm else "uploaded_amount"
 		query = f"SELECT SUM({field}) FROM `tabFR Trial Balance Entry` WHERE company=%s AND fiscal_year=%s AND gl_account IN ({','.join(['%s']*len(gl_accounts))}) AND month=%s"
@@ -162,7 +162,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 			cur_total += cy; prev_total += py
 
 			hgs = frappe.get_all(
-				"GL Group Mapping",
+				"FR GL Group Mapping",
 				{"company": self.company, "primary_group": "Inventories", "secondary_group": sec, "higher_secondary_group": ["!=", None]},
 				pluck="higher_secondary_group", distinct=True
 			)
@@ -284,7 +284,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 
 	def get_yearly_profit_and_loss_data(self, template_name, fiscal_year, month):
 		"""Optimized: Get monthly P&L data with current month, previous month, FTM, and previous year amounts"""
-		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
+		profit_and_loss_doc = frappe.get_doc("FR Profit And Loss Template", template_name)
 		first_year = fiscal_year
 		_, previous_fiscal_year = self.get_previous_fiscal_year(first_year)
 		_, pre_year = self.get_previous_fiscal_year(previous_fiscal_year) if previous_fiscal_year else (None, None)
@@ -309,7 +309,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 		def get_standalone_group(name):
 			if name not in standalone_group_cache:
 				standalone_group_cache[name] = frappe.get_value(
-					"Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True
+					"FR Standalone Group", name, ["show_reversed_value", "group_type"], as_dict=True
 				)
 			return standalone_group_cache[name]
 
@@ -317,7 +317,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 			"""Cached retrieval of secondary groups"""
 			if primary_group not in group_mapping_cache:
 				group_mapping_cache[primary_group] = sorted(set(
-					g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
+					g for g in frappe.get_list("FR GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
 				))
 			return group_mapping_cache[primary_group]
 
@@ -390,14 +390,14 @@ class FRCorporateSocialResponsibliityMaster(Document):
 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 					group_type = group_info.group_type
 					primary_groups = (
-						set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
+						set(frappe.get_list("FR Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
 						if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group}
 					)
 
 					for pg in primary_groups:
 						for sec in get_secondary_groups(pg):
 							face_amount = self.get_sum_grouping_amount(pg, sec, month, year)
-							has_hg_sec_group = frappe.get_all("GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
+							has_hg_sec_group = frappe.get_all("FR GL Group Mapping",{"company": self.company, "primary_group": pg, "secondary_group": sec, "higher_secondary_group": ["!=", None]}, pluck="higher_secondary_group", distinct=True)
 							for hg_sec in has_hg_sec_group:
 								face_amount += self.get_sum_grouping_amount(pg, sec, month, year, hg_sec_group=hg_sec)
 							if group_type == "Other Income":
@@ -410,7 +410,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 					gl_accounts = []
 					for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
 						gl_accounts.extend(
-							frappe.get_list("GL Group Mapping", {
+							frappe.get_list("FR GL Group Mapping", {
 								"company": self.company,
 								"report_type": "Yearly",
 								"primary_group": g.primary_group,
@@ -429,7 +429,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 				gl_accounts = []
 				for g in fr_particular.get('primary_and_secondary_group_mapping') or []:
 					gl_accounts.extend(
-						frappe.get_list("GL Group Mapping", {
+						frappe.get_list("FR GL Group Mapping", {
 							"company": self.company,
 							"report_type": "Yearly",
 							"primary_group": g.primary_group,

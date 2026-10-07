@@ -26,25 +26,25 @@
    "fieldname": "vendor_series_for_nature",
    "fieldtype": "Table",
    "label": "Vendor Series For Nature",
-   "options": "Vendor Series For Nature"
+   "options": "FR Vendor Series For Nature"
   },
   {
    "fieldname": "special_gl_indicator_grouping",
    "fieldtype": "Table",
    "label": "Special GL Indicator Grouping",
-   "options": "Special GL Indicator Grouping"
+   "options": "FR Special GL Indicator Grouping"
   },
   {
    "fieldname": "purchase_order_series_for_grouping",
    "fieldtype": "Table",
    "label": "Purchase Order Series For Grouping",
-   "options": "Purchase Order Series For Grouping"
+   "options": "FR Purchase Order Series For Grouping"
   },
   {
    "fieldname": "gl_account_for_grouping",
    "fieldtype": "Table",
    "label": "GL Account For Grouping",
-   "options": "GL Account For Grouping"
+   "options": "FR GL Account For Grouping"
   }
  ],
  "grid_page_length": 50,

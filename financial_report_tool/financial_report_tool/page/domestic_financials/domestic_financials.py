@@ -148,7 +148,7 @@ def _pick_report(company, report_type, fiscal_year=None, month=None):
 		filters["current_month"] = month
 
 	rows = frappe.get_all(
-		"Financial Report",
+		"FR Financial Report",
 		filters=filters,
 		fields=["name", "fiscal_year", "previous_fiscal_year", "report_status", "report_generated_on"],
 		order_by="modified desc",
@@ -164,10 +164,10 @@ def _pick_report(company, report_type, fiscal_year=None, month=None):
 def _statement_rows(report_name, section_type):
 	"""Return the structured line-item rows (from table_data) for a section."""
 	detail = frappe.get_all(
-		"Financial Report Details",
+		"FR Financial Report Details",
 		filters={
 			"parent": report_name,
-			"parenttype": "Financial Report",
+			"parenttype": "FR Financial Report",
 			"section_type": section_type,
 		},
 		fields=["table_data"],
@@ -196,14 +196,21 @@ OTHER_EXPENSES_PRIMARY_GROUP = "Other expenses"
 # so display = sign * amount / LACS (sign -1 for income groups, +1 for expense).
 LACS = 100000.0
 
-# User-entered "Strategic Expense" figures (per company / Other-expenses secondary
+# User-entered "Strategic Expense" figures (per company / primary group / secondary
 # group / fiscal year / month). Each amount is reclassified out of that secondary
-# group of Other expenses into the Strategic Expense line.
-STRATEGIC_DOCTYPE = "Strategic Expense Entry"
+# group of its primary group's P&L face row into the Strategic Expense line.
+STRATEGIC_DOCTYPE = "FR Strategic Expense Entry"
+EMPLOYEE_EMOLUMENTS_PRIMARY_GROUP = "Employee Emoluments"
+# Primary groups a Strategic Expense can come out of -> prefix of the (normalised)
+# P&L face row that group's amounts reduce.
+STRATEGIC_PRIMARY_GROUPS = {
+	OTHER_EXPENSES_PRIMARY_GROUP: "other expenses",
+	EMPLOYEE_EMOLUMENTS_PRIMARY_GROUP: "employee benefit",
+}
 
 
 def _fetch_strategic(companies, fiscal_years):
-	"""Return {(company, secondary_group, fiscal_year, month): amount} from user entries."""
+	"""Return {primary_group: {(company, secondary_group, fiscal_year, month): amount}}."""
 	companies = [c for c in (companies or [])]
 	fiscal_years = [y for y in (fiscal_years or []) if y]
 	if not companies or not fiscal_years:
@@ -217,24 +224,32 @@ def _fetch_strategic(companies, fiscal_years):
 			"fiscal_year": ["in", fiscal_years],
 			"secondary_group": ["is", "set"],
 		},
-		fields=["company", "secondary_group", "fiscal_year", "month", "amount"],
+		fields=["company", "primary_group", "secondary_group", "fiscal_year", "month", "amount"],
 		limit_page_length=0,
 	)
 	agg = {}
 	for r in rows:
+		# Entries saved before primary_group existed were all Other expenses.
+		per_primary = agg.setdefault(r.primary_group or OTHER_EXPENSES_PRIMARY_GROUP, {})
 		key = (r.company, r.secondary_group, r.fiscal_year, r.month)
-		agg[key] = agg.get(key, 0.0) + flt(r.amount)
+		per_primary[key] = per_primary.get(key, 0.0) + flt(r.amount)
 	return agg
 
 
-def _strategic_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year):
-	"""{company: {secondary_group: {measure_key: amount}}} for this view.
+def _strategic_amounts(
+	company_names, report_type, fiscal_year, month, previous_fiscal_year,
+	primary_group=OTHER_EXPENSES_PRIMARY_GROUP, fetched=None,
+):
+	"""{company: {secondary_group: {measure_key: amount}}} for one primary group.
 
 	Entries are monthly amounts, so: Yearly sums the fiscal year; Monthly gives
 	the cumulative-to-month (cm), the month itself (ftm) and cumulative-to-prev
-	(pm); FTM gives the single month.
+	(pm); FTM gives the single month. `fetched` is a prior `_fetch_strategic`
+	result, to avoid re-querying when several primary groups are needed.
 	"""
-	raw = _fetch_strategic(company_names, [fiscal_year, previous_fiscal_year])
+	if fetched is None:
+		fetched = _fetch_strategic(company_names, [fiscal_year, previous_fiscal_year])
+	raw = fetched.get(primary_group, {})
 	groups = sorted({g for (_c, g, _fy, _m) in raw})
 
 	def m_amt(c, g, fy, m):
@@ -267,9 +282,14 @@ def _strategic_amounts(company_names, report_type, fiscal_year, month, previous_
 	return out
 
 
-def _strategic_amounts_all_ftm(company_names, month_range, fiscal_year):
+def _strategic_amounts_all_ftm(
+	company_names, month_range, fiscal_year,
+	primary_group=OTHER_EXPENSES_PRIMARY_GROUP, fetched=None,
+):
 	"""All-FTM Strategic Expense per company/group: one month's amount per month column."""
-	raw = _fetch_strategic(company_names, [fiscal_year])
+	if fetched is None:
+		fetched = _fetch_strategic(company_names, [fiscal_year])
+	raw = fetched.get(primary_group, {})
 	groups = sorted({g for (_c, g, _fy, _m) in raw})
 	return {
 		c: {g: {m.lower(): raw.get((c, g, fiscal_year, m), 0.0) for m in month_range} for g in groups}
@@ -320,28 +340,75 @@ def _adjust_row(row, company_names, measure_keys, strategic, sign):
 				cell[k] = round((cell.get(k) or 0) + sign * strategic.get(c, {}).get(k, 0.0), 2)
 
 
-def _reclassify_from_other_expenses(out_rows, company_names, measure_keys, strategic, sign):
-	"""Take Strategic Expense out of "Other expenses" and "Total Expenses".
+def _strategic_total(by_primary):
+	"""Collapse {primary_group: {company: {k: v}}} to {company: {k: v}} (sum over primaries)."""
+	out = {}
+	for per_company in by_primary.values():
+		for c, cells in per_company.items():
+			tot = out.setdefault(c, {})
+			for k, v in cells.items():
+				tot[k] = tot.get(k, 0.0) + v
+	return out
 
-	sign=-1 subtracts it (run before the EBITDA block is computed, so EBITDA is
-	struck on the reduced expenses); sign=+1 reverses that. Returns False, doing
-	nothing, when either row is absent.
+
+def _strategic_by_primary(company_names, report_type, fiscal_year, month, previous_fiscal_year):
+	"""{primary_group: {company: {measure_key: amount}}} for the Statement view."""
+	fetched = _fetch_strategic(company_names, [fiscal_year, previous_fiscal_year])
+	return {
+		pg: _strategic_company_totals(
+			_strategic_amounts(
+				company_names, report_type, fiscal_year, month, previous_fiscal_year, pg, fetched
+			)
+		)
+		for pg in STRATEGIC_PRIMARY_GROUPS
+	}
+
+
+def _strategic_by_primary_all_ftm(company_names, month_range, fiscal_year):
+	"""{primary_group: {company: {month_key: amount}}} for the All-FTM Statement view."""
+	fetched = _fetch_strategic(company_names, [fiscal_year])
+	return {
+		pg: _strategic_company_totals(
+			_strategic_amounts_all_ftm(company_names, month_range, fiscal_year, pg, fetched)
+		)
+		for pg in STRATEGIC_PRIMARY_GROUPS
+	}
+
+
+def _reclassify_strategic(out_rows, company_names, measure_keys, by_primary, sign):
+	"""Take Strategic Expense out of each primary group's face row and "Total Expenses".
+
+	Each primary group in `by_primary` reduces its own P&L row (Other expenses,
+	Employee benefit expenses); Total Expenses is reduced once by what was
+	actually applied. sign=-1 subtracts (run before the EBITDA block is computed,
+	so EBITDA is struck on the reduced expenses); sign=+1 reverses that.
+
+	Primary groups whose face row is absent are skipped. Returns the
+	{primary_group: ...} subset that was applied (empty when nothing was, or when
+	Total Expenses is absent) so the caller adds back exactly that amount.
 	"""
-	oe = _find_row(out_rows, lambda n: n.startswith("other expenses"))
 	te = _find_row(out_rows, lambda n: n.startswith("total exp"))
-	if oe < 0 or te < 0:
-		return False
-	for idx in (oe, te):
-		_adjust_row(out_rows[idx], company_names, measure_keys, strategic, sign)
-	return True
+	if te < 0:
+		return {}
+	applied = {}
+	for pg, per_company in by_primary.items():
+		prefix = STRATEGIC_PRIMARY_GROUPS.get(pg)
+		idx = _find_row(out_rows, lambda n, p=prefix: n.startswith(p)) if prefix else -1
+		if idx < 0:
+			continue
+		_adjust_row(out_rows[idx], company_names, measure_keys, per_company, sign)
+		applied[pg] = per_company
+	if applied:
+		_adjust_row(out_rows[te], company_names, measure_keys, _strategic_total(applied), sign)
+	return applied
 
 
-def _insert_strategic_expense(out_rows, company_names, measure_keys, strategic):
+def _insert_strategic_expense(out_rows, company_names, measure_keys, applied):
 	"""Insert the "Strategic Expense" row below Litigation Exp and add it back to
 	Total Expenses. Returns False (no-op) when Litigation Exp is absent.
 
-	The amount was already removed from Other expenses and Total Expenses by
-	`_reclassify_from_other_expenses` before EBITDA was computed, so EBITDA
+	`applied` is what `_reclassify_strategic` took out of the face rows. It was
+	already removed from Total Expenses before EBITDA was computed, so EBITDA
 	reflects the reduced expenses. Adding it back to Total Expenses here restores
 	the reported total, leaving Profit before tax / for the year unchanged.
 	Tagged into the EBITDA collapse group since it sits inside that block.
@@ -350,6 +417,7 @@ def _insert_strategic_expense(out_rows, company_names, measure_keys, strategic):
 	if lit < 0:
 		return False
 
+	strategic = _strategic_total(applied)
 	consol = {
 		k: round(sum(strategic.get(c, {}).get(k, 0.0) for c in company_names), 2) for k in measure_keys
 	}
@@ -374,15 +442,15 @@ def _insert_strategic_expense(out_rows, company_names, measure_keys, strategic):
 	return True
 
 
-def _strategic_groups(companies):
-	"""Secondary groups configured under Other expenses for these companies (sorted)."""
+def _strategic_groups(companies, primary_group=OTHER_EXPENSES_PRIMARY_GROUP):
+	"""Secondary groups configured under `primary_group` for these companies (sorted)."""
 	if not companies:
 		return []
 	groups = frappe.get_all(
-		"GL Group Mapping",
+		"FR GL Group Mapping",
 		filters={
 			"company": ["in", companies],
-			"primary_group": OTHER_EXPENSES_PRIMARY_GROUP,
+			"primary_group": primary_group,
 			"report_type": ["in", ["Monthly", "Yearly"]],
 		},
 		pluck="secondary_group",
@@ -397,12 +465,17 @@ def get_strategic_entries(fiscal_year=None, month=None):
 	"""Existing Strategic Expense amounts for a fiscal year + month.
 
 	Powers the Strategic Expense tab grid: returns the domestic companies (grid
-	columns), the Other-expenses secondary groups (grid rows) and the current
-	{company: {group: amount}} so the inputs can be pre-filled.
+	columns), one section per primary group (Other expenses, Employee Emoluments)
+	listing its secondary groups (grid rows), and the current
+	{company: {primary_group: {secondary_group: amount}}} so the inputs can be
+	pre-filled.
 	"""
 	frappe.has_permission(STRATEGIC_DOCTYPE, "read", throw=True)
 	companies = [c.name for c in _strategic_companies()]
-	groups = _strategic_groups(companies)
+	sections = [
+		{"primary_group": pg, "groups": _strategic_groups(companies, pg)}
+		for pg in STRATEGIC_PRIMARY_GROUPS
+	]
 	amounts = {}
 	if fiscal_year and month and companies:
 		rows = frappe.get_all(
@@ -413,22 +486,24 @@ def get_strategic_entries(fiscal_year=None, month=None):
 				"company": ["in", companies],
 				"secondary_group": ["is", "set"],
 			},
-			fields=["company", "secondary_group", "amount"],
+			fields=["company", "primary_group", "secondary_group", "amount"],
 			limit_page_length=0,
 		)
 		for r in rows:
-			amounts.setdefault(r.company, {})[r.secondary_group] = flt(r.amount)
-	return {"companies": companies, "groups": groups, "amounts": amounts}
+			# Entries saved before primary_group existed were all Other expenses.
+			pg = r.primary_group or OTHER_EXPENSES_PRIMARY_GROUP
+			amounts.setdefault(r.company, {}).setdefault(pg, {})[r.secondary_group] = flt(r.amount)
+	return {"companies": companies, "sections": sections, "amounts": amounts}
 
 
 @frappe.whitelist()
 def save_strategic_entries(fiscal_year=None, month=None, amounts=None):
 	"""Upsert Strategic Expense amounts for a fiscal year + month.
 
-	`amounts` is a {company: {secondary_group: amount}} map covering only the
-	companies the user is editing. A zero/blank amount deletes any existing entry
-	for that company/group/period; a non-zero one creates or updates it. Returns
-	counts so the caller can confirm.
+	`amounts` is a {company: {primary_group: {secondary_group: amount}}} map
+	covering only the companies the user is editing. A zero/blank amount deletes
+	any existing entry for that company/primary group/group/period; a non-zero
+	one creates or updates it. Returns counts so the caller can confirm.
 	"""
 	frappe.has_permission(STRATEGIC_DOCTYPE, "create", throw=True)
 	if not fiscal_year or not month:
@@ -439,47 +514,47 @@ def save_strategic_entries(fiscal_year=None, month=None, amounts=None):
 		except (ValueError, TypeError):
 			amounts = {}
 	valid_companies = {c.name for c in _strategic_companies()}
-	valid_groups = set(_strategic_groups(list(valid_companies)))
+	valid_groups = {
+		pg: set(_strategic_groups(list(valid_companies), pg)) for pg in STRATEGIC_PRIMARY_GROUPS
+	}
 
 	saved = deleted = 0
-	for company, per_group in (amounts or {}).items():
-		if company not in valid_companies or not isinstance(per_group, dict):
+	for company, per_primary in (amounts or {}).items():
+		if company not in valid_companies or not isinstance(per_primary, dict):
 			continue
-		for group, amt in per_group.items():
-			if group not in valid_groups:
+		for primary, per_group in per_primary.items():
+			if primary not in valid_groups or not isinstance(per_group, dict):
 				continue
-			existing = frappe.db.get_value(
-				STRATEGIC_DOCTYPE,
-				{
+			for group, amt in per_group.items():
+				if group not in valid_groups[primary]:
+					continue
+				# Match legacy rows (blank primary group) as Other expenses.
+				match = {
 					"company": company,
 					"fiscal_year": fiscal_year,
 					"month": month,
 					"secondary_group": group,
-				},
-				"name",
-			)
-			val = flt(amt)
-			if not val:
+					"primary_group": primary,
+				}
+				existing = frappe.db.get_value(STRATEGIC_DOCTYPE, match, "name")
+				if not existing and primary == OTHER_EXPENSES_PRIMARY_GROUP:
+					existing = frappe.db.get_value(
+						STRATEGIC_DOCTYPE, {**match, "primary_group": ["in", ["", None]]}, "name"
+					)
+				val = flt(amt)
+				if not val:
+					if existing:
+						frappe.delete_doc(STRATEGIC_DOCTYPE, existing)
+						deleted += 1
+					continue
 				if existing:
-					frappe.delete_doc(STRATEGIC_DOCTYPE, existing)
-					deleted += 1
-				continue
-			if existing:
-				doc = frappe.get_doc(STRATEGIC_DOCTYPE, existing)
-				doc.amount = val
-				doc.save()
-			else:
-				frappe.get_doc(
-					{
-						"doctype": STRATEGIC_DOCTYPE,
-						"company": company,
-						"fiscal_year": fiscal_year,
-						"month": month,
-						"secondary_group": group,
-						"amount": val,
-					}
-				).insert()
-			saved += 1
+					doc = frappe.get_doc(STRATEGIC_DOCTYPE, existing)
+					doc.primary_group = primary
+					doc.amount = val
+					doc.save()
+				else:
+					frappe.get_doc({"doctype": STRATEGIC_DOCTYPE, **match, "amount": val}).insert()
+				saved += 1
 	frappe.db.commit()
 	return {"saved": saved, "deleted": deleted}
 
@@ -507,7 +582,7 @@ def _gl_split_accounts(companies, map_report_type, primary_group, secondary_grou
 		if secondary_groups:
 			filters["secondary_group"] = ["in", secondary_groups]
 		return frappe.get_all(
-			"GL Group Mapping",
+			"FR GL Group Mapping",
 			filters=filters,
 			fields=["company", "gl_account", "secondary_group"],
 		)
@@ -609,14 +684,14 @@ def _bif_measures(report_type, fiscal_year, month, previous_fiscal_year):
 
 
 # --- Consolidation adjustments (Elimination / Regrouping) ------------------
-# Consol Adjustment Entry rows are shown as two extra columns after Consolidate.
+# FR Console Adjustment Entry rows are shown as two extra columns after Consolidate.
 # They are NOT netted into Consolidate. Entries are monthly amounts (like the
 # trial balance and Strategic Expense): Yearly sums the fiscal year, Monthly
 # gives cumulative-to-month / the month / cumulative-to-prev, FTM the month.
 # net = debit - credit carries the trial-balance sign (income credit-negative,
 # expense debit-positive), so a line's value is net/LACS, flipped when its FR
 # Particular has "Show Reversed Value" -- the same rule the face applies.
-ADJUSTMENT_DOCTYPE = "Consol Adjustment Entry"
+ADJUSTMENT_DOCTYPE = "FR Console Adjustment Entry"
 ADJUSTMENT_TYPES = {"Elimination": "elimination", "Regrouping": "regrouping"}
 ADJUSTMENT_FIELDS = tuple(ADJUSTMENT_TYPES.values())
 ADJUSTMENT_PREFIX = "__adj__"  # pseudo-company names used while building rows
@@ -704,11 +779,11 @@ class _AdjustmentResolver:
 			section = frappe.get_cached_doc("FR Section", p.schedule) if p.schedule else None
 			if section and section.fetch_data_from_trial_balance:
 				pg = section.primary_consolidation_group
-				gtype = frappe.get_cached_value("Standalone Group", pg, "group_type") if pg else None
+				gtype = frappe.get_cached_value("FR Standalone Group", pg, "group_type") if pg else None
 				if gtype in POOLED_GROUP_TYPES:
 					pgs = set(
 						frappe.get_all(
-							"Standalone Group",
+							"FR Standalone Group",
 							filters={"is_primary_group": 1, "group_type": gtype},
 							pluck="name",
 						)
@@ -774,7 +849,7 @@ class _AdjustmentResolver:
 		out = set()
 		for entries in self.book.values():
 			for pg, sg, _fy, _m in entries:
-				if frappe.get_cached_value("Standalone Group", pg, "report_type") != self.statement:
+				if frappe.get_cached_value("FR Standalone Group", pg, "report_type") != self.statement:
 					continue
 				if not any(
 					spg == pg and (ssg is None or ssg == (sg or "")) for spg, ssg in self.selectors_seen
@@ -1194,6 +1269,26 @@ def _move_total_expenses_after_finance_costs(out_rows):
 	out_rows.insert(fin + 1, te_row)
 
 
+def _report_fiscal_years():
+	"""Fiscal Years that have a Financial Report created (newest first).
+
+	Feeds the Strategic Expense tab. Unlike the statements' own Fiscal Year
+	filter it is not tied to one Report Type: a year counts when a Yearly *or*
+	Monthly report exists for any of the tab's companies, in any status.
+	"""
+	companies = [c.name for c in _strategic_companies()]
+	if not companies:
+		return []
+	years = frappe.get_all(
+		"FR Financial Report",
+		filters={"company": ["in", companies], "fiscal_year": ["is", "set"]},
+		distinct=True,
+		pluck="fiscal_year",
+	)
+	start = dict(frappe.get_all("Fiscal Year", fields=["name", "year_start_date"], as_list=True))
+	return sorted(years, key=lambda y: str(start.get(y) or ""), reverse=True)
+
+
 @frappe.whitelist()
 def get_context(report_type="Yearly", fiscal_year=None):
 	"""Filter metadata: available fiscal years (and months for Monthly).
@@ -1201,7 +1296,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 	Resolves the fiscal year server-side (the passed one if valid, else the
 	default) so the returned months always match the year the page will show.
 	"""
-	frappe.has_permission("Financial Report", "read", throw=True)
+	frappe.has_permission("FR Financial Report", "read", throw=True)
 
 	# FTM reads the Monthly reports (only its For-The-Month column differs).
 	storage_type = _storage_report_type(report_type)
@@ -1209,6 +1304,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 	companies = [c.name for c in _domestic_companies()]
 	empty = {
 		"fiscal_years": [],
+		"strategic_fiscal_years": _report_fiscal_years(),
 		"default_fiscal_year": None,
 		"resolved_fiscal_year": None,
 		"months": [],
@@ -1220,7 +1316,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 		return empty
 
 	years = frappe.get_all(
-		"Financial Report",
+		"FR Financial Report",
 		filters={"company": ["in", companies], "report_type": storage_type},
 		distinct=True,
 		pluck="fiscal_year",
@@ -1231,7 +1327,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 	default_year = None
 	for y in years:
 		if frappe.db.exists(
-			"Financial Report",
+			"FR Financial Report",
 			{
 				"company": ["in", companies],
 				"report_type": storage_type,
@@ -1250,7 +1346,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 	months, default_month = [], None
 	if _is_monthly_like(report_type) and resolved_year:
 		months = frappe.get_all(
-			"Financial Report",
+			"FR Financial Report",
 			filters={
 				"company": ["in", companies],
 				"report_type": "Monthly",
@@ -1264,7 +1360,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 		# Prefer the latest (fiscal order) month with a Successful report.
 		for m in reversed(months):
 			if frappe.db.exists(
-				"Financial Report",
+				"FR Financial Report",
 				{
 					"company": ["in", companies],
 					"report_type": "Monthly",
@@ -1280,6 +1376,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 
 	return {
 		"fiscal_years": years,
+		"strategic_fiscal_years": _report_fiscal_years(),
 		"default_fiscal_year": default_year,
 		"resolved_fiscal_year": resolved_year,
 		"months": months,
@@ -1305,7 +1402,7 @@ def get_consolidated_statement(
 	entirely, so the Consolidate total and the derived Gross Margin rows are
 	recomputed over only the remaining (visible) companies.
 	"""
-	frappe.has_permission("Financial Report", "read", throw=True)
+	frappe.has_permission("FR Financial Report", "read", throw=True)
 	if statement not in STATEMENTS:
 		statement = BALANCE_SHEET
 	# FTM is served from the Monthly reports; only its column set differs.
@@ -1401,9 +1498,7 @@ def get_consolidated_statement(
 
 	company_names = [p["company"] for p in with_data]
 	strategic = (
-		_strategic_company_totals(
-			_strategic_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year)
-		)
+		_strategic_by_primary(company_names, report_type, fiscal_year, month, previous_fiscal_year)
 		if statement == PROFIT_AND_LOSS
 		else None
 	)
@@ -1444,7 +1539,7 @@ def get_revenue_bifurcation(
 	trial balance. Returned in the Particular | Consolidate | <company> shape the
 	P&L face uses, with columns mirroring the face for the same filters.
 	"""
-	frappe.has_permission("Financial Report", "read", throw=True)
+	frappe.has_permission("FR Financial Report", "read", throw=True)
 	storage_type = _storage_report_type(report_type)
 	if not _is_monthly_like(report_type):
 		month = None
@@ -1506,7 +1601,7 @@ def get_other_expenses_bifurcation(
 	Returned in the Particular | Consolidate | <company> shape the P&L face
 	uses, with columns mirroring the face for the same filters.
 	"""
-	frappe.has_permission("Financial Report", "read", throw=True)
+	frappe.has_permission("FR Financial Report", "read", throw=True)
 	storage_type = _storage_report_type(report_type)
 	if not _is_monthly_like(report_type):
 		month = None
@@ -1676,20 +1771,21 @@ def _build_out_rows(
 	# in the statement), then the EBITDA / Litigation block below Total Expenses.
 	if statement == PROFIT_AND_LOSS:
 		_insert_gross_margin(out_rows, measure_keys)
-		# Strategic Expense (user-entered) is reclassified out of Other expenses
-		# *before* EBITDA is struck, so EBITDA reflects the reduced expenses; the
-		# Strategic Expense row below Litigation Exp then adds it back to Total
-		# Expenses, leaving profit unchanged.
-		reclassified = bool(strategic) and _reclassify_from_other_expenses(
-			out_rows, company_names, measure_keys, strategic, sign=-1
+		# Strategic Expense (user-entered) is reclassified out of its primary group's
+		# face row (Other expenses / Employee benefit expenses) *before* EBITDA is
+		# struck, so EBITDA reflects the reduced expenses; the Strategic Expense row
+		# below Litigation Exp then adds it back to Total Expenses, leaving profit
+		# unchanged.
+		applied = (
+			_reclassify_strategic(out_rows, company_names, measure_keys, strategic, sign=-1)
+			if strategic
+			else {}
 		)
 		_insert_ebitda(out_rows, measure_keys)
 		_reorder_pbt_drivers(out_rows)
-		if reclassified and not _insert_strategic_expense(
-			out_rows, company_names, measure_keys, strategic
-		):
+		if applied and not _insert_strategic_expense(out_rows, company_names, measure_keys, applied):
 			# No EBITDA block to host the row — undo so the statement still foots.
-			_reclassify_from_other_expenses(out_rows, company_names, measure_keys, strategic, sign=+1)
+			_reclassify_strategic(out_rows, company_names, measure_keys, applied, sign=+1)
 		# Drop the Earnings-per-share block — not shown on this consolidated face.
 		out_rows[:] = [
 			r for r in out_rows
@@ -1817,7 +1913,7 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 
 	company_names = list(company_month_rows.keys())
 	strategic = (
-		_strategic_company_totals(_strategic_amounts_all_ftm(company_names, month_range, fiscal_year))
+		_strategic_by_primary_all_ftm(company_names, month_range, fiscal_year)
 		if statement == PROFIT_AND_LOSS
 		else None
 	)

@@ -261,7 +261,7 @@ def get_or_create_asset_master(doc):
 @frappe.whitelist()
 def import_from_sync_sap(sync_sap_doc):
     sync_doc = frappe.get_doc(
-        "Sync SAP",
+        "FR Sync SAP",
         sync_sap_doc
     )
 

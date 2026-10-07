@@ -122,14 +122,14 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	def _get_cached_standalone_group(self, name):
 # 		"""Instance-level cached Standalone Group value fetch."""
 # 		if name not in self._standalone_group_cache:
-# 			self._standalone_group_cache[name] = frappe.get_value("Standalone Group", name, ["show_reversed_value", "group_type", "report_type"], as_dict=True)
+# 			self._standalone_group_cache[name] = frappe.get_value("FR Standalone Group", name, ["show_reversed_value", "group_type", "report_type"], as_dict=True)
 # 		return self._standalone_group_cache[name]
 
 # 	def _get_cached_secondary_groups(self, primary_group):
 # 		"""Instance-level cached secondary groups for a primary group."""
 # 		if primary_group not in self._secondary_groups_cache:
 # 			self._secondary_groups_cache[primary_group] = sorted(set(
-# 				g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
+# 				g for g in frappe.get_list("FR GL Group Mapping", {"primary_group": primary_group}, pluck="secondary_group") if g
 # 			))
 # 		return self._secondary_groups_cache[primary_group]
 
@@ -138,7 +138,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		cache_key = (primary_group, secondary_group)
 # 		if cache_key not in self._hg_sec_group_cache:
 # 			self._hg_sec_group_cache[cache_key] = frappe.get_all(
-# 				"GL Group Mapping",
+# 				"FR GL Group Mapping",
 # 				{"company": company, "primary_group": primary_group, "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
 # 				pluck="higher_secondary_group", distinct=True
 # 			)
@@ -154,7 +154,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 			cache_key = (company, rt, g.primary_group, g.secondary_group)
 # 			if cache_key not in self._gl_mapping_cache:
 # 				self._gl_mapping_cache[cache_key] = frappe.get_list(
-# 					"GL Group Mapping",
+# 					"FR GL Group Mapping",
 # 					{"company": company, "report_type": rt, "primary_group": g.primary_group, "secondary_group": g.secondary_group},
 # 					pluck='gl_account'
 # 				)
@@ -457,7 +457,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 				return self._sum_group_amt_cache[cache_key]
 
 # 		filters = {"company": company,"report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
-# 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
+# 		gl_accounts = frappe.get_list("FR GL Group Mapping", filters, pluck="gl_account")
 # 		if not gl_accounts:
 # 			result = 0
 # 		else:
@@ -484,7 +484,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 				return self._sum_grouping_cache[cache_key]
 
 # 		filters = {"company": company, "report_type": self.report_type,"primary_group": primary_group,"secondary_group": group, "higher_secondary_group": hg_sec_group}
-# 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
+# 		gl_accounts = frappe.get_list("FR GL Group Mapping", filters, pluck="gl_account")
 # 		if not gl_accounts:
 # 			result = 0
 # 		else:
@@ -512,7 +512,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 				return self._sum_grouping_cache[cache_key]
 
 # 		filters = {"company": company, "report_type": "Yearly","primary_group": primary_group,"secondary_group": group, "higher_secondary_group": ["in", hg_sec_group]}
-# 		gl_accounts = frappe.get_list("GL Group Mapping", filters, pluck="gl_account")
+# 		gl_accounts = frappe.get_list("FR GL Group Mapping", filters, pluck="gl_account")
 # 		if not gl_accounts:
 # 			result = 0
 # 		else:
@@ -606,7 +606,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 						data = []
 # 						if primary_group:
 # 							data = self.get_monthly_consolidation_note_data(primary_group)
-# 							show_descending_order = frappe.get_value("Standalone Group", primary_group, "show_descending_order")
+# 							show_descending_order = frappe.get_value("FR Standalone Group", primary_group, "show_descending_order")
 # 							if show_descending_order:
 # 								data = sorted(data, key=lambda x: x["current_month_amount"], reverse=bool(show_descending_order))
 # 						i.section_description = self.monthly_table_for_note_template_1(data)
@@ -2612,12 +2612,12 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		# Dynamically fetch DTA rows from GL Group Mapping + FR Trial Balance Entry
 # 		dta_primary_group = "Deferred tax assets (net)"
 # 		dta_secondary_groups = sorted(set(
-# 			g for g in frappe.get_list("GL Group Mapping", {"primary_group": dta_primary_group, "company": self.company}, pluck="secondary_group") if g
+# 			g for g in frappe.get_list("FR GL Group Mapping", {"primary_group": dta_primary_group, "company": self.company}, pluck="secondary_group") if g
 # 		))
 
 # 		dta_rows = []
 # 		for sec_group in dta_secondary_groups:
-# 			gl_accounts = frappe.get_list("GL Group Mapping",
+# 			gl_accounts = frappe.get_list("FR GL Group Mapping",
 # 				{"company": self.company, "primary_group": dta_primary_group, "secondary_group": sec_group}, pluck="gl_account"
 # 			)
 # 			cur_amt = 0
@@ -3055,7 +3055,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 			</tr>
 # 		</table>
 # 		"""
-# 		hg_sec_groups = frappe.get_all("GL Group Mapping", filters={"company": company, "report_type": "Yearly", "primary_group": "Borrowings (Current)", "secondary_group": "Borrowings (Current) - Current Maturities of non-current Borrowings"}, pluck="higher_secondary_group") 
+# 		hg_sec_groups = frappe.get_all("FR GL Group Mapping", filters={"company": company, "report_type": "Yearly", "primary_group": "Borrowings (Current)", "secondary_group": "Borrowings (Current) - Current Maturities of non-current Borrowings"}, pluck="higher_secondary_group") 
 # 		non_current_borrowing = round((self.get_sum_grouping_amount_yearly(company, "Borrowings (Current)", "Borrowings (Current) - Current Maturities of non-current Borrowings", cls_month, self.fiscal_year, hg_sec_group=hg_sec_groups) or 0), self.show_decimal_value)
 # 		curr_borrowing = (self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Current Borrowing"}, 'name'), 'current_month_amount') or 0) - non_current_borrowing
 # 		current_year_end = frappe.utils.getdate(self.current_year_ending_date)
@@ -4544,7 +4544,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		curr_avg_inv = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'current_month_amount') + self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year')) / 2
 # 		curr_inv_ratio = 0 if curr_avg_inv == 0 else curr_cogs/curr_avg_inv
 
-# 		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": "Inventories", "company": self.company}, pluck="secondary_group") if g))
+# 		secondary_groups = sorted(set(g for g in frappe.get_list("FR GL Group Mapping", {"primary_group": "Inventories", "company": self.company}, pluck="secondary_group") if g))
 # 		pre_cogs = self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Cost of Goods Sold"}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'is_purchase_of_stock_in_trade': 1}, 'name'), 'previous_year') + self.get_pl_particular_data(frappe.get_value("FR Particular", {'type': "Change In Inventory"}, 'name'), 'previous_year')
 # 		pre_avg_inv = (self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Inventory"}, 'name'), 'previous_year') + sum(flt(self.get_sum_grouping_amount(company, "Inventories", sec, cls_month, pre_year)) for sec in secondary_groups)) / 2
 # 		pre_inv_ratio = 0 if pre_avg_inv == 0 else pre_cogs/pre_avg_inv
@@ -5139,7 +5139,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 			cur_total += cy; prev_total += py
 
 # 			hgs = frappe.get_all(
-# 				"GL Group Mapping",
+# 				"FR GL Group Mapping",
 # 				{"company": self.company, "primary_group": "Inventories", "secondary_group": sec, "higher_secondary_group": ["!=", None]},
 # 				pluck="higher_secondary_group", distinct=True
 # 			)
@@ -5379,10 +5379,10 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		total_previous_year = 0
 # 		month_end_label, previous_fiscal_year_end_label = self.get_yearly_dates()
 # 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
-# 		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group, "company": self.company}, pluck="secondary_group") if g))
+# 		secondary_groups = sorted(set(g for g in frappe.get_list("FR GL Group Mapping", {"primary_group": primary_group, "company": self.company}, pluck="secondary_group") if g))
 
 # 		for secondary_group in secondary_groups:
-# 			ind_as_description = frappe.get_value("Standalone Group", secondary_group, 'ind_as_description')
+# 			ind_as_description = frappe.get_value("FR Standalone Group", secondary_group, 'ind_as_description')
 # 			html_particulars = f"<b>{secondary_group}</b><br>{ind_as_description or ''}"
 			
 # 			current_month_amt = self.get_sum_grouping_amount(company, primary_group, secondary_group, self.current_month, self.fiscal_year)
@@ -5490,8 +5490,8 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		cur_tot_asset = prev_tot_asset = cur_cur_liab = prev_cur_liab = cur_ncur_liab = prev_ncur_liab = cur_eq_share = prev_eq_share = 0
 
 # 		if default_currency != self.currency:
-# 			sp_prev_year = round(frappe.get_value("Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
-# 			bal_prev_year = round(frappe.get_value("Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "pl_inr") or 0, self.show_decimal_value)
+# 			sp_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
+# 			bal_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "pl_inr") or 0, self.show_decimal_value)
 
 # 			tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Assets"}, "name"))
 # 			tot_cur_liab = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Current Liabilities"}, "name"))
@@ -6186,16 +6186,16 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 			append_data(primary_group, purchases_current, round(prev_year_purchases, self.show_decimal_value))
 # 		else:
 # 			if group_type in ("Other Income", "Other Expense"):
-# 				primary_groups = frappe.get_list("Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
+# 				primary_groups = frappe.get_list("FR Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
 # 			else:
 # 				primary_groups = [primary_group]
 			
 # 			for primary_group in primary_groups:
-# 				secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group], "company": self.company, "report_type": self.report_type}, pluck="secondary_group")
+# 				secondary_groups = frappe.db.get_list("FR GL Group Mapping", {"primary_group": ["in", primary_group], "company": self.company, "report_type": self.report_type}, pluck="secondary_group")
 # 				secondary_groups = sorted(set(filter(None, secondary_groups)))
-# 				custom_order = frappe.db.get_value("Schedule Reorder",{"primary_group": primary_group},"name")
+# 				custom_order = frappe.db.get_value("FR Schedule Reorder",{"primary_group": primary_group},"name")
 # 				if custom_order:
-# 					ordered_rows = frappe.get_all("Schedule Reorder Details",filters={"parent": custom_order},fields=["standalone_group"],order_by="idx asc")
+# 					ordered_rows = frappe.get_all("FR Schedule Reorder Details",filters={"parent": custom_order},fields=["standalone_group"],order_by="idx asc")
 # 					ordered_groups = [r.standalone_group for r in ordered_rows if r.standalone_group]
 # 					secondary_consolidation_groups = [g for g in ordered_groups if g in secondary_groups]
 # 					missing_groups = [g for g in secondary_groups if g not in ordered_groups]
@@ -6382,7 +6382,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	def get_yearly_balance_sheet_data(self, template_name, for_other_equity=False, account=None, field=""):
 # 		"""Get yearly balance sheet data with current year, previous year, and FTY amounts"""
 # 		self._init_report_caches()
-# 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
+# 		balance_sheet_doc = frappe.get_doc("FR Balance Sheet Template", template_name)
 # 		amount_cache = {}
 # 		default_currency = self._default_currency
 
@@ -6462,7 +6462,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 				if fr_section.fetch_data_from_trial_balance:
 # 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 # 					group_type = group_info.group_type
-# 					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name"))if group_type in ("Current Tax Liabilities", "Income Tax Assets") else {fr_section.primary_consolidation_group})
+# 					primary_groups = (set(frappe.get_list("FR Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name"))if group_type in ("Current Tax Liabilities", "Income Tax Assets") else {fr_section.primary_consolidation_group})
 # 					for pg in primary_groups:
 # 						for sec in get_secondary_groups(pg):
 # 							face_amount = self.get_sum_grouping_amount(company, pg, sec, month, year)
@@ -6538,7 +6538,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	def get_yearly_profit_and_loss_data(self, template_name, fetch_for_other_equity=False):
 # 		"""Optimized: Get monthly P&L data with current month, previous month, FTM, and previous year amounts"""
 # 		self._init_report_caches()
-# 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
+# 		profit_and_loss_doc = frappe.get_doc("FR Profit And Loss Template", template_name)
 # 		cls_month = self._closing_month
 
 # 		amount_cache = {}
@@ -6626,7 +6626,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 # 					group_type = group_info.group_type
 # 					primary_groups = (
-# 						set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
+# 						set(frappe.get_list("FR Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
 # 						if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group}
 # 					)
 
@@ -6788,7 +6788,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	def get_yearly_cash_flow_data(self, template_name):
 # 		"""Get monthly cash flow data with current month, previous month, and FTM amounts"""
 # 		self._init_report_caches()
-# 		cash_flow_doc = frappe.get_doc("Cash Flow Template", template_name)
+# 		cash_flow_doc = frappe.get_doc("FR Cash Flow Template", template_name)
 # 		amount_cache = {}
 
 # 		def calc_amount_for_particular_monthly(particular_name, month, year):
@@ -7189,7 +7189,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		if not self.financial_report_template:
 # 			frappe.throw("Please select a Financial Report Template before fetching.")
 
-# 		template = frappe.get_doc("Financial Report Template", self.financial_report_template)
+# 		template = frappe.get_doc("FR Financial Report Template", self.financial_report_template)
 
 # 		for d in template.financial_report_template_details:
 # 			context = {
@@ -7316,7 +7316,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 
 # 			# higher secondary group breakdown
 # 			hg_list = frappe.get_all(
-# 				"GL Group Mapping",
+# 				"FR GL Group Mapping",
 # 				{"company": company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
 # 				pluck="higher_secondary_group", distinct=True
 # 			)
@@ -7353,7 +7353,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 			add_row(label, prev_month_val, prev_month_val, 0, pre_prev_closing)
 
 # 			hg_list = frappe.get_all(
-# 				"GL Group Mapping",
+# 				"FR GL Group Mapping",
 # 				{"company": company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
 # 				pluck="higher_secondary_group", distinct=True
 # 			)
@@ -7646,16 +7646,16 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 			})
 
 # 		if group_type in ("Other Income", "Other Expense"):
-# 			primary_groups = frappe.get_list("Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
+# 			primary_groups = frappe.get_list("FR Standalone Group",filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]},pluck="name")
 # 		else:
 # 			primary_groups = [primary_group]
 # 		cls_month = self._closing_month
 # 		for primary_group in primary_groups:
-# 			secondary_groups = frappe.db.get_list("GL Group Mapping", {"primary_group": ["in", primary_group], "report_type": self.report_type}, pluck="secondary_group")
+# 			secondary_groups = frappe.db.get_list("FR GL Group Mapping", {"primary_group": ["in", primary_group], "report_type": self.report_type}, pluck="secondary_group")
 # 			secondary_groups = sorted(set(filter(None, secondary_groups)))
-# 			custom_order = frappe.db.get_value("Schedule Reorder",{"primary_group": primary_group},"name")
+# 			custom_order = frappe.db.get_value("FR Schedule Reorder",{"primary_group": primary_group},"name")
 # 			if custom_order:
-# 				ordered_rows = frappe.get_all("Schedule Reorder Details",filters={"parent": custom_order},fields=["standalone_group"],order_by="idx asc")
+# 				ordered_rows = frappe.get_all("FR Schedule Reorder Details",filters={"parent": custom_order},fields=["standalone_group"],order_by="idx asc")
 # 				ordered_groups = [r.standalone_group for r in ordered_rows if r.standalone_group]
 # 				secondary_consolidation_groups = [g for g in ordered_groups if g in secondary_groups]
 # 				missing_groups = [g for g in secondary_groups if g not in ordered_groups]
@@ -8028,7 +8028,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	def get_monthly_profit_and_loss_data(self, template_name, fetch_for_other_equity=False):
 # 		"""Optimized: Get monthly P&L data with current month, previous month, FTM, and previous year amounts"""
 # 		self._init_report_caches()
-# 		profit_and_loss_doc = frappe.get_doc("Profit And Loss Template", template_name)
+# 		profit_and_loss_doc = frappe.get_doc("FR Profit And Loss Template", template_name)
 # 		cls_month = self._closing_month
 # 		amount_cache = {}
 # 		companies = frappe.get_all("Company", pluck="name")
@@ -8071,7 +8071,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 # 					group_type = group_info.group_type
 # 					primary_groups = (
-# 						set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
+# 						set(frappe.get_list("FR Standalone Group", filters={"is_primary_group": 1, "group_type": ["in", ["Other Income", "Other Expense"]]}, pluck="name"))
 # 						if group_type in ("Other Income", "Other Expense") else {fr_section.primary_consolidation_group}
 # 					)
 
@@ -8204,7 +8204,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	def get_monthly_balance_sheet_data(self, template_name, for_other_equity=False, account=None):
 # 		"""Get monthly balance sheet data with current month, previous month, and FTM amounts"""
 # 		self._init_report_caches()
-# 		balance_sheet_doc = frappe.get_doc("Balance Sheet Template", template_name)
+# 		balance_sheet_doc = frappe.get_doc("FR Balance Sheet Template", template_name)
 # 		amount_cache = {}
 # 		companies = frappe.get_all("Company", pluck="name")
 
@@ -8285,7 +8285,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 				if fr_section.fetch_data_from_trial_balance:
 # 					group_info = get_standalone_group(fr_section.primary_consolidation_group)
 # 					group_type = group_info.group_type
-# 					primary_groups = (set(frappe.get_list("Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name"))if group_type in ("Current Tax Liabilities", "Income Tax Assets") else {fr_section.primary_consolidation_group})
+# 					primary_groups = (set(frappe.get_list("FR Standalone Group", filters={"is_primary_group": 1,"group_type": ["in", ["Current Tax Liabilities", "Income Tax Assets"]]}, pluck="name"))if group_type in ("Current Tax Liabilities", "Income Tax Assets") else {fr_section.primary_consolidation_group})
 # 					for pg in primary_groups:
 # 						for sec in get_secondary_groups(pg):
 # 							face_amount = self.get_sum_grouping_amount(company, pg, sec, month, year)
@@ -8393,7 +8393,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	def get_monthly_cash_flow_data(self, template_name):
 # 		"""Get monthly cash flow data with current month, previous month, and FTM amounts"""
 # 		self._init_report_caches()
-# 		cash_flow_doc = frappe.get_doc("Cash Flow Template", template_name)
+# 		cash_flow_doc = frappe.get_doc("FR Cash Flow Template", template_name)
 # 		amount_cache = {}
 # 		companies = frappe.get_all("Company", pluck="name")
 # 		get_fr_particular = self._get_cached_fr_particular
@@ -8497,10 +8497,10 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		total_previous_year = 0
 # 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 # 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
-# 		secondary_groups = sorted(set(g for g in frappe.get_list("GL Group Mapping", {"primary_group": primary_group, "company": company}, pluck="secondary_group") if g))
+# 		secondary_groups = sorted(set(g for g in frappe.get_list("FR GL Group Mapping", {"primary_group": primary_group, "company": company}, pluck="secondary_group") if g))
 
 # 		for secondary_group in secondary_groups:
-# 			ind_as_description = frappe.get_value("Standalone Group", secondary_group, 'ind_as_description')
+# 			ind_as_description = frappe.get_value("FR Standalone Group", secondary_group, 'ind_as_description')
 # 			html_particulars = f"<b>{secondary_group}</b><br>{ind_as_description or ''}"
 			
 # 			current_month_amt = self.get_sum_grouping_amount(company, primary_group, secondary_group, self.current_month, self.fiscal_year)
@@ -8747,8 +8747,8 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 
 # 	# 	default_currency = frappe.get_value("Company", company, 'default_currency')
 # 	# 	if default_currency != self.currency:
-# 	# 		sp_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
-# 	# 		bal_previous_year = round(frappe.get_value("Other Equity Opening Entry", {'company': company, 'fiscal_year': pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
+# 	# 		sp_previous_year = round(frappe.get_value("FR Other Equity Opening Entry", {'company': company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
+# 	# 		bal_previous_year = round(frappe.get_value("FR Other Equity Opening Entry", {'company': company, 'fiscal_year': pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
 
 # 	# 		tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {'particular_type': 'Total Assets'}, 'name'))
 # 	# 		curr_mnt_tot_asset = tot_asset['current_month_amount']
@@ -9160,7 +9160,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 	@frappe.whitelist()
 # 	def export_to_excel(self):
 # 		"""Export financial report to Excel with multiple tabs"""
-# 		doc = frappe.get_doc("Financial Report", self.name)
+# 		doc = frappe.get_doc("FR Financial Report", self.name)
 # 		wb = openpyxl.Workbook()
 # 		wb.remove(wb.active)
 # 		sch_counter = 4
@@ -9261,7 +9261,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 			"file_name": file_name,
 # 			"file_url": f"/private/files/{file_name}",
 # 			"is_private": 1,
-# 			"attached_to_doctype": "Financial Report",
+# 			"attached_to_doctype": "FR Financial Report",
 # 			"attached_to_name": self.name
 # 		})
 # 		file_doc.insert(ignore_permissions=True)
@@ -9278,11 +9278,11 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		from frappe.utils.jinja import render_template
 # 		from frappe.utils.file_manager import save_file
 
-# 		doc = frappe.get_doc("Financial Report", self.name)
+# 		doc = frappe.get_doc("FR Financial Report", self.name)
 
 # 		# Render the print format (replace 'Financial Report' with your Print Format name if different)
 # 		html = frappe.get_print(
-# 			doctype="Financial Report",
+# 			doctype="FR Financial Report",
 # 			name=self.name,
 # 			print_format="Financial Report",
 # 			style="Standard"
@@ -9295,7 +9295,7 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		file_doc = save_file(
 # 			f"Financial_Report_{self.name}.pdf",
 # 			pdf_content,
-# 			"Financial Report",
+# 			"FR Financial Report",
 # 			self.name,
 # 			is_private=True
 # 		)
@@ -9305,12 +9305,12 @@ class TestFRConsoleFinancialReport(FrappeTestCase):
 # 		"""Test method to verify clickable functionality is working"""
 # 		try:
 # 			# Get a sample financial report
-# 			reports = frappe.get_all("Financial Report", limit=1)
+# 			reports = frappe.get_all("FR Financial Report", limit=1)
 # 			if not reports:
 # 				return {"status": "error", "message": "No financial reports found"}
 			
 # 			report_name = reports[0].name
-# 			doc = frappe.get_doc("Financial Report", report_name)
+# 			doc = frappe.get_doc("FR Financial Report", report_name)
 			
 # 			# Check if the report has data
 # 			if not doc.financial_report_details:

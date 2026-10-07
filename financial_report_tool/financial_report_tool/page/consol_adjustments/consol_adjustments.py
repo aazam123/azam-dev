@@ -19,7 +19,7 @@ from frappe import _
 from frappe.utils import flt
 from frappe.utils.xlsxutils import make_xlsx, read_xlsx_file_from_attached_file
 
-DOCTYPE = "Consol Adjustment Entry"
+DOCTYPE = "FR Console Adjustment Entry"
 TYPES = ("Elimination", "Regrouping")
 # Indian fiscal year runs April -> March; present months in that order.
 MONTHS = (
@@ -127,13 +127,13 @@ def get_masters():
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	companies = frappe.get_all("Company", fields=["name"], order_by="name asc", pluck="name")
 	primaries = frappe.get_all(
-		"Standalone Group",
+		"FR Standalone Group",
 		filters={"is_primary_group": 1},
 		fields=["name", "report_type"],
 		order_by="name asc",
 	)
 	subs = frappe.get_all(
-		"Standalone Group",
+		"FR Standalone Group",
 		filters={"parent_standalone_group": ["in", [p.name for p in primaries]]} if primaries else {"name": ("=", "")},
 		fields=["name", "parent_standalone_group"],
 		order_by="name asc",
