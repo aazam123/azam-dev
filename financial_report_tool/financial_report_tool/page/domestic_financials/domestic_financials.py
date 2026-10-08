@@ -685,12 +685,14 @@ def _bif_measures(report_type, fiscal_year, month, previous_fiscal_year):
 
 # --- Consolidation adjustments (Elimination / Regrouping) ------------------
 # FR Console Adjustment Entry rows are shown as two extra columns after Consolidate.
-# They are NOT netted into Consolidate. Entries are monthly amounts (like the
-# trial balance and Strategic Expense): Yearly sums the fiscal year, Monthly
-# gives cumulative-to-month / the month / cumulative-to-prev, FTM the month.
-# net = debit - credit carries the trial-balance sign (income credit-negative,
-# expense debit-positive), so a line's value is net/LACS, flipped when its FR
-# Particular has "Show Reversed Value" -- the same rule the face applies.
+# They are NOT netted into Consolidate. Entries are fetched by fiscal year and month
+# only (plus the primary / secondary group where a line needs them) -- never by
+# company -- and are monthly amounts: Yearly sums the fiscal year, Monthly gives
+# cumulative-to-month / the month / cumulative-to-prev, FTM the month.
+#   net = Debit - Credit
+#   Income line   = Debit - Credit
+#   Expense line  = Credit - Debit
+# The line type is the FR Particular's "particular_type" (Income / Expenses).
 ADJUSTMENT_DOCTYPE = "FR Console Adjustment Entry"
 ADJUSTMENT_TYPES = {"Elimination": "elimination", "Regrouping": "regrouping"}
 ADJUSTMENT_FIELDS = tuple(ADJUSTMENT_TYPES.values())
@@ -717,33 +719,31 @@ def _adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year, m
 	}
 
 
-def _load_adjustments(company_names, fiscal_years):
-	"""{"elimination"|"regrouping": {(primary, secondary, fiscal_year, month): net}}.
+def _load_adjustments(periods, primary_group=None):
+	"""{"elimination"|"regrouping": {(primary, secondary, fiscal_year, month): Debit - Credit}}.
 
-	Only entries between companies shown on the page count: From Company must be
-	shown, and To Company (when set) too, so hiding a company drops its entries.
+	Filters: fiscal_year and month (from the column `periods`), and `primary_group`
+	when the caller needs a single group. Company is deliberately not a filter.
 	"""
 	book = {f: {} for f in ADJUSTMENT_FIELDS}
-	fiscal_years = [y for y in fiscal_years if y]
-	if not fiscal_years or not frappe.db.exists("DocType", ADJUSTMENT_DOCTYPE):
+	fiscal_years = sorted({fy for fy, _months in periods.values() if fy})
+	months = sorted({m for fy, ms in periods.values() if fy for m in ms})
+	if not fiscal_years or not months or not frappe.db.exists("DocType", ADJUSTMENT_DOCTYPE):
 		return book
 	if not frappe.has_permission(ADJUSTMENT_DOCTYPE, "read"):
 		return book
-	shown = set(company_names)
+	filters = {"fiscal_year": ["in", fiscal_years], "month": ["in", months]}
+	if primary_group:
+		filters["primary_group"] = primary_group
 	rows = frappe.get_all(
 		ADJUSTMENT_DOCTYPE,
-		filters={"fiscal_year": ["in", fiscal_years]},
-		fields=[
-			"adj_type", "from_company", "to_company", "primary_group", "secondary_group",
-			"fiscal_year", "month", "debit", "credit",
-		],
+		filters=filters,
+		fields=["adj_type", "primary_group", "secondary_group", "fiscal_year", "month", "debit", "credit"],
 		limit_page_length=0,
 	)
 	for r in rows:
 		field = ADJUSTMENT_TYPES.get(r.adj_type)
-		if not field or r.from_company not in shown:
-			continue
-		if r.to_company and r.to_company not in shown:
+		if not field:
 			continue
 		key = (r.primary_group, r.secondary_group, r.fiscal_year, r.month)
 		book[field][key] = book[field].get(key, 0.0) + flt(r.debit) - flt(r.credit)
@@ -797,7 +797,18 @@ class _AdjustmentResolver:
 					for m in (p.get("primary_and_secondary_group_mapping") or [])
 					if m.primary_group
 				}
-		out = (frozenset(sels), -1.0 if p.show_reversed_value else 1.0)
+		# Sign of the line's value against net = Debit - Credit:
+		#   Income line   -> Debit - Credit   (+1)
+		#   Expense line  -> Credit - Debit   (-1)
+		# Other lines (balance sheet etc.) keep the face rule: flipped by "Show Reversed Value".
+		ptype = p.get("particular_type")
+		if ptype == "Income":
+			sign = 1.0
+		elif ptype == "Expenses":
+			sign = -1.0
+		else:
+			sign = -1.0 if p.show_reversed_value else 1.0
+		out = (frozenset(sels), sign)
 		self.selectors_seen |= sels
 		self._leaf_cache[p.name] = out
 		return out
@@ -858,14 +869,14 @@ class _AdjustmentResolver:
 		return sorted(out)
 
 
-def _statement_adjustments(statement, canonical, company_names, periods, fiscal_years):
+def _statement_adjustments(statement, canonical, periods):
 	"""({pseudo_company: per-canonical-row cells}, unmapped_labels) for a statement.
 
 	The pseudo columns are fed through `_build_out_rows` alongside the companies
 	so totals and derived KPI rows (Gross Margin, EBITDA ...) follow the same
 	arithmetic for Elimination / Regrouping as for every other column.
 	"""
-	resolver = _AdjustmentResolver(statement, _load_adjustments(company_names, fiscal_years), periods)
+	resolver = _AdjustmentResolver(statement, _load_adjustments(periods), periods)
 	aligned = {
 		ADJUSTMENT_PREFIX + f: [
 			{k: resolver.amount(r.get("id"), f, k) for k in periods} for r in canonical
@@ -875,14 +886,15 @@ def _statement_adjustments(statement, canonical, company_names, periods, fiscal_
 	return aligned, resolver.unmapped()
 
 
-def _adjustment_split(company_names, periods, fiscal_years, primary_group, sign):
-	"""{field: {secondary_group: {measure_key: value}}} for one primary group (Rs Lacs)."""
+def _adjustment_split(periods, primary_group, sign):
+	"""{field: {secondary_group: {measure_key: value}}} for one primary group (Rs Lacs).
+
+	`sign` multiplies Debit - Credit: +1 for an income group, -1 for an expense group.
+	"""
 	out = {}
-	for field, entries in _load_adjustments(company_names, fiscal_years).items():
+	for field, entries in _load_adjustments(periods, primary_group).items():
 		per = {}
 		for (pg, sg, efy, em), net in entries.items():
-			if pg != primary_group:
-				continue
 			for key, (fy, months) in periods.items():
 				if efy == fy and em in months:
 					cell = per.setdefault(sg, {k: 0.0 for k in periods})
@@ -1503,9 +1515,8 @@ def get_consolidated_statement(
 		else None
 	)
 	adj_aligned, adj_unmapped = _statement_adjustments(
-		statement, canonical, company_names,
+		statement, canonical,
 		_adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year),
-		[fiscal_year, previous_fiscal_year],
 	)
 	aligned.update(adj_aligned)
 	out_rows = _build_out_rows(
@@ -1571,11 +1582,9 @@ def get_revenue_bifurcation(
 		REVENUE_PRIMARY_GROUP, REVENUE_SECONDARY_GROUPS, sign=-1,
 	)
 	adj_split = _adjustment_split(
-		company_names,
 		_adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year),
-		[fiscal_year, previous_fiscal_year],
 		REVENUE_PRIMARY_GROUP,
-		sign=-1,
+		sign=1,  # income: Debit - Credit
 	)
 	groups = _with_adjustment_groups(groups, adj_split)
 	rows = _build_split_rows(company_names, measures, split, groups, adj_split=adj_split)
@@ -1638,11 +1647,9 @@ def get_other_expenses_bifurcation(
 		_strategic_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year),
 	)
 	adj_split = _adjustment_split(
-		company_names,
 		_adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year),
-		[fiscal_year, previous_fiscal_year],
 		OTHER_EXPENSES_PRIMARY_GROUP,
-		sign=1,
+		sign=-1,  # expense: Credit - Debit
 	)
 	groups = _with_adjustment_groups(groups, adj_split)
 	rows = _build_split_rows(company_names, measures, split, groups, drop_zero_groups=True, adj_split=adj_split)
@@ -1694,11 +1701,9 @@ def _gl_bifurcation_all_ftm(
 			split, groups, _strategic_amounts_all_ftm(company_names, month_range, fiscal_year)
 		)
 	adj_split = _adjustment_split(
-		company_names,
 		_adjustment_periods("FTM", fiscal_year, month, None, month_range),
-		[fiscal_year],
 		primary_group,
-		sign,
+		-sign,  # GL sign is -1 for income / +1 for expense; adjustments are the opposite
 	)
 	groups = _with_adjustment_groups(groups, adj_split)
 	rows = _build_split_rows(
@@ -1918,9 +1923,8 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 		else None
 	)
 	adj_aligned, adj_unmapped = _statement_adjustments(
-		statement, canonical, company_names,
+		statement, canonical,
 		_adjustment_periods("FTM", fiscal_year, month, None, month_range),
-		[fiscal_year],
 	)
 	aligned.update(adj_aligned)
 	out_rows = _build_out_rows(
