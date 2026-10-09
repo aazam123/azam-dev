@@ -2,130 +2,64 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "GLACR-.#####",
- "creation": "2025-01-01 00:00:00.000000",
+ "creation": "2026-10-09 11:14:01.281571",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "request_section",
-  "company",
-  "requested_by",
-  "column_break_req",
-  "status",
-  "assigned_to",
-  "reference_section",
-  "reference_gl",
-  "reference_gl_description",
-  "column_break_ref",
-  "reference_gl_company",
-  "account_section",
+  "new_gl",
   "account_name",
-  "column_break_acc",
-  "report_type",
-  "parent_account",
-  "notify_section",
-  "receiver_email",
-  "grouping_section",
-  "grouping_help",
+  "company",
+  "status",
+  "column_break_maker",
   "primary_group",
   "secondary_group",
+  "pattern_account",
+  "workflow_state",
+  "maker_section",
+  "column_break_acc",
+  "reference_gl",
+  "reference_gl_description",
+  "parent_account",
+  "column_break_ebtl",
+  "reference_gl_company",
+  "report_type",
   "result_section",
   "created_account",
   "gl_group_mapping",
-  "rejection_reason"
+  "rejection_reason",
+  "column_break_fasw",
+  "requested_by",
+  "assigned_to",
+  "column_break_astd",
+  "receiver_email"
  ],
  "fields": [
   {
    "fieldname": "request_section",
    "fieldtype": "Section Break",
-   "label": "Request"
+   "label": "New GL Request"
+  },
+  {
+   "fieldname": "account_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "New GL Description",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_acc",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "company",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Company",
+   "label": "Company Name",
    "options": "Company",
    "reqd": 1
-  },
-  {
-   "default": "__user",
-   "fieldname": "requested_by",
-   "fieldtype": "Link",
-   "label": "Requested By",
-   "options": "User",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_req",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "Requested",
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Status",
-   "options": "Requested\nAccount Created\nRejected",
-   "read_only": 1
-  },
-  {
-   "description": "Set automatically from GL Account Request Settings based on the Company (Receiver's Mail ID).",
-   "fieldname": "assigned_to",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Assigned To",
-   "options": "User",
-   "read_only": 1
-  },
-  {
-   "fieldname": "reference_section",
-   "fieldtype": "Section Break",
-   "label": "Reference GL"
-  },
-  {
-   "description": "Existing GL Account this request is modelled on.",
-   "fieldname": "reference_gl",
-   "fieldtype": "Link",
-   "label": "Reference GL",
-   "options": "Account"
-  },
-  {
-   "fetch_from": "reference_gl.account_name",
-   "fieldname": "reference_gl_description",
-   "fieldtype": "Data",
-   "label": "Reference GL Description",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_ref",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fetch_from": "reference_gl.company",
-   "fieldname": "reference_gl_company",
-   "fieldtype": "Link",
-   "label": "Reference GL Company",
-   "options": "Company",
-   "read_only": 1
-  },
-  {
-   "fieldname": "account_section",
-   "fieldtype": "Section Break",
-   "label": "Requested Account"
-  },
-  {
-   "fieldname": "account_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Proposed Account Name",
-   "reqd": 1
-  },
-  {
-   "fieldname": "column_break_acc",
-   "fieldtype": "Column Break"
   },
   {
    "default": "Monthly",
@@ -144,9 +78,63 @@
    "options": "Account"
   },
   {
-   "fieldname": "notify_section",
-   "fieldtype": "Section Break",
-   "label": "Notify"
+   "default": "__user",
+   "fieldname": "requested_by",
+   "fieldtype": "Link",
+   "label": "Requested By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "default": "Requested",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Requested\nAccount Created\nRejected",
+   "read_only": 1
+  },
+  {
+   "fieldname": "workflow_state",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "in_standard_filter": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Workflow State",
+   "read_only": 1
+  },
+  {
+   "description": "Set automatically from GL Account Request Settings based on the Company (Receiver's Mail ID).",
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Assigned To (Maker)",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "description": "Existing GL Account this request is modelled on.",
+   "fieldname": "reference_gl",
+   "fieldtype": "Link",
+   "label": "Reference GL",
+   "options": "Account"
+  },
+  {
+   "fetch_from": "reference_gl.account_name",
+   "fieldname": "reference_gl_description",
+   "fieldtype": "Data",
+   "label": "Reference GL Description",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "reference_gl.company",
+   "fieldname": "reference_gl_company",
+   "fieldtype": "Link",
+   "label": "Reference GL Company Name",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "description": "Fetched automatically from GL Account Request Settings based on the Company; the request is assigned and notified to this address.",
@@ -157,29 +145,46 @@
    "read_only": 1
   },
   {
-   "fieldname": "grouping_section",
+   "fieldname": "maker_section",
    "fieldtype": "Section Break",
-   "label": "Grouping"
+   "label": "Reference  GL",
+   "permlevel": 1
   },
   {
-   "fieldname": "grouping_help",
-   "fieldtype": "HTML",
-   "options": "<p class='text-muted'>To be filled by the assigned user before creating the account.</p>"
+   "description": "The GL account number / code the new account is created with.",
+   "fieldname": "new_gl",
+   "fieldtype": "Data",
+   "label": "New GL",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "column_break_maker",
+   "fieldtype": "Column Break",
+   "permlevel": 1
   },
   {
    "fieldname": "primary_group",
    "fieldtype": "Link",
-   "label": "Primary Group",
-   "options": "FR Standalone Group"
+   "label": "Primary Grouping",
+   "options": "FR Standalone Group",
+   "permlevel": 1
   },
   {
    "fieldname": "secondary_group",
    "fieldtype": "Link",
-   "label": "Secondary Group",
-   "options": "FR Standalone Group"
+   "label": "Secondary Grouping",
+   "options": "FR Standalone Group",
+   "permlevel": 1
   },
   {
-   "collapsible": 1,
+   "description": "Group account of the Company under which the new GL Account is created.",
+   "fieldname": "pattern_account",
+   "fieldtype": "Link",
+   "label": "Pattern Account",
+   "options": "Account",
+   "permlevel": 1
+  },
+  {
    "fieldname": "result_section",
    "fieldtype": "Section Break",
    "label": "Result"
@@ -203,11 +208,23 @@
    "fieldtype": "Small Text",
    "label": "Rejection Reason",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_fasw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_astd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ebtl",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-01 00:00:00.000000",
+ "modified": "2026-10-09 11:19:52.002734",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR GL Account Creation Request",
@@ -226,13 +243,19 @@
    "write": 1
   },
   {
+   "permlevel": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
    "create": 1,
    "email": 1,
+   "if_owner": 1,
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "Accounts Manager",
-   "share": 1,
+   "role": "FR GL Requestor",
    "write": 1
   },
   {
@@ -241,11 +264,18 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "Accounts User",
+   "role": "FR GL Maker",
    "share": 1,
+   "write": 1
+  },
+  {
+   "permlevel": 1,
+   "read": 1,
+   "role": "FR GL Maker",
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

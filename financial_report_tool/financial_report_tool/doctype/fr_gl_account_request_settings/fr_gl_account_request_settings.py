@@ -15,6 +15,19 @@ class FRGLAccountRequestSettings(Document):
 				)
 			seen.add(row.company)
 
+	def on_update(self):
+		"""Whoever is assigned to a company is the Maker for its GL requests, so give
+		them the FR GL Maker role (the Maker section is permission-gated by that role)."""
+		for assignee in {row.assignee for row in self.company_assignments if row.assignee}:
+			if assignee in ("Administrator", "Guest") or not frappe.db.exists("User", assignee):
+				continue
+			if frappe.db.exists("Has Role", {"parent": assignee, "parenttype": "User", "role": "FR GL Maker"}):
+				continue
+			user = frappe.get_doc("User", assignee)
+			user.append("roles", {"role": "FR GL Maker"})
+			user.flags.ignore_permissions = True
+			user.save()
+
 
 def get_company_assignee(company):
 	"""Return (assignee, default_report_type, default_parent_account) for a company."""

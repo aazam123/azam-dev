@@ -5,3 +5,6 @@ financial_report_tool.patches.v1_2.rename_doctypes_with_fr_prefix
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+financial_report_tool.patches.v1_2.fix_single_doctype_child_parents
+financial_report_tool.patches.v1_2.split_gl_request_roles
+financial_report_tool.patches.v1_2.set_gl_request_workflow_state

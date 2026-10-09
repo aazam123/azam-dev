@@ -1,0 +1,16 @@
+[
+ {
+  "doctype": "Workflow State",
+  "icon": null,
+  "name": "Account Created",
+  "style": "Success",
+  "workflow_state_name": "Account Created"
+ },
+ {
+  "doctype": "Workflow State",
+  "icon": null,
+  "name": "Request For Creation",
+  "style": "Warning",
+  "workflow_state_name": "Request For Creation"
+ }
+]

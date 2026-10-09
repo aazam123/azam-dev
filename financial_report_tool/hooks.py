@@ -277,7 +277,11 @@ fixtures = [
     },
     {
         "dt": "Workflow",
-        "filters": [["name", "in", ["Financial Report Workflow", "Console Financial Report Workflow"]]]
+        "filters": [["name", "in", ["Financial Report Workflow", "Console Financial Report Workflow", "GL Account Creation Request Workflow"]]]
+    },
+    {
+        "dt": "Workflow State",
+        "filters": [["name", "in", ["Request For Creation", "Account Created"]]]
     },
     {
         "dt": "Custom DocPerm",
