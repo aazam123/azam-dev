@@ -703,6 +703,22 @@ ADJUSTMENT_PREFIX = "__adj__"  # pseudo-company names used while building rows
 # entry is never counted on both the Other Income and Other Expense rows.
 POOLED_GROUP_TYPES = ("Other Income", "Other Expense", "Current Tax Liabilities", "Income Tax Assets")
 
+# Lines the face derives by formula from several groups (or whose own group map points
+# at a group with no GL mappings). For adjustments they are fetched purely by grouping:
+# an entry whose (primary, secondary) group is listed here lands on that schedule's P&L
+# line. Keyed by the line's schedule (FR Section) note type -> [(primary, secondary|None)];
+# None means any secondary group. "Inventories" is also a Balance Sheet group, so only the
+# secondary groups the Changes-in-inventories note itself sums are taken.
+ADJUSTMENT_NOTE_GROUPS = {
+	"Cost of Materials Consumed": [("Material consumed", None)],
+	"Purchases of Stock in Trade": [("Purchases of Stock in Trade", None)],
+	"Changes in inventories of Finished Goods and Work-In-Progress": [
+		("Inventories", "Finished Goods"),
+		("Inventories", "Work in Progress"),
+		("Inventories", "Stock In Trade"),
+	],
+}
+
 
 def _adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year, month_range=None):
 	"""{measure_key: (fiscal_year, [months])} -- which entry months feed each column."""
@@ -773,7 +789,11 @@ class _AdjustmentResolver:
 		if p.name in self._leaf_cache:
 			return self._leaf_cache[p.name]
 		sels = set()
-		if p.fetch_from_schedule and not p.is_purchase_of_stock_in_trade:
+		note_type = frappe.db.get_value("FR Section", p.schedule, "note_type") if p.schedule else None
+		note_group = ADJUSTMENT_NOTE_GROUPS.get(note_type)
+		if note_group:
+			sels = set(note_group)  # fetched by grouping alone
+		elif p.fetch_from_schedule and not p.is_purchase_of_stock_in_trade:
 			pass  # sourced from FAR / other schedules, not from GL groups
 		else:
 			section = frappe.get_cached_doc("FR Section", p.schedule) if p.schedule else None

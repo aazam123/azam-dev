@@ -146,6 +146,7 @@ frappe.pages['consol-adjustments'].on_page_load = function (wrapper) {
 		set_ca_view(page, $(this).data('view'));
 	});
 	$body.find('#ca-f-pg').on('change', () => fill_ca_subs(page, ''));
+	CA_SS_IDS.forEach((id) => ca_ss_init($body, id, id === 'ca-f-to'));
 	['ca-f-dr', 'ca-f-cr'].forEach((id) => {
 		$body.find('#' + id).on('input', () => sync_ca_amounts(page));
 		$body.find('#' + id).on('blur', function () {
@@ -357,6 +358,124 @@ function ca_ms_init($body, id, onchange, options) {
 	else ca_ms_render($el);
 }
 
+// --- Searchable single-select for the entry form -------------------------
+// Wraps a native <select> (hidden, still the source of truth) with a button and a
+// search menu in the same look as the filter dropdowns above. Everything that reads
+// or refills the <select> keeps working; ca_ss_sync() repaints the button afterwards.
+const CA_SS_IDS = ['ca-f-from', 'ca-f-to', 'ca-f-pg', 'ca-f-sg'];
+function ca_ss_opts($sel) {
+	// The blank option is a placeholder, except where "no value" is a real choice.
+	return $sel
+		.find('option')
+		.map(function () {
+			return { v: this.value, t: $(this).text() };
+		})
+		.get()
+		.filter((o) => o.v !== '' || $sel.data('clearable'));
+}
+function ca_ss_sync($sel) {
+	const $w = $sel.next('.ca-ss');
+	if (!$w.length) return;
+	const $o = $sel.find('option:selected');
+	$w.find('.ca-ms-txt').text($o.text()).toggleClass('ca-ss-val', ($sel.val() || '') !== '');
+	$w.find('.ca-ms-btn').prop('disabled', $sel.prop('disabled')).attr('title', $o.text());
+}
+function ca_ss_mark_active($w, i) {
+	const $opts = $w.find('.ca-ss-opt');
+	if (!$opts.length) return;
+	i = Math.max(0, Math.min(i, $opts.length - 1));
+	$w.data('act', i);
+	$opts.removeClass('act').eq(i).addClass('act')[0].scrollIntoView({ block: 'nearest' });
+}
+function ca_ss_render($sel) {
+	const $w = $sel.next('.ca-ss');
+	const esc = frappe.utils.escape_html;
+	const q = $w.find('.ca-ss-search').val().trim().toLowerCase();
+	const cur = $sel.val() || '';
+	const shown = ca_ss_opts($sel).filter((o) => !q || o.t.toLowerCase().includes(q));
+	$w.find('.ca-ms-list').html(
+		shown.length
+			? shown
+					.map(
+						(o) =>
+							`<div class="ca-ms-opt ca-ss-opt${o.v === cur ? ' on' : ''}" role="option" aria-selected="${o.v === cur}" data-v="${esc(o.v)}">${ca_ms_mark(o.t, q)}</div>`
+					)
+					.join('')
+			: `<div class="ca-ms-none">${esc(__('No match'))}</div>`
+	);
+	// Start on the current pick, or on the first match while searching.
+	const at = q ? 0 : Math.max(0, shown.findIndex((o) => o.v === cur));
+	ca_ss_mark_active($w, at);
+}
+function ca_ss_init($body, id, clearable) {
+	const $sel = $body.find('#' + id);
+	$sel.data('clearable', !!clearable).addClass('ca-ss-native').attr('tabindex', '-1');
+	const $w = $(`<div class="ca-ms ca-ss">
+		<button type="button" class="ca-ms-btn" aria-haspopup="listbox" aria-expanded="false"><span class="ca-ms-txt"></span><span class="ca-ms-car">${CA_CARET}</span></button>
+		<div class="ca-ms-menu" hidden>
+			<div class="ca-ms-sw">${CA_SEARCH_ICO}<input type="search" class="ca-ss-search" placeholder="${frappe.utils.escape_html(__('Search…'))}" autocomplete="off"></div>
+			<div class="ca-ms-list" role="listbox"></div>
+		</div>
+	</div>`);
+	$sel.after($w);
+	const $btn = $w.find('.ca-ms-btn');
+	const $menu = $w.find('.ca-ms-menu');
+	const $search = $w.find('.ca-ss-search');
+
+	const open = () => {
+		ca_ms_close_all();
+		$menu.prop('hidden', false).removeClass('right');
+		if ($menu[0].getBoundingClientRect().right > window.innerWidth - 8) $menu.addClass('right');
+		$btn.attr('aria-expanded', 'true');
+		$search.val('');
+		ca_ss_render($sel);
+		$search.trigger('focus');
+	};
+	const pick = (v) => {
+		ca_ms_close_all();
+		if (($sel.val() || '') !== v) $sel.val(v).trigger('change');
+		ca_ss_sync($sel);
+		$btn.trigger('focus');
+	};
+
+	$btn.on('click', (ev) => {
+		ev.stopPropagation();
+		if ($menu.prop('hidden')) open();
+		else ca_ms_close_all();
+	});
+	$btn.on('keydown', (ev) => {
+		if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(ev.key)) {
+			ev.preventDefault();
+			open();
+		}
+	});
+	$menu.on('click', (ev) => ev.stopPropagation());
+	$menu.on('click', '.ca-ss-opt', function () {
+		pick($(this).attr('data-v'));
+	});
+	$search.on('input', () => ca_ss_render($sel));
+	$search.on('keydown', (ev) => {
+		const i = $w.data('act') || 0;
+		if (ev.key === 'ArrowDown') {
+			ev.preventDefault();
+			ca_ss_mark_active($w, i + 1);
+		} else if (ev.key === 'ArrowUp') {
+			ev.preventDefault();
+			ca_ss_mark_active($w, i - 1);
+		} else if (ev.key === 'Enter') {
+			ev.preventDefault();
+			const $a = $w.find('.ca-ss-opt.act');
+			if ($a.length) pick($a.attr('data-v'));
+		} else if (ev.key === 'Escape' || ev.key === 'Tab') {
+			ca_ms_close_all();
+			if (ev.key === 'Escape') $btn.trigger('focus');
+		}
+	});
+	// The native <select> is hidden, so its label would focus nothing: send it to the button.
+	$body.find(`label[for="${id}"]`).on('click', () => $btn.trigger('focus'));
+	ca_ss_sync($sel);
+}
+
 // --- Masters / selects --------------------------------------------------
 function ca_opts(list, sel, blankLabel) {
 	return (
@@ -405,6 +524,7 @@ function fill_ca_form_selects(page, keep) {
 	if (v.pg && !pgs.includes(v.pg)) pgs.push(v.pg);
 	$body.find('#ca-f-pg').html(ca_opts(pgs, v.pg, 'Select primary group'));
 	fill_ca_subs(page, v.sg);
+	CA_SS_IDS.forEach((id) => ca_ss_sync($body.find('#' + id)));
 }
 function fill_ca_subs(page, sel) {
 	const $body = $(page.body);
@@ -413,6 +533,7 @@ function fill_ca_subs(page, sel) {
 	if (sel && !subs.includes(sel) && $body.find('#ca-f-pg').val()) subs.push(sel);
 	$body.find('#ca-f-sg').html(ca_opts(subs, sel, g ? 'Select secondary group' : 'Pick a primary group first'));
 	$body.find('#ca-f-sg').prop('disabled', !g);
+	ca_ss_sync($body.find('#ca-f-sg'));
 }
 function fill_ca_filter_selects(page) {
 	const $body = $(page.body);
@@ -1179,6 +1300,12 @@ function inject_ca_styles() {
 	.ca-wrap .ca-ms-opt input[type=checkbox]:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid var(--ca-accent-ink);border-width:0 2px 2px 0;transform:rotate(45deg)}
 	.ca-wrap .ca-ms-opt input[type=checkbox]:focus-visible{outline:2px solid var(--ca-accent);outline-offset:2px}
 	.ca-ms-none{padding:14px 8px;color:var(--ca-muted);font-size:13px;text-align:center}
+	.ca-wrap select.ca-ss-native{display:none}
+	.ca-ss .ca-ms-txt.ca-ss-val{color:var(--ca-ink);font-weight:500}
+	.ca-ss .ca-ms-btn:disabled{background:var(--ca-row-alt);cursor:not-allowed}
+	.ca-ss .ca-ms-list{margin-top:8px}
+	.ca-ss-opt.act{background:var(--ca-row-alt)}
+	.ca-ss-opt.on.act{background:var(--ca-accent-soft)}
 
 	/* ---- report extras / footer / import dialog ---- */
 	.ca-matrix td,.ca-matrix th{font-size:12px}

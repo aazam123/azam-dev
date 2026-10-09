@@ -19,6 +19,10 @@ from frappe import _
 from frappe.utils import flt
 from frappe.utils.xlsxutils import make_xlsx, read_xlsx_file_from_attached_file
 
+from financial_report_tool.financial_report_tool.doctype.fr_console_adjustment_entry.fr_console_adjustment_entry import (
+	secondary_groups_by_primary,
+)
+
 DOCTYPE = "FR Console Adjustment Entry"
 TYPES = ("Elimination", "Regrouping")
 # Indian fiscal year runs April -> March; present months in that order.
@@ -119,11 +123,11 @@ def _validate(t, companies, group_subs, fiscal_years):
 # ---------------------------------------------------------------- masters --
 @frappe.whitelist()
 def get_masters():
-	"""Company list and Primary -> [Secondary] group hierarchy, sourced from
-	the existing Company and Standalone Group masters (the same ones GL Group
-	Mapping and the Consolidated Financial Statement page use). The primary
-	group itself is always the first secondary option, so a primary with no
-	child groups can still be used."""
+	"""Company list and Primary -> [Secondary] group hierarchy.
+
+	A primary group's secondary groups are those mapped to it in FR GL Group Mapping
+	(see secondary_groups_by_primary). The primary group itself is always the first
+	secondary option, so a primary with no mapped groups can still be used."""
 	frappe.has_permission(DOCTYPE, "read", throw=True)
 	companies = frappe.get_all("Company", fields=["name"], order_by="name asc", pluck="name")
 	primaries = frappe.get_all(
@@ -132,17 +136,13 @@ def get_masters():
 		fields=["name", "report_type"],
 		order_by="name asc",
 	)
-	subs = frappe.get_all(
-		"FR Standalone Group",
-		filters={"parent_standalone_group": ["in", [p.name for p in primaries]]} if primaries else {"name": ("=", "")},
-		fields=["name", "parent_standalone_group"],
-		order_by="name asc",
-	)
-	by_parent = defaultdict(list)
-	for s in subs:
-		by_parent[s.parent_standalone_group].append(s.name)
+	mapped = secondary_groups_by_primary([p.name for p in primaries])
 	groups = [
-		{"name": p.name, "st": p.report_type or "Unmapped", "subs": [p.name] + by_parent.get(p.name, [])}
+		{
+			"name": p.name,
+			"st": p.report_type or "Unmapped",
+			"subs": [p.name] + [s for s in mapped.get(p.name, []) if s != p.name],
+		}
 		for p in primaries
 	]
 	fiscal_years = frappe.get_all("Fiscal Year", fields=["name"], order_by="year_start_date desc", pluck="name")
