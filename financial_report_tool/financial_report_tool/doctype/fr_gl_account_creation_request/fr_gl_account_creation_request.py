@@ -194,6 +194,20 @@ class FRGLAccountCreationRequest(Document):
 				frappe.MandatoryError,
 			)
 		self.validate_pattern_account()
+		self.validate_account_number()
+
+	def validate_account_number(self):
+		"""Same rule and message as ERPNext's Account.validate_account_number: a GL code
+		is unique within a company. ERPNext's own method cannot be called here, it
+		excludes `name != self.name` and an unsaved Account has no name yet. Because an
+		Account is named '<code> - <name> - <abbr>', this also covers code + name + company."""
+		existing = frappe.db.get_value(
+			"Account", {"account_number": self.new_gl, "company": self.company}
+		)
+		if existing:
+			frappe.throw(
+				_("Account Number {0} already used in account {1}").format(self.new_gl, existing)
+			)
 
 	def validate_pattern_account(self):
 		"""The Pattern Account is the parent group the new account is created under."""
@@ -244,14 +258,6 @@ class FRGLAccountCreationRequest(Document):
 		)
 
 	def _create_account(self):
-		if frappe.db.exists(
-			"Account", {"account_name": self.account_name, "company": self.company}
-		):
-			frappe.throw(
-				_("An Account named '{0}' already exists for {1}.").format(
-					self.account_name, self.company
-				)
-			)
 		account = frappe.new_doc("Account")
 		account.account_name = self.account_name
 		account.account_number = self.new_gl
