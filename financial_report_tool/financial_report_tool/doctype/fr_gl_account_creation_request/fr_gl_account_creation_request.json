@@ -17,14 +17,15 @@
   "secondary_group",
   "pattern_account",
   "workflow_state",
-  "maker_section",
+  "reference_gl_section",
   "column_break_acc",
   "reference_gl",
-  "reference_gl_description",
   "parent_account",
-  "column_break_ebtl",
-  "reference_gl_company",
+  "column_break_iuyo",
+  "reference_gl_description",
   "report_type",
+  "column_break_jkbr",
+  "reference_gl_company",
   "result_section",
   "created_account",
   "gl_group_mapping",
@@ -145,12 +146,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "maker_section",
-   "fieldtype": "Section Break",
-   "label": "Reference  GL",
-   "permlevel": 1
-  },
-  {
    "description": "The GL account number / code the new account is created with.",
    "fieldname": "new_gl",
    "fieldtype": "Data",
@@ -218,13 +213,22 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "column_break_ebtl",
+   "fieldname": "reference_gl_section",
+   "fieldtype": "Section Break",
+   "label": "Reference GL"
+  },
+  {
+   "fieldname": "column_break_iuyo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_jkbr",
    "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-09 11:19:52.002734",
+ "modified": "2026-10-09 15:21:07.845923",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR GL Account Creation Request",
