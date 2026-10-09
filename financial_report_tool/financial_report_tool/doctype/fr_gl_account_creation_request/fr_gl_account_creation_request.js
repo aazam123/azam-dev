@@ -29,7 +29,11 @@ function can_action(frm) {
 
 frappe.ui.form.on('FR GL Account Creation Request', {
 	setup(frm) {
-		frm.set_query('reference_gl', () => ({ filters: { is_group: 0 } }));
+		frm.set_query('reference_gl', () => {
+			const filters = { is_group: 0 };
+			if (frm.doc.company) filters.company = frm.doc.company;
+			return { filters };
+		});
 		frm.set_query('pattern_account', () => ({ filters: { company: frm.doc.company, is_group: 1 } }));
 	},
 
