@@ -8,6 +8,13 @@
  },
  {
   "doctype": "Workflow State",
+  "icon": "remove",
+  "name": "Rejected",
+  "style": "Danger",
+  "workflow_state_name": "Rejected"
+ },
+ {
+  "doctype": "Workflow State",
   "icon": null,
   "name": "Request For Creation",
   "style": "Warning",

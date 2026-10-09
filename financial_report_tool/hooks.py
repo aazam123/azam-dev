@@ -281,7 +281,11 @@ fixtures = [
     },
     {
         "dt": "Workflow State",
-        "filters": [["name", "in", ["Request For Creation", "Account Created"]]]
+        "filters": [["name", "in", ["Request For Creation", "Account Created", "Rejected"]]]
+    },
+    {
+        "dt": "Workflow Action Master",
+        "filters": [["name", "in", ["Approve", "Reject"]]]
     },
     {
         "dt": "Custom DocPerm",
