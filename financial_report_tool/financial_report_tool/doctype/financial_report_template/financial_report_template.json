@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "field:financial_report_template_name",
  "creation": "2025-07-04 20:44:25.550135",
@@ -35,7 +36,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-27 17:58:15.953556",
+ "modified": "2026-10-01 15:00:25.891372",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Template",
@@ -56,6 +57,7 @@
   }
  ],
  "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],

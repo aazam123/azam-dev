@@ -16,7 +16,12 @@
   "column_break_houb",
   "note_no",
   "section_break_yjne",
-  "comment"
+  "comment",
+  "section_break_del",
+  "is_deleted",
+  "column_break_del",
+  "deleted_by",
+  "deleted_on"
  ],
  "fields": [
   {
@@ -78,12 +83,46 @@
    "fieldname": "row_index",
    "fieldtype": "Int",
    "label": "Row Index"
+  },
+  {
+   "fieldname": "section_break_del",
+   "fieldtype": "Section Break",
+   "label": "Deletion"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_deleted",
+   "fieldtype": "Check",
+   "label": "Is Deleted",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_del",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "is_deleted",
+   "fieldname": "deleted_by",
+   "fieldtype": "Link",
+   "label": "Deleted By",
+   "no_copy": 1,
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "depends_on": "is_deleted",
+   "fieldname": "deleted_on",
+   "fieldtype": "Datetime",
+   "label": "Deleted On",
+   "no_copy": 1,
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-03 18:09:02.086681",
+ "modified": "2026-10-07 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "Financial Report Comments",

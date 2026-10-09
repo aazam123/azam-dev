@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "autoname": "format:{financial_report}-{review_role}",
+ "creation": "2026-10-08 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "financial_report",
+  "review_role",
+  "column_break_rv",
+  "reviewed_by",
+  "reviewed_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "financial_report",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Financial Report",
+   "options": "Financial Report",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "review_role",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Review Role",
+   "options": "Role",
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "column_break_rv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Reviewed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewed_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Reviewed On",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-08 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Financial Report Review",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
