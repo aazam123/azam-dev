@@ -1,0 +1,62 @@
+/* notes.css — One card per section: title, pills, collapse, schedule jump.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ NOTES ============================ */
+.fr-note { display: grid; grid-template-columns: 30px minmax(0, 1fr); column-gap: 12px; margin-bottom: 4px; scroll-margin-top: calc(var(--sticky-top) + 52px); }
+.fr-note.is-filtered-out { display: none; }
+.fr-note-spine { position: relative; display: flex; justify-content: center; }
+.fr-note-spine::before {                  /* thread linking the notes */
+    content: ''; position: absolute; top: 32px; bottom: -4px; width: 2px; border-radius: 2px;
+    background: linear-gradient(to bottom, var(--brand), transparent); opacity: .3;
+}
+.fr-note-spine span {
+    position: relative; z-index: 1; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+    background: var(--grad-main); color: #fff; font-family: var(--display); font-weight: 800; font-size: 12px;
+}
+.fr-note-spine span.is-glyph { font-size: 9px; letter-spacing: 0; }
+.fr-note-body { min-width: 0; padding-bottom: 6px; }
+.fr-note-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; }
+.fr-note-titlewrap { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.fr-note-kicker { font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--brand); line-height: 1.2; }
+.fr-note-title { margin: 0; font-family: var(--display); font-weight: 800; font-size: 16px; line-height: 1.2; letter-spacing: -.01em; }
+.fr-note-toggle {
+    display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 0 8px 0 0; border: 0; border-radius: 8px; background: transparent;
+    cursor: pointer; text-align: left; font: inherit; letter-spacing: inherit; color: var(--ink);
+}
+.fr-chev { flex: none; width: 14px; height: 14px; color: var(--brand); transition: transform .2s; }
+.fr-note.is-collapsed .fr-chev { transform: rotate(-90deg); }
+.fr-note-meta { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--ink-soft); }
+.fr-rowcount, .fr-commented { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 99px; line-height: 1; white-space: nowrap; }
+.fr-rowcount { background: var(--paper); border: 1px solid var(--rule); }
+.fr-rowcount svg { color: var(--brand); }
+.fr-commented { margin: 0; font-weight: 800; color: var(--rc-fg, #fff); background: var(--rc-pill, var(--grad-talk)); text-shadow: var(--rc-shadow, none); }
+.fr-note.is-collapsed .fr-note-content { display: none; }
+.fr-note-desc { max-width: none; margin-top: 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); }
+.fr-note-desc:not(:empty) { margin-bottom: 6px; }
+.fr-note-desc .ql-editor { padding: 0 !important; min-height: 0 !important; overflow: visible !important; }
+.fr-note-desc p { margin-bottom: 4px; }
+.fr-note-desc p:last-child { margin-bottom: 0; }
+.fr-note-desc p:empty { display: none; }
+/* stored HTML pulls headings over the table with negative margins; the table is a card now, so undo that */
+.fr-note-desc :is(h5, p, div, strong, span)[style*="margin-bottom: -"], .fr-note-desc :is(h5, p, div, strong, span)[style*="margin-bottom:-"] { margin-bottom: 6px !important; }
+.fr-note-desc :is(h5, p, div, strong, span)[style*="margin-top: -"], .fr-note-desc :is(h5, p, div, strong, span)[style*="margin-top:-"] { margin-top: 0 !important; }
+.fr-note-desc h5 {
+    display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; padding: 0 !important;
+    font-family: var(--display); font-size: 13px !important; font-weight: 800 !important; color: var(--ink);
+}
+.fr-note-desc h5::before { content: ''; flex: none; width: 4px; height: 14px; border-radius: 3px; background: var(--grad-main); }
+.fr-note.is-flash .fr-note-title { animation: frFlash 1.4s ease-out; border-radius: 8px; }
+@keyframes frFlash { 0% { background: var(--sel); box-shadow: 0 0 0 6px var(--sel); } 100% { background: transparent; box-shadow: 0 0 0 6px transparent; } }
+
+/* schedule jump: a statement row that has a note opens that note */
+.fr-root .fr-table tbody tr.has-schedule { cursor: pointer; }
+.fr-root .fr-table tbody tr.has-schedule td.fr-label::after { content: '↗'; margin-left: 6px; font-size: 11px; font-weight: 800; color: var(--brand); opacity: 0; transition: opacity .12s; }
+.fr-root .fr-table tbody tr.has-schedule:hover td.fr-label::after { opacity: 1; }
+.fr-root .fr-table tbody tr.is-flash-row td { animation: frRowFlash 1.8s ease-out; }
+@keyframes frRowFlash { 0%, 35% { box-shadow: inset 0 0 0 999px var(--sel); } 100% { box-shadow: inset 0 0 0 999px transparent; } }
+.fr-note-back {
+    flex: none; display: inline-flex; align-items: center; gap: 5px; height: 24px; margin: 0; padding: 0 10px; border: 1px solid var(--brand); border-radius: 8px;
+    background: var(--brand-soft); color: var(--brand-deep); font-size: 12px; font-weight: 700; cursor: pointer; transition: background .12s, color .12s;
+}
+.fr-note-back:hover { background: var(--brand); color: #fff; }
+.fr-note-back:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

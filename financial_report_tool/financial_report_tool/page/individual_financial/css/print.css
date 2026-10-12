@@ -1,0 +1,15 @@
+/* print.css — Print layout (and the small Frappe page header tidy rule at the end).
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ PRINT ============================ */
+@media print {
+    .fr-filters, .fr-toolbar, .fr-legend, .fr-drawer, .fr-gutter, .fr-note-meta, .fr-chev { display: none !important; }
+    .fr-shell { display: block !important; }
+    .fr-note.is-collapsed .fr-note-content { display: block !important; }
+    .fr-note { break-inside: avoid; }
+    .fr-note-spine span { background: #000; }
+    .fr-root .fr-table tr.has-comments td, .fr-root .fr-table tr.is-active td { background: transparent !important; }
+}
+
+/* keep the Frappe page header tidy */
+.page-head .page-actions { display: flex; align-items: center; }

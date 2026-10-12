@@ -1,0 +1,7 @@
+/* accessibility.css — Reduced motion.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ ACCESSIBILITY ============================ */
+@media (prefers-reduced-motion: reduce) {
+    .fr-root *, .fr-root *::before, .fr-root *::after { animation: none !important; transition: none !important; }
+}

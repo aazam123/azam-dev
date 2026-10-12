@@ -1,0 +1,17 @@
+/* legend.css — The N rows have comments line.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ LEGEND ============================ */
+.fr-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 2px 8px; font-size: 12px; font-weight: 500; color: var(--ink-soft); }
+.fr-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fr-legend i { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; font-style: normal; font-size: 10px; font-weight: 800; }
+.fr-legend-comments {
+    display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 2px 9px 2px 3px; border: 1px solid transparent; border-radius: 99px;
+    background: transparent; color: var(--ink-soft); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.fr-legend-comments:hover { background: var(--tick-bg); border-color: var(--tick); color: var(--ink); }
+.fr-legend-comments:active { transform: scale(.98); }
+.fr-legend-comments:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.fr-legend-comments span { text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.fr-legend .lg-badge { background: var(--rc-badge, var(--grad-talk)); color: var(--rc-fg, #fff); text-shadow: var(--rc-shadow, none); }

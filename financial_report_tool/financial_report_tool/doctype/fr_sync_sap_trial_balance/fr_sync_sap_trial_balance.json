@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "SAP-TB-.####",
  "creation": "2026-08-04 10:48:06.912856",
@@ -298,7 +299,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-04 11:45:05.908665",
+ "modified": "2026-10-01 15:02:29.732995",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Sync SAP Trial Balance",
