@@ -10,19 +10,35 @@ from frappe.utils import flt
 def secondary_groups_by_primary(primaries=None):
 	"""{primary_group: [secondary_group, ...]} allowed on an adjustment entry.
 
-	A primary group's secondary groups are the ones mapped to it in FR GL Group Mapping
-	(any company, any report type), so the choice matches how GLs are actually grouped.
+	A primary group's secondary groups are the union of:
+	  * every descendant of it in the FR Standalone Group tree (children, grandchildren ...), and
+	  * every secondary group mapped to it in FR GL Group Mapping (any company, any report type).
 	Names are matched to FR Standalone Group case-insensitively and returned in that
 	record's spelling (GL mappings sometimes differ only in case). A secondary already
 	used by a saved entry for that primary stays valid so existing entries remain editable.
 	The primary group itself is not listed here; callers add it.
 	"""
-	canon = {n.lower(): n for n in frappe.get_all("FR Standalone Group", pluck="name")}
+	groups = frappe.get_all("FR Standalone Group", fields=["name", "parent_standalone_group", "is_primary_group"], limit_page_length=0)
+	canon = {g.name.lower(): g.name for g in groups}
+	children = {}
+	for g in groups:
+		if g.parent_standalone_group:
+			children.setdefault(g.parent_standalone_group, []).append(g.name)
 	allowed = {}
 
 	def add(primary, secondary):
 		if primary and secondary:
 			allowed.setdefault(primary, set()).add(canon.get(secondary.lower(), secondary))
+
+	for primary in [g.name for g in groups if g.is_primary_group] if primaries is None else primaries:
+		seen, stack = {primary}, list(children.get(primary, []))
+		while stack:
+			node = stack.pop()
+			if node in seen:
+				continue
+			seen.add(node)
+			add(primary, node)
+			stack.extend(children.get(node, []))
 
 	filters = {"secondary_group": ["is", "set"]}
 	if primaries is not None:

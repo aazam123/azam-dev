@@ -597,8 +597,7 @@ function build_statement_block(title, data, hidden) {
 			</div>
 			<div class="cfs-foot">
 				Columns per company: ${col_labels} •
-				<b>Consolidate</b> = arithmetic total of the companies shown (no intercompany eliminations);
-				<b>Elimination</b> / <b>Regrouping</b> are shown separately from FR Console Adjustment Entry and are not netted into Consolidate${miss_note}${unmapped_note}.
+				<b>Consolidate</b> = total of the companies shown, less <b>Elimination</b> and <b>Regrouping</b> (from FR Console Adjustment Entry, shown in their own columns)${miss_note}${unmapped_note}.
 			</div>
 		</div>`;
 }

@@ -972,7 +972,10 @@ def _build_split_rows(company_names, measures, split, groups, drop_zero_groups=F
 				"indent": 0,
 				"is_bold": 0,
 				"is_header": 0,
-				"consolidate": {k: round(totals[k], 2) for k in measure_keys},
+				# Consolidate = companies - Elimination - Regrouping (same rule as the face rows).
+				"consolidate": {
+					k: round(totals[k] - sum(adj[f][k] for f in ADJUSTMENT_FIELDS), 2) for k in measure_keys
+				},
 				"values": values,
 				**adj,
 			}
@@ -1747,6 +1750,9 @@ def _build_out_rows(
 	dict of per-measure figures; a figure may itself be None when only some
 	measures apply to a company/row (e.g. a month missing in the All-FTM view).
 	Totals ignore Nones, and a row is blank only when every measure is empty.
+	Consolidate is the sum of the companies minus the Elimination and Regrouping
+	columns (applied here, to the base lines, so every derived KPI row computed
+	from Consolidate below follows).
 
 	With `adjustments`, `aligned` also carries one pseudo-company per
 	ADJUSTMENT_FIELDS entry (prefixed ADJUSTMENT_PREFIX). They run through the
@@ -1761,6 +1767,7 @@ def _build_out_rows(
 	for idx, r in enumerate(canonical):
 		is_header = bool(r.get("header") or r.get("group"))
 		values, totals, has_value = [], {k: 0.0 for k in measure_keys}, False
+		adj_totals = {k: 0.0 for k in measure_keys}
 		for j, cn in enumerate(company_names):
 			cell = aligned[cn][idx]
 			if cell is None:
@@ -1770,7 +1777,13 @@ def _build_out_rows(
 					{k: (round(cell[k], 2) if cell[k] is not None else None) for k in measure_keys}
 				)
 				if j >= ncomp:
-					continue  # adjustment column: never part of Consolidate
+					# adjustment column: subtracted from Consolidate, never added to it
+					for k in measure_keys:
+						if cell[k] is not None:
+							adj_totals[k] += cell[k]
+							if abs(cell[k]) > 1e-6:
+								has_value = True
+					continue
 				for k in measure_keys:
 					if cell[k] is not None:
 						totals[k] += cell[k]
@@ -1787,7 +1800,7 @@ def _build_out_rows(
 				"indent": int(r.get("indent") or 0),
 				"is_bold": 1 if r.get("is_bold") else 0,
 				"is_header": 1 if is_header else 0,
-				"consolidate": None if blank else {k: round(totals[k], 2) for k in measure_keys},
+				"consolidate": None if blank else {k: round(totals[k] - adj_totals[k], 2) for k in measure_keys},
 				"values": values,
 			}
 		)
