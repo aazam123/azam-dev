@@ -1,0 +1,38 @@
+/* report_review.css — The three review chips and their tooltip.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ REPORT REVIEW ============================ */
+/* one small round chip per review role (--c / --fg come from ROLE_STYLE). Not reviewed = white with a role-coloured ring,
+   reviewed = filled with the role colour + a tick. Name, time and status show in a tooltip on hover / keyboard focus. */
+.fr-review { display: flex; align-items: center; gap: 6px; }
+.fr-review-l { margin-right: 2px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); }
+.fr-rv {
+    --c: #64748b; --fg: #fff;
+    position: relative; display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; margin: 0; padding: 0; border-radius: 50%;
+    border: 2px solid var(--c); background: var(--paper); color: var(--ink); font: 800 9.5px/1 var(--font); letter-spacing: -.2px;
+    cursor: default; transition: background .15s, color .15s, transform .12s, box-shadow .12s;
+}
+button.fr-rv { cursor: pointer; }
+button.fr-rv:hover { transform: scale(1.1); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 28%, transparent); }
+button.fr-rv:active { transform: scale(.96); }
+button.fr-rv:disabled { opacity: .6; cursor: progress; }
+.fr-rv:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.fr-rv.is-done { background: var(--c); color: var(--fg); }
+.fr-rv-ok {
+    position: absolute; right: -5px; bottom: -5px; display: none; place-items: center; width: 13px; height: 13px; border-radius: 50%;
+    background: #fff; color: var(--c); border: 1.5px solid var(--c);
+}
+.fr-rv-ok svg { width: 8px; height: 8px; }
+.fr-rv.is-done .fr-rv-ok { display: grid; }
+.fr-rv::after {
+    content: attr(data-tip); position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; padding: 5px 9px; border-radius: 7px;
+    background: #14201c; color: #fff; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 6px 18px rgba(0,0,0,.28);
+    font: 600 11.5px/1.3 var(--font); letter-spacing: 0; white-space: nowrap; pointer-events: none;
+    opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity .12s, transform .12s, visibility 0s .12s;
+}
+.fr-rv:hover::after, .fr-rv:focus-visible::after { opacity: 1; visibility: visible; transform: none; transition: opacity .12s, transform .12s, visibility 0s; }
+/* the chips sit inside the legend line: the generic ".fr-legend span / i" rules must not restyle them */
+.fr-legend .fr-rv { display: inline-grid; gap: 0; width: 26px; height: 26px; }
+.fr-legend .fr-rv-ok { display: none; min-width: 0; width: 13px; height: 13px; padding: 0; font-size: 0; }
+.fr-legend .fr-rv.is-done .fr-rv-ok { display: grid; }
+.fr-legend .fr-review-l { display: inline; }

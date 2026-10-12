@@ -1,0 +1,16 @@
+/* margin_marker.css — The comment marker at the end of a row.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ MARGIN MARKER ============================ */
+.fr-root .fr-table th.fr-gutter, .fr-root .fr-table td.fr-gutter { width: 40px; min-width: 40px; max-width: 40px; padding: 0 8px 0 0 !important; text-align: center !important; }
+.fr-marker {
+    display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border-radius: 50%; cursor: pointer; vertical-align: middle; opacity: 0;
+    border: 1px dashed var(--rule-strong); background: var(--paper); color: var(--brand); font: 800 11px/1 var(--font);
+    transition: opacity .12s, transform .15s, background .12s, border-color .12s, color .12s;
+}
+.fr-marker svg { width: 12px; height: 12px; }
+tr:hover .fr-marker, .fr-marker:focus-visible, .fr-marker.is-filled, tr.is-active .fr-marker { opacity: 1; }
+.fr-marker:hover { transform: scale(1.12); border-style: solid; border-color: var(--brand); background: var(--brand); color: #fff; }
+.fr-marker.is-filled, .fr-marker.is-filled:hover { border: 0; background: var(--rc-badge, var(--grad-talk)); color: var(--rc-fg, #fff); text-shadow: var(--rc-shadow, none); }
+.fr-marker:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+@media (hover: none) { .fr-marker { opacity: 1; } }

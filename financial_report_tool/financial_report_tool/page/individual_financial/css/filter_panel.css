@@ -1,0 +1,97 @@
+/* filter_panel.css — Company / month / year filters, Comments of, theme button and the report cards.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ FILTER PANEL ============================ */
+.fr-filters {
+    position: relative; overflow: hidden;
+    margin-bottom: 10px; padding: 12px 16px 12px;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.fr-filters::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--grad-main); }
+.fr-reset {
+    margin-left: auto;
+    display: inline-flex; align-items: center; gap: 6px; flex: none; height: 24px; padding: 0 9px;
+    border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--paper); color: var(--ink-soft);
+    font-size: 12px; font-weight: 700; cursor: pointer; transition: color .15s, border-color .15s;
+}
+.fr-reset:hover { color: var(--tick); border-color: var(--tick); }
+.fr-theme {
+    display: inline-grid; place-items: center; flex: none; width: 28px; height: 24px; margin: 0 0 0 6px; padding: 0;
+    border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--paper); color: var(--ink-soft); cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+}
+.fr-reset[hidden] + .fr-theme { margin-left: auto; }
+.fr-theme:hover { color: var(--brand); border-color: var(--brand); background: var(--brand-soft); }
+.fr-theme:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+/* Frappe toasts sit over the page; let clicks pass through them so the Send button is never swallowed */
+body.fr-page-open #alert-container, body.fr-page-open .desk-alert { pointer-events: none; }
+
+.fr-filter-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1.3fr; gap: 10px; }
+/* "Comments of" switch: while another month than the open report's is chosen, markers and highlights turn sage so the two views are never confused.
+   A commenter's role colour (--rc-*, set from JS) still wins; sage is only the colour of rows nobody with a role wrote on. */
+.fr-root .fr-sheet.fr-othermonth .fr-marker.is-filled, .fr-root .fr-sheet.fr-othermonth .fr-legend .lg-badge { background: var(--rc-badge, var(--grad-main)); }
+.fr-root .fr-sheet.fr-othermonth .fr-commented { background: var(--rc-pill, var(--grad-main)); }
+.fr-root .fr-sheet.fr-othermonth .fr-table tbody tr.has-comments:not(.is-active):not(:hover) td { background: var(--rc-tint, var(--brand-wash-2)) !important; }
+.fr-root .fr-sheet.fr-othermonth .fr-table tbody tr.has-comments:not(.is-active) td:first-child { box-shadow: inset 3px 0 0 var(--rc-bar, var(--brand)); }
+
+/* previous-month chat column, right after "Year Ended ...": who wrote what on that row last month */
+.fr-root .fr-table th.fr-chatcol { min-width: 230px; width: 250px; text-align: left !important; white-space: nowrap; color: var(--brand-deep) !important; background: var(--brand-soft) !important; }
+.fr-root .fr-table td.fr-chatcol { min-width: 230px; max-width: 300px; padding: 4px 10px !important; text-align: left !important; white-space: normal !important; font-size: 11.5px; font-weight: 500; line-height: 1.35; vertical-align: top; border-left: 1px solid var(--rule) !important; cursor: default; }
+/* with the comment panel open there is less room: the chat column gets narrower */
+.fr-root .fr-shell.drawer-open .fr-table th.fr-chatcol { min-width: 170px; width: 170px; }
+.fr-root .fr-shell.drawer-open .fr-table td.fr-chatcol { min-width: 170px; max-width: 200px; }
+.fr-root .fr-table td.fr-chatcol.has-chat { cursor: pointer; }
+.fr-root .fr-table td.fr-chatcol.has-chat:hover { background: var(--brand-wash-2) !important; }
+.fr-cc-u { display: flex; align-items: flex-start; gap: 6px; padding: 2px 0; }
+.fr-cc-u + .fr-cc-u { border-top: 1px dashed var(--rule); }
+.fr-cc-av { flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px; border-radius: 6px; background: var(--av, #64748b); color: #fff; font-size: 8.5px; font-weight: 800; }
+.fr-cc-b { min-width: 0; }
+.fr-cc-b > b { display: block; font-weight: 800; font-size: 11px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-cc-t { display: block; word-break: break-word; color: var(--ink); }
+.fr-cc-d { display: block; font-size: 9.5px; font-weight: 600; color: var(--ink-soft); }
+.fr-cc-more { display: block; padding-top: 2px; font-size: 10.5px; font-weight: 800; color: var(--brand); }
+.fr-field { display: flex; flex-direction: column; gap: 4px; margin: 0; min-width: 0; }
+.fr-field > span { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.fr-field select {
+    width: 100%; height: 36px; padding: 0 34px 0 12px; margin: 0; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: var(--ink);
+    background-color: var(--paper-tint); border: 1px solid var(--rule); border-radius: 9px; outline: 0; box-shadow: none;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%232f5d50' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+.fr-field select:hover { border-color: var(--rule-strong); }
+.fr-field select:focus { background-color: var(--paper); border-color: var(--brand); box-shadow: 0 0 0 3px rgba(47,93,80,.16); }
+.fr-field select.has-value { background-color: var(--brand-soft); border-color: var(--brand); color: var(--brand-deep); }
+.fr-field select option { color: #1f2d29; background: #fff; }
+
+.fr-results { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--rule-strong); }
+.fr-results-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.fr-results-count { font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.fr-report-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 96px; overflow-y: auto; padding: 1px; scrollbar-width: thin; }
+.fr-report-card {
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: row; align-items: center; gap: 8px; min-width: 0; max-width: 100%; padding: 5px 10px 5px 14px;
+    text-align: left; cursor: pointer; border-radius: 8px;
+    background: var(--paper); border: 1px solid var(--rule); color: var(--ink);
+    transition: border-color .15s, box-shadow .15s;
+}
+.fr-report-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--grad-main); opacity: .5; transition: opacity .15s; }
+.fr-report-card strong { font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+.fr-report-card span { font-size: 12px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fr-card-count {
+    flex: none; min-width: 20px; height: 18px; padding: 0 6px; border-radius: 99px;
+    display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 800;
+    background: var(--grad-talk); color: #fff;
+}
+.fr-report-card:hover { border-color: var(--brand); box-shadow: var(--shadow-soft); }
+.fr-report-card:hover::before { opacity: 1; }
+.fr-report-card.is-open { background: var(--grad-main); border-color: transparent; color: #fff; }
+.fr-report-card.is-open::before { opacity: 0; }
+.fr-report-card.is-open span { color: rgba(255,255,255,.85); }
+.fr-report-card.is-open .fr-card-count { background: #fff; color: var(--accent); }
+/* report cards show the chosen month's chat count while "Comments of" is not "this month": sage badge, same colour as the panel */
+.fr-report-card.is-otherchat .fr-card-count { background: var(--grad-main); }
+.fr-report-card.is-otherchat.is-open .fr-card-count { background: #fff; color: var(--brand); }
+.fr-report-card:focus-visible, .fr-reset:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }

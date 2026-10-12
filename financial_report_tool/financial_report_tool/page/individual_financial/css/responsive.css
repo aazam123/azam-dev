@@ -1,0 +1,20 @@
+/* responsive.css — Smaller screens.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ RESPONSIVE ============================ */
+@media (max-width: 1100px) {
+    .fr-search input { width: 110px; }
+}
+@media (max-width: 900px) {
+    .fr-filter-grid { grid-template-columns: 1fr; }
+    .fr-filters { padding: 12px; }
+    .fr-shell, .fr-shell.drawer-open { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
+    .fr-drawer { position: fixed; left: 8px; right: 8px; bottom: 8px; top: auto; z-index: 1030; height: 78vh; transform: translateY(24px); }
+    .fr-toolbar { position: static; flex-direction: column; align-items: stretch; }
+    .fr-tools { justify-content: space-between; }
+    .fr-search { flex: 1; }
+    .fr-search input { width: 100%; }
+    .fr-note { grid-template-columns: minmax(0, 1fr); }
+    .fr-note-spine, .fr-note-meta { display: none; }
+    .fr-report-card { min-width: 100%; max-width: 100%; }
+}

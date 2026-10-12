@@ -1,0 +1,10 @@
+/* layout.css — The two column grid: report on the left, chat drawer on the right.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ LAYOUT ============================ */
+.fr-shell {
+    display: grid; grid-template-columns: minmax(0, 1fr) 0px; align-items: start;
+    transition: grid-template-columns .3s cubic-bezier(.2,.8,.2,1), column-gap .3s;
+}
+.fr-shell.drawer-open { grid-template-columns: minmax(0, 1fr) 380px; column-gap: 14px; }
+.fr-sheet { min-width: 0; padding-bottom: 60px; }

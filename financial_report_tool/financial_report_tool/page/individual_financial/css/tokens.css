@@ -1,0 +1,75 @@
+/* tokens.css — Colours, sizes and the dark theme values (CSS variables) used by every other rule.
+   Part of the Individual Financial page; every rule is scoped under .fr-root. Loaded in order from js/styles.js. */
+
+/* ============================ TOKENS ============================
+   "Sage & Bronze"
+   Sage   = structure (headers, note numbers, your messages, links)
+   Bronze = conversation (comment markers, counts, badges)
+   Mist   = the row you are looking at
+   Muted, low-saturation, compact: calm for long review sessions.     */
+.fr-root {
+    --ink: #1f2d29;
+    --ink-soft: #66756f;
+    --paper: #ffffff;
+    --paper-tint: #f5f7f4;
+    --paper-glass: rgba(255,255,255,.92);
+    --rule: #e4e9e4;
+    --rule-strong: #c9d3cb;
+
+    --brand: #2f5d50;
+    --brand-deep: #1f4337;
+    --brand-2: #4a8570;
+    --brand-soft: #e6eee9;
+    --brand-wash: rgba(47,93,80,.055);
+    --brand-wash-2: rgba(47,93,80,.1);
+    --accent: #b0763a;
+    --sel: #dbe8e1;
+    --sel-ink: #1b3a30;
+
+    --grad-main: linear-gradient(120deg, #2a5348 0%, #4a8570 100%);
+    --grad-talk: linear-gradient(135deg, #c48a4d 0%, #a2652b 100%);
+
+    --tick: #b0763a;
+    --tick-fg: #ffffff;
+    --tick-bg: rgba(176,118,58,.08);
+    --danger: #b3382f;
+    --neg: #b3382f;
+
+    --shadow: 0 1px 2px rgba(30,52,46,.05), 0 8px 24px -16px rgba(30,52,46,.28);
+    --shadow-soft: 0 1px 2px rgba(30,52,46,.06);
+    --radius: 12px;
+    --font: 'Avenir Next', 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', system-ui, sans-serif;
+    --display: 'Avenir Next', 'Segoe UI Variable Display', 'Segoe UI', Roboto, system-ui, sans-serif;
+    --sticky-top: 92px;
+
+    font-family: var(--font);
+    color: var(--ink);
+    margin-top: 0;
+}
+[data-theme="dark"] .fr-root {
+    --ink: #e6eee9;
+    --ink-soft: #9db0a6;
+    --paper: #17211e;
+    --paper-tint: #1d2a26;
+    --paper-glass: rgba(23,33,30,.92);
+    --rule: #29392f;
+    --rule-strong: #405448;
+    --brand: #7fbfa5;
+    --brand-deep: #b6e0cf;
+    --brand-2: #62a88b;
+    --brand-soft: rgba(127,191,165,.14);
+    --brand-wash: rgba(127,191,165,.07);
+    --brand-wash-2: rgba(127,191,165,.13);
+    --accent: #e0a766;
+    --sel: #23463b;
+    --sel-ink: #dcefe6;
+    --tick: #e0a766;
+    --tick-fg: #2b1b08;
+    --tick-bg: rgba(224,167,102,.11);
+    --neg: #f09a93;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    --shadow-soft: 0 1px 2px rgba(0,0,0,.4);
+}
+.fr-root *, .fr-root *::before, .fr-root *::after { box-sizing: border-box; }
+.fr-root button, .fr-root select, .fr-root input, .fr-root textarea { font-family: inherit; }
+.fr-root [hidden] { display: none !important; }
