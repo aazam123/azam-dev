@@ -30,12 +30,15 @@ AMOUNT_UNIT_CONFIG = {
 	"Crores": (10000000, "Crores"),
 }
 _DEFAULT_AMOUNT_UNIT = "Lakhs"
+# Period amount fields of the Balance Sheet / Profit & Loss rows. For a foreign company each one also
+# has an "fc_<field>" twin holding the amount in the company's own currency.
+_STATEMENT_AMOUNT_FIELDS = ("current_month_amount", "previous_month_amount", "ftm_amount", "previous_year")
+
 
 def do_generate_report(docname):
 	try:
 		doc = frappe.get_doc("FR Financial Report", docname)
 		doc._generate_report_internal()
-		frappe.publish_progress(100, title="Report generated successfully!")
 
 		frappe.db.set_value("FR Financial Report", docname, {
 			"report_status": "Successful",
@@ -264,6 +267,7 @@ class FRFinancialReport(Document):
 			frappe.msgprint(f"Version Control record created for Financial Report: {self.name}")
 
 	def before_save(self):
+		self._set_report_currency()
 		self.update_consolidation_note_numbers()
 
 		# Update section names
@@ -273,55 +277,50 @@ class FRFinancialReport(Document):
 
 		default_currency = frappe.get_value("Company", self.company, "default_currency")
 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
-		current_cls_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate')
-		previous_cls_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate')
-		previous_year_cls_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'closing_rate')
-		
-		current_avg_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate')
-		previous_avg_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate')
-		previous_year_avg_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
 
-		# Build HTML table
-		foreign_exchange_rate = f"""
-			<table style="width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:0 0 10px 0;">
+		# The exchange-rate table is shown for a foreign company, i.e. one whose own currency is not INR.
+		if not default_currency or default_currency == "INR":
+			self.foreign_exchange_rate = ""
+			return
+
+		# (month, fiscal year) pairs the report translates with. A Monthly report uses its current and previous
+		# month plus the closing month of the previous year; a Yearly report uses the closing month of both years.
+		if self.report_type == "Monthly":
+			periods = [
+				(self.current_month, self.fiscal_year),
+				(self.previous_month, self.fiscal_year),
+				(cls_month, self.previous_fiscal_year),
+			]
+		else:
+			periods = [(cls_month, self.fiscal_year), (cls_month, self.previous_fiscal_year)]
+
+		cell = "border:1px solid #ddd; padding:4px;"
+		rows = ""
+		for month, fiscal_year in periods:
+			closing = self.get_fx_rate(default_currency, month, fiscal_year, "closing_rate")
+			average = self.get_fx_rate(default_currency, month, fiscal_year, "average_rate")
+			rows += f"""
+					<tr>
+						<td style="{cell}"><b>{month or "-"}</b></td>
+						<td style="{cell}">{fiscal_year or "-"}</td>
+						<td style="{cell}">{closing or "-"}</td>
+						<td style="{cell}">{average or "-"}</td>
+					</tr>"""
+
+		self.foreign_exchange_rate = f"""
+			<table style="width:auto; min-width:60%; border-collapse: collapse; text-align:center; font-size:13px; margin:0 0 10px 0;">
 				<thead>
 					<tr style = "border-bottom:2px solid #222;">
-						<th style="border:1px solid #ddd; padding:4px;">Month</th>
-						<th style="border:1px solid #ddd; padding:4px;">Year</th>
-						<th style="border:1px solid #ddd; padding:4px;">Closing Rate</th>
-						<th style="border:1px solid #ddd; padding:4px;">Average Rate</th>
+						<th style="{cell} white-space:nowrap;">Month</th>
+						<th style="{cell} white-space:nowrap;">Year</th>
+						<th style="{cell} white-space:nowrap;">Closing Rate ({default_currency} to INR)</th>
+						<th style="{cell} white-space:nowrap;">Average Rate ({default_currency} to INR)</th>
 					</tr>
 				</thead>
-				<tbody>
-					<tr>
-						<td style="border:1px solid #ddd; padding:4px;"><b>{self.current_month}</b></td>
-						<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
-						<td style="border:1px solid #ddd; padding:4px;">{current_cls_fx or "-"}</td>
-						<td style="border:1px solid #ddd; padding:4px;">{current_avg_fx or "-"}</td>
-					</tr>
-					<tr>
-						<td style="border:1px solid #ddd; padding:4px;"><b>{self.previous_month}</b></td>
-						<td style="border:1px solid #ddd; padding:4px;">{self.fiscal_year}</td>
-						<td style="border:1px solid #ddd; padding:4px;">{previous_cls_fx or "-"}</td>
-						<td style="border:1px solid #ddd; padding:4px;">{previous_avg_fx or "-"}</td>
-					</tr>
-					<tr>
-						<td style="border:1px solid #ddd; padding:4px;"><b>{cls_month}</b></td>
-						<td style="border:1px solid #ddd; padding:4px;">{self.previous_fiscal_year}</td>
-						<td style="border:1px solid #ddd; padding:4px;">{previous_year_cls_fx or "-"}</td>
-						<td style="border:1px solid #ddd; padding:4px;">{previous_year_avg_fx or "-"}</td>
-					</tr>
+				<tbody>{rows}
 				</tbody>
 			</table>
 		"""
-		# Show the foreign-exchange-rate table only for a foreign company, i.e.
-		# when its functional currency differs from the report currency and the
-		# figures are actually translated. For a domestic (same-currency) company
-		# every rate is 1, so the table is hidden.
-		if default_currency and default_currency != self.currency:
-			self.foreign_exchange_rate = foreign_exchange_rate
-		else:
-			self.foreign_exchange_rate = ""
 
 	def fetch_equity_data(self, company, date_filter):
 		return frappe.get_all(
@@ -658,7 +657,9 @@ class FRFinancialReport(Document):
 					f"You will be notified once it is complete."
 		}
 
-	def _generate_report_internal(self):
+	def _generate_report_internal(self, persist=True):
+		if persist:
+			self._set_report_currency()
 		self._init_report_caches()
 		if self.report_type == "Monthly":
 			for i in self.financial_report_details:
@@ -819,17 +820,63 @@ class FRFinancialReport(Document):
 								else f'<div id="{note_id}" class="note-anchor"></div>'
 							)
 
+		if persist:
+			self._add_functional_currency_columns()
 		self._apply_amount_unit_label()
-		self.save(ignore_permissions=True)
-		frappe.db.commit()
+		if persist:
+			self.save(ignore_permissions=True)
+			frappe.db.commit()
+
+	def _set_report_currency(self):
+		"""A company whose own currency is not INR always reports in INR (its Currency field is hidden); the
+		own-currency (FC) figures are shown beside the INR ones. Returns the company currency."""
+		company_currency = frappe.get_value("Company", self.company, "default_currency")
+		if company_currency and company_currency != "INR":
+			self.currency = "INR"
+		return company_currency
+
+	def _add_functional_currency_columns(self):
+		"""Foreign company: show every Balance Sheet / Profit & Loss amount in the company's own currency (FC)
+		beside the INR amount.
+
+		The report is generated a second time, unsaved, with the report currency set to the company currency
+		(so every FX rate is 1). Its amounts are stored on the INR rows as ``fc_<field>`` and the two
+		statements are rendered again with an FC and an INR column for each period.
+		"""
+		fc_currency = frappe.get_value("Company", self.company, "default_currency")
+		if not fc_currency or fc_currency == "INR":
+			return
+
+		renderers = {
+			("Monthly", "Balance Sheet"): self.render_monthly_balance_sheet,
+			("Monthly", "Profit & Loss"): self.render_monthly_profit_and_loss,
+			("Yearly", "Balance Sheet"): self.render_yearly_balance_sheet,
+			("Yearly", "Profit & Loss"): self.render_yearly_profit_and_loss,
+		}
+		statements = [d for d in self.financial_report_details if (self.report_type, d.section_type) in renderers]
+		if not statements:
+			return
+
+		fc_doc = frappe.get_doc("FR Financial Report", self.name)
+		fc_doc.currency = fc_currency
+		fc_doc._generate_report_internal(persist=False)
+		fc_tables = {(d.section_type, d.section): d.table_data for d in fc_doc.financial_report_details}
+
+		self._functional_currency = fc_currency
+		for detail in statements:
+			rows = json.loads(detail.table_data or "[]")
+			fc_rows = {r.get("id"): r for r in json.loads(fc_tables.get((detail.section_type, detail.section)) or "[]")}
+			for row in rows:
+				fc_row = fc_rows.get(row.get("id")) or {}
+				for field in _STATEMENT_AMOUNT_FIELDS:
+					if field in row:
+						row["fc_" + field] = fc_row.get(field) or 0
+			detail.table_data, detail.section_description = renderers[(self.report_type, detail.section_type)](detail.section, rows)
 
 	def _apply_amount_unit_label(self):
 		"""Reflect the configured display unit in the rendered report HTML.
 
-		- Balance Sheet / Profit & Loss get a single right-aligned "(₹ in <unit>)"
-		  caption at the top of the statement table. It is added as a <caption>
-		  (part of the table box) rather than a floating div, so the table's
-		  negative top margin cannot overlap it.
+		- Balance Sheet / Profit & Loss get a caption above the statement table.
 		- Existing "in lac(s)" captions in schedules are normalised to the
 		  configured unit word.
 
@@ -840,16 +887,18 @@ class FRFinancialReport(Document):
 		unit_word = self.get_amount_unit_word()
 		lac_re = re.compile(r"in\s+lac(?:s)?", re.IGNORECASE)
 		table_re = re.compile(r"<table\b[^>]*>", re.IGNORECASE)
+		fc_currency = getattr(self, "_functional_currency", None)
+		unit_label = f"{fc_currency} and ₹" if fc_currency else "₹"
 		caption = (
 			f'<caption style="caption-side:top; text-align:right; font-weight:bold; '
-			f'font-style:italic; color:#4472C4; padding:2px 4px;">(₹ in {unit_word})</caption>'
+			f'font-style:italic; color:#4472C4; padding:2px 4px;">({unit_label} in {unit_word})</caption>'
 		)
 		for i in self.financial_report_details:
 			for field in ("section_description", "subsection_description"):
 				val = i.get(field)
 				if val:
 					i.set(field, lac_re.sub(f"in {unit_word}", val))
-			# One unit caption at the top-left of the BS / P&L statement table.
+			# One unit caption above each BS / P&L statement table.
 			if i.section_type in ("Balance Sheet", "Profit & Loss") and i.section_description:
 				i.section_description = table_re.sub(
 					lambda m: m.group(0) + caption, i.section_description, count=1
@@ -4875,7 +4924,6 @@ class FRFinancialReport(Document):
 
 			# Apply conversion
 			cost_consumed_current *= current_fx
-			ftm_cost_consumed *= current_fx
 			prev_year_cost_consumed *= prev_year_fx
 
 			purchases_current *= current_fx
@@ -5070,10 +5118,10 @@ class FRFinancialReport(Document):
 			sp_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
 			bal_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "pl_inr") or 0, self.show_decimal_value)
 
-			tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Assets"}, "name"))
-			tot_cur_liab = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Current Liabilities"}, "name"))
-			tot_ncur_liab = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Total Non Current Liabilities"}, "name"))
-			equity_share = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {"particular_type": "Equity Share Capital"}, "name"))
+			tot_asset = self._year_end_bs_row(bs_template, "Total Assets")
+			tot_cur_liab = self._year_end_bs_row(bs_template, "Total Current Liabilities")
+			tot_ncur_liab = self._year_end_bs_row(bs_template, "Total Non Current Liabilities")
+			equity_share = self._year_end_bs_row(bs_template, "Equity Share Capital")
 
 			cur_tot_asset, prev_tot_asset = tot_asset["current_month_amount"], tot_asset["previous_year"]
 			cur_cur_liab, prev_cur_liab = tot_cur_liab["current_month_amount"], tot_cur_liab["previous_year"]
@@ -5113,9 +5161,15 @@ class FRFinancialReport(Document):
 		
 		for_exc_open = for_exc_add_prev = for_exc_add_cur = 0
 		if default_currency != self.currency:
-			for_exc_open = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
-			for_exc_add_cur = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - (sp_prev_year), self.show_decimal_value)
-			for_exc_add_prev = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - (sp_prev_year), self.show_decimal_value)
+			# Foreign company reported in INR: Balance Sheet minus liabilities, equity capital, retained earnings and the
+			# opening share premium is the cumulative exchange reserve (counted once, as in the monthly report).
+			# There is no separate share-premium addition, and the reserve starts the year at the prior year-end level.
+			add_sp_prev_year = add_sp_cur = 0
+			prev_reserve = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
+			cur_reserve = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - sp_prev_year, self.show_decimal_value)
+			for_exc_open = 0
+			for_exc_add_prev = prev_reserve
+			for_exc_add_cur = round(cur_reserve - prev_reserve, self.show_decimal_value)
 		else:
 			for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
 			for_exc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
@@ -5878,23 +5932,14 @@ class FRFinancialReport(Document):
 		note_table += "</tbody></table>"
 		return section_description.replace("{{note_table}}", note_table)
 	
-	def render_yearly_balance_sheet(self, template_name):
+	def render_yearly_balance_sheet(self, template_name, data=None):
 		"""Render yearly balance sheet with note-style UI"""
-		data = self.get_yearly_balance_sheet_data(template_name)
+		if not data:
+			data = self.get_yearly_balance_sheet_data(template_name)
 		month_end_label, previous_fiscal_year_end_label = self.get_yearly_dates()
 
-		html = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
-			<thead>
-				<tr style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;">
-					<th colspan="2" style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding: 5px; width: 45%; background-color:#fff;'>Particulars</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>Note No.</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 15%; background-color:#fff;'>{month_end_label}</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
-				</tr>
-			</thead>
-			<tbody>
-		"""
+		dual = self._has_fc_columns(data)
+		html = self._statement_head([(month_end_label, 15), (previous_fiscal_year_end_label, 10)], 45, dual)
 
 		# Counters for structured index generation
 		header_counter = 0
@@ -5957,8 +6002,7 @@ class FRFinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222 '>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+				{self._statement_amount_cells(row, ["current_month_amount", "previous_year"], horizontal_border, bold, dual)}
 			</tr>
 			"""
 
@@ -6019,6 +6063,10 @@ class FRFinancialReport(Document):
 
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
 				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+
+			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != "INR":
+				# FC pass of a foreign company (report currency = company currency): issued capital in the company's own currency
+				amount = self._issued_equity_capital_fc(month, year)
 
 			elif fr_particular.fetch_from_schedule:
 				note_type = get_fr_section(fr_particular.schedule).note_type if fr_particular.schedule else None
@@ -6097,7 +6145,7 @@ class FRFinancialReport(Document):
 				amount = get_grouped_gl_amount(gl_accounts, year, month)
 
 			# Reverse if required
-			if fr_particular.show_reversed_value and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
+			if fr_particular.show_reversed_value and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != "INR"):
 				amount = -amount
 
 			if convert and not fr_particular.is_total and not fr_particular.fetch_from_schedule and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
@@ -6306,18 +6354,8 @@ class FRFinancialReport(Document):
 		if not data:
 			data = self.get_yearly_profit_and_loss_data(template_name)
 
-		html = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
-			<thead>
-				<tr style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;">
-					<th colspan="2" style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding: 5px; font-size: 12px; width: 45%; background-color:#fff;'>Particulars</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>Note No.</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 15%; background-color:#fff;'>{current_month_end}</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
-				</tr>
-			</thead>
-			<tbody>
-		"""
+		dual = self._has_fc_columns(data)
+		html = self._statement_head([(current_month_end, 15), (previous_fiscal_year_end_label, 10)], 45, dual, "font-size: 12px; ")
 
 		def to_roman(idx):
 			romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX']
@@ -6351,8 +6389,7 @@ class FRFinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+				{self._statement_amount_cells(row, ["current_month_amount", "previous_year"], horizontal_border, bold, dual)}
 			</tr>
 			"""
 
@@ -7301,19 +7338,8 @@ class FRFinancialReport(Document):
 		if not data:
 			data = self.get_monthly_balance_sheet_data(template_name)
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-
-		html = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
-			<thead>
-				<tr style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;">
-					<th colspan="2" style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding: 5px; width: 45%; background-color:#fff;'>Particulars</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>Note No.</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 15%; background-color:#fff;'>{month_end_label}</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; width: 10%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
-				</tr>
-			</thead>
-			<tbody>
-		"""
+		dual = self._has_fc_columns(data)
+		html = self._statement_head([(month_end_label, 15), (previous_fiscal_year_end_label, 10)], 45, dual)
 
 		# Counters for structured index generation
 		header_counter = 0
@@ -7376,8 +7402,7 @@ class FRFinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222 '>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+				{self._statement_amount_cells(row, ["current_month_amount", "previous_year"], horizontal_border, bold, dual)}
 			</tr>
 			"""
 
@@ -7390,20 +7415,11 @@ class FRFinancialReport(Document):
 		if data is None:
 			data = self.get_monthly_profit_and_loss_data(template_name)
 
-		html = f"""
-		<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">
-			<thead>
-				<tr style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;">
-					<th colspan="2" style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:left; padding: 5px; font-size: 12px; width: 35%; background-color:#fff;'>Particulars</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>Note No.</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 15%; background-color:#fff;'>{current_month_end}</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>FTM</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>{previous_month_end}</th>
-					<th style='border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; text-align:center; padding: 5px; font-size: 12px; width: 10%; background-color:#fff;'>{previous_fiscal_year_end_label}</th>
-				</tr>
-			</thead>
-			<tbody>
-		"""
+		dual = self._has_fc_columns(data)
+		html = self._statement_head(
+			[(current_month_end, 15), ("FTM", 10), (previous_month_end, 10), (previous_fiscal_year_end_label, 10)],
+			35, dual, "font-size: 12px; ",
+		)
 
 		def to_roman(idx):
 			romans = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX']
@@ -7437,10 +7453,7 @@ class FRFinancialReport(Document):
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{index}</td>
 				<td style='text-align:left; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {bold}'>{indent}{account_text}</td>
 				<td style='text-align:center; padding: 2px; border-left:1px solid #222; border-right:1px solid #222;'>{note_no or ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} background-color: #e8f5e8; {bold}'>{self.fmt_num(row.get("current_month_amount", 0)) if row.get("current_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("ftm_amount", 0)) if row.get("ftm_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_month_amount", 0)) if row.get("previous_month_amount") else ""}</td>
-				<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; {horizontal_border} {bold}'>{self.fmt_num(row.get("previous_year", 0)) if row.get("previous_year") else ""}</td>
+				{self._statement_amount_cells(row, ["current_month_amount", "ftm_amount", "previous_month_amount", "previous_year"], horizontal_border, bold, dual)}
 			</tr>
 			"""
 
@@ -7540,6 +7553,76 @@ class FRFinancialReport(Document):
 
 		html += "</tbody>\n</table>"
 		return html
+
+	def _year_end_bs_row(self, bs_template, particular_type):
+		"""Balance Sheet row of the given particular type, in the report currency, as at the closing month of the fiscal year.
+
+		A foreign company's yearly Other Equity is derived from the monthly Balance Sheet engine, which reads
+		``current_month``. A yearly report has no current month, so the closing month stands in for it."""
+		self._init_report_caches()
+		saved = (self.current_month, self.previous_month)
+		self.current_month = self.previous_month = self._closing_month
+		try:
+			account = frappe.get_value("FR Particular", {"particular_type": particular_type}, "name")
+			return self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=account)
+		finally:
+			self.current_month, self.previous_month = saved
+
+	def _issued_equity_capital_fc(self, month, fiscal_year):
+		"""Issued equity capital in the company's own currency up to the end of ``month`` of ``fiscal_year``, in the
+		display unit. Used by the company-currency (FC) pass of a foreign company; the INR pass reads the INR amount."""
+		_, end_date = self.get_month_date_range(month, fiscal_year)
+		if not end_date:
+			return 0
+		total = frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", end_date]}, "SUM(investment_value)")
+		return flt(total) / self.get_amount_divisor()
+
+	def _has_fc_columns(self, data):
+		"""True when the Balance Sheet / P&L rows carry the company-currency (FC) amounts."""
+		return any("fc_current_month_amount" in row for row in data or [])
+
+	def _statement_head(self, periods, particulars_width, dual, font=""):
+		"""Opening <table> and <thead> of a Balance Sheet / P&L statement.
+
+		``periods`` is [(column label, width %)]. With ``dual`` every period gets two columns: the company
+		currency (FC) and INR, under a two-row header.
+		"""
+		base = "border-left:1px solid #222; border-right:1px solid #222; border-top:1px solid #222; border-bottom:2px solid #222; padding: 5px; background-color:#fff;"
+
+		def th(text, width=None, align="center", attrs=""):
+			size = f"width: {width}%; " if width else ""
+			return f"<th{attrs} style='{base} text-align:{align}; {font}{size}'>{text}</th>"
+
+		span = ' rowspan="2"' if dual else ""
+		row_style = 'style="color: #4472C4; border-bottom:2px solid #222; background-color:#fff;"'
+		first = th("Particulars", particulars_width, "left", ' colspan="2"' + span) + th("Note No.", 10, attrs=span)
+		second = ""
+		fc_label = getattr(self, "_functional_currency", None) or frappe.get_value("Company", self.company, "default_currency")
+		for label, width in periods:
+			if dual:
+				first += th(label, attrs=' colspan="2"')
+				second += th(fc_label, round(width * 0.8)) + th("INR", round(width * 0.8))
+			else:
+				first += th(label, width)
+		head = f"<tr {row_style}>{first}</tr>" + (f"<tr {row_style}>{second}</tr>" if dual else "")
+		return (
+			'<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top: -25pt; border:1px solid #000; background-color:#fff;">'
+			f"<thead>{head}</thead><tbody>"
+		)
+
+	def _statement_amount_cells(self, row, fields, horizontal_border, bold, dual):
+		"""The amount cells of one statement row: one per field, or an FC and an INR cell per field when ``dual``.
+		The first field (current period) keeps the green fill."""
+		cells = ""
+		for n, field in enumerate(fields):
+			fill = " background-color: #e8f5e8;" if n == 0 else ""
+			for key in (("fc_" + field, field) if dual else (field,)):
+				value = row.get(key)
+				cells += (
+					"<td style='text-align:right; padding: 2px; border-left:1px solid #222; border-right:1px solid #222; "
+					f"{horizontal_border}{fill} {bold}'>{self.fmt_num(value) if value else ''}</td>"
+				)
+		return cells
 
 	def fmt_num(self, val):
 		"""Format a number with thousands separators, honoring show_decimal_value
@@ -7836,6 +7919,10 @@ class FRFinancialReport(Document):
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
 				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
 
+			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != "INR":
+				# FC pass of a foreign company (report currency = company currency): issued capital in the company's own currency
+				amount = self._issued_equity_capital_fc(month, year)
+
 			elif fr_particular.fetch_from_schedule:
 				note_type = get_fr_section(fr_particular.schedule).note_type if fr_particular.schedule else None
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
@@ -7879,7 +7966,7 @@ class FRFinancialReport(Document):
 				amount = get_grouped_gl_amount(gl_accounts, year, month)
 
 			# Reverse if required
-			if fr_particular.show_reversed_value and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency):
+			if fr_particular.show_reversed_value and not (fr_particular.particular_type == "Equity Share Capital" and default_currency != "INR"):
 				amount = -amount
 
 			# Apply FX only on leaf nodes (not totals, not schedule fetches)
@@ -7908,7 +7995,7 @@ class FRFinancialReport(Document):
 			if default_currency != self.currency and particular_type == "Equity Share Capital":
 				_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
 				previous_month_amount = current_month_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0))/ self.get_amount_divisor(), self.show_decimal_value)
-				previous_year_amount = round((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)")/ self.get_amount_divisor() or 0), self.show_decimal_value)
+				previous_year_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)") or 0))/ self.get_amount_divisor(), self.show_decimal_value)
 			else:
 				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
 				previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx) or 0
@@ -8709,9 +8796,19 @@ class FRFinancialReport(Document):
 			
 			if table:
 				rows = table.find_all('tr')
+				occupied = set()   # (row, col) already covered by a rowspan / colspan above or to the left
 				for row_idx, row in enumerate(rows, 1):
 					cells = row.find_all(['td', 'th'])
-					for col_idx, cell in enumerate(cells, 1):
+					col_idx = 0
+					for cell in cells:
+						col_idx += 1
+						while (row_idx, col_idx) in occupied:
+							col_idx += 1
+						rowspan = int(cell.get('rowspan') or 1)
+						colspan = int(cell.get('colspan') or 1)
+						for dr in range(rowspan):
+							for dc in range(colspan):
+								occupied.add((row_idx + dr, col_idx + dc))
 						cell_value = cell.get_text(strip=True)
 						ws.cell(row=row_idx + row_offset, column=col_idx, value=cell_value)
 						

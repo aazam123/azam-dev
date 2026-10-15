@@ -28,12 +28,7 @@ frappe.ui.form.on("FR Financial Report", {
         }
     },
     company: function(frm) {
-        frappe.db.get_value('Company', frm.doc.company, 'default_currency')
-        .then(r => {
-            if (r.message && r.message.default_currency) {
-                frm.set_value('currency', r.message.default_currency);
-            }
-        });
+        sync_report_currency(frm);
     },
 	financial_report_template(frm) {
         frappe.call({
@@ -47,6 +42,8 @@ frappe.ui.form.on("FR Financial Report", {
         })
 	},
     refresh(frm) {
+        // Currency is hidden when the company's own currency is not INR (the report is then INR with the own-currency amounts beside it)
+        sync_report_currency(frm, true);
         // Status indicator
         if (frm.doc.report_status === "Under Generation") {
             frm.dashboard.set_headline_alert(
@@ -84,6 +81,10 @@ frappe.ui.form.on("FR Financial Report", {
                 const print_format = "Financial Report";
                 const print_url = `/printview?doctype=FR Financial Report&name=${frm.doc.name}&format=${print_format}&no_letterhead=0`;
                 window.open(print_url, '_blank');
+            });
+
+            frm.add_custom_button("Excel View", function () {
+                frappe.set_route("financial-report-excel-view", frm.doc.name);
             });
 
             frm.add_custom_button("Export Excel", function() {
@@ -251,6 +252,23 @@ function updateProgress(dialog, percentage, message) {
     
     progress_fill.css('width', percentage + '%');
     progress_text.text(message);
+}
+
+// A company whose own currency is not INR reports in INR; the Currency field is hidden and the own-currency (FC)
+// amounts are shown beside the INR ones in the Balance Sheet and Profit & Loss. Other companies keep their own currency.
+function sync_report_currency(frm, only_toggle) {
+    if (!frm.doc.company) {
+        frm.toggle_display('currency', true);
+        return;
+    }
+    frappe.db.get_value('Company', frm.doc.company, 'default_currency').then(r => {
+        const company_currency = r.message && r.message.default_currency;
+        if (!company_currency) return;
+        frm.toggle_display('currency', company_currency === 'INR');
+        if (!only_toggle && frm.doc.currency !== 'INR') {
+            frm.set_value('currency', 'INR');     // the report currency is always INR; the server enforces it on save
+        }
+    });
 }
 
 function exportToExcel(frm) {
