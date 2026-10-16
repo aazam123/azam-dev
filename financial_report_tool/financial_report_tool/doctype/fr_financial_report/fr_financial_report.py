@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import re
+import copy
 import os
 import math
 import json
@@ -33,6 +34,153 @@ _DEFAULT_AMOUNT_UNIT = "Lakhs"
 # Period amount fields of the Balance Sheet / Profit & Loss rows. For a foreign company each one also
 # has an "fc_<field>" twin holding the amount in the company's own currency.
 _STATEMENT_AMOUNT_FIELDS = ("current_month_amount", "previous_month_amount", "ftm_amount", "previous_year")
+
+_NUMBER_CELL = re.compile(r"^\(?-?[\d,]*\d(\.\d+)?\)?%?$")
+_BLANK_CELL = re.compile(r"^[-\u2013\u2014]?$")
+
+
+def _cell_value(text):
+	"""A table cell as a number: blank or a dash is 0, "1,234.5" / "(12)" / "-12" / "5%" are numbers, anything else is None."""
+	t = (text or "").replace("\xa0", " ").strip()
+	if _BLANK_CELL.match(t):
+		return 0.0
+	if not _NUMBER_CELL.match(t):
+		return None
+	number = float(re.sub(r"[(),%\-]", "", t))
+	return -number if t.startswith(("(", "-")) else number
+
+
+def _plain(text):
+	return re.sub(r"\s+", " ", (text or "").replace("\xa0", " ")).strip()
+
+
+def _table_rows(table):
+	return [tr for tr in table.find_all("tr") if tr.find_parent("table") is table]
+
+
+def _row_cells(tr):
+	return tr.find_all(["td", "th"], recursive=False)
+
+
+def _span(el, attr):
+	try:
+		return max(1, int(el.get(attr) or 1))
+	except ValueError:
+		return 1
+
+
+def _set_inner(el, html):
+	el.clear()
+	for node in list(BeautifulSoup(html, "html.parser").contents):
+		el.append(node)
+
+
+def _merge_fc_table(inr_table, fc_table, fc_currency):
+	"""Put the company-currency (FC) amount beside the INR amount in one schedule table.
+
+	``fc_table`` is the same table generated with the company currency as report currency. A column is an amount
+	column when its figures differ between the two (page numbers, shares, percentages and years are equal, so they stay
+	single). Each amount column becomes FC | INR, and the header cell above it is split (or widened if it is a group
+	header). Tables that are not a plain grid, or whose two versions do not line up, are left as INR only.
+	Returns True when the table was changed.
+	"""
+	if inr_table.find("table") or inr_table.find(["colgroup", "col"]):
+		return False
+	inr_rows, fc_rows = _table_rows(inr_table), _table_rows(fc_table)
+	if not inr_rows or len(inr_rows) != len(fc_rows):
+		return False
+
+	head_count = 0
+	while head_count < len(inr_rows) and inr_rows[head_count].find("th", recursive=False):
+		head_count += 1
+	head_rows = inr_rows[:head_count]
+	body_rows, fc_body = inr_rows[head_count:], fc_rows[head_count:]
+	if not head_rows or not body_rows or any(tr.find("th", recursive=False) for tr in body_rows + fc_body):
+		return False
+
+	inr_cells = [_row_cells(tr) for tr in body_rows]
+	fc_cells = [_row_cells(tr) for tr in fc_body]
+	width = len(inr_cells[0])
+	for cells_i, cells_f in zip(inr_cells, fc_cells):
+		if len(cells_i) != width or len(cells_f) != width:
+			return False
+		if any(_span(c, "colspan") > 1 or _span(c, "rowspan") > 1 for c in cells_i + cells_f):
+			return False
+
+	# column position of every header cell (rowspan / colspan aware)
+	taken, heads = set(), []
+	for r, tr in enumerate(head_rows):
+		col = 0
+		for el in _row_cells(tr):
+			while (r, col) in taken:
+				col += 1
+			cs, rs = _span(el, "colspan"), _span(el, "rowspan")
+			for dr in range(rs):
+				for dc in range(cs):
+					taken.add((r + dr, col + dc))
+			heads.append((el, r, col, cs, rs))
+			col += cs
+	if max(col + cs for _, _, col, cs, _ in heads) != width or any(r + rs > head_count for _, r, _, _, rs in heads):
+		return False
+
+	# amount columns = figures differ between the two passes; anything else must be identical
+	amount_cols = []
+	for j in range(width):
+		differs = False
+		for cells_i, cells_f in zip(inr_cells, fc_cells):
+			a, b = cells_i[j].get_text(), cells_f[j].get_text()
+			va, vb = _cell_value(a), _cell_value(b)
+			if va is None or vb is None:
+				if _plain(a) != _plain(b):
+					return False
+			elif abs(va - vb) > 1e-9:
+				differs = True
+		if differs:
+			amount_cols.append(j)
+	if not amount_cols:
+		return False
+
+	wanted = set(amount_cols)
+	for el, r, col, cs, rs in heads:
+		covered = [j for j in range(col, col + cs) if j in wanted]
+		if not covered:
+			continue
+		if r + rs == head_count and cs == 1:      # the column's own header: split into FC and INR
+			inner = el.decode_contents()
+			fc_el = copy.copy(el)
+			_set_inner(fc_el, inner.replace("₹", fc_currency) if "₹" in inner else f"{inner}<br/>({fc_currency})")
+			_set_inner(el, inner if "₹" in inner else f"{inner}<br/>(INR)")
+			el.insert_before(fc_el)
+		else:                                      # a group header above it: just wider
+			el["colspan"] = str(cs + len(covered))
+
+	for cells_i, cells_f in zip(inr_cells, fc_cells):
+		for j in amount_cols:
+			fc_el = copy.copy(cells_i[j])
+			_set_inner(fc_el, cells_f[j].decode_contents())
+			cells_i[j].insert_before(fc_el)
+
+	scale = (width + len(amount_cols)) / width
+	inr_table["style"] = re.sub(
+		r"min-width:\s*(\d+)px", lambda m: f"min-width:{round(int(m.group(1)) * scale)}px", inr_table.get("style") or ""
+	)
+	inr_table["data-fc"] = "1"
+	return True
+
+
+def _merge_fc_schedule(inr_html, fc_html, fc_currency):
+	"""A schedule's HTML with the FC amounts added beside the INR ones, table by table (see _merge_fc_table)."""
+	inr_soup = BeautifulSoup(inr_html or "", "html.parser")
+	fc_soup = BeautifulSoup(fc_html or "", "html.parser")
+	inr_tables = [t for t in inr_soup.find_all("table") if not t.find_parent("table")]
+	fc_tables = [t for t in fc_soup.find_all("table") if not t.find_parent("table")]
+	if not inr_tables or len(inr_tables) != len(fc_tables):
+		return inr_html
+	changed = False
+	for inr_table, fc_table in zip(inr_tables, fc_tables):
+		changed = _merge_fc_table(inr_table, fc_table, fc_currency) or changed
+	return str(inr_soup) if changed else inr_html
+
 
 
 def do_generate_report(docname):
@@ -134,6 +282,22 @@ class FRFinancialReport(Document):
 		if name not in self._standalone_group_cache:
 			self._standalone_group_cache[name] = frappe.get_value("FR Standalone Group", name, ["show_reversed_value", "group_type", "report_type"], as_dict=True)
 		return self._standalone_group_cache[name]
+
+	def _group_statement_type(self, primary_group):
+		"""'Balance Sheet' or 'Profit & Loss' for a primary group: its own Report Type, else the statement that carries the
+		schedule built from it (most primary groups leave Report Type blank). Decides the rate a schedule is translated at:
+		closing for the Balance Sheet, average for the P&L."""
+		group_type = self._get_cached_standalone_group(primary_group).report_type if primary_group else None
+		if group_type:
+			return group_type
+		if not hasattr(self, "_group_statement_cache"):
+			self._group_statement_cache = {}
+		if primary_group not in self._group_statement_cache:
+			sections = frappe.get_all("FR Section", filters={"primary_consolidation_group": primary_group}, pluck="name")
+			types = set(frappe.get_all("FR Particular", filters={"schedule": ["in", sections]}, pluck="template_type")) if sections else set()
+			types &= {"Balance Sheet", "Profit & Loss"}
+			self._group_statement_cache[primary_group] = types.pop() if len(types) == 1 else None
+		return self._group_statement_cache[primary_group]
 
 	def _get_cached_secondary_groups(self, primary_group):
 		"""Instance-level cached secondary groups for a primary group."""
@@ -854,7 +1018,8 @@ class FRFinancialReport(Document):
 			("Yearly", "Profit & Loss"): self.render_yearly_profit_and_loss,
 		}
 		statements = [d for d in self.financial_report_details if (self.report_type, d.section_type) in renderers]
-		if not statements:
+		schedules = [d for d in self.financial_report_details if d.section_type == "Consolidation Note" and d.section_description]
+		if not statements and not schedules:
 			return
 
 		fc_doc = frappe.get_doc("FR Financial Report", self.name)
@@ -872,6 +1037,11 @@ class FRFinancialReport(Document):
 					if field in row:
 						row["fc_" + field] = fc_row.get(field) or 0
 			detail.table_data, detail.section_description = renderers[(self.report_type, detail.section_type)](detail.section, rows)
+
+		# Schedules (notes): same layout, the details are in the same order in both versions of the report
+		for detail, fc_detail in zip(self.financial_report_details, fc_doc.financial_report_details):
+			if detail.section_type == "Consolidation Note" and (fc_detail.section_type, fc_detail.section) == (detail.section_type, detail.section):
+				detail.section_description = _merge_fc_schedule(detail.section_description, fc_detail.section_description, fc_currency)
 
 	def _apply_amount_unit_label(self):
 		"""Reflect the configured display unit in the rendered report HTML.
@@ -4732,20 +4902,38 @@ class FRFinancialReport(Document):
 		return section_description.replace("{{note_table}}", html)
 
 
-	def get_yearly_finished_goods_and_wip(self, section_description="", total=False, field=None):
+	def get_yearly_finished_goods_and_wip(self, section_description="", total=False, field=None, get_face=False):
+		"""Changes in inventories of finished goods and work-in-progress (yearly).
+
+		The schedule feeds a Profit & Loss line, so for a foreign company it is translated at the average rate of the
+		year (current year column: closing month of this fiscal year; previous year column: closing month of the previous
+		one), the same rate the P&L and the sibling schedules (materials consumed, purchases) use. Every row of a column
+		uses that column's rate, so opening - closing = net increase holds in the report currency too.
+
+		``total=True`` returns one figure. It stays in the company's currency unless ``get_face`` is set (the P&L line),
+		because the materials-consumed and purchases notes take it in company currency and translate their own result.
+		"""
+		self._init_report_caches()
 		rows = []
 		add = lambda p, cy=0, py=0, st=False: rows.append({"p": p, "cy": cy, "py": py, "st": st})
 
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
 		month_lbl, prev_year_lbl = self.get_yearly_dates()
 
+		default_currency = self._default_currency
+		if default_currency != self.currency and (not total or get_face):
+			cy_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, "average_rate")
+			py_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "average_rate")
+		else:
+			cy_fx = py_fx = 1
+
 		cur_total = prev_total = prev_prev_total = 0
 		add("Inventories at the end of the year", st=True)
 
 		def add_group(sec, label):
 			nonlocal cur_total, prev_total
-			cy = self.get_sum_grouping_amount("Inventories", sec, cls_month, self.fiscal_year) or 0
-			py = self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year) or 0
+			cy = (self.get_sum_grouping_amount("Inventories", sec, cls_month, self.fiscal_year) or 0) * cy_fx
+			py = (self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year) or 0) * py_fx
 			add(label, cy, py)
 			cur_total += cy; prev_total += py
 
@@ -4756,8 +4944,8 @@ class FRFinancialReport(Document):
 			)
 
 			for hg in hgs:
-				cy_hg = self.get_sum_grouping_amount("Inventories", sec, cls_month, self.fiscal_year, hg_sec_group=hg) or 0
-				py_hg = self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year, hg_sec_group=hg) or 0
+				cy_hg = (self.get_sum_grouping_amount("Inventories", sec, cls_month, self.fiscal_year, hg_sec_group=hg) or 0) * cy_fx
+				py_hg = (self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year, hg_sec_group=hg) or 0) * py_fx
 				add(f"  {hg}", cy_hg, py_hg)
 			return cy, py
 
@@ -4771,11 +4959,12 @@ class FRFinancialReport(Document):
 
 		def add_prev_group(sec, label):
 			nonlocal prev_prev_total
-			py = self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year) or 0
-			pp = self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year) or 0
-			add(label, py, pp)
+			# the opening stock of this year is last year's closing stock: current year column -> this year's rate
+			opening = (self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year) or 0) * cy_fx
+			pp = (self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year) or 0) * py_fx
+			add(label, opening, pp)
 			prev_prev_total += pp
-			return py, pp
+			return opening, pp
 
 		p_fg, pp_fg = add_prev_group("Finished Goods", "Finished goods")
 		p_wip, pp_wip = add_prev_group("Work in Progress", "Work-in-progress")
@@ -5572,11 +5761,11 @@ class FRFinancialReport(Document):
 		current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, "closing_rate") if self.currency != default_currency else 1
 		prev_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate") if self.currency != default_currency else 1
 
-		msme_current = round(self.get_sum_grouping_amount("Trade payables", "Dues of MSME", cls_month, self.fiscal_year) or 0,self.show_decimal_value)
-		msme_previous = round(self.get_sum_grouping_amount("Trade payables", "Dues of MSME", cls_month, self.previous_fiscal_year) or 0,self.show_decimal_value)
+		msme_current = round((self.get_sum_grouping_amount("Trade payables", "Dues of MSME", cls_month, self.fiscal_year) or 0) * current_fx, self.show_decimal_value)
+		msme_previous = round((self.get_sum_grouping_amount("Trade payables", "Dues of MSME", cls_month, self.previous_fiscal_year) or 0) * prev_fx, self.show_decimal_value)
 
-		creditor_current = round((self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.fiscal_year) or 0) +(self.get_sum_grouping_amount("Trade payables", "Dues of Creditors Other Than MSME", cls_month, self.fiscal_year) or 0),self.show_decimal_value)
-		creditor_previous = round((self.get_sum_grouping_amount("Trade payables", "Dues of Creditors Other Than MSME", cls_month, self.previous_fiscal_year) or 0) +(self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year) or 0),self.show_decimal_value)
+		creditor_current = round(((self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.fiscal_year) or 0) + (self.get_sum_grouping_amount("Trade payables", "Dues of Creditors Other Than MSME", cls_month, self.fiscal_year) or 0)) * current_fx, self.show_decimal_value)
+		creditor_previous = round(((self.get_sum_grouping_amount("Trade payables", "Dues of Creditors Other Than MSME", cls_month, self.previous_fiscal_year) or 0) + (self.get_sum_grouping_amount("Trade payables", "Trade payables", cls_month, self.previous_fiscal_year) or 0)) * prev_fx, self.show_decimal_value)
 
 		# (label, current, previous)
 		rows = [
@@ -5844,7 +6033,7 @@ class FRFinancialReport(Document):
 					secondary_consolidation_groups = secondary_groups
 
 				sg_info = self._get_cached_standalone_group(primary_group)
-				report_type = sg_info.report_type if sg_info else None
+				report_type = self._group_statement_type(primary_group)
 				default_currency = self._default_currency
 				cls_month = self._closing_month
 				if default_currency != self.currency:
@@ -6235,7 +6424,7 @@ class FRFinancialReport(Document):
 				note_type = get_fr_section(fr_particular.schedule).note_type
 				if note_type == "Changes in inventories of Finished Goods and Work-In-Progress":
 					field = 'net_increase_total' if is_current else ('prev_year_amt' if is_yearly else 'previous_month_amt')
-					amount = self.get_yearly_finished_goods_and_wip(total=True, field=field)
+					amount = self.get_yearly_finished_goods_and_wip(total=True, field=field, get_face=True)
 				elif note_type == "Cost of Materials Consumed":
 					field = 'cost_consumed_current' if is_current else ('prev_year_cost_consumed' if is_yearly else 'cost_consumed_previous')
 					amount = self.get_yearly_cost_of_material_consumed(note_type, total=True, field=field)
@@ -6887,6 +7076,20 @@ class FRFinancialReport(Document):
 		return current_month_label, previous_month_label, previous_year_label
 
 	def get_monthly_finished_goods_and_wip(self, section_description, total, get_face=None, field=None):
+		"""Changes in inventories of finished goods and work-in-progress (monthly).
+
+		The schedule feeds a Profit & Loss line, so for a foreign company it is translated at the AVERAGE rate, like the
+		P&L and its sibling schedules. Each column uses one rate for every row in it, so that opening - closing = net
+		increase foots in the report currency too:
+		  month column          -> average rate of the current month
+		  previous month column -> average rate of the previous month
+		  previous year column  -> average rate of the previous year's closing month
+		A missing rate gives 0 (as for every other line of the report) instead of silently leaving the amount untranslated.
+
+		``total=True`` returns one figure. It stays in the company's currency unless ``get_face`` is set (the P&L line),
+		because the materials-consumed and purchases notes take it in company currency and translate their own result.
+		"""
+		self._init_report_caches()
 		rows = []
 		add_row = lambda p, cm=0, pm=0, ftm=0, py=0, st=False: rows.append({
 			"particulars": p, "current_month_amt": cm, "previous_month_amt": pm, "ftm_amt": ftm, "previous_year_amt": py, "is_subtotal": st
@@ -6894,117 +7097,86 @@ class FRFinancialReport(Document):
 		add_row("Inventories at the end of the month", st=True)
 
 		cls_month, pre_year = self.get_previous_year_cls_month(self.previous_fiscal_year)
-		default_currency = frappe.get_value("Company", self.company, "default_currency")
+		default_currency = self._default_currency
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
-		current_month_total = cls_previous_month_total = f_previous_year_amt = ftm_total = previous_month_total = 0
 
-		if default_currency != self.currency:
-			if not total:
-				current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate') or 1
-				previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate') or 1
-				prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'closing_rate') or 1
-				pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'closing_rate') or 1
-			else:
-				if get_face:
-					current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'closing_rate') or 1
-					previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'closing_rate') or 1
-					prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'closing_rate') or 1
-					pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'closing_rate') or 1
-				else:
-					current_fx = previous_fx = prev_year_fx = pre_prev_year_fx = 1
+		if default_currency != self.currency and (not total or get_face):
+			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "average_rate")
+			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "average_rate")
+			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "average_rate")
 		else:
-			current_fx = previous_fx = prev_year_fx = pre_prev_year_fx = 1
+			current_fx = previous_fx = prev_year_fx = 1
 
+		# running totals, already translated column by column
+		cur_total = prev_total = py_total = ftm_total = 0          # inventories at the end of: this month / previous month / previous year
+		open_cur_total = open_prev_total = pp_total = 0            # inventories at the beginning: (month, previous month columns) / previous year column
 
-		def add_inventory_group(secondary_group, label):
-			nonlocal current_month_total, cls_previous_month_total, f_previous_year_amt, ftm_total
-			cur = self.get_sum_grouping_amount("Inventories", secondary_group, self.current_month, self.fiscal_year) * current_fx
-			prev = self.get_sum_grouping_amount("Inventories", secondary_group, self.previous_month, self.fiscal_year) * previous_fx
-			prev_year_closing = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year) * prev_year_fx
-			ftm_val = cur - prev
+		def balance(group, month, year, hg=""):
+			return self.get_sum_grouping_amount("Inventories", group, month, year, hg_sec_group=hg) or 0
 
-			add_row(label, cur, prev, ftm_val, prev_year_closing)
-
-			# higher secondary group breakdown
-			hg_list = frappe.get_all(
+		def higher_groups(group):
+			return frappe.get_all(
 				"FR GL Group Mapping",
-				{"company": self.company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
+				{"company": self.company, "primary_group": "Inventories", "secondary_group": group, "higher_secondary_group": ["!=", None]},
 				pluck="higher_secondary_group", distinct=True
 			)
 
-			for hg in hg_list:
-				cur_hg = self.get_sum_grouping_amount("Inventories", secondary_group, self.current_month, self.fiscal_year, hg_sec_group=hg) * current_fx
-				prev_hg = self.get_sum_grouping_amount("Inventories", secondary_group, self.previous_month, self.fiscal_year, hg_sec_group=hg) * previous_fx
-				prev_year_hg = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year, hg_sec_group=hg) * prev_year_fx
-				add_row(f"  {hg}", cur_hg, prev_hg, cur_hg - prev_hg, prev_year_hg)
-				current_month_total += cur_hg; cls_previous_month_total += prev_hg
-				f_previous_year_amt += prev_year_hg; ftm_total += (cur_hg - prev_hg)
+		def add_inventory_group(group, label):
+			nonlocal cur_total, prev_total, py_total, ftm_total
+			cur = balance(group, self.current_month, self.fiscal_year) * current_fx
+			prev = balance(group, self.previous_month, self.fiscal_year) * previous_fx
+			py = balance(group, cls_month, self.previous_fiscal_year) * prev_year_fx
+			add_row(label, cur, prev, cur - prev, py)
+			cur_total += cur; prev_total += prev; py_total += py; ftm_total += cur - prev
 
-			return cur, prev, prev_year_closing, ftm_val
+			# higher secondary group breakdown
+			for hg in higher_groups(group):
+				cur_hg = balance(group, self.current_month, self.fiscal_year, hg) * current_fx
+				prev_hg = balance(group, self.previous_month, self.fiscal_year, hg) * previous_fx
+				py_hg = balance(group, cls_month, self.previous_fiscal_year, hg) * prev_year_fx
+				add_row(f"  {hg}", cur_hg, prev_hg, cur_hg - prev_hg, py_hg)
+				cur_total += cur_hg; prev_total += prev_hg; py_total += py_hg; ftm_total += cur_hg - prev_hg
 
 		# Finished Goods, WIP, SIT
-		cur_fg, prev_fg, prev_year_fg, ftm_fg = add_inventory_group("Finished Goods", "Finished goods")
-		cur_wip, prev_wip, prev_year_wip, ftm_wip = add_inventory_group("Work in Progress", "Work-in-progress")
-		cur_sit, prev_sit, prev_year_sit, ftm_sit = add_inventory_group("Stock In Trade", "Stock-in-trade")
-
-		# totals
-		current_month_total += cur_fg + cur_wip + cur_sit
-		cls_previous_month_total += prev_fg + prev_wip + prev_sit
-		f_previous_year_amt += prev_year_fg + prev_year_wip + prev_year_sit
-		ftm_total += ftm_fg + ftm_wip + ftm_sit
-		add_row("", current_month_total, cls_previous_month_total, ftm_total, f_previous_year_amt)
+		add_inventory_group("Finished Goods", "Finished goods")
+		add_inventory_group("Work in Progress", "Work-in-progress")
+		add_inventory_group("Stock In Trade", "Stock-in-trade")
+		add_row("", cur_total, prev_total, ftm_total, py_total)
 
 		add_row("Inventories at the beginning of the month", st=True)
 
-		# ---------- Previous year section (optimized same way) ----------
-		def add_prev_year_group(secondary_group, label):
-			nonlocal previous_month_total
-			prev_month_val = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year) * prev_year_fx
-			pre_prev_closing = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, pre_year) * pre_prev_year_fx
-			add_row(label, prev_month_val, prev_month_val, 0, pre_prev_closing)
+		# The opening stock is the previous year's closing stock; for the previous year column it is the year before's.
+		def add_prev_year_group(group, label):
+			nonlocal open_cur_total, open_prev_total, pp_total
+			opening = balance(group, cls_month, self.previous_fiscal_year)
+			pre_prev = balance(group, cls_month, pre_year)
+			add_row(label, opening * current_fx, opening * previous_fx, 0, pre_prev * prev_year_fx)
+			open_cur_total += opening * current_fx; open_prev_total += opening * previous_fx; pp_total += pre_prev * prev_year_fx
 
-			hg_list = frappe.get_all(
-				"FR GL Group Mapping",
-				{"company": self.company, "primary_group": "Inventories", "secondary_group": secondary_group, "higher_secondary_group": ["!=", None]},
-				pluck="higher_secondary_group", distinct=True
-			)
-			for hg in hg_list:
-				hg_val = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, self.previous_fiscal_year, hg_sec_group=hg) * prev_year_fx
-				prev_year_hg = self.get_sum_grouping_amount("Inventories", secondary_group, cls_month, pre_year, hg_sec_group=hg) * pre_prev_year_fx
-				add_row(f"  {hg}", hg_val, hg_val, 0, prev_year_hg)
-				previous_month_total += hg_val; pre_prev_closing += prev_year_hg
-			return prev_month_val, pre_prev_closing
+			for hg in higher_groups(group):
+				opening_hg = balance(group, cls_month, self.previous_fiscal_year, hg)
+				pre_prev_hg = balance(group, cls_month, pre_year, hg)
+				add_row(f"  {hg}", opening_hg * current_fx, opening_hg * previous_fx, 0, pre_prev_hg * prev_year_fx)
+				open_cur_total += opening_hg * current_fx; open_prev_total += opening_hg * previous_fx; pp_total += pre_prev_hg * prev_year_fx
 
-		previous_month_fg, closing_fg_pre_prev = add_prev_year_group("Finished Goods", "Finished goods")
-		previous_month_wip, closing_wip_pre_prev = add_prev_year_group("Work in Progress", "Work-in-progress")
-		previous_month_sit, closing_sit_pre_prev = add_prev_year_group("Stock In Trade", "Stock-in-trade")
-
-		previous_month_total += previous_month_fg + previous_month_wip + previous_month_sit
+		add_prev_year_group("Finished Goods", "Finished goods")
+		add_prev_year_group("Work in Progress", "Work-in-progress")
+		add_prev_year_group("Stock In Trade", "Stock-in-trade")
 
 		# ---------- Net increases ----------
-		net_increase_fg = cur_fg - previous_month_fg
-		net_increase_wip = cur_wip - previous_month_wip
-		net_increase_total = previous_month_total - current_month_total
-		prev_net_total = previous_month_total - cls_previous_month_total
-		prev_year_amt = (closing_wip_pre_prev + closing_fg_pre_prev + closing_sit_pre_prev) - f_previous_year_amt
+		net_increase_total = open_cur_total - cur_total
+		prev_net_total = open_prev_total - prev_total
+		prev_year_amt = pp_total - py_total
 
 		if total:
 			if field == "net_increase_total": return net_increase_total
-			if field == "ftm_total": return ftm_total 
+			if field == "ftm_total": return ftm_total
 			if field == "previous_month_amt": return prev_net_total
 			if field == "prev_year_amt": return prev_year_amt
 			return 0
 
-		# face-only fetch
-		if get_face and total:
-			if field == "net_increase_total": return net_increase_total
-			if field == "ftm_total": return ftm_total
-			if field == "previous_month_amt": return prev_net_total
-			if field == "prev_year_amt": return prev_year_amts
-			return 0
-
 		# final subtotal rows
-		add_row("", previous_month_total, previous_month_total, 0, closing_wip_pre_prev + closing_fg_pre_prev + closing_sit_pre_prev)
+		add_row("", open_cur_total, open_prev_total, 0, pp_total)
 		add_row("Net increase", net_increase_total, prev_net_total, prev_net_total - net_increase_total, prev_year_amt, st=True)
 
 		# HTML rendering
@@ -7282,7 +7454,7 @@ class FRFinancialReport(Document):
 				secondary_consolidation_groups = secondary_groups
 
 			sg_info = self._get_cached_standalone_group(primary_group)
-			report_type = sg_info.report_type if sg_info else None
+			report_type = self._group_statement_type(primary_group)
 			default_currency = self._default_currency
 			cls_month = self._closing_month
 			if default_currency != self.currency:

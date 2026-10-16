@@ -317,7 +317,8 @@ class FinancialReportExcelView {
 			} else {
 				for (const cell of row.cells) {
 					const numeric = cell.t && NUMBER.test(cell.t);
-					const neg = numeric && /^\(|^-/.test(cell.t) && !/^-?0+(\.0+)?$/.test(cell.t.replace(/[(),%]/g, ""));
+					// negatives are red on the statements only; schedule (note) sheets keep the normal colour
+					const neg = sheet.kind === "statement" && numeric && /^\(|^-/.test(cell.t) && !/^-?0+(\.0+)?$/.test(cell.t.replace(/[(),%]/g, ""));
 					const link = numeric && sheet.note_col === cell.col && !cell.th && this.note_target(cell.t) >= 0;
 					const cls = ["xv-cell", cell.th ? "xv-head" : "", cell.bold ? "xv-b" : "", numeric ? "xv-num" : "", neg ? "xv-neg" : "", link ? "xv-link" : ""].join(" ");
 					const style = cell.bg ? ` style="background:${e(cell.bg)}"` : "";

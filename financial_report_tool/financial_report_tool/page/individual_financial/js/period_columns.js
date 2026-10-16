@@ -62,7 +62,7 @@ function parseAmount(t) {
 function statementLayout(table) {
     const trs = [...table.querySelectorAll('tr')].filter(tr => tr.closest('table') === table);
     const head = trs.find(tr => tr.querySelector('th'));
-    if (!head || head.querySelector('[rowspan]')) return null;     // two-row headers (FC | INR per period) are left as they are
+    if (!head || head.querySelector('[rowspan]') || table.dataset.fc) return null;     // two-row headers and FC | INR tables are left as they are
     const heads = [];
     [...head.children].forEach(th => {
         const span = Math.max(1, parseInt(th.getAttribute('colspan'), 10) || 1);
