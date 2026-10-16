@@ -150,7 +150,7 @@ class FinancialReportExcelView {
 				this.show_filters(doc);
 				this.$generate.prop("disabled", false); // also enabled for an empty report: that is when it is needed most
 				this.render_summary(doc);
-				this.sheets = (doc.financial_report_details || []).map((row, i) => this.build_sheet(row, i));
+				this.sheets = this.group_schedules((doc.financial_report_details || []).map((row, i) => this.build_sheet(row, i)));
 				this.active = 0;
 				if (!this.sheets.length) return this.message(__("This report has no financial details yet. Generate it first."));
 				this.$excel.prop("disabled", false);
@@ -184,7 +184,7 @@ class FinancialReportExcelView {
 			if (text) rows.push({ text });
 		};
 		[...doc.body.firstElementChild.children].forEach(walk);
-		const sheet = { title, kind, note, rows, index };
+		const sheet = { title, kind, note, rows, index, type: row.section_type };
 		sheet.width = this.layout(rows);
 		sheet.note_col = this.find_note_column(rows);
 		return sheet;
@@ -334,9 +334,69 @@ class FinancialReportExcelView {
 		this.$grid.scrollTop(0).scrollLeft(0);
 	}
 
+	// Index of the sheet that shows note `text` (its own sheet, or the combined schedules sheet that holds it).
 	note_target(text) {
 		const n = text.trim();
-		return this.sheets.findIndex((s) => s.note === n);
+		return this.sheets.findIndex((s) => s.note === n || (s.anchors && Object.prototype.hasOwnProperty.call(s.anchors, n)));
+	}
+
+	// One sheet for all Balance Sheet schedules and one for all Profit & Loss schedules.
+	// A schedule belongs to the statement that lists its note number in its "Note No." column. A note no statement lists
+	// (e.g. Trade receivables) goes with its neighbours when the notes on both sides belong to the same statement.
+	// Other notes (Current Tax, Leases...) and the text-only sheets keep their own sheet.
+	group_schedules(sheets) {
+		const listed = (type) => {
+			const set = new Set();
+			sheets.filter((s) => s.type === type && s.note_col >= 0).forEach((s) =>
+				s.rows.forEach((row) =>
+					(row.cells || []).forEach((cell) => {
+						if (cell.col === s.note_col && !cell.th && cell.t && NUMBER.test(cell.t)) set.add(cell.t.trim());
+					})
+				)
+			);
+			return set;
+		};
+		const owner = { "Balance Sheet": listed("Balance Sheet"), "Profit & Loss": listed("Profit & Loss") };
+		const kinds = Object.keys(owner);
+		const notes = sheets.filter((s) => s.kind === "note" && s.note);
+		const cls = notes.map((s) => kinds.find((k) => owner[k].has(s.note)) || null);
+		cls.forEach((c, i) => {
+			if (c) return;
+			const before = cls.slice(0, i).reverse().find(Boolean);
+			const after = cls.slice(i + 1).find(Boolean);
+			if (before && before === after) cls[i] = before;
+		});
+
+		const out = [];
+		const made = {};
+		sheets.forEach((s) => {
+			const k = cls[notes.indexOf(s)];
+			if (!k) return out.push(s);
+			if (!made[k]) {
+				made[k] = { title: k === "Balance Sheet" ? __("Balance Sheet Schedules") : __("Profit & Loss Schedules"), kind: "note", note: "", rows: [], parts: [], anchors: {}, note_col: -1 };
+				out.push(made[k]);
+			}
+			made[k].parts.push(s);
+		});
+		Object.values(made).forEach((g) => {
+			const width = Math.max(...g.parts.map((p) => p.width));
+			g.parts.forEach((p) => {
+				g.anchors[p.note] = g.rows.length;
+				g.rows.push({ cells: [{ t: p.title, th: false, cs: width, rs: 1, bold: true, bg: "#e8f0fe", col: 0 }] });
+				g.rows.push(...p.rows);
+				g.rows.push({ cells: [] }); // blank row between schedules
+			});
+			g.width = width;
+		});
+		out.forEach((s, i) => (s.index = i));
+		return out;
+	}
+
+	// Selects the first cell of row `r` and brings it to the top of the grid.
+	go_to_row(r) {
+		this.set_selection(r, 0, r, 0);
+		const td = this.cell_at(r, 0);
+		if (td) td.scrollIntoView({ block: "start" });
 	}
 
 	// --- selection ---------------------------------------------------------------------------
@@ -647,8 +707,12 @@ class FinancialReportExcelView {
 		});
 		$(document).on("mouseup.xv", () => (dragging = false));
 		g.on("click", "td.xv-link", (e) => {
-			const idx = this.note_target(e.currentTarget.dataset.note);
-			if (idx >= 0 && !(this.sel && (this.sel.r1 !== this.sel.r2 || this.sel.c1 !== this.sel.c2))) this.show_sheet(idx);
+			const note = e.currentTarget.dataset.note.trim();
+			const idx = this.note_target(note);
+			if (idx < 0 || (this.sel && (this.sel.r1 !== this.sel.r2 || this.sel.c1 !== this.sel.c2))) return;
+			this.show_sheet(idx);
+			const row = this.sheets[idx].anchors && this.sheets[idx].anchors[note];
+			if (row !== undefined) this.go_to_row(row);
 		});
 		g.on("click", ".xv-col", (e) => {
 			const sheet = this.sheets[this.active];
@@ -725,7 +789,7 @@ class FinancialReportExcelView {
 			.xv-table .xv-corner { left:0; z-index:4; min-width:46px; cursor:default; }
 			.xv-table .xv-rownum { position:sticky; left:0; z-index:1; background:var(--xv-head); border-color:#cfd2d6; color:#5f6368; font-size:11px; font-weight:400; text-align:center; min-width:46px; padding:0 6px; user-select:none; cursor:pointer; }
 			.xv-col.hl, .xv-rownum.hl { background:var(--xv-hl) !important; color:#202124; }
-			.xv-cell { background:#fff; white-space:nowrap; cursor:cell; user-select:none; }
+			.xv-cell { background:#fff; white-space:nowrap; cursor:cell; user-select:none; scroll-margin-top:30px; }
 			.xv-text { white-space:normal; min-width:500px; max-width:920px; line-height:1.55; padding:6px 10px; user-select:text; }
 			.xv-num { text-align:right; font-variant-numeric:tabular-nums; }
 			.xv-neg { color:#c0392b; }
