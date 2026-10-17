@@ -10,7 +10,9 @@
   "fiscal_year",
   "column_break_ahvm",
   "pl_inr",
-  "share_premium_inr"
+  "share_premium_inr",
+  "capital_contribution_inr",
+  "foreign_exchange_reserve_inr"
  ],
  "fields": [
   {
@@ -38,12 +40,22 @@
    "fieldname": "share_premium_inr",
    "fieldtype": "Currency",
    "label": "Share Premium (INR)"
+  },
+  {
+   "fieldname": "capital_contribution_inr",
+   "fieldtype": "Currency",
+   "label": "Capital Contribution (INR)"
+  },
+  {
+   "fieldname": "foreign_exchange_reserve_inr",
+   "fieldtype": "Currency",
+   "label": "Surplus in Foreign Exchange Reserves (INR)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-08-25 11:21:27.975300",
+ "modified": "2026-10-17 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Other Equity Opening Entry",

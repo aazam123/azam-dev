@@ -5281,6 +5281,16 @@ class FRFinancialReport(Document):
 		data[0].table_data = json.dumps(table_data)
 		_, data[0].section_description = self.render_yearly_profit_and_loss(data[0].section, table_data)
 
+	def _other_equity_opening(self, fiscal_year):
+		"""Opening balances (INR, report sign) of the Other Equity components for a foreign company reported in INR,
+		from the FR Other Equity Opening Entry of ``fiscal_year``: P&L, share premium, capital contribution and
+		surplus in foreign exchange reserves. A missing entry gives 0 for every component."""
+		fields = ("pl_inr", "share_premium_inr", "capital_contribution_inr", "foreign_exchange_reserve_inr")
+		entry = frappe.db.get_value(
+			"FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": fiscal_year}, list(fields), as_dict=True
+		) or {}
+		return frappe._dict({f: round(flt(entry.get(f)), self.show_decimal_value) for f in fields})
+
 	def _format_schedule_amount(self, val):
 		"""Comma-grouped amount for Other Equity schedule tables.
 
@@ -5304,8 +5314,9 @@ class FRFinancialReport(Document):
 		cur_tot_asset = prev_tot_asset = cur_cur_liab = prev_cur_liab = cur_ncur_liab = prev_ncur_liab = cur_eq_share = prev_eq_share = 0
 
 		if default_currency != self.currency:
-			sp_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "share_premium_inr") or 0, self.show_decimal_value)
-			bal_prev_year = round(frappe.get_value("FR Other Equity Opening Entry", {"company": self.company, "fiscal_year": pre_year}, "pl_inr") or 0, self.show_decimal_value)
+			opening = self._other_equity_opening(pre_year)
+			sp_prev_year = opening.share_premium_inr
+			bal_prev_year = opening.pl_inr
 
 			tot_asset = self._year_end_bs_row(bs_template, "Total Assets")
 			tot_cur_liab = self._year_end_bs_row(bs_template, "Total Current Liabilities")
@@ -5336,8 +5347,13 @@ class FRFinancialReport(Document):
 		oci_cur = -round(oci_cur - (oci_cur * pre_tax_rate / 100), self.show_decimal_value)
 		retained_cur = round(retained_prev_year + net_cur + oci_cur, self.show_decimal_value)
 
-		cc_open_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
-		cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
+		if default_currency != self.currency:
+			cc_open_prev = opening.capital_contribution_inr
+			# the trial-balance figure is the cumulative balance at year end, so what is not in the opening was added
+			cc_add_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) - cc_open_prev
+		else:
+			cc_open_prev = -round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value)
+			cc_add_prev = round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, previous_year), self.show_decimal_value) + cc_open_prev
 
 		fin_guar_cur = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, current_year), self.show_decimal_value)
 		fin_guar_prev = round(self.get_sum_grouping_amount("Other expenses", "Guarantee Expenses measured at amortised cost", cls_month, previous_year), self.show_decimal_value)
@@ -5350,14 +5366,15 @@ class FRFinancialReport(Document):
 		
 		for_exc_open = for_exc_add_prev = for_exc_add_cur = 0
 		if default_currency != self.currency:
-			# Foreign company reported in INR: Balance Sheet minus liabilities, equity capital, retained earnings and the
-			# opening share premium is the cumulative exchange reserve (counted once, as in the monthly report).
-			# There is no separate share-premium addition, and the reserve starts the year at the prior year-end level.
+			# Foreign company reported in INR: Balance Sheet minus liabilities, equity capital, retained earnings, share
+			# premium and capital contribution is the cumulative exchange reserve (counted once, as in the monthly
+			# report). Its balance at the start of the previous-year column is the opening entry; the rest of that
+			# cumulative balance is the previous year's addition, and the current year adds the change since.
 			add_sp_prev_year = add_sp_cur = 0
-			prev_reserve = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year, self.show_decimal_value)
-			cur_reserve = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - sp_prev_year, self.show_decimal_value)
-			for_exc_open = 0
-			for_exc_add_prev = prev_reserve
+			prev_reserve = round(prev_tot_asset - (prev_cur_liab + prev_ncur_liab + prev_eq_share) - retained_prev_year - sp_prev_year - cc_close_prev, self.show_decimal_value)
+			cur_reserve = round(cur_tot_asset - (cur_cur_liab + cur_ncur_liab + cur_eq_share) - retained_cur - sp_prev_year - cc_close_cur, self.show_decimal_value)
+			for_exc_open = opening.foreign_exchange_reserve_inr
+			for_exc_add_prev = round(prev_reserve - for_exc_open, self.show_decimal_value)
 			for_exc_add_cur = round(cur_reserve - prev_reserve, self.show_decimal_value)
 		else:
 			for_exc_open = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, previous_year), self.show_decimal_value) 
@@ -8445,8 +8462,9 @@ class FRFinancialReport(Document):
 
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
 		if default_currency != self.currency:
-			sp_previous_year = round(frappe.get_value("FR Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'share_premium_inr') or 0, self.show_decimal_value) or 0
-			bal_previous_year = round(frappe.get_value("FR Other Equity Opening Entry", {'company': self.company, 'fiscal_year': pre_year}, 'pl_inr') or 0, self.show_decimal_value) or 0
+			opening = self._other_equity_opening(pre_year)
+			sp_previous_year = opening.share_premium_inr
+			bal_previous_year = opening.pl_inr
 
 			tot_asset = self.get_monthly_balance_sheet_data(bs_template, for_other_equity=True, account=frappe.get_value("FR Particular", {'particular_type': 'Total Assets'}, 'name'))
 			curr_mnt_tot_asset = tot_asset['current_month_amount']
@@ -8503,7 +8521,10 @@ class FRFinancialReport(Document):
 		retained_tot_prev = round(bal_previous_mnt + net_previous_mnt + oci_previous_mnt, self.show_decimal_value)
 
 		# --- Capital Contribution ---
-		cc_opening_previous_year = -(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0)
+		if default_currency != self.currency:
+			cc_opening_previous_year = opening.capital_contribution_inr
+		else:
+			cc_opening_previous_year = -(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, pre_year), self.show_decimal_value) or 0)
 		cc_add_previous_year = -(round(self.get_sum_grouping_amount("Other Equity", "Other equity - Capital Contribution", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0) - cc_opening_previous_year
 		cc_closing_previous_year = round(cc_opening_previous_year + cc_add_previous_year, self.show_decimal_value)
 		cc_opening_current = cc_closing_previous_year
@@ -8520,10 +8541,10 @@ class FRFinancialReport(Document):
 
 		# --- Surplus in Foreign Exchange Reserves ---
 		if default_currency != self.currency:
-			for_exc_previous_year = 0
-			curr_add_for_exc_res = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - sp_previous_year, self.show_decimal_value) or 0
-			prev_add_for_exc_res = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - sp_previous_year, self.show_decimal_value) or 0
-			add_for_exc_previous_year = round(prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year, self.show_decimal_value) or 0
+			for_exc_previous_year = opening.foreign_exchange_reserve_inr
+			curr_add_for_exc_res = round(curr_mnt_tot_asset - (curr_mnt_tot_cur_lib + curr_mnt_tot_n_cur_lib + curr_mnt_equity_share) - retained_tot_current - sp_previous_year - cc_closing_current, self.show_decimal_value) or 0
+			prev_add_for_exc_res = round(prev_mnt_tot_asset - (prev_mnt_tot_cur_lib + prev_mnt_tot_n_cur_lib + prev_mnt_equity_share) - retained_tot_prev - sp_previous_year - cc_closing_previous, self.show_decimal_value) or 0
+			add_for_exc_previous_year = round(prev_yr_mnt_tot_asset - (prev_yr_mnt_tot_cur_lib + prev_yr_mnt_tot_n_cur_lib + prev_yr_mnt_equity_share) - retained_tot_prev_year - sp_previous_year - cc_closing_previous_year - for_exc_previous_year, self.show_decimal_value) or 0
 		else:
 			for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Opening - Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
 			add_for_exc_previous_year = -round(self.get_sum_grouping_amount("Other Equity", "Currency Fluctuation", cls_month, self.previous_fiscal_year), self.show_decimal_value) or 0
