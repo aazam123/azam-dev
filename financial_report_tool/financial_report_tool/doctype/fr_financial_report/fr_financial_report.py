@@ -6489,6 +6489,21 @@ class FRFinancialReport(Document):
 							"""
 							params = [self.company, year, month] + gl_accounts
 							amount = (frappe.db.sql(query, params)[0][0] or 0) / self.get_amount_divisor()
+			elif fr_particular.type == "Deferred Tax" and default_currency != self.currency:
+				# Foreign company reported in INR: the P&L charge is the movement in the deferred tax balance, i.e. the
+				# trial-balance balance at the closing month of `year` minus that of the previous year. The average rate is
+				# applied once to the movement by the conversion at the end of this function.
+				cls_month, prev_year = self.get_previous_year_cls_month(year)
+				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
+				if gl_accounts:
+					placeholders = ','.join(['%s'] * len(gl_accounts))
+					query = f"""
+							SELECT SUM(uploaded_amount) FROM `tabFR Trial Balance Entry`
+							WHERE company = %s AND fiscal_year = %s AND month = %s AND gl_account IN ({placeholders})
+						"""
+					cur_amount = (frappe.db.sql(query, [self.company, year, month] + gl_accounts)[0][0] or 0)
+					prev_amount = (frappe.db.sql(query, [self.company, prev_year, cls_month] + gl_accounts)[0][0] or 0)
+					amount = (cur_amount - prev_amount) / self.get_amount_divisor()
 			else:
 				gl_accounts = self._get_gl_accounts_for_mappings(fr_particular.get('primary_and_secondary_group_mapping'))
 				if gl_accounts:
