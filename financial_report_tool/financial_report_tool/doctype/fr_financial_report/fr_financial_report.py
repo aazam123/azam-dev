@@ -4905,10 +4905,14 @@ class FRFinancialReport(Document):
 	def get_yearly_finished_goods_and_wip(self, section_description="", total=False, field=None, get_face=False):
 		"""Changes in inventories of finished goods and work-in-progress (yearly).
 
-		The schedule feeds a Profit & Loss line, so for a foreign company it is translated at the average rate of the
-		year (current year column: closing month of this fiscal year; previous year column: closing month of the previous
-		one), the same rate the P&L and the sibling schedules (materials consumed, purchases) use. Every row of a column
-		uses that column's rate, so opening - closing = net increase holds in the report currency too.
+		For a foreign company every stock balance is translated at the CLOSING rate of its own balance date, so the
+		opening stock equals the previous report's closing stock in the report currency:
+		  closing stock, current year column   -> closing rate of this fiscal year's closing month
+		  opening stock, current year column   -> closing rate of the previous fiscal year's closing month
+		  closing stock, previous year column  -> closing rate of the previous fiscal year's closing month
+		  opening stock, previous year column  -> closing rate of the year before that
+		The revaluation of the stock therefore sits in this line, as in the company's own INR workbook.
+		A missing rate gives 0, as for every other line of the report.
 
 		``total=True`` returns one figure. It stays in the company's currency unless ``get_face`` is set (the P&L line),
 		because the materials-consumed and purchases notes take it in company currency and translate their own result.
@@ -4922,10 +4926,11 @@ class FRFinancialReport(Document):
 
 		default_currency = self._default_currency
 		if default_currency != self.currency and (not total or get_face):
-			cy_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, "average_rate")
-			py_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "average_rate")
+			cy_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, "closing_rate")
+			py_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate")
+			pp_fx = self.get_fx_rate(default_currency, cls_month, pre_year, "closing_rate")
 		else:
-			cy_fx = py_fx = 1
+			cy_fx = py_fx = pp_fx = 1
 
 		cur_total = prev_total = prev_prev_total = 0
 		add("Inventories at the end of the year", st=True)
@@ -4959,9 +4964,9 @@ class FRFinancialReport(Document):
 
 		def add_prev_group(sec, label):
 			nonlocal prev_prev_total
-			# the opening stock of this year is last year's closing stock: current year column -> this year's rate
-			opening = (self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year) or 0) * cy_fx
-			pp = (self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year) or 0) * py_fx
+			# the opening stock of this year is last year's closing stock, translated as it was at last year's closing
+			opening = (self.get_sum_grouping_amount("Inventories", sec, cls_month, self.previous_fiscal_year) or 0) * py_fx
+			pp = (self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year) or 0) * pp_fx
 			add(label, opening, pp)
 			prev_prev_total += pp
 			return opening, pp
@@ -7110,12 +7115,14 @@ class FRFinancialReport(Document):
 	def get_monthly_finished_goods_and_wip(self, section_description, total, get_face=None, field=None):
 		"""Changes in inventories of finished goods and work-in-progress (monthly).
 
-		The schedule feeds a Profit & Loss line, so for a foreign company it is translated at the AVERAGE rate, like the
-		P&L and its sibling schedules. Each column uses one rate for every row in it, so that opening - closing = net
-		increase foots in the report currency too:
-		  month column          -> average rate of the current month
-		  previous month column -> average rate of the previous month
-		  previous year column  -> average rate of the previous year's closing month
+		For a foreign company every stock balance is translated at the CLOSING rate of its own balance date, so the
+		opening stock equals the previous year's closing stock in the report currency:
+		  closing stock, month column           -> closing rate of the current month
+		  closing stock, previous month column  -> closing rate of the previous month
+		  closing stock, previous year column   -> closing rate of the previous year's closing month
+		  opening stock, month / previous month -> closing rate of the previous year's closing month
+		  opening stock, previous year column   -> closing rate of the year before that
+		The revaluation of the stock therefore sits in this line, as in the company's own INR workbook.
 		A missing rate gives 0 (as for every other line of the report) instead of silently leaving the amount untranslated.
 
 		``total=True`` returns one figure. It stays in the company's currency unless ``get_face`` is set (the P&L line),
@@ -7133,11 +7140,12 @@ class FRFinancialReport(Document):
 		month_end_label, current_fiscal_year_end_label, previous_fiscal_year_end_label = self.get_monthly_dates()
 
 		if default_currency != self.currency and (not total or get_face):
-			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "average_rate")
-			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "average_rate")
-			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "average_rate")
+			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, "closing_rate")
+			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, "closing_rate")
+			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, "closing_rate")
+			pre_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, "closing_rate")
 		else:
-			current_fx = previous_fx = prev_year_fx = 1
+			current_fx = previous_fx = prev_year_fx = pre_year_fx = 1
 
 		# running totals, already translated column by column
 		cur_total = prev_total = py_total = ftm_total = 0          # inventories at the end of: this month / previous month / previous year
@@ -7182,14 +7190,14 @@ class FRFinancialReport(Document):
 			nonlocal open_cur_total, open_prev_total, pp_total
 			opening = balance(group, cls_month, self.previous_fiscal_year)
 			pre_prev = balance(group, cls_month, pre_year)
-			add_row(label, opening * current_fx, opening * previous_fx, 0, pre_prev * prev_year_fx)
-			open_cur_total += opening * current_fx; open_prev_total += opening * previous_fx; pp_total += pre_prev * prev_year_fx
+			add_row(label, opening * prev_year_fx, opening * prev_year_fx, 0, pre_prev * pre_year_fx)
+			open_cur_total += opening * prev_year_fx; open_prev_total += opening * prev_year_fx; pp_total += pre_prev * pre_year_fx
 
 			for hg in higher_groups(group):
 				opening_hg = balance(group, cls_month, self.previous_fiscal_year, hg)
 				pre_prev_hg = balance(group, cls_month, pre_year, hg)
-				add_row(f"  {hg}", opening_hg * current_fx, opening_hg * previous_fx, 0, pre_prev_hg * prev_year_fx)
-				open_cur_total += opening_hg * current_fx; open_prev_total += opening_hg * previous_fx; pp_total += pre_prev_hg * prev_year_fx
+				add_row(f"  {hg}", opening_hg * prev_year_fx, opening_hg * prev_year_fx, 0, pre_prev_hg * pre_year_fx)
+				open_cur_total += opening_hg * prev_year_fx; open_prev_total += opening_hg * prev_year_fx; pp_total += pre_prev_hg * pre_year_fx
 
 		add_prev_year_group("Finished Goods", "Finished goods")
 		add_prev_year_group("Work in Progress", "Work-in-progress")
