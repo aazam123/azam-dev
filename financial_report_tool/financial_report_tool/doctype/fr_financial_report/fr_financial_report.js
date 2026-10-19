@@ -97,10 +97,13 @@ frappe.ui.form.on("FR Financial Report", {
         }
         
         if (frm.doc.docstatus === 0) {
-            frm.add_custom_button("Generate Report", function() {
-                generateFinancialReport(frm);
-            }, "Generate");
-            
+            // No second run while one is in progress: it would save over the first one's document (timestamp mismatch).
+            if (frm.doc.report_status !== "Under Generation") {
+                frm.add_custom_button("Generate Report", function() {
+                    generateFinancialReport(frm);
+                }, "Generate");
+            }
+
             frm.add_custom_button("Update Note Numbers", async function() {
                 await updateNoteNumbers(frm);
                 frappe.msgprint("Note numbers updated successfully!");

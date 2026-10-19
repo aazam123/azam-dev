@@ -30,8 +30,7 @@
    "fieldname": "gl_description",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "GL Description",
-   "read_only": 1
+   "label": "GL Description"
   },
   {
    "fieldname": "amount",
