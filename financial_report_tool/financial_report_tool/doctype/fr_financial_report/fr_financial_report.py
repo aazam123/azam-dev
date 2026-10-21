@@ -75,6 +75,67 @@ def _set_inner(el, html):
 		el.append(node)
 
 
+def _row_label(tr):
+	cells = _row_cells(tr)
+	return _plain(cells[0].get_text()) if cells else ""
+
+
+def _zero_row(tr):
+	"""Copy of a schedule row with every amount cell set to zero (same decimals), label cells kept."""
+	zero = copy.copy(tr)
+	for cell in _row_cells(zero)[1:]:
+		text = _plain(cell.get_text())
+		if _cell_value(text) is None or _BLANK_CELL.match(text):
+			continue
+		decimals = len(text.split(".")[1].rstrip(")%")) if "." in text else 0
+		_set_inner(cell, "0." + "0" * decimals if decimals else "0")
+	return zero
+
+
+def _align_schedule_rows(table_a, table_b):
+	"""Give two versions of a schedule table the same body rows, matched by their label (first cell).
+
+	A schedule leaves out a row whose amounts are all zero, and that happens in one currency but not the other (INR 0
+	because of a missing rate, company currency not). The row missing on a side is added there with zero amounts.
+	Returns False when the rows cannot be matched in order."""
+	def split(table):
+		rows = _table_rows(table)
+		head = 0
+		while head < len(rows) and rows[head].find("th", recursive=False):
+			head += 1
+		return head, rows[head:]
+
+	head_a, body_a = split(table_a)
+	head_b, body_b = split(table_b)
+	if not head_a or head_a != head_b or not body_a or not body_b:
+		return False
+	labels_a, labels_b = [_row_label(r) for r in body_a], [_row_label(r) for r in body_b]
+	tail_a, tail_b = body_a[-1], body_b[-1]
+	i = j = 0
+	while i < len(body_a) or j < len(body_b):
+		if i < len(body_a) and j < len(body_b) and labels_a[i] == labels_b[j]:
+			i, j = i + 1, j + 1
+		elif j < len(body_b) and (i == len(body_a) or labels_b[j] not in labels_a[i:]):
+			missing = _zero_row(body_b[j])
+			if i < len(body_a):
+				body_a[i].insert_before(missing)
+			else:
+				tail_a.insert_after(missing)
+				tail_a = missing
+			j += 1
+		elif i < len(body_a) and (j == len(body_b) or labels_a[i] not in labels_b[j:]):
+			missing = _zero_row(body_a[i])
+			if j < len(body_b):
+				body_b[j].insert_before(missing)
+			else:
+				tail_b.insert_after(missing)
+				tail_b = missing
+			i += 1
+		else:
+			return False
+	return True
+
+
 def _merge_fc_table(inr_table, fc_table, fc_currency):
 	"""Put the company-currency (FC) amount beside the INR amount in one schedule table.
 
@@ -87,7 +148,14 @@ def _merge_fc_table(inr_table, fc_table, fc_currency):
 	if inr_table.find("table") or inr_table.find(["colgroup", "col"]):
 		return False
 	inr_rows, fc_rows = _table_rows(inr_table), _table_rows(fc_table)
-	if not inr_rows or len(inr_rows) != len(fc_rows):
+	if inr_rows and len(inr_rows) != len(fc_rows):
+		# rows left out of one version (all-zero amounts) are added to it first; on a copy, so a failed merge leaves the table as it was
+		aligned = copy.copy(inr_table)
+		if not _align_schedule_rows(aligned, fc_table) or not _merge_fc_table(aligned, fc_table, fc_currency):
+			return False
+		inr_table.replace_with(aligned)
+		return True
+	if not inr_rows:
 		return False
 
 	head_count = 0
@@ -637,16 +705,25 @@ class FRFinancialReport(Document):
 		)
 
 	def get_fx_rate(self, default_currency, month, fiscal_year, field_name):
+		"""Rate that translates the company currency into the report currency, ``field_name`` being 'closing_rate' or
+		'average_rate'. A missing or zero rate is an error: it would silently turn every translated amount into 0."""
 		if default_currency == self.currency:
 			return 1
 		if not field_name:
 			return 1
-		if getattr(self, '_caches_initialized', False):
-			cache_key = (default_currency, month, fiscal_year, field_name)
-			if cache_key not in self._fx_rate_cache:
-				self._fx_rate_cache[cache_key] = frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
-			return self._fx_rate_cache[cache_key]
-		return frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
+		cache_key = (default_currency, month, fiscal_year, field_name)
+		cache = self._fx_rate_cache if getattr(self, '_caches_initialized', False) else {}
+		if cache_key not in cache:
+			rate = frappe.get_value("FR Foreign Exchange Rate", {"from_currency": default_currency, "to_currency": self.currency, "month": month, "fiscal_year": fiscal_year}, field_name)
+			if not rate:
+				frappe.throw(
+					f"{frappe.unscrub(field_name)} is missing (or zero) in FR Foreign Exchange Rate for "
+					f"<b>{default_currency}</b> to <b>{self.currency}</b>, month <b>{month}</b>, fiscal year <b>{fiscal_year}</b>. "
+					"Update the rate and generate the report again.",
+					title="Foreign Exchange Rate missing",
+				)
+			cache[cache_key] = rate
+		return cache[cache_key]
 
 	def get_erp_type(self):
 		"""Get ERP type from settings - returns 'SAP' or 'ERPNext'"""
@@ -5125,26 +5202,26 @@ class FRFinancialReport(Document):
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
 
 		# --- Currency Conversion ---
+		# Every figure of a column is translated at that column's average rate, the rate of the Profit & Loss line, so
+		# opening + purchases - closing = cost consumed also holds in the report currency.
 		if default_currency != self.currency:
 			current_fx = self.get_fx_rate(default_currency, cls_month, self.fiscal_year, 'average_rate')
 			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
-			pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'average_rate')
 
-			# Apply conversion
-			cost_consumed_current *= current_fx
-			prev_year_cost_consumed *= prev_year_fx
-
+			opening_stock *= current_fx
 			purchases_current *= current_fx
 			closing_stock_current *= current_fx
+			cost_consumed_current *= current_fx
+
+			closing_stock_pre_previous *= prev_year_fx
 			prev_year_purchases *= prev_year_fx
-			closing_stock_pre_previous *= pre_prev_year_fx
+			prev_year_closing_stock *= prev_year_fx
+			prev_year_cost_consumed *= prev_year_fx
 
 		# --- If only returning totals ---
 		if total:
 			if field == 'cost_consumed_current':
 				return cost_consumed_current
-			elif field == 'ftm_cost_consumed':
-				return ftm_cost_consumed
 			elif field == 'prev_year_cost_consumed':
 				return prev_year_cost_consumed
 			else:
@@ -5154,7 +5231,7 @@ class FRFinancialReport(Document):
 		rows.extend([
 			{"particulars": "Opening Stock","current_month_amt": opening_stock,"previous_year_amt": closing_stock_pre_previous,"is_subtotal": False},
 			{"particulars": "Add: purchases & other related costs","current_month_amt": purchases_current,"previous_year_amt": prev_year_purchases,"is_subtotal": False},
-			{"particulars": "Less: closing stock","current_month_amt": closing_stock_current,"previous_year_amt": opening_stock,"is_subtotal": False},
+			{"particulars": "Less: closing stock","current_month_amt": closing_stock_current,"previous_year_amt": prev_year_closing_stock,"is_subtotal": False},
 			{"particulars": "Cost of Materials Consumed","current_month_amt": cost_consumed_current,"previous_year_amt": prev_year_cost_consumed,"is_subtotal": True}
 		])
 
@@ -6287,7 +6364,7 @@ class FRFinancialReport(Document):
 					amount += calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly, fx_rate, convert)
 
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
-				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+				amount = self._issued_equity_capital_inr(month, year)
 
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != "INR":
 				# FC pass of a foreign company (report currency = company currency): issued capital in the company's own currency
@@ -6392,15 +6469,9 @@ class FRFinancialReport(Document):
 				continue
 
 			fr_particular = get_fr_particular(row.account)
-			particular_type = getattr(fr_particular, "particular_type", "")
 
-			# Special case: Equity Share Capital → fixed INR investment value
-			if default_currency != self.currency and particular_type == "Equity Share Capital":
-				investment_value = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value') or 0
-				current_month_amount = previous_year_amount = investment_value
-			else:
-				current_month_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
-				previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx) or 0
+			current_month_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx) or 0
 
 			schedule = getattr(fr_particular, "schedule", "")
 			note_no = self.get_note_number_for_schedule(schedule) if schedule else ""
@@ -7299,10 +7370,6 @@ class FRFinancialReport(Document):
 		cost_consumed_current = opening_stock + purchases_current - closing_stock_current
 		cost_consumed_previous = opening_stock + purchases_previous - closing_stock_previous
 
-		# --- FTM ---
-		ftm_purchases = purchases_current - purchases_previous
-		ftm_closing_stock = closing_stock_current - closing_stock_previous
-		ftm_cost_consumed = cost_consumed_current - cost_consumed_previous
 
 		# --- Previous Year (same month) ---
 		closing_stock_pre_previous = self._sum_to_convert("Inventories", "Raw Materials and Packing Material", cls_month, pre_year)
@@ -7330,25 +7397,35 @@ class FRFinancialReport(Document):
 		prev_year_cost_consumed = closing_stock_pre_previous + prev_year_purchases - prev_year_closing_stock
 
 		# --- Currency Conversion ---
+		# Every figure of a column is translated at that column's average rate, the rate of the Profit & Loss line, so
+		# opening + purchases - closing = cost consumed also holds in the report currency:
+		#   month column -> current month, previous month column -> previous month, previous year column -> its closing month
+		opening_current = opening_previous = opening_stock
 		if default_currency != self.currency:
 			current_fx = self.get_fx_rate(default_currency, self.current_month, self.fiscal_year, 'average_rate')
 			previous_fx = self.get_fx_rate(default_currency, self.previous_month, self.fiscal_year, 'average_rate')
 			prev_year_fx = self.get_fx_rate(default_currency, cls_month, self.previous_fiscal_year, 'average_rate')
-			pre_prev_year_fx = self.get_fx_rate(default_currency, cls_month, pre_year, 'average_rate')
 
-			# Apply conversion
+			opening_current = opening_stock * current_fx
+			opening_previous = opening_stock * previous_fx
+			purchases_current *= current_fx
+			closing_stock_current *= current_fx
 			cost_consumed_current *= current_fx
+
+			purchases_previous *= previous_fx
+			closing_stock_previous *= previous_fx
 			cost_consumed_previous *= previous_fx
-			ftm_cost_consumed *= current_fx  # assumption: FTM aligned to current period rate
+
+			closing_stock_pre_previous *= prev_year_fx
+			prev_year_purchases *= prev_year_fx
+			prev_year_closing_stock *= prev_year_fx
 			prev_year_cost_consumed *= prev_year_fx
 
-			opening_stock *= previous_fx
-			purchases_current *= current_fx
-			purchases_previous *= previous_fx
-			closing_stock_current *= current_fx
-			closing_stock_previous *= previous_fx
-			prev_year_purchases *= prev_year_fx
-			closing_stock_pre_previous *= pre_prev_year_fx
+		# --- FTM: difference of the two translated month columns ---
+		ftm_opening = opening_current - opening_previous
+		ftm_purchases = purchases_current - purchases_previous
+		ftm_closing_stock = closing_stock_current - closing_stock_previous
+		ftm_cost_consumed = cost_consumed_current - cost_consumed_previous
 
 		# --- If only returning totals ---
 		if total:
@@ -7365,9 +7442,9 @@ class FRFinancialReport(Document):
 
 		# --- Final Rows ---
 		rows.extend([
-			{"particulars": "Opening Stock","current_month_amt": opening_stock,"previous_month_amt": opening_stock,"ftm_amt": 0,"previous_year_amt": closing_stock_pre_previous,"is_subtotal": False},
+			{"particulars": "Opening Stock","current_month_amt": opening_current,"previous_month_amt": opening_previous,"ftm_amt": ftm_opening,"previous_year_amt": closing_stock_pre_previous,"is_subtotal": False},
 			{"particulars": "Add: purchases & other related costs","current_month_amt": purchases_current,"previous_month_amt": purchases_previous,"ftm_amt": ftm_purchases,"previous_year_amt": prev_year_purchases,"is_subtotal": False},
-			{"particulars": "Less: closing stock","current_month_amt": closing_stock_current,"previous_month_amt": closing_stock_previous,"ftm_amt": ftm_closing_stock,"previous_year_amt": opening_stock,"is_subtotal": False},
+			{"particulars": "Less: closing stock","current_month_amt": closing_stock_current,"previous_month_amt": closing_stock_previous,"ftm_amt": ftm_closing_stock,"previous_year_amt": prev_year_closing_stock,"is_subtotal": False},
 			{"particulars": "Cost of Materials Consumed","current_month_amt": cost_consumed_current,"previous_month_amt": cost_consumed_previous,"ftm_amt": ftm_cost_consumed,"previous_year_amt": prev_year_cost_consumed,"is_subtotal": True}
 		])
 
@@ -7803,6 +7880,18 @@ class FRFinancialReport(Document):
 		total = frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", end_date]}, "SUM(investment_value)")
 		return flt(total) / self.get_amount_divisor()
 
+	def _issued_equity_capital_inr(self, month, fiscal_year):
+		"""Issued equity capital in INR up to the end of ``month`` of ``fiscal_year``, in the display unit.
+
+		Share capital is not retranslated at the reporting date: each issue stays at the INR value fixed when it was
+		made (``FR Equity Entry.investment_inr``). The Balance Sheet row and the totals that include it read this one
+		source, so they agree in the yearly and the monthly report."""
+		_, end_date = self.get_month_date_range(month, fiscal_year)
+		if not end_date:
+			return 0
+		total = frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", end_date]}, "SUM(investment_inr)")
+		return flt(total) / self.get_amount_divisor()
+
 	def _has_fc_columns(self, data):
 		"""True when the Balance Sheet / P&L rows carry the company-currency (FC) amounts."""
 		return any("fc_current_month_amount" in row for row in data or [])
@@ -8143,7 +8232,7 @@ class FRFinancialReport(Document):
 					amount += calc_amount_for_particular_monthly(p.particular, month, year, is_current, is_yearly, fx_rate, convert)
 
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != self.currency:
-				amount = frappe.get_value("FR Investment Entry",{'company': self.company, 'category': "Equity Shares", 'default_currency': default_currency},'investment_value')
+				amount = self._issued_equity_capital_inr(month, year)
 
 			elif fr_particular.particular_type == "Equity Share Capital" and default_currency != "INR":
 				# FC pass of a foreign company (report currency = company currency): issued capital in the company's own currency
@@ -8215,17 +8304,10 @@ class FRFinancialReport(Document):
 				continue
 
 			fr_particular = get_fr_particular(row.account)
-			particular_type = getattr(fr_particular, "particular_type", "")
 
-			# Special case: Equity Share Capital → fixed INR investment value
-			if default_currency != self.currency and particular_type == "Equity Share Capital":
-				_, current_month_date = self.get_month_date_range(self.current_month, self.fiscal_year)
-				previous_month_amount = current_month_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", current_month_date]}, "SUM(investment_inr)") or 0))/ self.get_amount_divisor(), self.show_decimal_value)
-				previous_year_amount = round(flt((frappe.get_value("FR Equity Entry", {"company": self.company, "type": "Issued", "date": ["<=", self.previous_year_ending_date]}, "SUM(investment_inr)") or 0))/ self.get_amount_divisor(), self.show_decimal_value)
-			else:
-				current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
-				previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx) or 0
-				previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx) or 0
+			current_month_amount = calc_amount_for_particular_monthly(row.account, self.current_month, self.fiscal_year, is_current=True, fx_rate=current_fx) or 0
+			previous_month_amount = calc_amount_for_particular_monthly(row.account, self.previous_month, self.fiscal_year, fx_rate=previous_fx) or 0
+			previous_year_amount = calc_amount_for_particular_monthly(row.account, cls_month, self.previous_fiscal_year, is_yearly=True, fx_rate=prev_year_fx) or 0
 
 			ftm_amount = current_month_amount - previous_month_amount
 			schedule = getattr(fr_particular, "schedule", "")

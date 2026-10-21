@@ -39,4 +39,11 @@ class FRForeignExchangeRate(Document):
 			frappe.throw("Update The Financial Settings.")
 
 		if not previous_fiscal_year:
+			# Opening row of the first year: no previous closing rate to average with, so the average rate is entered by hand
+			if not self.average_rate:
+				frappe.throw(
+					f"Average Rate is required: no Previous Fiscal Year is set for <b>{self.fiscal_year}</b> in FR Previous Fiscal Year, "
+					"so it cannot be calculated. Add the mapping, or enter the Average Rate.",
+					title="Average Rate missing",
+				)
 			frappe.msgprint("Opening Foreign Exchange Rate is saved.")
