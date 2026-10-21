@@ -226,6 +226,9 @@ def _merge_fc_table(inr_table, fc_table, fc_currency):
 		for j in amount_cols:
 			fc_el = copy.copy(cells_i[j])
 			_set_inner(fc_el, cells_f[j].decode_contents())
+			# An INR amount of 0 beside a non-zero FC amount is an untranslated one (no exchange rate): show the FC amount only
+			if not _cell_value(cells_i[j].get_text()) and _cell_value(cells_f[j].get_text()):
+				_set_inner(cells_i[j], "")
 			cells_i[j].insert_before(fc_el)
 
 	scale = (width + len(amount_cols)) / width
@@ -705,25 +708,16 @@ class FRFinancialReport(Document):
 		)
 
 	def get_fx_rate(self, default_currency, month, fiscal_year, field_name):
-		"""Rate that translates the company currency into the report currency, ``field_name`` being 'closing_rate' or
-		'average_rate'. A missing or zero rate is an error: it would silently turn every translated amount into 0."""
 		if default_currency == self.currency:
 			return 1
 		if not field_name:
 			return 1
-		cache_key = (default_currency, month, fiscal_year, field_name)
-		cache = self._fx_rate_cache if getattr(self, '_caches_initialized', False) else {}
-		if cache_key not in cache:
-			rate = frappe.get_value("FR Foreign Exchange Rate", {"from_currency": default_currency, "to_currency": self.currency, "month": month, "fiscal_year": fiscal_year}, field_name)
-			if not rate:
-				frappe.throw(
-					f"{frappe.unscrub(field_name)} is missing (or zero) in FR Foreign Exchange Rate for "
-					f"<b>{default_currency}</b> to <b>{self.currency}</b>, month <b>{month}</b>, fiscal year <b>{fiscal_year}</b>. "
-					"Update the rate and generate the report again.",
-					title="Foreign Exchange Rate missing",
-				)
-			cache[cache_key] = rate
-		return cache[cache_key]
+		if getattr(self, '_caches_initialized', False):
+			cache_key = (default_currency, month, fiscal_year, field_name)
+			if cache_key not in self._fx_rate_cache:
+				self._fx_rate_cache[cache_key] = frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
+			return self._fx_rate_cache[cache_key]
+		return frappe.get_value("FR Foreign Exchange Rate",{"from_currency": default_currency, "to_currency": self.currency, "month": month,"fiscal_year": fiscal_year,},field_name) or 0
 
 	def get_erp_type(self):
 		"""Get ERP type from settings - returns 'SAP' or 'ERPNext'"""
