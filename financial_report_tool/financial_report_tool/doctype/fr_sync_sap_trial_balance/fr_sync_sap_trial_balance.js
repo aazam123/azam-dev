@@ -138,6 +138,37 @@ frappe.ui.form.on("FR Sync SAP Trial Balance", {
             }
         });
 
+        if (frm.doc.tb_created && frm.doc.company) {
+            frappe.db.get_value("FR SAP Company Mapping", { company: frm.doc.company }, "fiscal_cycle")
+                .then(r => {
+                    if (r.message?.fiscal_cycle !== "Jan-Dec") return;
+                    frm.add_custom_button(__("Derive Apr-Mar TB"), () => {
+                        const dialog = new frappe.ui.Dialog({
+                            title: __("Derive Apr-Mar TB"),
+                            fields: [
+                                { fieldname: "fiscal_year", fieldtype: "Link", options: "Fiscal Year", label: __("Apr-Mar Fiscal Year"), reqd: 1 },
+                                { fieldname: "month", fieldtype: "Select", options: SAP_MONTHS.join("\n"), label: __("Month"), default: frm.doc.month, reqd: 1 }
+                            ],
+                            primary_action_label: __("Derive"),
+                            primary_action(values) {
+                                frappe.call({
+                                    method: "financial_report_tool.financial_report_tool.derive_trial_balance.derive_apr_mar_tb",
+                                    args: { company: frm.doc.company, ...values },
+                                    freeze: true,
+                                    callback(result) {
+                                        if (!result.exc) {
+                                            dialog.hide();
+                                            frappe.msgprint(__("Derived {0} accounts from SAP TBs {1}.", [result.message.accounts, result.message.source_sap_tbs]));
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                        dialog.show();
+                    });
+                });
+        }
+
         // Also expose the Missing Account actions in the top button menu.
         frm.add_custom_button(__('Load Missing Accounts'), () => load_missing_accounts(frm), __('Accounts'));
         if ((frm.doc.missing_accounts || []).length) {

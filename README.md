@@ -21,6 +21,14 @@ The mapping uses FR Particular IDs from the configured statutory Balance Sheet t
 The consolidated page selects only `FR Financial Report` records whose report currency is **INR**, including for companies whose functional currency is foreign. Generate an INR report for such a company and period before expecting its column to appear; a local-currency report is not converted by the page and does not enter the total. Fiscal-year and month choices likewise come from INR reports. Foreign-currency trial-balance detail cannot be treated as INR in P&L breakdowns.
 
 
+### Jan–Dec subsidiaries and Apr–Mar reporting
+
+Configure `FR SAP Company Mapping.fiscal_cycle` as **Jan-Dec** and select the company's Balance Sheet retained-earnings GL. Create Jan–Dec Fiscal Years and Apr–Mar reporting Fiscal Years with distinct names; ERPNext forbids overlapping Fiscal Years assigned to the same company, so keep the overlapping reporting FY unassigned to that company. Configure previous-FY links for each reporting cycle.
+
+Sync SAP TBs under Jan–Dec Fiscal Years and use **Create TB** for each required snapshot. For an Apr–Mar reporting month, open a created SAP TB and choose **Derive Apr-Mar TB**; select the Apr–Mar FY and reporting month. The derivation requires the source year's March TB and the reporting month's TB, plus December for reporting January–March. Source TBs must be complete signed local-currency snapshots; missing or duplicate snapshots, mismatched currencies, and unbalanced results stop the operation. Re-derive affected reporting months after late SAP postings.
+
+P&L Apr–Dec = current Jan–Dec cumulative minus March; P&L Jan–Mar = prior December minus prior March plus current cumulative. Balance Sheet uses the current calendar-month balance; excluded Jan–Mar profit moves into the configured retained-earnings GL. Reports use the selected Fiscal Year's dates, so create separate `FR Financial Report` records for each cycle and use the Apr–Mar report for consolidation. SAP special periods 13–16 are not fetched by the default sync; include them in an approved year-end source snapshot if required before deriving.
+
 ### Contributing
 
 This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:

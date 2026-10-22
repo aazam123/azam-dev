@@ -10,6 +10,7 @@ from frappe.utils import (
     getdate,
     today
 )
+from financial_report_tool.financial_report_tool.fiscal_cycle import get_closing_month
 
 
 
@@ -44,7 +45,7 @@ class FRAccountReceivableEntry(Document):
                     {
                         "from_currency": self.currency,
                         "to_currency": "INR",
-                        "month": "March",
+                        "month": get_closing_month(self.company, self.fiscal_year),
                         "fiscal_year": self.fiscal_year
                     },
                     "closing_rate"
@@ -59,8 +60,7 @@ class FRAccountReceivableEntry(Document):
             if self.posting_date:
                 today_date = getdate(self.posting_date)
             else:
-                year = str(self.fiscal_year).split("-")[-1]
-                today_date = getdate(f"{year}-03-31")
+                today_date = getdate(frappe.db.get_value("Fiscal Year", self.fiscal_year, "year_end_date"))
 
             self.due_days = (today_date - due_date).days + 1
         else:

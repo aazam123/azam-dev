@@ -16,6 +16,8 @@ from frappe.utils.file_manager import save_file
 from financial_report_tool.financial_report_tool.doctype.fr_sync_sap_trial_balance.parent_account_model import (
 	ParentAccountModel,
 )
+from financial_report_tool.financial_report_tool.fiscal_cycle import get_start_month
+
 
 # Minimum share of sibling accounts that must agree on a parent for it to be taken
 # as a *confident* existing-group match (see ``_suggest_parent``).
@@ -190,6 +192,11 @@ class FRSyncSAPTrialBalance(Document):
 		fiscal year / month).
 		"""
 		self._apply_company_template()
+		# Jan-Dec SAP companies supply Apr-Mar views through derivation, not by
+		# requesting SAP posting periods using an April-starting fiscal year.
+		if self.company and self.fiscal_year and get_start_month(self.company) == "January":
+			if _fiscal_start_month(self.fiscal_year) != 1:
+				frappe.throw(_("Sync a Jan-Dec Fiscal Year for this company; derive Apr-Mar TB from calendar-year snapshots."))
 		self._apply_period_defaults()
 
 		total = 0
@@ -445,6 +452,8 @@ class FRSyncSAPTrialBalance(Document):
 		sum of previous months' entries — leftover duplicates compound that sum
 		on every run until it overflows the ``amount`` column.
 		"""
+		if get_start_month(self.company) == "January" and _fiscal_start_month(self.fiscal_year) != 1:
+			frappe.throw(_("Cannot create an Apr-Mar SAP TB for a Jan-Dec company; derive it from calendar-year snapshots."))
 		none_account = [d for d in self.details if not d.account]
 		if none_account:
 			first = none_account[0]
