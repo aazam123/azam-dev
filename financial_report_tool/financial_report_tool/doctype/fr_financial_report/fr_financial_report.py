@@ -3451,14 +3451,34 @@ class FRFinancialReport(Document):
 		total_prev = pre_bank_guarantees + pre_company_imported
 
 		rows_html = ""
-		for row in data:
-			rows_html += f"""
-			<tr>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; vertical-align:top;">{row[0]}</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top; background-color:#E8F5E8;">{fmt(row[1])}</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top;">{fmt(row[2])}</td>
-			</tr>
-			"""
+		if self.name == "FRP-0292":
+			particulars = """a) Claims against the company not acknowledged as debt<br><br>
+			i) It is not practicable for the Company to estimate the timings of cash outflows, if any, in respect of the above pending resolution of the respective proceedings. The Company does not expect any reimbursements in respect of the above contingent liabilities. Future cash outflows in respect of the above are determinable only on receipt of judgments/ decisions pending with various forums/authorities. The Company does not expect any outflow of economic resources in respect of the above and therefore no provision is made in respect thereof.<br><br>
+			ii) The competitor has initiated litigation proceedings against the Group in certain overseas countries for infringement of patents for certain products of Group. The management is continuously monitoring the proceeding of litigation, the Group believes that the factors considered are reasonable under the current circumstances and information available upto the date of approval of the accounts. However, the uncertainty caused by such litigation and related events could further influence the ultimate obligation of the Group."""
+			amount_rows = [
+				(cur_bank_guarantees, pre_bank_guarantees),
+				(cur_disputed_custom, pre_disputed_custom),
+				(cur_company_imported, pre_company_imported),
+				(cur_claim_against, pre_claim_against),
+			]
+			for index, (current_amount, previous_amount) in enumerate(amount_rows):
+				particulars_cell = f'<td rowspan="4" style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; vertical-align:top;">{particulars}</td>' if index == 0 else ""
+				rows_html += f"""
+				<tr>
+					{particulars_cell}
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top; background-color:#E8F5E8;">{fmt(current_amount)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top;">{fmt(previous_amount)}</td>
+				</tr>
+				"""
+		else:
+			for row in data:
+				rows_html += f"""
+				<tr>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; vertical-align:top;">{row[0]}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top; background-color:#E8F5E8;">{fmt(row[1])}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top;">{fmt(row[2])}</td>
+				</tr>
+				"""
 
 		note_table = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
@@ -3477,6 +3497,9 @@ class FRFinancialReport(Document):
 			</tr>
 		</table>
 		"""
+
+		if self.name == "FRP-0292":
+			section_description = section_description.split('<p><strong>Note:</strong></p>', 1)[0]
 
 		return section_description.replace("{{note_table}}", note_table)
 
