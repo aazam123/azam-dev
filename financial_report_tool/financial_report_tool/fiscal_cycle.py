@@ -46,3 +46,17 @@ def get_start_month(company, fiscal_year=None):
 	if not month:
 		month = _configured_closing_month(company) % 12 + 1
 	return calendar.month_name[month]
+
+
+def calendar_year_for(fiscal_year, month):
+	"""Calendar year in which ``month`` falls inside an existing ``fiscal_year``, or ``None``."""
+	fy = frappe.db.get_value("Fiscal Year", fiscal_year, ["year_start_date", "year_end_date"], as_dict=True) if fiscal_year else None
+	months = list(calendar.month_name)
+	if not fy or month not in months[1:]:
+		return None
+	number = months.index(month)
+	start, end = getdate(fy.year_start_date), getdate(fy.year_end_date)
+	for year in (start.year, end.year):
+		if (start.year, start.month) <= (year, number) <= (end.year, end.month):
+			return year
+	return None

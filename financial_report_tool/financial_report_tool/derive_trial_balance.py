@@ -1,7 +1,6 @@
 """Derive an April–March reporting TB from a subsidiary's SAP calendar-year TBs."""
 
 import calendar
-from datetime import date
 
 import frappe
 from frappe import _
@@ -11,41 +10,36 @@ from frappe.utils import getdate
 MONTHS = list(calendar.month_name)[1:]
 
 
-def _calendar_fy(company, year):
-    years = frappe.get_all(
-        "Fiscal Year",
-        filters={"year_start_date": date(year, 1, 1), "year_end_date": date(year, 12, 31)},
-        pluck="name",
-    )
-    assigned = frappe.get_all(
-        "Fiscal Year Company", filters={"company": company, "parent": ["in", years]}, pluck="parent"
-    ) if years else []
-    if len(assigned) != 1:
-        frappe.throw(_("Expected one Jan-Dec Fiscal Year assigned to {0} for {1}; found {2}.").format(company, year, len(assigned)))
-    return assigned[0]
-
-
-def _snapshot(company, fiscal_year, month):
+def _snapshot(company, year, month):
     # A missing row is a valid zero for an individual GL, but a missing snapshot
-    # must never silently turn the whole month's TB into zero.
+    # must never silently turn the whole month's TB into zero. A snapshot is the
+    # accepted SAP sync holding calendar ``year`` year-to-date through ``month``;
+    # it is read from the sync document, so no Fiscal Year is involved.
+    period = f"{MONTHS.index(month) + 1:02d}"
     syncs = frappe.get_all(
         "FR Sync SAP Trial Balance",
-        filters={"company": company, "fiscal_year": fiscal_year, "month": month, "tb_created": 1},
-        pluck="name",
+        filters={"company": company, "repyear": str(year), "month": month,
+                 "srepmonth": "01", "trepmonth": period, "tb_created": 1},
+        fields=["name", "currency"],
     )
     if len(syncs) != 1:
-        frappe.throw(_("Expected one created SAP TB for {0}, {1} ({2}); found {3}.").format(company, fiscal_year, month, len(syncs)))
+        frappe.throw(_("Expected one created SAP TB for {0}, {1} {2}; found {3}.").format(company, month, year, len(syncs)))
+    sync = syncs[0]
     rows = frappe.get_all(
-        "FR Trial Balance Entry",
-        filters={"company": company, "fiscal_year": fiscal_year, "month": month},
-        fields=["gl_account", "uploaded_amount", "currency"],
+        "FR Sync SAP Trial Balance Details",
+        filters={"parent": sync.name, "parenttype": "FR Sync SAP Trial Balance"},
+        fields=["gl_code", "account", "amount"],
     )
     values = {}
     for row in rows:
-        if row.gl_account in values:
-            frappe.throw(_("Duplicate GL {0} in {1} {2}.").format(row.gl_account, fiscal_year, month))
-        values[row.gl_account] = (row.uploaded_amount or 0, row.currency)
-    return values, syncs[0]
+        if not row.amount:
+            continue
+        if not row.account:
+            frappe.throw(_("GL {0} in {1} has no Account.").format(row.gl_code, sync.name))
+        if row.account in values:
+            frappe.throw(_("Duplicate GL {0} in {1}.").format(row.account, sync.name))
+        values[row.account] = (row.amount, sync.currency)
+    return values, sync.name
 
 
 @frappe.whitelist()
@@ -71,14 +65,12 @@ def derive_apr_mar_tb(company, fiscal_year, month):
         frappe.throw(_("Invalid month {0}.").format(month))
     month_number = MONTHS.index(month) + 1
     year = start.year if month_number >= 4 else end.year
-    jan_fy = _calendar_fy(company, year)
-    current, current_sync = _snapshot(company, jan_fy, month)
-    march_fy = _calendar_fy(company, start.year)
-    march, march_sync = _snapshot(company, march_fy, "March")
+    current, current_sync = _snapshot(company, year, month)
+    march, march_sync = _snapshot(company, start.year, "March")
     december = {}
     sources = [march_sync, current_sync]
     if year != start.year:
-        december, december_sync = _snapshot(company, march_fy, "December")
+        december, december_sync = _snapshot(company, start.year, "December")
         sources.append(december_sync)
 
     accounts = set(current) | set(march) | set(december)
@@ -124,7 +116,8 @@ def derive_apr_mar_tb(company, fiscal_year, month):
         frappe.throw(_("Derived TB does not balance. Check that SAP source TB includes all signed accounts."))
 
     # Replacing a historical cumulative changes every later monthly delta.
-    # Reject accidental overwrite of manually imported or SAP-fetched TBs.
+    # Reject accidental overwrite of a manually imported or SAP-fetched TB for
+    # the month being derived; other months are only re-saved, never replaced.
     existing = frappe.get_all(
         "FR Trial Balance Entry", filters={"company": company, "fiscal_year": fiscal_year},
         fields=["name", "month", "gl_account", "tb_source", "uploaded_amount"],
@@ -132,8 +125,8 @@ def derive_apr_mar_tb(company, fiscal_year, month):
     later = []
     position = (month_number - 4) % 12
     for row in existing:
-        if row.tb_source != "Derived Jan-Dec":
-            frappe.throw(_("Apr-Mar FY contains non-derived TB entries; cannot overwrite them."))
+        if row.month == month and row.tb_source != "Derived Jan-Dec":
+            frappe.throw(_("Apr-Mar FY already has a non-derived TB for {0}; cannot overwrite it.").format(month))
         if (MONTHS.index(row.month) + 1 - 4) % 12 > position:
             later.append(row)
     frappe.db.delete("FR Trial Balance Entry", {"company": company, "fiscal_year": fiscal_year, "month": month})

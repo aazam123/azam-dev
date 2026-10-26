@@ -10,7 +10,7 @@ from financial_report_tool.financial_report_tool import derive_trial_balance as 
 
 COMPANY = "Calendar Subsidiary"
 REPORT_FY = "2025-2026"
-CALENDAR_FYS = {2025: "CAL-2025", 2026: "CAL-2026"}
+PERIODS = {"March": "03", "June": "06", "December": "12", "February": "02"}
 ACCOUNT_TYPES = {"Revenue": "Profit and Loss", "Assets": "Balance Sheet", "Equity": "Balance Sheet"}
 
 
@@ -19,6 +19,8 @@ def snapshot(pl, assets, equity):
 
 
 class FakeStore:
+    """Snapshots are keyed (calendar year, month); no Fiscal Year is looked up for them."""
+
     def __init__(self, snapshots, existing=()):
         self.snapshots = snapshots
         self.existing = list(existing)
@@ -27,20 +29,18 @@ class FakeStore:
         self.deleted = []
 
     def get_all(self, doctype, filters=None, pluck=None, fields=None):
-        if doctype == "Fiscal Year":
-            year = filters["year_start_date"].year
-            return [CALENDAR_FYS[year]]
-        if doctype == "Fiscal Year Company":
-            assert filters["company"] == COMPANY
-            return [name for name in filters["parent"][1]]
+        assert doctype != "Fiscal Year" and doctype != "Fiscal Year Company", doctype
         if doctype == "FR Sync SAP Trial Balance":
-            key = (filters["fiscal_year"], filters["month"])
-            return [f"SAP-{key[0]}-{key[1]}"] if key in self.snapshots else []
+            assert filters["company"] == COMPANY and filters["srepmonth"] == "01"
+            assert filters["trepmonth"] == PERIODS[filters["month"]] and filters["tb_created"] == 1
+            key = (int(filters["repyear"]), filters["month"])
+            return [SimpleNamespace(name=f"SAP-{key[0]}-{key[1]}", currency="INR")] if key in self.snapshots else []
+        if doctype == "FR Sync SAP Trial Balance Details":
+            year, month = filters["parent"][4:].split("-")
+            return [SimpleNamespace(gl_code=account, account=account, amount=amount)
+                    for account, amount in self.snapshots[(int(year), month)].items()]
         if doctype == "FR Trial Balance Entry":
-            if "month" not in filters:
-                return self.existing
-            return [SimpleNamespace(gl_account=account, uploaded_amount=amount, currency="INR")
-                    for account, amount in self.snapshots[(filters["fiscal_year"], filters["month"])].items()]
+            return self.existing
         if doctype == "Account":
             return [SimpleNamespace(name=account, report_type=ACCOUNT_TYPES[account],
                                     account_currency="INR", company=COMPANY)
@@ -87,41 +87,60 @@ class TestDeriveAprMarTrialBalance(TestCase):
             return derived.derive_apr_mar_tb.__wrapped__(COMPANY, REPORT_FY, month)
 
     def test_june_uses_current_less_march_and_rebalances_equity(self):
-        store = FakeStore({("CAL-2025", "March"): snapshot(20, -120, 100),
-                           ("CAL-2025", "June"): snapshot(60, -160, 100)})
+        store = FakeStore({(2025, "March"): snapshot(20, -120, 100),
+                           (2025, "June"): snapshot(60, -160, 100)})
         result = self.derive(store, "June")
         amounts = {entry["gl_account"]: entry["uploaded_amount"] for entry in store.inserted}
         self.assertEqual(amounts, snapshot(40, -160, 120))
         self.assertEqual(sum(amounts.values()), 0)
         self.assertEqual(result["accounts"], 3)
-        self.assertIn("SAP-CAL-2025-March", result["source_sap_tbs"])
-        self.assertIn("SAP-CAL-2025-June", result["source_sap_tbs"])
+        self.assertIn("SAP-2025-March", result["source_sap_tbs"])
+        self.assertIn("SAP-2025-June", result["source_sap_tbs"])
         self.assertTrue(all(entry["tb_source"] == "Derived Jan-Dec" for entry in store.inserted))
+        self.assertTrue(all(entry["fiscal_year"] == REPORT_FY for entry in store.inserted))
 
     def test_february_adds_prior_december_less_prior_march(self):
-        store = FakeStore({("CAL-2025", "March"): snapshot(20, -120, 100),
-                           ("CAL-2025", "December"): snapshot(90, -190, 100),
-                           ("CAL-2026", "February"): snapshot(30, -130, 100)})
+        store = FakeStore({(2025, "March"): snapshot(20, -120, 100),
+                           (2025, "December"): snapshot(90, -190, 100),
+                           (2026, "February"): snapshot(30, -130, 100)})
         result = self.derive(store, "February")
         amounts = {entry["gl_account"]: entry["uploaded_amount"] for entry in store.inserted}
         self.assertEqual(amounts, snapshot(100, -130, 30))
         self.assertEqual(sum(amounts.values()), 0)
-        self.assertIn("SAP-CAL-2025-December", result["source_sap_tbs"])
-        self.assertIn("SAP-CAL-2026-February", result["source_sap_tbs"])
+        self.assertIn("SAP-2025-December", result["source_sap_tbs"])
+        self.assertIn("SAP-2026-February", result["source_sap_tbs"])
 
     def test_missing_snapshot_fails_without_writes(self):
-        store = FakeStore({("CAL-2025", "June"): snapshot(60, -160, 100)})
+        store = FakeStore({(2025, "June"): snapshot(60, -160, 100)})
         with self.assertRaisesRegex(ValueError, "Expected one created SAP TB"):
             self.derive(store, "June")
         self.assertEqual(store.inserted, [])
         self.assertEqual(store.deleted, [])
 
+    def test_non_derived_entry_for_same_month_blocks_overwrite(self):
+        existing = [SimpleNamespace(name="jun", month="June", tb_source="")]
+        store = FakeStore({(2025, "March"): snapshot(20, -120, 100),
+                           (2025, "June"): snapshot(60, -160, 100)}, existing)
+        with self.assertRaisesRegex(ValueError, "non-derived TB for June"):
+            self.derive(store, "June")
+        self.assertEqual(store.deleted, [])
+
+    def test_sap_loaded_other_months_are_left_alone_and_resaved(self):
+        existing = [SimpleNamespace(name="jul", month="July", tb_source="")]
+        store = FakeStore({(2025, "March"): snapshot(20, -120, 100),
+                           (2025, "June"): snapshot(60, -160, 100)}, existing)
+        self.derive(store, "June")
+        self.assertEqual(store.saved, ["jul"])
+        self.assertEqual(store.deleted, [("FR Trial Balance Entry", {
+            "company": COMPANY, "fiscal_year": REPORT_FY, "month": "June",
+        })])
+
     def test_replacing_month_refreshes_later_deltas_in_fiscal_order(self):
         existing = [SimpleNamespace(name=name, month=month, tb_source="Derived Jan-Dec")
                     for name, month in (("feb", "February"), ("may", "May"),
                                         ("jul", "July"), ("jan", "January"))]
-        store = FakeStore({("CAL-2025", "March"): snapshot(20, -120, 100),
-                           ("CAL-2025", "June"): snapshot(60, -160, 100)}, existing)
+        store = FakeStore({(2025, "March"): snapshot(20, -120, 100),
+                           (2025, "June"): snapshot(60, -160, 100)}, existing)
         self.derive(store, "June")
         self.assertEqual(store.saved, ["jul", "jan", "feb"])
         self.assertEqual(store.deleted, [("FR Trial Balance Entry", {

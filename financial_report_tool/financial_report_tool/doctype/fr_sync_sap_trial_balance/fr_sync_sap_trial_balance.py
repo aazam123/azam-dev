@@ -16,7 +16,7 @@ from frappe.utils.file_manager import save_file
 from financial_report_tool.financial_report_tool.doctype.fr_sync_sap_trial_balance.parent_account_model import (
 	ParentAccountModel,
 )
-from financial_report_tool.financial_report_tool.fiscal_cycle import get_start_month
+from financial_report_tool.financial_report_tool.fiscal_cycle import calendar_year_for, get_start_month
 
 
 # Minimum share of sibling accounts that must agree on a parent for it to be taken
@@ -192,11 +192,8 @@ class FRSyncSAPTrialBalance(Document):
 		fiscal year / month).
 		"""
 		self._apply_company_template()
-		# Jan-Dec SAP companies supply Apr-Mar views through derivation, not by
-		# requesting SAP posting periods using an April-starting fiscal year.
-		if self.company and self.fiscal_year and get_start_month(self.company) == "January":
-			if _fiscal_start_month(self.fiscal_year) != 1:
-				frappe.throw(_("Sync a Jan-Dec Fiscal Year for this company; derive Apr-Mar TB from calendar-year snapshots."))
+		# Jan-Dec SAP companies are requested in calendar periods whichever
+		# existing Fiscal Year is selected (see ``_apply_period_defaults``).
 		self._apply_period_defaults()
 
 		total = 0
@@ -252,6 +249,19 @@ class FRSyncSAPTrialBalance(Document):
 		comparison ranges. Fill-if-empty, like the company template — so a manual
 		override of any period field on the document is preserved.
 		"""
+		if self.company and self.fiscal_year and self.month and get_start_month(self.company) == "January":
+			# Calendar-year company: the report year and periods follow the
+			# calendar month's own date, so an existing Apr-Mar Fiscal Year can
+			# label the snapshot without any Jan-Dec Fiscal Year being created.
+			year = calendar_year_for(self.fiscal_year, self.month)
+			if year:
+				period = _month_period(self.month, 1)
+				for field, value in (("repyear", str(year)), ("compyear", str(year - 1)),
+									 ("srepmonth", "01"), ("trepmonth", period),
+									 ("scompmonth", "01"), ("tcompmonth", period)):
+					if not self.get(field):
+						self.set(field, value)
+				return
 		if self.fiscal_year:
 			year = _fiscal_start_year(self.fiscal_year)
 			if year:
@@ -452,8 +462,10 @@ class FRSyncSAPTrialBalance(Document):
 		sum of previous months' entries — leftover duplicates compound that sum
 		on every run until it overflows the ``amount`` column.
 		"""
-		if get_start_month(self.company) == "January" and _fiscal_start_month(self.fiscal_year) != 1:
-			frappe.throw(_("Cannot create an Apr-Mar SAP TB for a Jan-Dec company; derive it from calendar-year snapshots."))
+		# A Jan-Dec company's calendar snapshot labelled with an Apr-Mar Fiscal
+		# Year is cumulative from 1 January, so it must never become that year's
+		# trial balance entries; Derive Apr-Mar TB reads the accepted sync instead.
+		calendar_snapshot = get_start_month(self.company) == "January" and _fiscal_start_month(self.fiscal_year) != 1
 		none_account = [d for d in self.details if not d.account]
 		if none_account:
 			first = none_account[0]
@@ -464,6 +476,10 @@ class FRSyncSAPTrialBalance(Document):
 				f"Amount: {first.amount} → <b>GL Account is missing</b>"
 			)
 
+		if calendar_snapshot:
+			frappe.db.set_value("FR Sync SAP Trial Balance", self.name, "tb_created", 1)
+			frappe.msgprint(_("Calendar-year snapshot accepted. Use Derive Apr-Mar TB to create the Apr-Mar trial balance."))
+			return
 		frappe.db.delete("FR Trial Balance Entry", {
 			"company": self.company,
 			"fiscal_year": self.fiscal_year,
