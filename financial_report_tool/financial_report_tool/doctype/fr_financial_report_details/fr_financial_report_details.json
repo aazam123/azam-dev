@@ -11,6 +11,7 @@
   "doctype_name",
   "column_break_uwlt",
   "note_no",
+  "manual_note_no",
   "column_break_evum",
   "section",
   "section_name",
@@ -19,7 +20,97 @@
   "section_break_fzud",
   "section_description",
   "subsection_description",
-  "table_data"
+  "table_data",
+  "lease_receivable_text_section",
+  "intro_text",
+  "particulars_label",
+  "current_year_heading",
+  "previous_year_heading",
+  "lt_1_label",
+  "one_to_five_label",
+  "gt_5_label",
+  "total_label",
+  "footer_note",
+  "sch_section_before",
+  "sch_text_before",
+  "sch_table_editor",
+  "sch_ac_asat",
+  "sch_ac_col_shares",
+  "sch_ac_col_amount",
+  "sch_ac_tee_head",
+  "sch_ac_tee_eq_label",
+  "sch_ac_tee_eq_amt",
+  "sch_ac_tee_pref_label",
+  "sch_ac_tee_pref_amt",
+  "sch_ac_tor_head",
+  "sch_ac_tor_eq_label",
+  "sch_ac_tor_eq_amt",
+  "sch_ac_tor_pref1_label",
+  "sch_ac_tor_pref1_amt",
+  "sch_ac_tor_pref2_label",
+  "sch_ac_tor_pref2_amt",
+  "sch_text_pre_h",
+  "sch_section_h",
+  "sch_text_h",
+  "sch_m1_section",
+  "sch_m1_caption",
+  "sch_m1_particulars",
+  "sch_m1_asat",
+  "sch_m1_col_shares",
+  "sch_m1_col_amount",
+  "sch_m1_issued",
+  "sch_m1_equity_label",
+  "sch_m1_shares",
+  "sch_m1_amount",
+  "sch_m2_section",
+  "sch_m2_caption",
+  "sch_m2_particulars",
+  "sch_m2_asat",
+  "sch_m2_col_shares",
+  "sch_m2_col_amount",
+  "sch_m2_issued",
+  "sch_m2_equity_label",
+  "sch_m2_shares",
+  "sch_m2_amount",
+  "sch_s_title",
+  "sch_s_calc",
+  "sch_t1_h0",
+  "sch_t1_h1",
+  "sch_t1_h2",
+  "sch_t1_h3",
+  "sch_t1_r1_0",
+  "sch_t1_r1_1",
+  "sch_t1_r1_2",
+  "sch_t1_r1_3",
+  "sch_t1_r2_0",
+  "sch_t1_r2_1",
+  "sch_t1_r2_2",
+  "sch_t1_r2_3",
+  "sch_t1_r3_0",
+  "sch_t1_r3_1",
+  "sch_t1_r3_2",
+  "sch_t1_r3_3",
+  "sch_t2_fy1",
+  "sch_t2_amt",
+  "sch_t2_a_l",
+  "sch_t2_a_v",
+  "sch_t2_b_l",
+  "sch_t2_b_v",
+  "sch_t2_ba_l",
+  "sch_t2_ba_v",
+  "sch_t2_fy2",
+  "sch_t2_c_l",
+  "sch_t2_c_v",
+  "sch_t2_d_l",
+  "sch_t2_d_v",
+  "sch_t2_dc_l",
+  "sch_t2_dc_v",
+  "sch_t2_tot_l",
+  "sch_t2_tot_v",
+  "sch_n_head",
+  "sch_n_text",
+  "sch_n_iv",
+  "sch_n_v"
  ],
  "fields": [
   {
@@ -66,7 +157,7 @@
    "fieldname": "section_description",
    "fieldtype": "Text Editor",
    "label": "Section Description",
-   "read_only": 1
+   "depends_on": "eval: doc.section != 'Scheme of Arrangement in the nature of Amalgamation'"
   },
   {
    "fetch_from": "subsection.subsection_type_description",
@@ -100,17 +191,572 @@
    "label": "Note No."
   },
   {
+   "default": "0",
+   "fieldname": "manual_note_no",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Manual Note No."
+  },
+  {
    "fieldname": "section_name",
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Section Name"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "lease_receivable_text_section",
+   "fieldtype": "Section Break",
+   "label": "Lease Receivable Text"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "intro_text",
+   "fieldtype": "Small Text",
+   "label": "Intro Text"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "particulars_label",
+   "fieldtype": "Data",
+   "label": "Particulars Column Heading"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "description": "Leave empty to show the year automatically",
+   "fieldname": "current_year_heading",
+   "fieldtype": "Data",
+   "label": "Current Year Heading"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "description": "Leave empty to show the year automatically",
+   "fieldname": "previous_year_heading",
+   "fieldtype": "Data",
+   "label": "Previous Year Heading"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "lt_1_label",
+   "fieldtype": "Data",
+   "label": "Receivable less than one year"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "one_to_five_label",
+   "fieldtype": "Data",
+   "label": "Receivable less than one but not later than five years"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "gt_5_label",
+   "fieldtype": "Data",
+   "label": "Receivable more than five years"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "total_label",
+   "fieldtype": "Data",
+   "label": "Total"
+  },
+  {
+   "depends_on": "eval: doc.section_name == 'Lease receivable'",
+   "fieldname": "footer_note",
+   "fieldtype": "Small Text",
+   "label": "Footer Note"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_section_before",
+   "fieldtype": "Section Break",
+   "label": "Note Text (before tables, up to g)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_table_editor",
+   "fieldtype": "HTML",
+   "label": "Editable Note 62 Tables"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_text_before",
+   "fieldtype": "Text Editor",
+   "label": "Text before the tables"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_section_ac",
+   "fieldtype": "Section Break",
+   "label": "g) Authorised Share Capital Table — change any text or amount below, then Save"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_asat",
+   "fieldtype": "Data",
+   "label": "Heading - As at"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_col_shares",
+   "fieldtype": "Data",
+   "label": "Column 1 Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_col_amount",
+   "fieldtype": "Data",
+   "label": "Column 2 Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tee_head",
+   "fieldtype": "Data",
+   "label": "Transferee Company Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tee_eq_label",
+   "fieldtype": "Data",
+   "label": "Transferee - Equity Shares"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tee_eq_amt",
+   "fieldtype": "Data",
+   "label": "Transferee - Equity Amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tee_pref_label",
+   "fieldtype": "Data",
+   "label": "Transferee - Preference Shares"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tee_pref_amt",
+   "fieldtype": "Data",
+   "label": "Transferee - Preference Amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tor_head",
+   "fieldtype": "Data",
+   "label": "Transferor Company Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tor_eq_label",
+   "fieldtype": "Data",
+   "label": "Transferor - Equity Shares"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tor_eq_amt",
+   "fieldtype": "Data",
+   "label": "Transferor - Equity Amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tor_pref1_label",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Shares (1)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tor_pref1_amt",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Amount (1)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tor_pref2_label",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Shares (2)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_ac_tor_pref2_amt",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Amount (2)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_section_h",
+   "fieldtype": "Section Break",
+   "label": "h) Text above the share tables — change text, then Save"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_text_pre_h",
+   "fieldtype": "Small Text",
+   "label": "Text above h)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_text_h",
+   "fieldtype": "Text Editor",
+   "label": "Text h)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_section",
+   "fieldtype": "Section Break",
+   "label": "Share Table 1 — Micro Life Sciences: change any text or value, then Save"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_caption",
+   "fieldtype": "Data",
+   "label": "Company Name (above table)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_particulars",
+   "fieldtype": "Data",
+   "label": "Particulars Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_asat",
+   "fieldtype": "Data",
+   "label": "As at Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_col_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_col_amount",
+   "fieldtype": "Data",
+   "label": "Amount Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_issued",
+   "fieldtype": "Data",
+   "label": "Issued, Subscribed row"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_equity_label",
+   "fieldtype": "Data",
+   "label": "Equity Shares description"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m1_amount",
+   "fieldtype": "Data",
+   "label": "Amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_section",
+   "fieldtype": "Section Break",
+   "label": "Share Table 2 — Meril Life Sciences: change any text or value, then Save"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_caption",
+   "fieldtype": "Data",
+   "label": "Company Name (above table)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_particulars",
+   "fieldtype": "Data",
+   "label": "Particulars Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_asat",
+   "fieldtype": "Data",
+   "label": "As at Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_col_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_col_amount",
+   "fieldtype": "Data",
+   "label": "Amount Heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_issued",
+   "fieldtype": "Data",
+   "label": "Issued, Subscribed row"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_equity_label",
+   "fieldtype": "Data",
+   "label": "Equity Shares description"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_m2_amount",
+   "fieldtype": "Data",
+   "label": "Amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_s_title",
+   "fieldtype": "Data",
+   "label": "(i) Summary heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_s_calc",
+   "fieldtype": "Data",
+   "label": "Calculation heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_h0",
+   "fieldtype": "Data",
+   "label": "T1 Particulars heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_h1",
+   "fieldtype": "Data",
+   "label": "T1 column 1 heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_h2",
+   "fieldtype": "Data",
+   "label": "T1 column 2 heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_h3",
+   "fieldtype": "Data",
+   "label": "T1 column 3 heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r1_0",
+   "fieldtype": "Data",
+   "label": "T1 row 1 label"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r1_1",
+   "fieldtype": "Data",
+   "label": "T1 row 1 31-Mar-25"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r1_2",
+   "fieldtype": "Data",
+   "label": "T1 row 1 New shares issued"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r1_3",
+   "fieldtype": "Data",
+   "label": "T1 row 1 31-Mar-26"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r2_0",
+   "fieldtype": "Data",
+   "label": "T1 row 2 label"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r2_1",
+   "fieldtype": "Data",
+   "label": "T1 row 2 31-Mar-25"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r2_2",
+   "fieldtype": "Data",
+   "label": "T1 row 2 New shares issued"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r2_3",
+   "fieldtype": "Data",
+   "label": "T1 row 2 31-Mar-26"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r3_0",
+   "fieldtype": "Data",
+   "label": "T1 row 3 label"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r3_1",
+   "fieldtype": "Data",
+   "label": "T1 row 3 31-Mar-25"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r3_2",
+   "fieldtype": "Data",
+   "label": "T1 row 3 New shares issued"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t1_r3_3",
+   "fieldtype": "Data",
+   "label": "T1 row 3 31-Mar-26"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_fy1",
+   "fieldtype": "Data",
+   "label": "T2 FY 1 heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_amt",
+   "fieldtype": "Data",
+   "label": "T2 Amount heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_a_l",
+   "fieldtype": "Data",
+   "label": "T2 A text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_a_v",
+   "fieldtype": "Data",
+   "label": "T2 A amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_b_l",
+   "fieldtype": "Data",
+   "label": "T2 B text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_b_v",
+   "fieldtype": "Data",
+   "label": "T2 B amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_ba_l",
+   "fieldtype": "Data",
+   "label": "T2 B-A text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_ba_v",
+   "fieldtype": "Data",
+   "label": "T2 B-A amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_fy2",
+   "fieldtype": "Data",
+   "label": "T2 FY 2 heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_c_l",
+   "fieldtype": "Data",
+   "label": "T2 C text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_c_v",
+   "fieldtype": "Data",
+   "label": "T2 C amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_d_l",
+   "fieldtype": "Data",
+   "label": "T2 D text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_d_v",
+   "fieldtype": "Data",
+   "label": "T2 D amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_dc_l",
+   "fieldtype": "Data",
+   "label": "T2 D-C text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_dc_v",
+   "fieldtype": "Data",
+   "label": "T2 D-C amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_tot_l",
+   "fieldtype": "Data",
+   "label": "T2 Total text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_t2_tot_v",
+   "fieldtype": "Data",
+   "label": "T2 Total amount"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_n_head",
+   "fieldtype": "Data",
+   "label": "Note heading"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_n_text",
+   "fieldtype": "Small Text",
+   "label": "Note text"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_n_iv",
+   "fieldtype": "Small Text",
+   "label": "Point (iv)"
+  },
+  {
+   "depends_on": "eval: doc.section == 'Scheme of Arrangement in the nature of Amalgamation'",
+   "fieldname": "sch_n_v",
+   "fieldtype": "Small Text",
+   "label": "Point (v)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-15 11:02:08.640602",
+ "modified": "2026-10-26 17:25:42.096065",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Financial Report Details",

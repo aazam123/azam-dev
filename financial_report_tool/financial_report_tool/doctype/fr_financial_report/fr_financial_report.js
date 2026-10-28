@@ -111,6 +111,23 @@ frappe.ui.form.on("FR Financial Report", {
     }
 });
 
+const SCHEME_NOTE_SECTION = "Scheme of Arrangement in the nature of Amalgamation";
+
+function renderSchemeNoteRowEditor(frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    const gridRow = frm.fields_dict.financial_report_details.grid.grid_rows_by_docname?.[cdn];
+    const htmlField = gridRow?.grid_form?.fields_dict?.sch_table_editor;
+    if (!row || !htmlField) return;
+    for (const fieldname of frappe.fr_scheme_editor.fields) {
+        gridRow.grid_form.fields_dict[fieldname]?.$wrapper?.hide();
+    }
+    frappe.fr_scheme_editor.render({
+        wrapper: htmlField.$wrapper,
+        get: (fieldname) => row[fieldname],
+        set: (fieldname, value) => frappe.model.set_value(cdt, cdn, fieldname, value),
+    });
+}
+
 frappe.ui.form.on("FR Financial Report Details", {
 	section_type(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
@@ -139,6 +156,85 @@ frappe.ui.form.on("FR Financial Report Details", {
     },
 	subsection: async function(frm, cdt, cdn) {
         await subsection(frm, cdt, cdn);
+    },
+    form_render(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+        if (row.section !== SCHEME_NOTE_SECTION) return;
+
+        // Keep the editable g) table fields immediately below the narrative editor.
+        // The generated PDF still receives the full text; this only constrains the grid-row edit surface.
+        setTimeout(() => {
+            const field = frm.fields_dict.financial_report_details.grid.grid_rows_by_docname?.[cdn]
+                ?.grid_form?.fields_dict?.sch_text_before;
+            const editor = field?.quill?.root;
+            if (!editor) return;
+            const container = editor.closest(".ql-container");
+            if (!container) return;
+            container.style.height = "220px";
+            container.style.overflowY = "auto";
+            editor.style.minHeight = "auto";
+            renderSchemeNoteRowEditor(frm, cdt, cdn);
+        }, 0);
+    },
+    sch_edit_tables(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+        const fields = [];
+        const add_section = (label) => fields.push({ fieldtype: "Section Break", label });
+        const add = (fieldname) => {
+            const df = frappe.meta.get_docfield(cdt, fieldname, cdn);
+            fields.push({
+                fieldname,
+                fieldtype: fieldname === "sch_text_h" ? "Small Text" : "Data",
+                label: df.label,
+                default: row[fieldname] || "",
+                reqd: 0,
+            });
+        };
+
+        add_section("g) Authorised Share Capital Table");
+        [
+            "sch_ac_asat", "sch_ac_col_shares", "sch_ac_col_amount", "sch_ac_tee_head",
+            "sch_ac_tee_eq_label", "sch_ac_tee_eq_amt", "sch_ac_tee_pref_label", "sch_ac_tee_pref_amt",
+            "sch_ac_tor_head", "sch_ac_tor_eq_label", "sch_ac_tor_eq_amt", "sch_ac_tor_pref1_label",
+            "sch_ac_tor_pref1_amt", "sch_ac_tor_pref2_label", "sch_ac_tor_pref2_amt",
+        ].forEach(add);
+        add_section("h) Text and Micro Life Sciences Table");
+        [
+            "sch_text_pre_h", "sch_text_h", "sch_m1_caption", "sch_m1_particulars", "sch_m1_asat", "sch_m1_col_shares",
+            "sch_m1_col_amount", "sch_m1_issued", "sch_m1_equity_label", "sch_m1_shares", "sch_m1_amount",
+        ].forEach(add);
+        add_section("Meril Life Sciences Table");
+        [
+            "sch_m2_caption", "sch_m2_particulars", "sch_m2_asat", "sch_m2_col_shares",
+            "sch_m2_col_amount", "sch_m2_issued", "sch_m2_equity_label", "sch_m2_shares", "sch_m2_amount",
+        ].forEach(add);
+        add_section("i) Summary, Calculation Tables and Notes");
+        frappe.fr_scheme_editor.fields.filter((f) => /^sch_(s_|t1_|t2_|n_)/.test(f)).forEach(add);
+
+        const dialog = new frappe.ui.Dialog({
+            title: "Edit Note 62 Tables",
+            fields,
+            primary_action_label: "Save Note 62 Tables",
+            primary_action: async (values) => {
+                for (const [fieldname, value] of Object.entries(values)) {
+                    await frappe.model.set_value(cdt, cdn, fieldname, value || "");
+                }
+                dialog.hide();
+                await frm.save();
+            },
+        });
+        dialog.show();
+    },
+    note_no(frm, cdt, cdn) {
+        // typing a number makes it manual; clearing it goes back to automatic numbering
+        const row = locals[cdt][cdn];
+        const manual = row.note_no ? 1 : 0;
+        if (row.manual_note_no !== manual) {
+            frappe.model.set_value(cdt, cdn, "manual_note_no", manual);
+        }
+        if (!manual) {
+            setTimeout(async () => await updateNoteNumbers(frm), 100);
+        }
     }
 });
 
@@ -156,16 +252,23 @@ async function updateNoteNumbers(frm) {
             try {
                 const response = await frappe.db.get_value('FR Section', row.section, 'is_schedule');
                 if (response && response.message && response.message.is_schedule) {
-                    row.note_no = noteCounter.toString();
+                    // a number typed by the user is kept; it still takes its place in the sequence
+                    if (!(row.manual_note_no && row.note_no)) {
+                        row.manual_note_no = 0;
+                        row.note_no = noteCounter.toString();
+                    }
                     noteCounter++;
                 } else {
                     row.note_no = "";
+                    row.manual_note_no = 0;
                 }
             } catch (error) {
                 row.note_no = "";
+                row.manual_note_no = 0;
             }
         } else {
             row.note_no = "";
+            row.manual_note_no = 0;
         }
     }
     

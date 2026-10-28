@@ -1,0 +1,107 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-10-26 22:42:15.036812",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "intro_text",
+  "section_break_table",
+  "particulars_label",
+  "current_year_heading",
+  "previous_year_heading",
+  "section_break_rows",
+  "lt_1_label",
+  "one_to_five_label",
+  "gt_5_label",
+  "total_label",
+  "section_break_footer",
+  "footer_note"
+ ],
+ "fields": [
+  {
+   "default": "i) The future minimum lease payment receivable are as follows",
+   "fieldname": "intro_text",
+   "fieldtype": "Small Text",
+   "label": "Intro Text"
+  },
+  {
+   "fieldname": "section_break_table",
+   "fieldtype": "Section Break",
+   "label": "Table Heading"
+  },
+  {
+   "default": "Particulars",
+   "fieldname": "particulars_label",
+   "fieldtype": "Data",
+   "label": "Particulars"
+  },
+  {
+   "description": "Leave empty to show the year automatically, e.g. Year Ended 31/03/2025 (\u20b9 in lacs)",
+   "fieldname": "current_year_heading",
+   "fieldtype": "Data",
+   "label": "Current Year Heading"
+  },
+  {
+   "description": "Leave empty to show the year automatically, e.g. Year Ended 31/03/2024 (\u20b9 in lacs)",
+   "fieldname": "previous_year_heading",
+   "fieldtype": "Data",
+   "label": "Previous Year Heading"
+  },
+  {
+   "fieldname": "section_break_rows",
+   "fieldtype": "Section Break",
+   "label": "Table Rows"
+  },
+  {
+   "default": "Receivable less than one year",
+   "fieldname": "lt_1_label",
+   "fieldtype": "Data",
+   "label": "Receivable less than one year"
+  },
+  {
+   "default": "Receivable less than one but not later than five years",
+   "fieldname": "one_to_five_label",
+   "fieldtype": "Data",
+   "label": "Receivable less than one but not later than five years"
+  },
+  {
+   "default": "Receivable more than five years",
+   "fieldname": "gt_5_label",
+   "fieldtype": "Data",
+   "label": "Receivable more than five years"
+  },
+  {
+   "default": "Total",
+   "fieldname": "total_label",
+   "fieldtype": "Data",
+   "label": "Total"
+  },
+  {
+   "fieldname": "section_break_footer",
+   "fieldtype": "Section Break",
+   "label": "Footer"
+  },
+  {
+   "default": "Note: The company has leased robots to hospitals for a period ranging from 4 to 6 years.",
+   "fieldname": "footer_note",
+   "fieldtype": "Small Text",
+   "label": "Footer Note"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-26 23:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "Section Description",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

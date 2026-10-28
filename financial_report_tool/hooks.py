@@ -27,6 +27,7 @@ app_license = "mit"
 # include js, css files in header of desk.html
 # app_include_css = "/assets/financial_report_tool/css/financial_report_tool.css"
 # app_include_js = "/assets/financial_report_tool/js/financial_report_tool.js"
+app_include_js = "/assets/financial_report_tool/js/scheme_note_editor.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/financial_report_tool/css/financial_report_tool.css"
@@ -265,7 +266,7 @@ override_whitelisted_methods = {
 fixtures = [
     {
         "dt": "Print Format",
-        "filters": [["name", "in", ["Financial Report", "Console Financial Report"]]]
+        "filters": [["name", "in", ["Financial Report", "Console Financial Report", "Scheme of Arrangement", "Contingent Liabilities"]]]
     },
     {
         "dt": "Workspace",

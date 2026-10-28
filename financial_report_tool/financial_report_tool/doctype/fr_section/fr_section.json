@@ -14,7 +14,9 @@
   "fetch_data_from_trial_balance",
   "is_schedule",
   "section_break_alpv",
-  "section_type_description"
+  "section_type_description",
+  "section_break_lsrcv",
+  "section_description_details"
  ],
  "fields": [
   {
@@ -25,9 +27,24 @@
    "unique": 1
   },
   {
+   "depends_on": "eval: doc.note_type != 'Lease Receivable'",
    "fieldname": "section_type_description",
    "fieldtype": "Text Editor",
    "label": "Section Description"
+  },
+  {
+   "depends_on": "eval: doc.note_type == 'Lease Receivable'",
+   "fieldname": "section_break_lsrcv",
+   "fieldtype": "Section Break",
+   "label": "Lease Receivable Text"
+  },
+  {
+   "depends_on": "eval: doc.note_type == 'Lease Receivable'",
+   "description": "One row only. Change the wording of the Lease receivable note here; amounts are filled automatically.",
+   "fieldname": "section_description_details",
+   "fieldtype": "Table",
+   "label": "Section Description",
+   "options": "Section Description"
   },
   {
    "depends_on": "eval: !doc.fetch_data_from_trial_balance;",
@@ -36,7 +53,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Note Type",
-   "options": "\nProperty, plant and equipment\nOther intangible assets\nRight-of-use assets\nCapital work-in-progress\nIntangible assets under development\nInvestments (Non-current)\nTrade & Other receivables\nTrade Payable\nEquity Share Capital\nOther Equity\nBorrowings (Non-current)\nBorrowings (Current)\nChanges in inventories of Finished Goods and\nCost of Materials Consumed\nPurchases of Stock in Trade\nDetails of Payment to Auditors\nCurrent Tax\nCapital Management\nFair Value Measurements\nFinancial Risk Management\nContingent Liabilities\nCapital & Other Commitments\nRelated Party Disclosure\nEarning Per Equity Share\nLeases\nDisclosure u/s. 22 of the Micro, Small and Medium Enterprises Development Act, 2006\nEmployee Benefit Obligation\nRatio\nDetails of Research & Development Expenditure\nCorporate Social Responsibliity\nSegmental Information"
+   "options": "\nProperty, plant and equipment\nOther intangible assets\nRight-of-use assets\nCapital work-in-progress\nIntangible assets under development\nInvestments (Non-current)\nTrade & Other receivables\nTrade Payable\nEquity Share Capital\nOther Equity\nBorrowings (Non-current)\nBorrowings (Current)\nChanges in inventories of Finished Goods and\nCost of Materials Consumed\nPurchases of Stock in Trade\nDetails of Payment to Auditors\nCurrent Tax\nCapital Management\nFair Value Measurements\nFinancial Risk Management\nContingent Liabilities\nCapital & Other Commitments\nRelated Party Disclosure\nEarning Per Equity Share\nLeases\nDisclosure u/s. 22 of the Micro, Small and Medium Enterprises Development Act, 2006\nEmployee Benefit Obligation\nRatio\nDetails of Research & Development Expenditure\nCorporate Social Responsibliity\nSegmental Information\nLease Receivable\nScheme of Arrangement"
   },
   {
    "fieldname": "column_break_ftjl",

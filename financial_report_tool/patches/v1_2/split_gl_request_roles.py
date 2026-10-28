@@ -41,7 +41,14 @@ def _grant(user, role):
 		return
 	if frappe.db.exists("Has Role", {"parent": user, "parenttype": "User", "role": role}):
 		return
-	doc = frappe.get_doc("User", user)
-	doc.append("roles", {"role": role})
-	doc.flags.ignore_permissions = True
-	doc.save()
+	# Insert only the new Has Role row. Saving the whole User would re-validate every
+	# existing role link and fail on orphan roles left behind by uninstalled apps.
+	frappe.get_doc(
+		{
+			"doctype": "Has Role",
+			"parent": user,
+			"parenttype": "User",
+			"parentfield": "roles",
+			"role": role,
+		}
+	).insert(ignore_permissions=True)

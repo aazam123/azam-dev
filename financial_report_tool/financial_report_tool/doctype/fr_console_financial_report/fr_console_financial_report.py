@@ -2224,6 +2224,9 @@ class FRConsoleFinancialReport(Document):
 			cur_oci_lease_lib = fv_doc.oci_lease_lib or 0
 			cur_tpl_trade_pay = fv_doc.tpl_trade_pay or 0
 			cur_oci_trade_pay = fv_doc.oci_trade_pay or 0
+			cur_tpl_suppliers_credit = fv_doc.tpl_suppliers_credit or 0
+			cur_oci_suppliers_credit = fv_doc.oci_suppliers_credit or 0
+			cur_amortised_suppliers_credit = fv_doc.amortised_suppliers_credit or 0
 			cur_tpl_financial_lib_curr = fv_doc.tpl_financial_lib_curr or 0
 			cur_oci_financial_lib_curr = fv_doc.oci_financial_lib_curr or 0
 			cur_tpl_financial_lib_non_curr = fv_doc.tpl_financial_lib_non_curr or 0
@@ -2237,6 +2240,7 @@ class FRConsoleFinancialReport(Document):
 		else:
 			cur_tpl_investment, cur_oci_investment, cur_tpl_trade_receivable, cur_oci_trade_receivable, cur_tpl_loan, cur_oci_loan, cur_tpl_fini_assets, cur_oci_fini_assets, cur_tpl_cach, cur_oci_cach, cur_tpl_bank_cash, cur_oci_bank_cash = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 			cur_tpl_borrowing, cur_oci_borrowing, cur_tpl_lease_lib, cur_oci_lease_lib, cur_tpl_trade_pay, cur_oci_trade_pay, cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			cur_tpl_suppliers_credit, cur_oci_suppliers_credit, cur_amortised_suppliers_credit = 0, 0, 0
 			cur_forward_contract = 0
 			cur_fair_value_hierarchy = '-'
 			cur_valuation_technique = '-'
@@ -2264,6 +2268,9 @@ class FRConsoleFinancialReport(Document):
 			pre_oci_lease_lib = prev_fv_doc.oci_lease_lib or 0
 			pre_tpl_trade_pay = prev_fv_doc.tpl_trade_pay or 0
 			pre_oci_trade_pay = prev_fv_doc.oci_trade_pay or 0
+			pre_tpl_suppliers_credit = prev_fv_doc.tpl_suppliers_credit or 0
+			pre_oci_suppliers_credit = prev_fv_doc.oci_suppliers_credit or 0
+			pre_amortised_suppliers_credit = prev_fv_doc.amortised_suppliers_credit or 0
 			pre_tpl_financial_lib_curr = prev_fv_doc.tpl_financial_lib_curr or 0
 			pre_oci_financial_lib_curr = prev_fv_doc.oci_financial_lib_curr or 0
 			pre_tpl_financial_lib_non_curr = prev_fv_doc.tpl_financial_lib_non_curr or 0
@@ -2273,6 +2280,7 @@ class FRConsoleFinancialReport(Document):
 		else:
 			pre_tpl_investment, pre_oci_investment, pre_tpl_trade_receivable, pre_oci_trade_receivable, pre_tpl_loan, pre_oci_loan, pre_tpl_fini_assets, pre_oci_fini_assets, pre_tpl_cach, pre_oci_cach, pre_tpl_bank_cash, pre_oci_bank_cash = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 			pre_tpl_borrowing, pre_oci_borrowing, pre_tpl_lease_lib, pre_oci_lease_lib, pre_tpl_trade_pay, pre_oci_trade_pay, pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			pre_tpl_suppliers_credit, pre_oci_suppliers_credit, pre_amortised_suppliers_credit = 0, 0, 0
 			pre_forward_contract = 0
 
 		bs_cur_investment = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'current_month_amount') or 0
@@ -2312,6 +2320,7 @@ class FRConsoleFinancialReport(Document):
 			("Borrowings", cur_tpl_borrowing, cur_oci_borrowing, ((cur_tpl_borrowing + cur_oci_borrowing) - pl_cur_borrowing), pre_tpl_borrowing, pre_oci_borrowing, ((pre_tpl_borrowing + pre_oci_borrowing) - pl_pre_borrowing)),
 			("Lease liabilities", cur_tpl_lease_lib, cur_oci_lease_lib, ((cur_tpl_lease_lib + cur_oci_lease_lib) - pl_cur_lease_lib), pre_tpl_lease_lib, pre_oci_lease_lib, ((pre_tpl_lease_lib + pre_oci_lease_lib) - pl_pre_lease_lib)),
 			("Trade payables", cur_tpl_trade_pay, cur_oci_trade_pay, ((cur_tpl_trade_pay + cur_oci_trade_pay) - pl_cur_trade_payable), pre_tpl_trade_pay, pre_oci_trade_pay, ((pre_tpl_trade_pay + pre_oci_trade_pay) - pl_pre_trade_payable)),
+			("Supplier's Credit", cur_tpl_suppliers_credit, cur_oci_suppliers_credit, cur_amortised_suppliers_credit, pre_tpl_suppliers_credit, pre_oci_suppliers_credit, pre_amortised_suppliers_credit),
 			("Other financial liabilities - Current", cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, ((cur_tpl_financial_lib_curr + cur_oci_financial_lib_curr) - pl_cur_financial_lib_curr), pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, ((pre_tpl_financial_lib_curr + pre_oci_financial_lib_curr) - pl_pre_financial_lib_curr)),
 			("Other financial liabilities - Non-current", cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr, ((cur_tpl_financial_lib_non_curr + cur_oci_financial_lib_non_curr) - pl_cur_financial_lib_non_curr), pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr, ((pre_tpl_financial_lib_non_curr + pre_oci_financial_lib_non_curr) - pl_pre_financial_lib_non_curr)),
 		]
@@ -2412,53 +2421,78 @@ class FRConsoleFinancialReport(Document):
 		</table>
 		"""
 		
+		fair_value_instruments = [
+			("Investments in subsidiary companies", bs_cur_investment, bs_pre_investment),
+			("Trade receivables", bs_cur_trade_receivable, bs_pre_trade_receivable),
+			("Loans", bs_cur_loan, bs_pre_loan),
+			("Other financial assets", bs_cur_fin_assets, bs_pre_fin_assets),
+			("Cash and cash equivalents", bs_cur_cash, bs_pre_cash),
+			("Bank balances other than cash and cash equivalents", bs_cur_bank, bs_pre_bank),
+		]
+		fair_value_liabilities = [
+			("Borrowings", pl_cur_borrowing, pl_pre_borrowing),
+			("Lease liabilities", pl_cur_lease_lib, pl_pre_lease_lib),
+			("Trade payables", pl_cur_trade_payable, pl_pre_trade_payable),
+			("Supplier's Credit", cur_amortised_suppliers_credit, pre_amortised_suppliers_credit),
+			("Other financial liabilities- Current", pl_cur_financial_lib_curr, pl_pre_financial_lib_curr),
+			("Other financial liabilities-Non Current", pl_cur_financial_lib_non_curr, pl_pre_financial_lib_non_curr),
+		]
+
+		def build_carrying_value_rows(rows):
+			return "".join(
+				f'''<tr>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{name}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(current)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(current)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(previous)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(previous)}</td>
+				</tr>'''
+				for name, current, previous in rows
+			)
+
+		total_assets_current = sum(row[1] for row in fair_value_instruments)
+		total_assets_previous = sum(row[2] for row in fair_value_instruments)
+		total_liabilities_current = sum(row[1] for row in fair_value_liabilities)
+		total_liabilities_previous = sum(row[2] for row in fair_value_liabilities)
+
 		note_table_b = f"""
-		<table style="margin-top: -20px; margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
+		<p style="margin-bottom:-20px; margin-top:-20px;"><strong style="color:#4472C4;">(b) Financial instruments measured at Amortised Cost &amp; FVTPL</strong></p>
+		<table style="margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 		<tr>
-			<th rowspan="2" style="width: 20%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
-			<th colspan="2" style="width: 20%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair Value</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair Value Hierarchy</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Valuation technique(s) and key input(s)</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Significant unobservable input(s)</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Relationship of unobservable inputs to fair value</th>
+			<th rowspan="2" style="width:40%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
+			<th colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
+			<th colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
 		</tr>
 		<tr>
-			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
-			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Carrying Value</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Fair Value</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Carrying Value</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair Value</th>
 		</tr>
-
+		<tr><td style="border:1px solid #000; padding:6px;"><strong>Financial Assets</strong></td><td colspan="4" style="border:1px solid #000; padding:6px;"></td></tr>
+		{build_carrying_value_rows(fair_value_instruments)}
 		<tr>
-			<td style="border:1px solid #000; padding:6px; font-weight:bold">Financial Assets / (Liabilities)</td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"></td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_fair_value_hierarchy}</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_valuation_technique}</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_significant_observable}</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_relationship_observable}</td>
+			<td style="border:1px solid #000; padding:6px;"><strong>Total Financial Assets</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_assets_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_assets_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_assets_previous)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_assets_previous)}</strong></td>
 		</tr>
-
+		<tr><td style="border:1px solid #000; padding:6px;"><strong>Financial Liabilities</strong></td><td colspan="4" style="border:1px solid #000; padding:6px;"></td></tr>
+		{build_carrying_value_rows(fair_value_liabilities)}
 		<tr>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">Derivatives designated as hedges</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;"></td>
-		</tr>
-
-		<tr>
-			<td style="border:1px solid #000; border-top: none; padding:6px;">Foreign exchange forward contracts</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{cur_forward_contract or 0}</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right;">{pre_forward_contract or 0}</td>
-		</tr>
-
-		<tr>
-			<td style="border:1px solid #000; padding:6px;"><strong>Total</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(cur_forward_contract) or 0}</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(pre_forward_contract) or 0}</strong></td>
-			<td colspan="4" style="border:1px solid #000; padding:6px;"></td>
+			<td style="border:1px solid #000; padding:6px;"><strong>Total Financial Liabilities</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_liabilities_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_liabilities_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_liabilities_previous)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_liabilities_previous)}</strong></td>
 		</tr>
 		</table>
 		"""
-		section_description = section_description.replace("{{note_table_a}}", note_table_a)
-		section_description = section_description.replace("{{note_table_b}}", note_table_b)
+		# The amortised-cost table belongs directly below table (a). The Fair Value
+		# Hierarchy and b1 explanatory paragraphs remain above section (c).
+		section_description = section_description.replace("{{note_table_a}}", note_table_a + note_table_b)
+		section_description = section_description.replace("{{note_table_b}}", "")
 
 		return section_description
 

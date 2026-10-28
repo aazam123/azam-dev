@@ -22,6 +22,7 @@
   "tpl_borrowing",
   "tpl_lease_lib",
   "tpl_trade_pay",
+  "tpl_suppliers_credit",
   "tpl_financial_lib_curr",
   "tpl_financial_lib_non_curr",
   "fvoci_column",
@@ -34,8 +35,11 @@
   "oci_borrowing",
   "oci_lease_lib",
   "oci_trade_pay",
+  "oci_suppliers_credit",
   "oci_financial_lib_curr",
   "oci_financial_lib_non_curr",
+  "amortised_column",
+  "amortised_suppliers_credit",
   "section_break_juni",
   "section123",
   "forward_contract",
@@ -137,6 +141,11 @@
    "label": "Trade payables"
   },
   {
+   "fieldname": "tpl_suppliers_credit",
+   "fieldtype": "Float",
+   "label": "Supplier's Credit"
+  },
+  {
    "fieldname": "tpl_financial_lib_curr",
    "fieldtype": "Float",
    "label": "Other financial liabilities- Current"
@@ -197,6 +206,11 @@
    "label": "Trade payables"
   },
   {
+   "fieldname": "oci_suppliers_credit",
+   "fieldtype": "Float",
+   "label": "Supplier's Credit"
+  },
+  {
    "fieldname": "oci_financial_lib_curr",
    "fieldtype": "Float",
    "label": "Other financial liabilities- Current"
@@ -205,6 +219,16 @@
    "fieldname": "oci_financial_lib_non_curr",
    "fieldtype": "Float",
    "label": "Other financial liabilities-Non Current"
+  },
+  {
+   "fieldname": "amortised_column",
+   "fieldtype": "Column Break",
+   "label": "Amortised Cost"
+  },
+  {
+   "fieldname": "amortised_suppliers_credit",
+   "fieldtype": "Float",
+   "label": "Supplier's Credit"
   },
   {
    "fieldname": "section_break_juni",

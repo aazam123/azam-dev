@@ -16,6 +16,18 @@ from collections import defaultdict
 from frappe.utils import get_site_path, now_datetime, relativedelta, formatdate
 from datetime import datetime, timedelta, date
 from frappe.model.document import Document
+from frappe.utils import escape_html
+from financial_report_tool.financial_report_tool.contingent_note import (
+	NOTE_MARKER,
+	get_texts as get_contingent_texts,
+	note_html as contingent_note_html,
+)
+from financial_report_tool.financial_report_tool.scheme_note import (
+	SCHEME_NOTE_TYPE,
+	SCHEME_DEFAULTS,
+	build_scheme_html,
+	get_master_values,
+)
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
@@ -248,7 +260,7 @@ class FRFinancialReport(Document):
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
 				if section_schedule_map.get(i.section) == 1:
-					self._note_number_map[i.section] = str(note_counter)
+					self._note_number_map[i.section] = i.note_no if i.manual_note_no and i.note_no else str(note_counter)
 					note_counter += 1
 
 		# Pre-fetch FR Section data for _generate_report_internal to avoid per-row queries
@@ -434,6 +446,13 @@ class FRFinancialReport(Document):
 		self._set_report_currency()
 		self.update_consolidation_note_numbers()
 
+		# Lease receivable: copy hand edits (row fields or the table itself) and rebuild the styled HTML
+		for i in self.financial_report_details:
+			if self._is_lease_receivable_row(i):
+				self._sync_lease_receivable_row(i)
+			elif self._is_scheme_row(i):
+				i.section_description = self.get_yearly_scheme_of_arrangement_note_data(i)
+
 		# Update section names
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
@@ -517,24 +536,31 @@ class FRFinancialReport(Document):
 				section_data = frappe.db.get_value("FR Section", i.section, ["is_schedule"], as_dict=True)
 				if section_data and section_data.is_schedule == 1:
 					if i.section == schedule_name:
-						return str(note_counter)
+						return i.note_no if i.manual_note_no and i.note_no else str(note_counter)
 					note_counter += 1
 		return ""
 
 	def update_consolidation_note_numbers(self):
-		"""Update note numbers for consolidation notes starting from 4"""
+		"""Update note numbers for consolidation notes starting from 4.
+
+		A row with `manual_note_no` keeps the number typed by the user; it still uses up one place in the sequence
+		so the other notes keep their numbers."""
 		note_counter = 4
 		for i in self.financial_report_details:
 			if i.section_type == "Consolidation Note" and i.section:
 				# Check if the FR Section has is_schedule = 1
 				section_data = frappe.db.get_value("FR Section", i.section, ["is_schedule"], as_dict=True)
 				if section_data and section_data.is_schedule == 1:
-					i.note_no = str(note_counter)
+					if not (i.manual_note_no and i.note_no):
+						i.manual_note_no = 0
+						i.note_no = str(note_counter)
 					note_counter += 1
 				else:
 					i.note_no = ""
+					i.manual_note_no = 0
 			else:
 				i.note_no = ""
+				i.manual_note_no = 0
 
 	def on_update_after_submit(self):
 		"""Update note numbers when rows are modified after submit"""
@@ -968,6 +994,10 @@ class FRFinancialReport(Document):
 						i.section_description = self.get_yearly_earning_per_equity_share_note_data(section_description)
 					elif note_type == "Leases":
 						i.section_description = self.get_yearly_leases_note_data(section_description)
+					elif note_type == "Lease Receivable":
+						i.section_description = self.get_yearly_lease_receivable_note_data(i)
+					elif note_type == self.SCHEME_NOTE_TYPE:
+						i.section_description = self.get_yearly_scheme_of_arrangement_note_data(i)
 					elif note_type == "Disclosure u/s. 22 of the Micro, Small and Medium Enterprises Development Act, 2006":
 						i.section_description = self.get_yearly_interest_in_subsidiaries_and_nci_note_data(section_description)
 					elif note_type == "Employee Benefit Obligation":
@@ -2498,6 +2528,9 @@ class FRFinancialReport(Document):
 			cur_oci_lease_lib = fv_doc.oci_lease_lib or 0
 			cur_tpl_trade_pay = fv_doc.tpl_trade_pay or 0
 			cur_oci_trade_pay = fv_doc.oci_trade_pay or 0
+			cur_tpl_suppliers_credit = fv_doc.tpl_suppliers_credit or 0
+			cur_oci_suppliers_credit = fv_doc.oci_suppliers_credit or 0
+			cur_amortised_suppliers_credit = fv_doc.amortised_suppliers_credit or 0
 			cur_tpl_financial_lib_curr = fv_doc.tpl_financial_lib_curr or 0
 			cur_oci_financial_lib_curr = fv_doc.oci_financial_lib_curr or 0
 			cur_tpl_financial_lib_non_curr = fv_doc.tpl_financial_lib_non_curr or 0
@@ -2511,6 +2544,7 @@ class FRFinancialReport(Document):
 		else:
 			cur_tpl_investment, cur_oci_investment, cur_tpl_trade_receivable, cur_oci_trade_receivable, cur_tpl_loan, cur_oci_loan, cur_tpl_fini_assets, cur_oci_fini_assets, cur_tpl_cach, cur_oci_cach, cur_tpl_bank_cash, cur_oci_bank_cash = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 			cur_tpl_borrowing, cur_oci_borrowing, cur_tpl_lease_lib, cur_oci_lease_lib, cur_tpl_trade_pay, cur_oci_trade_pay, cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			cur_tpl_suppliers_credit, cur_oci_suppliers_credit, cur_amortised_suppliers_credit = 0, 0, 0
 			cur_forward_contract = 0
 			cur_fair_value_hierarchy = '-'
 			cur_valuation_technique = '-'
@@ -2538,15 +2572,19 @@ class FRFinancialReport(Document):
 			pre_oci_lease_lib = prev_fv_doc.oci_lease_lib or 0
 			pre_tpl_trade_pay = prev_fv_doc.tpl_trade_pay or 0
 			pre_oci_trade_pay = prev_fv_doc.oci_trade_pay or 0
+			pre_tpl_suppliers_credit = prev_fv_doc.tpl_suppliers_credit or 0
+			pre_oci_suppliers_credit = prev_fv_doc.oci_suppliers_credit or 0
+			pre_amortised_suppliers_credit = prev_fv_doc.amortised_suppliers_credit or 0
 			pre_tpl_financial_lib_curr = prev_fv_doc.tpl_financial_lib_curr or 0
 			pre_oci_financial_lib_curr = prev_fv_doc.oci_financial_lib_curr or 0
 			pre_tpl_financial_lib_non_curr = prev_fv_doc.tpl_financial_lib_non_curr or 0
 			pre_oci_financial_lib_non_curr = prev_fv_doc.oci_financial_lib_non_curr or 0
 
-			pre_forward_contract = fv_doc.forward_contract or 0
+			pre_forward_contract = prev_fv_doc.forward_contract or 0
 		else:
 			pre_tpl_investment, pre_oci_investment, pre_tpl_trade_receivable, pre_oci_trade_receivable, pre_tpl_loan, pre_oci_loan, pre_tpl_fini_assets, pre_oci_fini_assets, pre_tpl_cach, pre_oci_cach, pre_tpl_bank_cash, pre_oci_bank_cash = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 			pre_tpl_borrowing, pre_oci_borrowing, pre_tpl_lease_lib, pre_oci_lease_lib, pre_tpl_trade_pay, pre_oci_trade_pay, pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+			pre_tpl_suppliers_credit, pre_oci_suppliers_credit, pre_amortised_suppliers_credit = 0, 0, 0
 			pre_forward_contract = 0
 
 		bs_cur_investment = self.get_bs_particular_data(frappe.get_value("FR Particular", {'type': "Investment"}, 'name'), 'current_month_amount') or 0
@@ -2586,6 +2624,7 @@ class FRFinancialReport(Document):
 			("Borrowings", cur_tpl_borrowing, cur_oci_borrowing, (pl_cur_borrowing - (cur_tpl_borrowing + cur_oci_borrowing)), pre_tpl_borrowing, pre_oci_borrowing, (pl_pre_borrowing - (pre_tpl_borrowing + pre_oci_borrowing))),
 			("Lease liabilities", cur_tpl_lease_lib, cur_oci_lease_lib, (pl_cur_lease_lib - (cur_tpl_lease_lib + cur_oci_lease_lib)), pre_tpl_lease_lib, pre_oci_lease_lib, (pl_pre_lease_lib - (pre_tpl_lease_lib + pre_oci_lease_lib))),
 			("Trade payables", cur_tpl_trade_pay, cur_oci_trade_pay, (pl_cur_trade_payable - (cur_tpl_trade_pay + cur_oci_trade_pay)), pre_tpl_trade_pay, pre_oci_trade_pay, (pl_pre_trade_payable - (pre_tpl_trade_pay + pre_oci_trade_pay))),
+			("Supplier's Credit", cur_tpl_suppliers_credit, cur_oci_suppliers_credit, cur_amortised_suppliers_credit, pre_tpl_suppliers_credit, pre_oci_suppliers_credit, pre_amortised_suppliers_credit),
 			("Other financial liabilities - Current", cur_tpl_financial_lib_curr, cur_oci_financial_lib_curr, (pl_cur_financial_lib_curr - (cur_tpl_financial_lib_curr + cur_oci_financial_lib_curr)), pre_tpl_financial_lib_curr, pre_oci_financial_lib_curr, (pl_pre_financial_lib_curr - (pre_tpl_financial_lib_curr + pre_oci_financial_lib_curr))),
 			("Other financial liabilities - Non-current", cur_tpl_financial_lib_non_curr, cur_oci_financial_lib_non_curr, (pl_cur_financial_lib_non_curr - (cur_tpl_financial_lib_non_curr + cur_oci_financial_lib_non_curr)), pre_tpl_financial_lib_non_curr, pre_oci_financial_lib_non_curr, (pl_pre_financial_lib_non_curr - (pre_tpl_financial_lib_non_curr + pre_oci_financial_lib_non_curr))),
 		]
@@ -2686,53 +2725,115 @@ class FRFinancialReport(Document):
 		</table>
 		"""
 		
-		note_table_b = f"""
-		<table style="margin-top: -20px; margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
-		<tr>
-			<th rowspan="2" style="width: 20%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
-			<th colspan="2" style="width: 20%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair Value</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair Value Hierarchy</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Valuation technique(s) and key input(s)</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Significant unobservable input(s)</th>
-			<th rowspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Relationship of unobservable inputs to fair value</th>
-		</tr>
-		<tr>
-			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
-			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
-		</tr>
+		fair_value_instruments = [
+			("Investments in subsidiary companies", bs_cur_investment, bs_pre_investment),
+			("Trade receivables", bs_cur_trade_receivable, bs_pre_trade_receivable),
+			("Loans", bs_cur_loan, bs_pre_loan),
+			("Other financial assets", bs_cur_fin_assets, bs_pre_fin_assets),
+			("Cash and cash equivalents", bs_cur_cash, bs_pre_cash),
+			("Bank balances other than cash and cash equivalents", bs_cur_bank, bs_pre_bank),
+		]
+		fair_value_liabilities = [
+			("Borrowings", pl_cur_borrowing, pl_pre_borrowing),
+			("Lease liabilities", pl_cur_lease_lib, pl_pre_lease_lib),
+			("Trade payables", pl_cur_trade_payable, pl_pre_trade_payable),
+			("Supplier's Credit", cur_amortised_suppliers_credit, pre_amortised_suppliers_credit),
+			("Other financial liabilities- Current", pl_cur_financial_lib_curr, pl_pre_financial_lib_curr),
+			("Other financial liabilities-Non Current", pl_cur_financial_lib_non_curr, pl_pre_financial_lib_non_curr),
+		]
 
+		def build_carrying_value_rows(rows):
+			return "".join(
+				f'''<tr>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px;">{name}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(current)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(current)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(previous)}</td>
+					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right;">{fmt(previous)}</td>
+				</tr>'''
+				for name, current, previous in rows
+			)
+
+		total_assets_current = sum(row[1] for row in fair_value_instruments)
+		total_assets_previous = sum(row[2] for row in fair_value_instruments)
+		total_liabilities_current = sum(row[1] for row in fair_value_liabilities)
+		total_liabilities_previous = sum(row[2] for row in fair_value_liabilities)
+
+		note_table_b = f"""
+		<p style="margin-bottom:-20px; margin-top:-20px;"><strong style="color:#4472C4;">(b) Financial instruments measured at Amortised Cost &amp; FVTPL</strong></p>
+		<table style="margin-bottom: -20px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 		<tr>
-			<td style="border:1px solid #000; padding:6px; font-weight:bold">Financial Assets / (Liabilities)</td>
+			<th rowspan="2" style="width:40%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
+			<th colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
+			<th colspan="2" style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
+		</tr>
+		<tr>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Carrying Value</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">Fair Value</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Carrying Value</th>
+			<th style="border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair Value</th>
+		</tr>
+		<tr><td style="border:1px solid #000; padding:6px;"><strong>Financial Assets</strong></td><td colspan="4" style="border:1px solid #000; padding:6px;"></td></tr>
+		{build_carrying_value_rows(fair_value_instruments)}
+		<tr>
+			<td style="border:1px solid #000; padding:6px;"><strong>Total Financial Assets</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_assets_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_assets_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_assets_previous)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_assets_previous)}</strong></td>
+		</tr>
+		<tr><td style="border:1px solid #000; padding:6px;"><strong>Financial Liabilities</strong></td><td colspan="4" style="border:1px solid #000; padding:6px;"></td></tr>
+		{build_carrying_value_rows(fair_value_liabilities)}
+		<tr>
+			<td style="border:1px solid #000; padding:6px;"><strong>Total Financial Liabilities</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_liabilities_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_liabilities_current)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_liabilities_previous)}</strong></td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_liabilities_previous)}</strong></td>
+		</tr>
+		</table>
+		"""
+
+		note_table_c1 = f"""
+		<p style="text-align:right; margin:0;"><strong style="color:#4472C4;">Amount in ₹ Lakhs</strong></p>
+		<table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:13px; border:1px solid #000;">
+		<tr>
+			<th rowspan="2" style="width:24%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Particulars</th>
+			<th colspan="2" style="width:19%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair value</th>
+			<th rowspan="2" style="width:17%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Fair value hierarchy</th>
+			<th rowspan="2" style="width:15%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Valuation technique(s) and key input(s)</th>
+			<th rowspan="2" style="width:8%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Significant unobservable input(s)</th>
+			<th rowspan="2" style="width:17%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">Relationship of unobservable inputs to fair value</th>
+		</tr>
+		<tr>
+			<th style="width:9.5%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at<br>{current_date}</th>
+			<th style="width:9.5%; border:1px solid #000; padding:6px; font-weight:bold; color:#4472C4;">As at<br>{previous_date}</th>
+		</tr>
+		<tr>
+			<td style="border:1px solid #000; padding:6px; font-weight:bold; background-color:#E8F5E8;">Financial Assets / (Liabilities)</td>
 			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
 			<td style="border:1px solid #000; padding:6px; text-align:right;"></td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_fair_value_hierarchy}</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_valuation_technique}</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_significant_observable}</td>
-			<td rowspan="3" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_relationship_observable}</td>
+			<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_fair_value_hierarchy}</td>
+			<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_valuation_technique}</td>
+			<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_significant_observable}</td>
+			<td rowspan="2" style="border:1px solid #000; padding:6px; vertical-align:middle;">{cur_relationship_observable}</td>
 		</tr>
-
 		<tr>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px;">Derivatives designated as hedges</td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;"></td>
-			<td style="border:1px solid #000; border-bottom: none; border-top: none; padding:6px; text-align:right;"></td>
+			<td style="border:1px solid #000; padding:6px;">Foreign exchange forward contracts</td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;">{fmt(cur_forward_contract)}</td>
+			<td style="border:1px solid #000; padding:6px; text-align:right;">{fmt(pre_forward_contract)}</td>
 		</tr>
-
 		<tr>
-			<td style="border:1px solid #000; border-top: none; padding:6px;">Foreign exchange forward contracts</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right; background-color:#E8F5E8;">{cur_forward_contract or 0}</td>
-			<td style="border:1px solid #000; border-top: none; padding:6px; text-align:right;">{pre_forward_contract or 0}</td>
-		</tr>
-
-		<tr>
-			<td style="border:1px solid #000; padding:6px;"><strong>Total</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(cur_forward_contract) or 0}</strong></td>
-			<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(pre_forward_contract) or 0}</strong></td>
+			<td style="border:1px solid #000; padding:6px; font-weight:bold;">Total Financial Assets / (Liabilities)</td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold; background-color:#E8F5E8;">{fmt(cur_forward_contract)}</td>
+			<td style="border:1px solid #000; padding:6px; text-align:right; font-weight:bold;">{fmt(pre_forward_contract)}</td>
 			<td colspan="4" style="border:1px solid #000; padding:6px;"></td>
 		</tr>
 		</table>
 		"""
-		section_description = section_description.replace("{{note_table_a}}", note_table_a)
-		section_description = section_description.replace("{{note_table_b}}", note_table_b)
+		# Put the fair value measurement table immediately after the c1 explanation.
+		section_description = section_description.replace("{{note_table_a}}", note_table_a + note_table_b)
+		section_description = section_description.replace("{{note_table_b}}", note_table_c1)
 
 		return section_description
 
@@ -3235,6 +3336,215 @@ class FRFinancialReport(Document):
 		section_description = section_description.replace("{{note_table_a}}", note_table_a)
 		section_description = section_description.replace("{{note_table_b}}", note_table_b)
 		return section_description
+
+	# FR Standalone Group names mapped (via FR GL Group Mapping -> FR Trial Balance Entry) to the Lease receivable maturity rows
+	LEASE_RECEIVABLE_PRIMARY_GROUP = "Lease Receivable Maturity"
+	LEASE_RECEIVABLE_BUCKETS = (
+		("lt_1", "Lease Receivable - Less than one year"),
+		("one_to_five", "Lease Receivable - One to five years"),
+		("gt_5", "Lease Receivable - More than five years"),
+	)
+
+	def get_yearly_lease_receivable_note_data(self, row):
+		"""Build the 'Lease receivable' note for a report row (FR Financial Report Details).
+
+		Wording (intro, row labels, footer) is read from the row's own text fields, so a manual edit on the report
+		survives Generate Report. Empty fields start from the FR Section 'Section Description' row, then the defaults,
+		and are written back to the row so they show up on the form. Amounts come from the trial balance."""
+		current_year_label, previous_year_label = self.get_yearly_dates()
+		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		unit = self.get_amount_unit_word().lower()
+
+		meta = frappe.get_meta("Section Description")
+		text_fields = [df.fieldname for df in meta.fields if df.fieldtype in ("Data", "Small Text")]
+		texts = {df.fieldname: df.default for df in meta.fields if df.default}
+		section_row = frappe.db.get_value(
+			"Section Description",
+			{"parent": row.section, "parenttype": "FR Section", "parentfield": "section_description_details"},
+			text_fields,
+			as_dict=True,
+		)
+		if section_row:
+			texts.update({k: v for k, v in section_row.items() if v})
+		for fieldname in text_fields:
+			if row.get(fieldname):
+				texts[fieldname] = row.get(fieldname)
+			else:
+				row.set(fieldname, texts.get(fieldname))
+
+		def fmt(val):
+			return "-" if not val else self.fmt_num(val)
+
+		amounts = {}
+		totals = {"current": 0, "previous": 0}
+		for key, group in self.LEASE_RECEIVABLE_BUCKETS:
+			for period, year in (("current", self.fiscal_year), ("previous", self.previous_fiscal_year)):
+				amount = self.get_sum_grouping_amount(self.LEASE_RECEIVABLE_PRIMARY_GROUP, group, cls_month, year)
+				totals[period] += amount
+				amounts[(key, period)] = fmt(amount)
+		for period in ("current", "previous"):
+			amounts[("total", period)] = fmt(round(totals[period], self.show_decimal_value))
+
+		def esc(text):
+			return frappe.utils.escape_html(text or "").replace("\n", "<br>")
+
+		line = "1px solid #000"
+		pad = "padding:7px 8px;"
+		head = f"{pad} border:{line}; background-color:#EEEEEE; color:#3498DB; font-weight:bold;"
+		body = f"{pad} border-left:{line}; border-right:{line}; border-top:none; border-bottom:none;"
+		foot = f"{pad} border:{line}; font-weight:bold;"
+		green = " background-color:#E8F5E8;"
+
+		def tr(cell_style, label, key):
+			return (
+				f'<tr><td style="{cell_style} text-align:left; width:60%;">{esc(label)}</td>'
+				f'<td style="{cell_style} text-align:right; width:20%;{green}">{amounts[(key, "current")]}</td>'
+				f'<td style="{cell_style} text-align:right; width:20%;">{amounts[(key, "previous")]}</td></tr>'
+			)
+
+		html = f'<p>{esc(texts.get("intro_text"))}</p>'
+		html += f'<table style="width:100%; border-collapse:collapse; font-size:13px; border:{line};"><tbody>'
+		html += (
+			f'<tr><td style="{head} text-align:left; width:60%;">{esc(texts.get("particulars_label"))}</td>'
+			f'<td style="{head} text-align:right; width:20%;">{esc(texts.get("current_year_heading") or f"{current_year_label} (₹ in {unit})")}</td>'
+			f'<td style="{head} text-align:right; width:20%;">{esc(texts.get("previous_year_heading") or f"{previous_year_label} (₹ in {unit})")}</td></tr>'
+		)
+		html += tr(body, texts.get("lt_1_label"), "lt_1")
+		html += tr(body, texts.get("one_to_five_label"), "one_to_five")
+		html += tr(body, texts.get("gt_5_label"), "gt_5")
+		html += tr(foot, texts.get("total_label"), "total")
+		html += "</tbody></table>"
+		if texts.get("footer_note"):
+			html += f'<p>{esc(texts["footer_note"])}</p>'
+		return html
+
+	def _is_lease_receivable_row(self, row):
+		return (
+			row.section_type == "Consolidation Note"
+			and bool(row.section)
+			and frappe.db.get_value("FR Section", row.section, "note_type") == "Lease Receivable"
+		)
+
+	SCHEME_NOTE_TYPE = SCHEME_NOTE_TYPE
+
+	def _is_scheme_row(self, row):
+		return (
+			row.section_type == "Consolidation Note"
+			and bool(row.section)
+			and frappe.db.get_value("FR Section", row.section, "note_type") == self.SCHEME_NOTE_TYPE
+		)
+
+	def get_yearly_scheme_of_arrangement_note_data(self, row):
+		"""Build the 'Scheme of Arrangement in the nature of Amalgamation' note for a report row.
+
+		Every text and value comes from the row's own fields (sch_*), so edits made on the report survive Generate
+		Report. Empty fields start from the FR Section text / SCHEME_DEFAULTS and are written back to the row.
+		The table design (borders, colours, spans) is always rebuilt here, never stored by the text editor."""
+		texts = dict(SCHEME_DEFAULTS)
+		master = get_master_values(self.company, self.fiscal_year)
+		texts["sch_text_before"] = frappe.db.get_value("FR Section", row.section, "section_type_description") or ""
+		for fieldname in texts:
+			if row.get(fieldname):
+				texts[fieldname] = row.get(fieldname)
+			else:
+				# An empty row field starts from the master (which itself falls back to SCHEME_DEFAULTS)
+				texts[fieldname] = master.get(fieldname) or texts[fieldname]
+				row.set(fieldname, texts[fieldname])
+		return build_scheme_html(texts)
+
+	def get_print_section_description(self, row):
+		"""Section description HTML for the print format. Lease receivable is rendered live from the row's
+		Section Description fields (text) plus trial balance amounts; every other note prints its stored HTML."""
+		if self._is_lease_receivable_row(row):
+			self._init_report_caches()
+			return self.get_yearly_lease_receivable_note_data(row)
+		if self._is_scheme_row(row):
+			return self.get_yearly_scheme_of_arrangement_note_data(row)
+		return row.section_description
+
+	LEASE_RECEIVABLE_TEXT_FIELDS = (
+		"intro_text", "particulars_label", "current_year_heading", "previous_year_heading",
+		"lt_1_label", "one_to_five_label", "gt_5_label", "total_label", "footer_note",
+	)
+
+	@staticmethod
+	def _parse_lease_receivable_html(html):
+		"""Read the wording back out of the (possibly hand-edited) Lease receivable HTML.
+
+		Expected layout: intro paragraph(s), a 5-row table (heading, 3 maturity rows, total), footer paragraph(s).
+		Returns {fieldname: text}; empty dict when the layout was broken so nothing is overwritten."""
+		soup = BeautifulSoup(html or "", "html.parser")
+		for br in soup.find_all("br"):
+			br.replace_with("\n")
+		root = soup
+		while True:
+			tags = [c for c in root.children if getattr(c, "name", None)]
+			if len(tags) == 1 and tags[0].name == "div":
+				root = tags[0]
+			else:
+				break
+
+		def clean(el, multiline=False):
+			text = el.get_text()
+			if multiline:
+				return "\n".join(" ".join(line.split()) for line in text.split("\n")).strip()
+			return " ".join(text.split())
+
+		before, after, table = [], [], None
+		for el in root.children:
+			if not getattr(el, "name", None):
+				continue
+			if el.name == "table":
+				table = el
+			else:
+				text = clean(el, multiline=True)
+				if text:
+					(after if table is not None else before).append(text)
+		if table is None:
+			return {}
+		rows = [[clean(td) for td in tr.find_all(["td", "th"])] for tr in table.find_all("tr")]
+		if len(rows) != 5 or len(rows[0]) < 3 or any(not r for r in rows):
+			return {}
+		return {
+			"intro_text": "\n".join(before),
+			"particulars_label": rows[0][0],
+			"current_year_heading": rows[0][1],
+			"previous_year_heading": rows[0][2],
+			"lt_1_label": rows[1][0],
+			"one_to_five_label": rows[2][0],
+			"gt_5_label": rows[3][0],
+			"total_label": rows[4][0],
+			"footer_note": "\n".join(after),
+		}
+
+	def _sync_lease_receivable_row(self, row):
+		"""Make both edit surfaces of a Lease receivable row work on Save.
+
+		- Text fields edited on the row win for that field.
+		- Otherwise, if the Section Description table was edited by hand, its wording is copied into the fields.
+		Then the HTML is rebuilt so the design (borders, colours, amounts) is always intact."""
+		self._init_report_caches()
+		before = self.get_doc_before_save()
+		old = None
+		if before:
+			old = next((r for r in before.get("financial_report_details") or [] if r.name == row.name), None)
+		html_changed = old is None or (old.section_description or "") != (row.section_description or "")
+		if html_changed:
+			current_year_label, previous_year_label = self.get_yearly_dates()
+			unit = self.get_amount_unit_word().lower()
+			auto = {
+				"current_year_heading": f"{current_year_label} (₹ in {unit})",
+				"previous_year_heading": f"{previous_year_label} (₹ in {unit})",
+			}
+			edited = self._parse_lease_receivable_html(row.section_description)
+			for fieldname, text in edited.items():
+				field_changed = old is not None and (old.get(fieldname) or "") != (row.get(fieldname) or "")
+				if field_changed:
+					continue
+				effective = " ".join((row.get(fieldname) or auto.get(fieldname) or "").split())
+				if " ".join(text.split()) != effective:
+					row.set(fieldname, text)
+		row.section_description = self.get_yearly_lease_receivable_note_data(row)
 	
 
 	def get_yearly_related_party_disclosure_note_data(self, section_description=""):
@@ -3440,21 +3750,23 @@ class FRFinancialReport(Document):
 			pre_claim_against = "-"
 			pre_disputed_custom = 0
 
+		# Labels, total and note points are editable on the FR Contingent Liabilities master of the current year
+		cl_texts = get_contingent_texts(cur_contingent_doc if cur_contingent else None)
 		data = [
-			("a) Bank guarantees given to excise authorities and other institutions", cur_bank_guarantees, pre_bank_guarantees),
-			(f"b) Disputed Custom duty matters", cur_disputed_custom, pre_disputed_custom),
+			(cl_texts["cl_label_a"], cur_bank_guarantees, pre_bank_guarantees),
+			(cl_texts["cl_label_b"], cur_disputed_custom, pre_disputed_custom),
 			(f"c) {cur_company_imported_label}", cur_company_imported, pre_company_imported),
-			("d) Claims against the company not acknowledged as debt, Amount indeterminate (Refer Note (ii) below), Amount indeterminate (Refer Note (ii) below)", cur_claim_against, pre_claim_against),
+			(cl_texts["cl_label_d"], cur_claim_against, pre_claim_against),
 		]
 
 		total_curr = cur_bank_guarantees + cur_company_imported
 		total_prev = pre_bank_guarantees + pre_company_imported
 
+		# Combined layout: one merged Particulars cell (text editable on the master) instead of rows a) to d) and the Note block
+		combined = bool(cur_contingent and cur_contingent_doc.cl_combined_layout)
 		rows_html = ""
-		if self.name == "FRP-0292":
-			particulars = """a) Claims against the company not acknowledged as debt<br><br>
-			i) It is not practicable for the Company to estimate the timings of cash outflows, if any, in respect of the above pending resolution of the respective proceedings. The Company does not expect any reimbursements in respect of the above contingent liabilities. Future cash outflows in respect of the above are determinable only on receipt of judgments/ decisions pending with various forums/authorities. The Company does not expect any outflow of economic resources in respect of the above and therefore no provision is made in respect thereof.<br><br>
-			ii) The competitor has initiated litigation proceedings against the Group in certain overseas countries for infringement of patents for certain products of Group. The management is continuously monitoring the proceeding of litigation, the Group believes that the factors considered are reasonable under the current circumstances and information available upto the date of approval of the accounts. However, the uncertainty caused by such litigation and related events could further influence the ultimate obligation of the Group."""
+		if combined:
+			particulars = escape_html(cur_contingent_doc.cl_combined_particulars or "").replace("\n", "<br>")
 			amount_rows = [
 				(cur_bank_guarantees, pre_bank_guarantees),
 				(cur_disputed_custom, pre_disputed_custom),
@@ -3483,23 +3795,26 @@ class FRFinancialReport(Document):
 		note_table = f"""
 		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
 			<tr>
-				<th style="border:1px solid #000; padding:6px; width:65%; font-weight:bold; color:#4472C4;">Particulars</th>
-				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
-				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
+				<th style="border:1px solid #000; padding:6px; width:65%; font-weight:bold; color:#4472C4;">{escape_html(cl_texts["cl_head_particulars"])}</th>
+				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">{escape_html(cl_texts["cl_head_asat"])} {current_date}</th>
+				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4;">{escape_html(cl_texts["cl_head_asat"])} {previous_date}</th>
 			</tr>
 
 			{rows_html}
 
 			<tr>
-				<td style="border:1px solid #000; padding:6px;"><strong>TOTAL</strong></td>
+				<td style="border:1px solid #000; padding:6px;"><strong>{escape_html(cl_texts["cl_total_label"])}</strong></td>
 				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_curr)}</strong></td>
 				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_prev)}</strong></td>
 			</tr>
 		</table>
 		"""
 
-		if self.name == "FRP-0292":
-			section_description = section_description.split('<p><strong>Note:</strong></p>', 1)[0]
+		if combined:
+			section_description = section_description.split(NOTE_MARKER, 1)[0]
+		elif cur_contingent and NOTE_MARKER in section_description:
+			# Note heading and points (i), (ii) come from the master of the current year
+			section_description = section_description.split(NOTE_MARKER, 1)[0] + contingent_note_html(cl_texts) + "</div>"
 
 		return section_description.replace("{{note_table}}", note_table)
 

@@ -7,17 +7,40 @@
  "engine": "InnoDB",
  "field_order": [
   "company",
-  "column_break_diir",
+  "cl_col_1",
   "fiscal_year",
-  "column_break_jmei",
+  "cl_col_2",
   "month",
-  "section_break_rmzw",
+  "cl_section_3",
+  "cl_note_title",
+  "cl_combined_layout",
+  "cl_combined_particulars",
+  "cl_section_4",
+  "cl_head_particulars",
+  "cl_col_5",
+  "cl_head_asat",
+  "cl_section_6",
+  "cl_label_a",
+  "cl_col_7",
   "bank_guarantees",
+  "cl_section_8",
+  "cl_label_b",
+  "cl_col_9",
   "disputed_custom_duty_matters",
-  "claim_against",
-  "column_break_btxe",
+  "cl_section_10",
   "company_imported_label",
-  "company_imported"
+  "cl_col_11",
+  "company_imported",
+  "cl_section_12",
+  "cl_label_d",
+  "cl_col_13",
+  "claim_against",
+  "cl_section_14",
+  "cl_total_label",
+  "cl_section_15",
+  "cl_note_head",
+  "cl_note_i",
+  "cl_note_ii"
  ],
  "fields": [
   {
@@ -30,7 +53,7 @@
    "reqd": 1
   },
   {
-   "fieldname": "column_break_diir",
+   "fieldname": "cl_col_1",
    "fieldtype": "Column Break"
   },
   {
@@ -43,27 +66,8 @@
    "reqd": 1
   },
   {
-   "fieldname": "column_break_jmei",
+   "fieldname": "cl_col_2",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_rmzw",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "bank_guarantees",
-   "fieldtype": "Float",
-   "label": "Bank guarantees given to excise authorities and other institutions"
-  },
-  {
-   "fieldname": "company_imported",
-   "fieldtype": "Float",
-   "label": "The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme"
-  },
-  {
-   "fieldname": "claim_against",
-   "fieldtype": "Small Text",
-   "label": "Claims Against The Company Not Acknowledged as Debt"
   },
   {
    "default": "March",
@@ -73,24 +77,152 @@
    "options": "\nJanuary\nFebruary\nMarch\nApril\nMay\nJune\nJuly\nAugust\nSeptember\nOctober\nNovember\nDecember"
   },
   {
-   "fieldname": "disputed_custom_duty_matters",
-   "fieldtype": "Float",
-   "label": "Disputed Custom duty matters"
+   "fieldname": "cl_section_3",
+   "fieldtype": "Section Break",
+   "label": "Note 50. Contingent Liabilities"
   },
   {
-   "fieldname": "column_break_btxe",
+   "fieldname": "cl_note_title",
+   "fieldtype": "Data",
+   "label": "Note Title"
+  },
+  {
+   "fieldname": "cl_combined_layout",
+   "fieldtype": "Check",
+   "label": "Show particulars as one combined paragraph",
+   "description": "Report shows one merged Particulars cell (below) instead of rows a) to d) and the Note block."
+  },
+  {
+   "fieldname": "cl_combined_particulars",
+   "fieldtype": "Text",
+   "label": "Combined Particulars",
+   "depends_on": "eval:doc.cl_combined_layout"
+  },
+  {
+   "fieldname": "cl_section_4",
+   "fieldtype": "Section Break",
+   "label": "Table"
+  },
+  {
+   "fieldname": "cl_head_particulars",
+   "fieldtype": "Data",
+   "label": "Heading - Particulars"
+  },
+  {
+   "fieldname": "cl_col_5",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cl_head_asat",
+   "fieldtype": "Data",
+   "label": "Heading - As at"
+  },
+  {
+   "fieldname": "cl_section_6",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cl_label_a",
+   "fieldtype": "Small Text",
+   "label": "Row a) Label"
+  },
+  {
+   "fieldname": "cl_col_7",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bank_guarantees",
+   "fieldtype": "Float",
+   "label": "Row a) Amount"
+  },
+  {
+   "fieldname": "cl_section_8",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cl_label_b",
+   "fieldtype": "Small Text",
+   "label": "Row b) Label"
+  },
+  {
+   "fieldname": "cl_col_9",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "disputed_custom_duty_matters",
+   "fieldtype": "Float",
+   "label": "Row b) Amount"
+  },
+  {
+   "fieldname": "cl_section_10",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "company_imported_label",
    "fieldtype": "Small Text",
-   "label": "The Company has imported Capital Goods under the Export Promotion Capital Goods Scheme Label"
+   "label": "Row c) Label"
+  },
+  {
+   "fieldname": "cl_col_11",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company_imported",
+   "fieldtype": "Float",
+   "label": "Row c) Amount"
+  },
+  {
+   "fieldname": "cl_section_12",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cl_label_d",
+   "fieldtype": "Small Text",
+   "label": "Row d) Label"
+  },
+  {
+   "fieldname": "cl_col_13",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "claim_against",
+   "fieldtype": "Small Text",
+   "label": "Row d) Amount"
+  },
+  {
+   "fieldname": "cl_section_14",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cl_total_label",
+   "fieldtype": "Data",
+   "label": "Total Label"
+  },
+  {
+   "fieldname": "cl_section_15",
+   "fieldtype": "Section Break",
+   "label": "Note"
+  },
+  {
+   "fieldname": "cl_note_head",
+   "fieldtype": "Data",
+   "label": "Note Heading"
+  },
+  {
+   "fieldname": "cl_note_i",
+   "fieldtype": "Small Text",
+   "label": "Note point (i)"
+  },
+  {
+   "fieldname": "cl_note_ii",
+   "fieldtype": "Small Text",
+   "label": "Note point (ii)"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-29 12:27:03.227813",
+ "modified": "2026-10-28 17:00:00.000000",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Contingent Liabilities",
@@ -113,5 +245,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "company"
 }

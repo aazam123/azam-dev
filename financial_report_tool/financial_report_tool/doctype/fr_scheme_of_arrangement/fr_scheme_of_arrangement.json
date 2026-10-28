@@ -1,0 +1,996 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-28 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "cb_top",
+  "fiscal_year",
+  "sch_section_note",
+  "sch_note_title",
+  "sch_p_intro",
+  "sch_p_i_head",
+  "sch_p_micro_head",
+  "sch_p_micro_text",
+  "sch_p_meril_head",
+  "sch_p_meril_text",
+  "sch_p_ii_head",
+  "sch_p_ii_intro",
+  "sch_p_a",
+  "sch_p_b",
+  "sch_p_c",
+  "sch_p_d",
+  "sch_p_e",
+  "sch_p_f",
+  "sch_p_g",
+  "sch_row_2",
+  "sch_ac_asat",
+  "sch_row_3",
+  "sch_ac_tee_head",
+  "sch_row_4",
+  "sch_ac_col_shares",
+  "sch_col_4_1",
+  "sch_ac_col_amount",
+  "sch_row_5",
+  "sch_ac_tee_eq_label",
+  "sch_col_5_1",
+  "sch_ac_tee_eq_amt",
+  "sch_row_6",
+  "sch_ac_tee_pref_label",
+  "sch_col_6_1",
+  "sch_ac_tee_pref_amt",
+  "sch_row_7",
+  "sch_ac_tor_head",
+  "sch_row_8",
+  "sch_ac_tor_eq_label",
+  "sch_col_8_1",
+  "sch_ac_tor_eq_amt",
+  "sch_row_9",
+  "sch_ac_tor_pref1_label",
+  "sch_col_9_1",
+  "sch_ac_tor_pref1_amt",
+  "sch_row_10",
+  "sch_ac_tor_pref2_label",
+  "sch_col_10_1",
+  "sch_ac_tor_pref2_amt",
+  "sch_section_h",
+  "sch_text_pre_h",
+  "sch_text_h",
+  "sch_row_12",
+  "sch_m1_caption",
+  "sch_row_13",
+  "sch_m1_particulars",
+  "sch_col_13_1",
+  "sch_m1_asat",
+  "sch_row_14",
+  "sch_m1_col_shares",
+  "sch_col_14_1",
+  "sch_m1_col_amount",
+  "sch_row_15",
+  "sch_m1_issued",
+  "sch_row_16",
+  "sch_m1_equity_label",
+  "sch_col_16_1",
+  "sch_m1_shares",
+  "sch_col_16_2",
+  "sch_m1_amount",
+  "sch_row_17",
+  "sch_m2_caption",
+  "sch_row_18",
+  "sch_m2_particulars",
+  "sch_col_18_1",
+  "sch_m2_asat",
+  "sch_row_19",
+  "sch_m2_col_shares",
+  "sch_col_19_1",
+  "sch_m2_col_amount",
+  "sch_row_20",
+  "sch_m2_issued",
+  "sch_row_21",
+  "sch_m2_equity_label",
+  "sch_col_21_1",
+  "sch_m2_shares",
+  "sch_col_21_2",
+  "sch_m2_amount",
+  "sch_row_22",
+  "sch_s_title",
+  "sch_row_23",
+  "sch_s_calc",
+  "sch_row_24",
+  "sch_t1_h0",
+  "sch_col_24_1",
+  "sch_t1_h1",
+  "sch_col_24_2",
+  "sch_t1_h2",
+  "sch_col_24_3",
+  "sch_t1_h3",
+  "sch_row_25",
+  "sch_t1_r1_0",
+  "sch_col_25_1",
+  "sch_t1_r1_1",
+  "sch_col_25_2",
+  "sch_t1_r1_2",
+  "sch_col_25_3",
+  "sch_t1_r1_3",
+  "sch_row_26",
+  "sch_t1_r2_0",
+  "sch_col_26_1",
+  "sch_t1_r2_1",
+  "sch_col_26_2",
+  "sch_t1_r2_2",
+  "sch_col_26_3",
+  "sch_t1_r2_3",
+  "sch_row_27",
+  "sch_t1_r3_0",
+  "sch_col_27_1",
+  "sch_t1_r3_1",
+  "sch_col_27_2",
+  "sch_t1_r3_2",
+  "sch_col_27_3",
+  "sch_t1_r3_3",
+  "sch_row_28",
+  "sch_t2_fy1",
+  "sch_col_28_1",
+  "sch_t2_amt",
+  "sch_row_29",
+  "sch_t2_a_l",
+  "sch_col_29_1",
+  "sch_t2_a_v",
+  "sch_row_30",
+  "sch_t2_b_l",
+  "sch_col_30_1",
+  "sch_t2_b_v",
+  "sch_row_31",
+  "sch_t2_ba_l",
+  "sch_col_31_1",
+  "sch_t2_ba_v",
+  "sch_row_32",
+  "sch_t2_fy2",
+  "sch_row_33",
+  "sch_t2_c_l",
+  "sch_col_33_1",
+  "sch_t2_c_v",
+  "sch_row_34",
+  "sch_t2_d_l",
+  "sch_col_34_1",
+  "sch_t2_d_v",
+  "sch_row_35",
+  "sch_t2_dc_l",
+  "sch_col_35_1",
+  "sch_t2_dc_v",
+  "sch_row_36",
+  "sch_t2_tot_l",
+  "sch_col_36_1",
+  "sch_t2_tot_v",
+  "sch_section_n",
+  "sch_n_head",
+  "sch_n_text",
+  "sch_n_iv",
+  "sch_n_v",
+  "sch_text_before"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "cb_top",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fiscal_year",
+   "fieldtype": "Link",
+   "label": "Fiscal Year",
+   "options": "Fiscal Year",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "sch_section_note",
+   "fieldtype": "Section Break",
+   "label": "Note 62"
+  },
+  {
+   "fieldname": "sch_note_title",
+   "fieldtype": "Data",
+   "label": "Note Title",
+   "default": "Note 62. Scheme of Arrangement in the nature of Amalgamation",
+   "description": "Heading of the printed master only"
+  },
+  {
+   "fieldname": "sch_p_intro",
+   "fieldtype": "Text Editor",
+   "label": "Scheme paragraph"
+  },
+  {
+   "fieldname": "sch_p_i_head",
+   "fieldtype": "Data",
+   "label": "(i) Heading"
+  },
+  {
+   "fieldname": "sch_p_micro_head",
+   "fieldtype": "Data",
+   "label": "Micro - Heading"
+  },
+  {
+   "fieldname": "sch_p_micro_text",
+   "fieldtype": "Small Text",
+   "label": "Micro - Business"
+  },
+  {
+   "fieldname": "sch_p_meril_head",
+   "fieldtype": "Data",
+   "label": "Meril - Heading"
+  },
+  {
+   "fieldname": "sch_p_meril_text",
+   "fieldtype": "Small Text",
+   "label": "Meril - Business"
+  },
+  {
+   "fieldname": "sch_p_ii_head",
+   "fieldtype": "Data",
+   "label": "(ii) Heading"
+  },
+  {
+   "fieldname": "sch_p_ii_intro",
+   "fieldtype": "Small Text",
+   "label": "(ii) Intro"
+  },
+  {
+   "fieldname": "sch_p_a",
+   "fieldtype": "Small Text",
+   "label": "Point a)"
+  },
+  {
+   "fieldname": "sch_p_b",
+   "fieldtype": "Small Text",
+   "label": "Point b)"
+  },
+  {
+   "fieldname": "sch_p_c",
+   "fieldtype": "Small Text",
+   "label": "Point c)"
+  },
+  {
+   "fieldname": "sch_p_d",
+   "fieldtype": "Small Text",
+   "label": "Point d)"
+  },
+  {
+   "fieldname": "sch_p_e",
+   "fieldtype": "Small Text",
+   "label": "Point e)"
+  },
+  {
+   "fieldname": "sch_p_f",
+   "fieldtype": "Small Text",
+   "label": "Point f)"
+  },
+  {
+   "fieldname": "sch_p_g",
+   "fieldtype": "Small Text",
+   "label": "Point g)"
+  },
+  {
+   "fieldname": "sch_row_2",
+   "fieldtype": "Section Break",
+   "label": "g) Authorised Share Capital"
+  },
+  {
+   "fieldname": "sch_ac_asat",
+   "fieldtype": "Data",
+   "label": "Heading - As at"
+  },
+  {
+   "fieldname": "sch_row_3",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_tee_head",
+   "fieldtype": "Data",
+   "label": "Transferee Company Heading"
+  },
+  {
+   "fieldname": "sch_row_4",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_col_shares",
+   "fieldtype": "Data",
+   "label": "Column 1 Heading"
+  },
+  {
+   "fieldname": "sch_col_4_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_ac_col_amount",
+   "fieldtype": "Data",
+   "label": "Column 2 Heading"
+  },
+  {
+   "fieldname": "sch_row_5",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_tee_eq_label",
+   "fieldtype": "Data",
+   "label": "Transferee - Equity Shares"
+  },
+  {
+   "fieldname": "sch_col_5_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_ac_tee_eq_amt",
+   "fieldtype": "Data",
+   "label": "Transferee - Equity Amount"
+  },
+  {
+   "fieldname": "sch_row_6",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_tee_pref_label",
+   "fieldtype": "Data",
+   "label": "Transferee - Preference Shares"
+  },
+  {
+   "fieldname": "sch_col_6_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_ac_tee_pref_amt",
+   "fieldtype": "Data",
+   "label": "Transferee - Preference Amount"
+  },
+  {
+   "fieldname": "sch_row_7",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_tor_head",
+   "fieldtype": "Data",
+   "label": "Transferor Company Heading"
+  },
+  {
+   "fieldname": "sch_row_8",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_tor_eq_label",
+   "fieldtype": "Data",
+   "label": "Transferor - Equity Shares"
+  },
+  {
+   "fieldname": "sch_col_8_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_ac_tor_eq_amt",
+   "fieldtype": "Data",
+   "label": "Transferor - Equity Amount"
+  },
+  {
+   "fieldname": "sch_row_9",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_tor_pref1_label",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Shares (1)"
+  },
+  {
+   "fieldname": "sch_col_9_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_ac_tor_pref1_amt",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Amount (1)"
+  },
+  {
+   "fieldname": "sch_row_10",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_ac_tor_pref2_label",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Shares (2)"
+  },
+  {
+   "fieldname": "sch_col_10_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_ac_tor_pref2_amt",
+   "fieldtype": "Data",
+   "label": "Transferor - Preference Amount (2)"
+  },
+  {
+   "fieldname": "sch_section_h",
+   "fieldtype": "Section Break",
+   "label": "h) Text above the share tables"
+  },
+  {
+   "fieldname": "sch_text_pre_h",
+   "fieldtype": "Small Text",
+   "label": "Text above h)"
+  },
+  {
+   "fieldname": "sch_text_h",
+   "fieldtype": "Text Editor",
+   "label": "Text h)"
+  },
+  {
+   "fieldname": "sch_row_12",
+   "fieldtype": "Section Break",
+   "label": "Share Table 1 - Micro Life Sciences"
+  },
+  {
+   "fieldname": "sch_m1_caption",
+   "fieldtype": "Data",
+   "label": "Company Name (above table)"
+  },
+  {
+   "fieldname": "sch_row_13",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m1_particulars",
+   "fieldtype": "Data",
+   "label": "Particulars Heading"
+  },
+  {
+   "fieldname": "sch_col_13_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m1_asat",
+   "fieldtype": "Data",
+   "label": "As at Heading"
+  },
+  {
+   "fieldname": "sch_row_14",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m1_col_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares Heading"
+  },
+  {
+   "fieldname": "sch_col_14_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m1_col_amount",
+   "fieldtype": "Data",
+   "label": "Amount Heading"
+  },
+  {
+   "fieldname": "sch_row_15",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m1_issued",
+   "fieldtype": "Data",
+   "label": "Issued, Subscribed row"
+  },
+  {
+   "fieldname": "sch_row_16",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m1_equity_label",
+   "fieldtype": "Data",
+   "label": "Equity Shares description"
+  },
+  {
+   "fieldname": "sch_col_16_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m1_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares"
+  },
+  {
+   "fieldname": "sch_col_16_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m1_amount",
+   "fieldtype": "Data",
+   "label": "Amount"
+  },
+  {
+   "fieldname": "sch_row_17",
+   "fieldtype": "Section Break",
+   "label": "Share Table 2 - Meril Life Sciences"
+  },
+  {
+   "fieldname": "sch_m2_caption",
+   "fieldtype": "Data",
+   "label": "Company Name (above table)"
+  },
+  {
+   "fieldname": "sch_row_18",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m2_particulars",
+   "fieldtype": "Data",
+   "label": "Particulars Heading"
+  },
+  {
+   "fieldname": "sch_col_18_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m2_asat",
+   "fieldtype": "Data",
+   "label": "As at Heading"
+  },
+  {
+   "fieldname": "sch_row_19",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m2_col_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares Heading"
+  },
+  {
+   "fieldname": "sch_col_19_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m2_col_amount",
+   "fieldtype": "Data",
+   "label": "Amount Heading"
+  },
+  {
+   "fieldname": "sch_row_20",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m2_issued",
+   "fieldtype": "Data",
+   "label": "Issued, Subscribed row"
+  },
+  {
+   "fieldname": "sch_row_21",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_m2_equity_label",
+   "fieldtype": "Data",
+   "label": "Equity Shares description"
+  },
+  {
+   "fieldname": "sch_col_21_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m2_shares",
+   "fieldtype": "Data",
+   "label": "No. of shares"
+  },
+  {
+   "fieldname": "sch_col_21_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_m2_amount",
+   "fieldtype": "Data",
+   "label": "Amount"
+  },
+  {
+   "fieldname": "sch_row_22",
+   "fieldtype": "Section Break",
+   "label": "iii) Summary of Accounting Treatment"
+  },
+  {
+   "fieldname": "sch_s_title",
+   "fieldtype": "Data",
+   "label": "Summary heading"
+  },
+  {
+   "fieldname": "sch_row_23",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_s_calc",
+   "fieldtype": "Data",
+   "label": "Calculation heading"
+  },
+  {
+   "fieldname": "sch_row_24",
+   "fieldtype": "Section Break",
+   "label": "Table 1 - Calculation of number of shares"
+  },
+  {
+   "fieldname": "sch_t1_h0",
+   "fieldtype": "Data",
+   "label": "T1 Particulars heading"
+  },
+  {
+   "fieldname": "sch_col_24_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_h1",
+   "fieldtype": "Data",
+   "label": "T1 column 1 heading"
+  },
+  {
+   "fieldname": "sch_col_24_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_h2",
+   "fieldtype": "Data",
+   "label": "T1 column 2 heading"
+  },
+  {
+   "fieldname": "sch_col_24_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_h3",
+   "fieldtype": "Data",
+   "label": "T1 column 3 heading"
+  },
+  {
+   "fieldname": "sch_row_25",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t1_r1_0",
+   "fieldtype": "Data",
+   "label": "T1 row 1 label"
+  },
+  {
+   "fieldname": "sch_col_25_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r1_1",
+   "fieldtype": "Data",
+   "label": "T1 row 1 31-Mar-25"
+  },
+  {
+   "fieldname": "sch_col_25_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r1_2",
+   "fieldtype": "Data",
+   "label": "T1 row 1 New shares issued"
+  },
+  {
+   "fieldname": "sch_col_25_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r1_3",
+   "fieldtype": "Data",
+   "label": "T1 row 1 31-Mar-26"
+  },
+  {
+   "fieldname": "sch_row_26",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t1_r2_0",
+   "fieldtype": "Data",
+   "label": "T1 row 2 label"
+  },
+  {
+   "fieldname": "sch_col_26_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r2_1",
+   "fieldtype": "Data",
+   "label": "T1 row 2 31-Mar-25"
+  },
+  {
+   "fieldname": "sch_col_26_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r2_2",
+   "fieldtype": "Data",
+   "label": "T1 row 2 New shares issued"
+  },
+  {
+   "fieldname": "sch_col_26_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r2_3",
+   "fieldtype": "Data",
+   "label": "T1 row 2 31-Mar-26"
+  },
+  {
+   "fieldname": "sch_row_27",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t1_r3_0",
+   "fieldtype": "Data",
+   "label": "T1 row 3 label"
+  },
+  {
+   "fieldname": "sch_col_27_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r3_1",
+   "fieldtype": "Data",
+   "label": "T1 row 3 31-Mar-25"
+  },
+  {
+   "fieldname": "sch_col_27_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r3_2",
+   "fieldtype": "Data",
+   "label": "T1 row 3 New shares issued"
+  },
+  {
+   "fieldname": "sch_col_27_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t1_r3_3",
+   "fieldtype": "Data",
+   "label": "T1 row 3 31-Mar-26"
+  },
+  {
+   "fieldname": "sch_row_28",
+   "fieldtype": "Section Break",
+   "label": "Table 2"
+  },
+  {
+   "fieldname": "sch_t2_fy1",
+   "fieldtype": "Data",
+   "label": "T2 FY 1 heading"
+  },
+  {
+   "fieldname": "sch_col_28_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_amt",
+   "fieldtype": "Data",
+   "label": "T2 Amount heading"
+  },
+  {
+   "fieldname": "sch_row_29",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_a_l",
+   "fieldtype": "Data",
+   "label": "T2 A text"
+  },
+  {
+   "fieldname": "sch_col_29_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_a_v",
+   "fieldtype": "Data",
+   "label": "T2 A amount"
+  },
+  {
+   "fieldname": "sch_row_30",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_b_l",
+   "fieldtype": "Data",
+   "label": "T2 B text"
+  },
+  {
+   "fieldname": "sch_col_30_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_b_v",
+   "fieldtype": "Data",
+   "label": "T2 B amount"
+  },
+  {
+   "fieldname": "sch_row_31",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_ba_l",
+   "fieldtype": "Data",
+   "label": "T2 B-A text"
+  },
+  {
+   "fieldname": "sch_col_31_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_ba_v",
+   "fieldtype": "Data",
+   "label": "T2 B-A amount"
+  },
+  {
+   "fieldname": "sch_row_32",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_fy2",
+   "fieldtype": "Data",
+   "label": "T2 FY 2 heading"
+  },
+  {
+   "fieldname": "sch_row_33",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_c_l",
+   "fieldtype": "Data",
+   "label": "T2 C text"
+  },
+  {
+   "fieldname": "sch_col_33_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_c_v",
+   "fieldtype": "Data",
+   "label": "T2 C amount"
+  },
+  {
+   "fieldname": "sch_row_34",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_d_l",
+   "fieldtype": "Data",
+   "label": "T2 D text"
+  },
+  {
+   "fieldname": "sch_col_34_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_d_v",
+   "fieldtype": "Data",
+   "label": "T2 D amount"
+  },
+  {
+   "fieldname": "sch_row_35",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_dc_l",
+   "fieldtype": "Data",
+   "label": "T2 D-C text"
+  },
+  {
+   "fieldname": "sch_col_35_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_dc_v",
+   "fieldtype": "Data",
+   "label": "T2 D-C amount"
+  },
+  {
+   "fieldname": "sch_row_36",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sch_t2_tot_l",
+   "fieldtype": "Data",
+   "label": "T2 Total text"
+  },
+  {
+   "fieldname": "sch_col_36_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sch_t2_tot_v",
+   "fieldtype": "Data",
+   "label": "T2 Total amount"
+  },
+  {
+   "fieldname": "sch_section_n",
+   "fieldtype": "Section Break",
+   "label": "Note"
+  },
+  {
+   "fieldname": "sch_n_head",
+   "fieldtype": "Data",
+   "label": "Note heading"
+  },
+  {
+   "fieldname": "sch_n_text",
+   "fieldtype": "Small Text",
+   "label": "Note text"
+  },
+  {
+   "fieldname": "sch_n_iv",
+   "fieldtype": "Small Text",
+   "label": "Point (iv)"
+  },
+  {
+   "fieldname": "sch_n_v",
+   "fieldtype": "Small Text",
+   "label": "Point (v)"
+  },
+  {
+   "fieldname": "sch_text_before",
+   "fieldtype": "Text Editor",
+   "label": "Text before the tables (composed)",
+   "hidden": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-10-28 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Financial Report Tool",
+ "name": "FR Scheme of Arrangement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Financial Report Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Financial Report User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "format:SCH-ARR-{#####}",
+ "naming_rule": "Expression",
+ "title_field": "company"
+}
