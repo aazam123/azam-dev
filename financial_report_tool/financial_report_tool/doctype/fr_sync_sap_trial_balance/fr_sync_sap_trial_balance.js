@@ -64,9 +64,33 @@ function apply_company_template(frm) {
 // stored start date to read (mirrors DEFAULT_FY_START_MONTH on the server).
 const DEFAULT_FY_START_MONTH = 4;
 
+// A Jan-Dec company is requested in calendar periods whichever existing Fiscal
+// Year labels the snapshot, so its year and periods come from the month's own
+// calendar date (mirrors calendar_year_for on the server).
+async function apply_calendar_periods(frm) {
+    const cycle = await frappe.db.get_value("FR SAP Company Mapping", { company: frm.doc.company }, "fiscal_cycle");
+    if (cycle.message?.fiscal_cycle !== "Jan-Dec") return false;
+    const fy = await frappe.db.get_value("Fiscal Year", frm.doc.fiscal_year, ["year_start_date", "year_end_date"]);
+    const i = SAP_MONTHS.indexOf(frm.doc.month);
+    if (!fy.message?.year_start_date || i < 0) return false;
+    const [sy, sm] = fy.message.year_start_date.split("-").map(Number);
+    const [ey, em] = fy.message.year_end_date.split("-").map(Number);
+    const year = [sy, ey].find(y => (sy * 12 + sm) <= (y * 12 + i + 1) && (y * 12 + i + 1) <= (ey * 12 + em));
+    if (!year) return false;
+    const mm = String(i + 1).padStart(2, "0");
+    frm.set_value("repyear", String(year));
+    frm.set_value("compyear", String(year - 1));
+    frm.set_value("srepmonth", "01");
+    frm.set_value("trepmonth", mm);
+    frm.set_value("scompmonth", "01");
+    frm.set_value("tcompmonth", mm);
+    return true;
+}
+
 // Reporting year = fiscal year start; comparison year = one before.
-function apply_period_years(frm) {
+async function apply_period_years(frm) {
     if (!frm.doc.fiscal_year) return;
+    if (frm.doc.company && frm.doc.month && await apply_calendar_periods(frm)) return;
     const y = parseInt(String(frm.doc.fiscal_year).split("-")[0], 10);
     if (isNaN(y)) return;
     frm.set_value("repyear", String(y));
@@ -76,9 +100,10 @@ function apply_period_years(frm) {
 // SAP counts posting periods from the fiscal-year start, not the calendar year:
 // with an April fiscal year August is period 05, not 08. Resolve the fiscal
 // year's start month, then map the selected month onto the period.
-function apply_period_months(frm) {
+async function apply_period_months(frm) {
     const i = SAP_MONTHS.indexOf(frm.doc.month);
     if (i < 0) return;
+    if (frm.doc.company && frm.doc.fiscal_year && await apply_calendar_periods(frm)) return;
     const cal = i + 1; // 1..12 calendar month
 
     const set_span = (startMonth) => {
@@ -137,6 +162,37 @@ frappe.ui.form.on("FR Sync SAP Trial Balance", {
                 });
             }
         });
+
+        if (frm.doc.tb_created && frm.doc.company) {
+            frappe.db.get_value("FR SAP Company Mapping", { company: frm.doc.company }, "fiscal_cycle")
+                .then(r => {
+                    if (r.message?.fiscal_cycle !== "Jan-Dec") return;
+                    frm.add_custom_button(__("Derive Apr-Mar TB"), () => {
+                        const dialog = new frappe.ui.Dialog({
+                            title: __("Derive Apr-Mar TB"),
+                            fields: [
+                                { fieldname: "fiscal_year", fieldtype: "Link", options: "Fiscal Year", label: __("Apr-Mar Fiscal Year"), reqd: 1 },
+                                { fieldname: "month", fieldtype: "Select", options: SAP_MONTHS.join("\n"), label: __("Month"), default: frm.doc.month, reqd: 1 }
+                            ],
+                            primary_action_label: __("Derive"),
+                            primary_action(values) {
+                                frappe.call({
+                                    method: "financial_report_tool.financial_report_tool.derive_trial_balance.derive_apr_mar_tb",
+                                    args: { company: frm.doc.company, ...values },
+                                    freeze: true,
+                                    callback(result) {
+                                        if (!result.exc) {
+                                            dialog.hide();
+                                            frappe.msgprint(__("Derived {0} accounts from SAP TBs {1}.", [result.message.accounts, result.message.source_sap_tbs]));
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                        dialog.show();
+                    });
+                });
+        }
 
         // Also expose the Missing Account actions in the top button menu.
         frm.add_custom_button(__('Load Missing Accounts'), () => load_missing_accounts(frm), __('Accounts'));

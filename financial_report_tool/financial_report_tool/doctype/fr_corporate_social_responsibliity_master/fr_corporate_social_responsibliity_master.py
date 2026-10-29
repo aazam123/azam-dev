@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
+from financial_report_tool.financial_report_tool.fiscal_cycle import get_closing_month
 
 class FRCorporateSocialResponsibliityMaster(Document):
 	def before_save(self):
@@ -13,17 +14,17 @@ class FRCorporateSocialResponsibliityMaster(Document):
 			_, second_year = self.get_previous_fiscal_year(first_year)
 			_, third_year = self.get_previous_fiscal_year(second_year) if second_year else (None, None)
 
-			first_year_profit = self.get_yearly_profit_and_loss_data(template, first_year, self.month)
-			second_year_profit = self.get_yearly_profit_and_loss_data(template, second_year, self.month) if second_year else 0
-			third_year_profit = self.get_yearly_profit_and_loss_data(template, third_year, self.month) if third_year else 0
+			first_year_profit = self.get_yearly_profit_and_loss_data(template, first_year, get_closing_month(self.company, first_year))
+			second_year_profit = self.get_yearly_profit_and_loss_data(template, second_year, get_closing_month(self.company, second_year)) if second_year else 0
+			third_year_profit = self.get_yearly_profit_and_loss_data(template, third_year, get_closing_month(self.company, third_year)) if third_year else 0
 
 			total_profit = first_year_profit + second_year_profit + third_year_profit
 			average_profit = round(((total_profit / 3)/100)*2, 3)
 
 			self.shortfall_at_the_beginning_of_the_year = frappe.get_value("FR Corporate Social Responsibliity Master", {'company': self.company, 'fiscal_year':second_year, 'month': self.month}, 'shortfall_at_the_end_of_the_year') or 0
 			self.amount_required_to_be_spent_by_the_company_during_the_year = average_profit
-			self.amount_of_expenditure_incurred = self.get_sum_grouping_amount("Other expenses", "Corporate Social Responsibility Expenditure", self.month, self.fiscal_year)
-			self.shortfall_at_the_end_of_the_year = self.self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
+			self.amount_of_expenditure_incurred = self.get_sum_grouping_amount("Other expenses", "Corporate Social Responsibility Expenditure", get_closing_month(self.company, self.fiscal_year), self.fiscal_year)
+			self.shortfall_at_the_end_of_the_year = self.amount_of_expenditure_incurred - self.amount_required_to_be_spent_by_the_company_during_the_year
 			
 			self.calculation_details_data = self._build_calculation_html(
 				first_year, second_year, third_year,
@@ -132,7 +133,7 @@ class FRCorporateSocialResponsibliityMaster(Document):
 		"""
 
 	def get_previous_fiscal_year(self, year):
-		month = frappe.get_single_value("FR Financial Settings", "closing_month")
+		month = get_closing_month(self.company, year)
 		previous_year = frappe.get_value("FR Previous Fiscal Year",{"current_fiscal_year": year},"previous_fiscal_year")
 		return month, previous_year
 
@@ -149,15 +150,15 @@ class FRCorporateSocialResponsibliityMaster(Document):
 		rows = []
 		add = lambda p, cy=0, py=0, st=False: rows.append({"p": p, "cy": cy, "py": py, "st": st})
 		_, previous_fiscal_year = self.get_previous_fiscal_year(year)
-		cls_month, pre_year = self.get_previous_fiscal_year(previous_fiscal_year)
+		_, pre_year = self.get_previous_fiscal_year(previous_fiscal_year)
 
 		cur_total = prev_total = prev_prev_total = 0
 		add("Inventories at the end of the year", st=True)
 
 		def add_group(sec, label):
 			nonlocal cur_total, prev_total
-			cy = self.get_sum_grouping_amount("Inventories", sec, cls_month, year) or 0
-			py = self.get_sum_grouping_amount("Inventories", sec, cls_month, previous_fiscal_year) or 0
+			cy = self.get_sum_grouping_amount("Inventories", sec, get_closing_month(self.company, year), year) or 0
+			py = self.get_sum_grouping_amount("Inventories", sec, get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year) or 0
 			add(label, cy, py)
 			cur_total += cy; prev_total += py
 
@@ -168,8 +169,8 @@ class FRCorporateSocialResponsibliityMaster(Document):
 			)
 
 			for hg in hgs:
-				cy_hg = self.get_sum_grouping_amount("Inventories", sec, cls_month, year, hg_sec_group=hg) or 0
-				py_hg = self.get_sum_grouping_amount("Inventories", sec, cls_month, previous_fiscal_year, hg_sec_group=hg) or 0
+				cy_hg = self.get_sum_grouping_amount("Inventories", sec, get_closing_month(self.company, year), year, hg_sec_group=hg) or 0
+				py_hg = self.get_sum_grouping_amount("Inventories", sec, get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year, hg_sec_group=hg) or 0
 				add(f"  {hg}", cy_hg, py_hg)
 			return cy, py
 
@@ -183,8 +184,8 @@ class FRCorporateSocialResponsibliityMaster(Document):
 
 		def add_prev_group(sec, label):
 			nonlocal prev_prev_total
-			py = self.get_sum_grouping_amount("Inventories", sec, cls_month, previous_fiscal_year) or 0
-			pp = self.get_sum_grouping_amount("Inventories", sec, cls_month, pre_year) or 0
+			py = self.get_sum_grouping_amount("Inventories", sec, get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year) or 0
+			pp = self.get_sum_grouping_amount("Inventories", sec, get_closing_month(self.company, pre_year), pre_year) or 0
 			add(label, py, pp)
 			prev_prev_total += pp
 			return py, pp
@@ -210,20 +211,20 @@ class FRCorporateSocialResponsibliityMaster(Document):
 	def get_yearly_cost_of_material_consumed(self, section_description, total, year, field=None):
 		rows = []
 		_, previous_fiscal_year = self.get_previous_fiscal_year(year)
-		cls_month, pre_year = self.get_previous_fiscal_year(previous_fiscal_year)
+		_, pre_year = self.get_previous_fiscal_year(previous_fiscal_year)
 
 		default_currency = frappe.get_value("Company", self.company, 'default_currency')
 
 		# --- Current & Previous Month Stocks ---
-		opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, previous_fiscal_year)
-		closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, year)
+		opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
+		closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, year), year)
 
 		# --- Purchases & SIT ---
-		curr_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, year)
-		prev_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, previous_fiscal_year)
+		curr_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", get_closing_month(self.company, year), year)
+		prev_month_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 
 		purchases_current = (
-			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", cls_month, year)
+			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", get_closing_month(self.company, year), year)
 			- (0 if default_currency != "INR" else self.get_yearly_finished_goods_and_wip(year, total=True, field='net_increase_total'))
 			+ (closing_stock_current - opening_stock)
 			- curr_month_purchase_sit
@@ -233,23 +234,23 @@ class FRCorporateSocialResponsibliityMaster(Document):
 		cost_consumed_current = opening_stock + purchases_current - closing_stock_current
 
 		# --- Previous Year (same month) ---
-		closing_stock_pre_previous = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, pre_year)
-		prev_year_closing_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, previous_fiscal_year)
+		closing_stock_pre_previous = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, pre_year), pre_year)
+		prev_year_closing_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 
 		closing_wip_pre_previous = (
-			self.get_sum_grouping_amount("Inventories", "Work in Progress", cls_month, pre_year)
-			+ self.get_sum_grouping_amount("Inventories", "Finished Goods", cls_month, pre_year)
-			+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", cls_month, pre_year)
+			self.get_sum_grouping_amount("Inventories", "Work in Progress", get_closing_month(self.company, pre_year), pre_year)
+			+ self.get_sum_grouping_amount("Inventories", "Finished Goods", get_closing_month(self.company, pre_year), pre_year)
+			+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", get_closing_month(self.company, pre_year), pre_year)
 		)
 		prev_year_closing_wip = (
-			self.get_sum_grouping_amount("Inventories", "Work in Progress", cls_month, previous_fiscal_year)
-			+ self.get_sum_grouping_amount("Inventories", "Finished Goods", cls_month, previous_fiscal_year)
-			+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", cls_month, previous_fiscal_year)
+			self.get_sum_grouping_amount("Inventories", "Work in Progress", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
+			+ self.get_sum_grouping_amount("Inventories", "Finished Goods", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
+			+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 		)
 
-		pre_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, previous_fiscal_year)
+		pre_purchase_sit = 0 if default_currency != "INR" else self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 		prev_year_purchases = (
-			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", cls_month, previous_fiscal_year)
+			self.get_sum_grouping_amount("Material consumed", "Cost of Goods Sold", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 			+ (0 if default_currency != "INR" else (prev_year_closing_wip - closing_wip_pre_previous))
 			+ (prev_year_closing_stock - closing_stock_pre_previous)
 			- pre_purchase_sit
@@ -288,7 +289,6 @@ class FRCorporateSocialResponsibliityMaster(Document):
 		first_year = fiscal_year
 		_, previous_fiscal_year = self.get_previous_fiscal_year(first_year)
 		_, pre_year = self.get_previous_fiscal_year(previous_fiscal_year) if previous_fiscal_year else (None, None)
-		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 
 		amount_cache = {}
 		group_mapping_cache = {}
@@ -351,35 +351,35 @@ class FRCorporateSocialResponsibliityMaster(Document):
 					amount = self.get_yearly_cost_of_material_consumed(note_type, total=True, year=fiscal_year, field=field)
 
 			elif fr_particular.schedule and fr_particular.is_purchase_of_stock_in_trade:
-				cls_month, pre_year = self.get_previous_fiscal_year(previous_fiscal_year)
-				opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, previous_fiscal_year)
-				closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, fiscal_year)
+				_, pre_year = self.get_previous_fiscal_year(previous_fiscal_year)
+				opening_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
+				closing_stock_current = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, fiscal_year), fiscal_year)
 
 				if is_current:
 					amount = (
-						self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, year)
+						self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", get_closing_month(self.company, year), year)
 						- self.get_yearly_finished_goods_and_wip(fiscal_year, total=True, field='net_increase_total')
 						+ (closing_stock_current - opening_stock)
 					)
 
 				elif is_yearly:
-					closing_stock_pre_previous = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, pre_year)
-					prev_year_closing_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", cls_month, previous_fiscal_year)
+					closing_stock_pre_previous = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, pre_year), pre_year)
+					prev_year_closing_stock = self.get_sum_grouping_amount("Inventories", "Raw Materials and Packing Material", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 
 					closing_wip_pre_previous = (
-						self.get_sum_grouping_amount("Inventories", "Work in Progress", cls_month, pre_year)
-						+ self.get_sum_grouping_amount("Inventories", "Finished Goods", cls_month, pre_year)
-						+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", cls_month, pre_year)
+						self.get_sum_grouping_amount("Inventories", "Work in Progress", get_closing_month(self.company, pre_year), pre_year)
+						+ self.get_sum_grouping_amount("Inventories", "Finished Goods", get_closing_month(self.company, pre_year), pre_year)
+						+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", get_closing_month(self.company, pre_year), pre_year)
 					)
 
 					prev_year_closing_wip = (
-						self.get_sum_grouping_amount("Inventories", "Work in Progress", cls_month, previous_fiscal_year)
-						+ self.get_sum_grouping_amount("Inventories", "Finished Goods", cls_month, previous_fiscal_year)
-						+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", cls_month, previous_fiscal_year)
+						self.get_sum_grouping_amount("Inventories", "Work in Progress", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
+						+ self.get_sum_grouping_amount("Inventories", "Finished Goods", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
+						+ self.get_sum_grouping_amount("Inventories", "Stock In Trade", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 					)
 
 					amount = (
-						self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", cls_month, previous_fiscal_year)
+						self.get_sum_grouping_amount("Purchases of Stock in Trade", "Purchases of Stock in Trade", get_closing_month(self.company, previous_fiscal_year), previous_fiscal_year)
 						+ (prev_year_closing_wip - closing_wip_pre_previous)
 						+ (prev_year_closing_stock - closing_stock_pre_previous)
 					)

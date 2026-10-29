@@ -16,7 +16,9 @@
   "company",
   "month",
   "uploaded_amount",
-  "amount"
+  "amount",
+  "tb_source",
+  "source_sap_tbs"
  ],
  "fields": [
   {
@@ -91,6 +93,19 @@
    "fieldtype": "Float",
    "label": "Uploaded Amount",
    "reqd": 1
+  },
+  {
+   "fieldname": "tb_source",
+   "fieldtype": "Select",
+   "label": "TB Source",
+   "options": "\nDerived Jan-Dec",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_sap_tbs",
+   "fieldtype": "Small Text",
+   "label": "Source SAP TBs",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

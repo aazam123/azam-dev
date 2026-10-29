@@ -2,15 +2,14 @@
 # For license information, please see license.txt
 """Server API for the "Consolidated Financial Statement" desk page.
 
-Shows the face of the Balance Sheet / Profit & Loss for every domestic company
-(functional currency == DOMESTIC_CURRENCY) as a single columnar statement:
+Shows the face of the Balance Sheet / Profit & Loss for companies flagged for
+consolidation, using their INR-denominated Financial Reports:
 
     Particular | Consolidate | <Company 1> | <Company 2> | ...
 
-`Consolidate` is the arithmetic total of the domestic companies shown (a simple
-sum per line item, not an eliminations-based consolidation). Values are read
-from the structured `table_data` of already-generated Financial Report
-documents, so this page never triggers a fresh report generation.
+`Consolidate` sums visible companies and subtracts elimination and regrouping.
+Values come from already-generated Financial Report table_data; the page does
+not generate reports or convert stored amounts.
 """
 
 import difflib
@@ -136,12 +135,12 @@ def _strategic_companies():
 
 
 def _pick_report(company, report_type, fiscal_year=None, month=None):
-	"""Return the best Financial Report row for a company.
+	"""Return the best INR Financial Report row for a company.
 
 	Preference: matching fiscal year / month (when given) -> Successful status
-	-> most recently modified.
+	-> most recently modified. Non-INR reports cannot enter consolidated totals.
 	"""
-	filters = {"company": company, "report_type": report_type}
+	filters = {"company": company, "report_type": report_type, "currency": "INR"}
 	if fiscal_year:
 		filters["fiscal_year"] = fiscal_year
 	if month and report_type == "Monthly":
@@ -635,20 +634,33 @@ def _gl_split_amounts(
 	cumulative-to-prev; FTM gives the single month. `groups` is `secondary_groups`
 	when given, otherwise every secondary group actually configured (sorted).
 	"""
+	# Trial-balance amounts are in each company's own currency. Only INR companies
+	# can be shown as INR; a foreign company's cells stay blank (None) because there
+	# is no report-backed INR split to show -- never its unconverted local amounts.
+	inr_names = _inr_companies(company_names)
 	acct_map = _gl_split_accounts(
-		company_names, _grouping_report_type(report_type), primary_group, secondary_groups
+		inr_names, _grouping_report_type(report_type), primary_group, secondary_groups
 	)
 	groups = secondary_groups or sorted({g for m in acct_map.values() for g in m.values()})
-	grouped = _gl_split_grouped(company_names, acct_map, [fiscal_year, previous_fiscal_year])
+	grouped = _gl_split_grouped(inr_names, acct_map, [fiscal_year, previous_fiscal_year])
 
 	def disp(c, g, fy, months):
 		return round(sign * sum(grouped.get((c, g, fy, m), 0.0) for m in months) / LACS, 2)
+
+	if report_type == "FTM":
+		keys = ["ftm"]
+	elif report_type == "Monthly":
+		keys = ["cm", "ftm", "pm"]
+	else:
+		keys = ["cy", "py"]
 
 	out = {}
 	for c in company_names:
 		out[c] = {}
 		for g in groups:
-			if report_type == "FTM":
+			if c not in inr_names:
+				out[c][g] = {k: None for k in keys}
+			elif report_type == "FTM":
 				out[c][g] = {"ftm": disp(c, g, fiscal_year, [month])}
 			elif report_type == "Monthly":
 				up = _fiscal_months_upto(month)
@@ -665,6 +677,25 @@ def _gl_split_amounts(
 					else 0.0,
 				}
 	return out, groups
+
+
+def _inr_companies(company_names):
+	"""The subset of `company_names` whose default currency is INR (order kept).
+
+	Trial-balance and Strategic Expense amounts carry no currency conversion, so
+	only these companies may show them as INR in the supplementary breakdowns.
+	"""
+	if not company_names:
+		return []
+	inr = {
+		c.name
+		for c in frappe.get_all(
+			"Company",
+			filters={"name": ["in", list(company_names)], "default_currency": "INR"},
+			fields=["name"],
+		)
+	}
+	return [c for c in company_names if c in inr]
 
 
 def _bif_measures(report_type, fiscal_year, month, previous_fiscal_year):
@@ -1307,16 +1338,15 @@ def _move_total_expenses_after_finance_costs(out_rows):
 def _report_fiscal_years():
 	"""Fiscal Years that have a Financial Report created (newest first).
 
-	Feeds the Strategic Expense tab. Unlike the statements' own Fiscal Year
-	filter it is not tied to one Report Type: a year counts when a Yearly *or*
-	Monthly report exists for any of the tab's companies, in any status.
+	Feeds the Strategic Expense tab. A year counts when an INR Yearly or Monthly
+	report exists for any tab company, regardless of status.
 	"""
 	companies = [c.name for c in _strategic_companies()]
 	if not companies:
 		return []
 	years = frappe.get_all(
 		"FR Financial Report",
-		filters={"company": ["in", companies], "fiscal_year": ["is", "set"]},
+		filters={"company": ["in", companies], "fiscal_year": ["is", "set"], "currency": "INR"},
 		distinct=True,
 		pluck="fiscal_year",
 	)
@@ -1352,7 +1382,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 
 	years = frappe.get_all(
 		"FR Financial Report",
-		filters={"company": ["in", companies], "report_type": storage_type},
+		filters={"company": ["in", companies], "report_type": storage_type, "currency": "INR"},
 		distinct=True,
 		pluck="fiscal_year",
 		order_by="fiscal_year desc",
@@ -1367,6 +1397,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 				"company": ["in", companies],
 				"report_type": storage_type,
 				"fiscal_year": y,
+				"currency": "INR",
 				"report_status": "Successful",
 			},
 		):
@@ -1386,6 +1417,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 				"company": ["in", companies],
 				"report_type": "Monthly",
 				"fiscal_year": resolved_year,
+				"currency": "INR",
 			},
 			distinct=True,
 			pluck="current_month",
@@ -1401,6 +1433,7 @@ def get_context(report_type="Yearly", fiscal_year=None):
 					"report_type": "Monthly",
 					"fiscal_year": resolved_year,
 					"current_month": m,
+					"currency": "INR",
 					"report_status": "Successful",
 				},
 			):
@@ -1515,20 +1548,24 @@ def get_consolidated_statement(
 
 	# Canonical structure = the company with the most rows (the fullest template).
 	canonical = max(with_data, key=lambda p: len(p["rows"]))["rows"]
-	canon_tokens = [_token(r) for r in canonical]
+	canon_tokens = [_token(r) if statement == PROFIT_AND_LOSS else (r.get("id") or _token(r)) for r in canonical]
 
 	# Align every company's rows onto the canonical indices, keeping each
 	# measure's figure per row.
 	aligned = {}
 	for p in with_data:
-		comp_tokens = [_token(r) for r in p["rows"]]
+		comp_tokens = [_token(r) if statement == PROFIT_AND_LOSS else (r.get("id") or _token(r)) for r in p["rows"]]
 		vals = [None] * len(canonical)
 		matcher = difflib.SequenceMatcher(None, canon_tokens, comp_tokens, autojunk=False)
 		for tag, i1, i2, j1, j2 in matcher.get_opcodes():
 			if tag == "equal":
 				for off in range(i2 - i1):
 					src = p["rows"][j1 + off]
-					vals[i1 + off] = {key: flt(src.get(field) or 0) for key, field, _lbl in measures}
+					vals[i1 + off] = {
+						key: (flt(src[field]) if src.get(field) is not None else None)
+						if statement == BALANCE_SHEET else flt(src.get(field) or 0)
+						for key, field, _lbl in measures
+					}
 		aligned[p["company"]] = vals
 
 	company_names = [p["company"] for p in with_data]
@@ -1545,6 +1582,8 @@ def get_consolidated_statement(
 	out_rows = _build_out_rows(
 		canonical, company_names, aligned, measure_keys, statement, strategic, adjustments=True
 	)
+	if statement == BALANCE_SHEET:
+		out_rows = _balance_sheet_summary(out_rows, measure_keys, len(company_names))
 
 	return {
 		"statement": statement,
@@ -1667,7 +1706,10 @@ def get_other_expenses_bifurcation(
 	groups = _subtract_strategic_from_split(
 		split,
 		groups,
-		_strategic_amounts(company_names, report_type, fiscal_year, month, previous_fiscal_year),
+		# Strategic Expense entries are unconverted too: foreign companies stay blank.
+		_strategic_amounts(
+			_inr_companies(company_names), report_type, fiscal_year, month, previous_fiscal_year
+		),
 	)
 	adj_split = _adjustment_split(
 		_adjustment_periods(report_type, fiscal_year, month, previous_fiscal_year),
@@ -1706,13 +1748,19 @@ def _gl_bifurcation_all_ftm(
 	month_range = list(reversed(_fiscal_months_upto(month)))
 	measures = [(m.lower(), m) for m in month_range]
 
-	acct_map = _gl_split_accounts(company_names, "Monthly", primary_group, secondary_groups)
+	inr_names = _inr_companies(company_names)
+	acct_map = _gl_split_accounts(inr_names, "Monthly", primary_group, secondary_groups)
 	groups = secondary_groups or sorted({g for m in acct_map.values() for g in m.values()})
-	grouped = _gl_split_grouped(company_names, acct_map, [fiscal_year])
+	grouped = _gl_split_grouped(inr_names, acct_map, [fiscal_year])
+	# Foreign companies: blank cells (no report-backed INR split), not local amounts.
 	split = {
 		c: {
 			g: {
-				m.lower(): round(sign * grouped.get((c, g, fiscal_year, m), 0.0) / LACS, 2)
+				m.lower(): (
+					round(sign * grouped.get((c, g, fiscal_year, m), 0.0) / LACS, 2)
+					if c in inr_names
+					else None
+				)
 				for m in month_range
 			}
 			for g in groups
@@ -1721,7 +1769,7 @@ def _gl_bifurcation_all_ftm(
 	}
 	if subtract_strategic:
 		groups = _subtract_strategic_from_split(
-			split, groups, _strategic_amounts_all_ftm(company_names, month_range, fiscal_year)
+			split, groups, _strategic_amounts_all_ftm(inr_names, month_range, fiscal_year)
 		)
 	adj_split = _adjustment_split(
 		_adjustment_periods("FTM", fiscal_year, month, None, month_range),
@@ -1739,6 +1787,120 @@ def _gl_bifurcation_all_ftm(
 		"missing_companies": [],
 	}
 
+
+
+# Summary bs B3:B58: (label, indent, bold, source ID or source arithmetic).
+# None means the statutory face does not establish that workbook detail.
+BS_SUMMARY_ROWS = (
+	("Sources of Funds :", 0, 1, None),
+	("Owner's Fund", 0, 1, None),
+	("Share Capital", 0, 0, "PRT0005"),
+	("Other Equity", 0, 0, "PRT0006"),
+	("Securities Premium", 2, 0, None),
+	("Reserve & Surplus", 2, 0, None),
+	("CRR", 2, 0, None),
+	("CRR on Amalgamation", 2, 0, None),
+	("Preference Share Capital", 0, 0, None),
+	("Total Owner's Fund", 0, 1, "PRT0047"),
+	("Loan Funds", 0, 1, None),
+	("Term Loan", 0, 0, None),
+	("Working Capital Loan", 0, 0, None),
+	("Unsecured Loan", 0, 0, None),
+	("Total Loan Fund", 0, 1, None),
+	("Total Source of Funds", 0, 1, None),
+	("Application of Funds :", 0, 1, None),
+	("Gross Block", 0, 0, None),
+	("Less : Depreciation", 0, 0, None),
+	("Net Block", 0, 1, None),
+	("CWIP", 0, 1, "PRT0001"),
+	("Other non current assets", 0, 1, "PRT0034"),
+	("Current Assets", 0, 1, None),
+	("Debtors", 0, 0, "PRT0052"),
+	("Inventory", 0, 0, "PRT0002"),
+	("Raw materials and packing material", 2, 0, None),
+	("Work-in-progress", 2, 0, None),
+	("Finished goods Including stock-In-trade", 2, 0, None),
+	("Consumable stores", 2, 0, None),
+	("Other CA/Loans & Advances", 0, 0, None),
+	("Loans ", 2, 0, "PRT0053"),
+	("Other financial assets", 2, 0, "PRT0055"),
+	("Advance to Vendors", 2, 0, None),
+	("Earnest Money Deposits", 2, 0, None),
+	("Prepaid expenses", 2, 0, None),
+	("Balance with Government Authorities", 2, 0, None),
+	("Cash and Bank (incl FDR)", 0, 0, ("PRT0035", "PRT0036")),
+	("Cash and cash equivalents", 2, 0, "PRT0035"),
+	("Bank balances", 2, 0, "PRT0036"),
+	("Bank deposits having maturity more than 12 months including Interest accrued#", 2, 0, None),
+	("Total Current Assets", 0, 1, "PRT0045"),
+	("Current Liability", 0, 1, None),
+	("Creditors", 0, 0, "PRT0016"),
+	("Other Liability", 0, 0, None),
+	("Provisions", 1, 0, "PRT0011"),
+	("Deferred tax liabilities (Net)", 1, 0, "PRT0012"),
+	("Lease liabilities - Non Current", 1, 0, "PRT0015"),
+	("Right-of-use assets", 1, 0, "PRT0029"),
+	("Other financial liabilities", 1, 0, "PRT0060"),
+	("Other Current Liabilities", 1, 0, "PRT0042"),
+	("Provisions", 1, 0, "PRT0061"),
+	("Current tax liabilities (net)", 1, 0, "PRT0043"),
+	("Lease liabilities - Current", 1, 0, "PRT0009"),
+	("Total Current Liability", 0, 1, "PRT0049"),
+	("Other non current liability", 0, 1, None),
+	("Net Working Capital", 0, 1, ("PRT0045", "-PRT0049")),
+)
+
+
+def _balance_sheet_summary(source_rows, measure_keys, company_count):
+	"""Project unique canonical BS IDs, independently for every output column."""
+	by_id = {}
+	for row in source_rows:
+		if row.get("id"):
+			by_id.setdefault(row["id"], []).append(row)
+
+	def cell(pid, column, key):
+		matches = by_id.get(pid, ())
+		if len(matches) != 1:  # ambiguous duplicates must not silently win
+			return None
+		row = matches[0]
+		if column == "consolidate":
+			amounts = [v.get(key) for v in row["values"]]
+			if not any(v is not None for v in amounts):
+				return None
+			return round(sum(v for v in amounts if v is not None) - sum(
+				(row.get(f) or {}).get(key) or 0 for f in ADJUSTMENT_FIELDS
+			), 2)
+		if isinstance(column, int):
+			return row["values"][column].get(key)
+		return (row.get(column) or {}).get(key)
+
+	def amount(source, column, key):
+		if source is None:
+			return None
+		if isinstance(source, str):
+			return cell(source, column, key)
+		parts = [cell(pid.lstrip("-"), column, key) for pid in source]
+		if any(v is None for v in parts):
+			return None
+		return round(sum(-v if pid.startswith("-") else v for pid, v in zip(source, parts)), 2)
+
+	result = []
+	for label, indent, bold, source in BS_SUMMARY_ROWS:
+		calculated = {
+			column: {key: amount(source, column, key) for key in measure_keys}
+			for column in ("consolidate", *range(company_count), *ADJUSTMENT_FIELDS)
+		}
+		result.append({
+			"particular": label, "indent": indent, "is_bold": bold,
+			"is_header": int(source is None and bold == 1),
+			"consolidate": calculated["consolidate"] if any(
+				v is not None for v in calculated["consolidate"].values()
+			) else None,
+			"values": [calculated[i] for i in range(company_count)],
+			"elimination": calculated["elimination"],
+			"regrouping": calculated["regrouping"],
+		})
+	return result
 
 
 def _build_out_rows(
@@ -1804,6 +1966,8 @@ def _build_out_rows(
 				"values": values,
 			}
 		)
+		if statement == BALANCE_SHEET:
+			out_rows[-1]["id"] = r.get("id")
 
 	# Derived KPIs — P&L only; no-ops elsewhere. Gross Margin first (it sits high
 	# in the statement), then the EBITDA / Litigation block below Total Expenses.
@@ -1931,7 +2095,7 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 
 	# Canonical structure = the fullest row set across all companies/months.
 	canonical = max(row_sets, key=len)
-	canon_tokens = [_token(r) for r in canonical]
+	canon_tokens = [_token(r) if statement == PROFIT_AND_LOSS else (r.get("id") or _token(r)) for r in canonical]
 
 	# Align each company's per-month rows onto the canonical indices, filling
 	# that month's measure with its For-The-Month figure.
@@ -1940,13 +2104,15 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 		vals = [{k: None for k in measure_keys} for _ in canonical]
 		for m, rows in per_month.items():
 			mk = m.lower()
-			comp_tokens = [_token(r) for r in rows]
+			comp_tokens = [_token(r) if statement == PROFIT_AND_LOSS else (r.get("id") or _token(r)) for r in rows]
 			matcher = difflib.SequenceMatcher(None, canon_tokens, comp_tokens, autojunk=False)
 			for tag, i1, i2, j1, j2 in matcher.get_opcodes():
 				if tag == "equal":
 					for off in range(i2 - i1):
 						src = rows[j1 + off]
-						vals[i1 + off][mk] = flt(src.get("ftm_amount") or 0)
+						vals[i1 + off][mk] = (
+							flt(src["ftm_amount"]) if src.get("ftm_amount") is not None else None
+						) if statement == BALANCE_SHEET else flt(src.get("ftm_amount") or 0)
 		aligned[cn] = vals
 
 	company_names = list(company_month_rows.keys())
@@ -1963,6 +2129,8 @@ def _all_ftm_statement(statement, fiscal_year, month, excluded):
 	out_rows = _build_out_rows(
 		canonical, company_names, aligned, measure_keys, statement, strategic, adjustments=True
 	)
+	if statement == BALANCE_SHEET:
+		out_rows = _balance_sheet_summary(out_rows, measure_keys, len(company_names))
 
 	return {
 		"statement": statement,

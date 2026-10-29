@@ -84,6 +84,7 @@ class FinancialReportExcelView {
 			click: () => this.generate(),
 		});
 		this.$generate = this.generate_field.$input.prop("disabled", true).attr("title", __("Generate (or regenerate) the open Financial Report"));
+		this.generate_field.$wrapper.hide();
 
 		this.$body = $(`
 			<div class="xv">
@@ -140,6 +141,7 @@ class FinancialReportExcelView {
 		this.report_field.set_value(name);
 		this.$excel.prop("disabled", true);
 		this.$generate.prop("disabled", true);
+		this.generate_field.$wrapper.hide();
 		this.$summary.empty();
 		this.message(__("Loading..."));
 		frappe
@@ -148,7 +150,10 @@ class FinancialReportExcelView {
 				if (name !== this.name) return;
 				this.doc = doc;
 				this.show_filters(doc);
-				this.$generate.prop("disabled", false); // also enabled for an empty report: that is when it is needed most
+				// Hidden while a generation is running (a second run would collide with it); shown again when it finishes.
+				// Also shown for an empty report: that is when it is needed most.
+				this.generate_field.$wrapper.toggle(doc.report_status !== "Under Generation");
+				this.$generate.prop("disabled", false);
 				this.render_summary(doc);
 				this.sheets = this.group_schedules((doc.financial_report_details || []).map((row, i) => this.build_sheet(row, i)));
 				this.active = 0;
@@ -624,7 +629,7 @@ class FinancialReportExcelView {
 	// Same checks and server call as the Generate Report button on the form; the work runs in a background job.
 	generate() {
 		const doc = this.doc;
-		if (!doc || this.generating) return;
+		if (!doc || this.generating || doc.report_status === "Under Generation") return;
 		if (!doc.company) return frappe.msgprint(__("Please select a Company"));
 		if (!doc.fiscal_year) return frappe.msgprint(__("Please select a Fiscal Year"));
 		if (doc.workflow_state === "Approved") {

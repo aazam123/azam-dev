@@ -9,6 +9,7 @@ from frappe.utils import (
     cint,
     getdate
 )
+from financial_report_tool.financial_report_tool.fiscal_cycle import get_start_month
 
 class FRAccountPayableEntry(Document):
 	def set_employee_grouping(self):
@@ -134,7 +135,7 @@ class FRAccountPayableEntry(Document):
 			self.ageing = "Not Due"
 
 		if not self.closing_exchange_rate:
-			closing_exchange_rate = frappe.get_value("FR Foreign Exchange Rate",{"from_currency": self.currency, "to_currency": "INR", "month": "April", "fiscal_year": self.fiscal_year}, 'closing_rate') or 0
+			closing_exchange_rate = frappe.get_value("FR Foreign Exchange Rate",{"from_currency": self.currency, "to_currency": "INR", "month": get_start_month(self.company, self.fiscal_year), "fiscal_year": self.fiscal_year}, 'closing_rate') or 0
 			self.closing_exchange_rate = closing_exchange_rate if closing_exchange_rate else 1
 
 		if self.closing_exchange_rate:

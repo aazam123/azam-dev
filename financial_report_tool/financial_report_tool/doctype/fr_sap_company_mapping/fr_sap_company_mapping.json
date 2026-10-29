@@ -3,13 +3,15 @@
  "allow_rename": 1,
  "autoname": "field:company",
  "creation": "2026-07-31 10:00:00.000000",
- "description": "Per-Company SAP connection template. The fixed SAP parameters for a company (company code, chart of accounts, version, layout, client) are entered once here and auto-filled onto every Sync SAP Trial Balance for that company.",
+ "description": "Per-Company SAP connection template and fiscal cycle. SAP connection parameters are auto-filled onto every Sync SAP Trial Balance for that company.",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "company",
   "company_code",
+  "fiscal_cycle",
   "chartofacc",
+  "retained_earnings_account",
   "column_break_main",
   "sversion",
   "layout",
@@ -26,6 +28,14 @@
    "unique": 1
   },
   {
+   "default": "Apr-Mar",
+   "description": "SAP subsidiary fiscal cycle. Select Jan-Dec for a calendar-year subsidiary; an explicitly selected Fiscal Year's dates take precedence in reporting.",
+   "fieldname": "fiscal_cycle",
+   "fieldtype": "Select",
+   "label": "Fiscal Cycle",
+   "options": "Apr-Mar\nJan-Dec"
+  },
+  {
    "description": "SAP company code (BUKRS), e.g. 9000.",
    "fieldname": "company_code",
    "fieldtype": "Data",
@@ -39,6 +49,13 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Chart of Accounts"
+  },
+  {
+   "description": "Account receiving the Jan-Mar profit or loss carry-forward when deriving an Apr-Mar trial balance from Jan-Dec SAP data. Required for that derivation.",
+   "fieldname": "retained_earnings_account",
+   "fieldtype": "Link",
+   "label": "Retained Earnings Account",
+   "options": "Account"
   },
   {
    "fieldname": "column_break_main",
