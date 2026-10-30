@@ -18,6 +18,12 @@ from frappe.model.document import Document
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from financial_report_tool.financial_report_tool.fiscal_cycle import get_closing_month
+from financial_report_tool.financial_report_tool.contingent_note import (
+	NOTE_MARKER,
+	get_texts as get_contingent_texts,
+	resolved_rows as resolved_contingent_rows,
+	table_html as contingent_table_html,
+)
 
 def do_generate_report(docname):
 	try:
@@ -3159,87 +3165,25 @@ class FRConsoleFinancialReport(Document):
 		return section_description.replace("{{note_table}}", note_table)
 
 	def get_yearly_contingent_liabilities_note_data(self, section_description=""):
-		# Get dynamic date labels
+		# Table rows, headings and amounts are editable on the FR Contingent Liabilities master of the current year
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
-		cls_month = get_closing_month(None, self.fiscal_year)
-		def fmt(val):
-			if val in (None, "-", ""):
-				return "-"
-			if isinstance(val, str):
-				return val
-			return f"{val:,.0f}"
 
-		# Fetch contingent liabilities data using get_value for efficiency
-		cur_contingent = frappe.db.exists("FR Contingent Liabilities", {"fiscal_year": self.fiscal_year, "month": cls_month})
-		if cur_contingent:
-			cur_contingent_doc = frappe.get_doc("FR Contingent Liabilities", cur_contingent)
-			cur_bank_guarantees = cur_contingent_doc.bank_guarantees
-			cur_company_imported = cur_contingent_doc.company_imported
-			cur_company_imported_label = cur_contingent_doc.company_imported_label
-			cur_claim_against = cur_contingent_doc.claim_against
-			cur_disputed_custom = cur_contingent_doc.disputed_custom_duty_matters
-		else:
-			cur_bank_guarantees = 0
-			cur_company_imported = 0
-			cur_company_imported_label = ""
-			cur_claim_against = "-"
-			cur_disputed_custom = 0
+		current = frappe.db.exists("FR Contingent Liabilities", {"fiscal_year": self.fiscal_year, "month": get_closing_month(None, self.fiscal_year)})
+		current_doc = frappe.get_doc("FR Contingent Liabilities", current) if current else None
+		previous = frappe.db.exists("FR Contingent Liabilities", {"fiscal_year": self.previous_fiscal_year, "month": get_closing_month(None, self.previous_fiscal_year)})
+		previous_doc = frappe.get_doc("FR Contingent Liabilities", previous) if previous else None
 
-		prev_contingent = frappe.db.exists("FR Contingent Liabilities", {"fiscal_year": self.previous_fiscal_year, "month": get_closing_month(None, self.previous_fiscal_year)})
-		if prev_contingent:
-			prev_contingent_doc = frappe.get_doc("FR Contingent Liabilities", prev_contingent)
-			pre_bank_guarantees = prev_contingent_doc.bank_guarantees
-			pre_company_imported = prev_contingent_doc.company_imported
-			pre_company_imported_label = prev_contingent_doc.company_imported_label
-			pre_claim_against = prev_contingent_doc.claim_against
-			pre_disputed_custom = prev_contingent_doc.disputed_custom_duty_matters
-		else:
-			pre_bank_guarantees = 0
-			pre_company_imported = 0
-			pre_company_imported_label = ""
-			pre_claim_against = "-"
-			pre_disputed_custom = 0
+		texts = get_contingent_texts(current_doc, f"As at {current_date}", f"As at {previous_date}")
+		note_table = contingent_table_html(
+			texts, resolved_contingent_rows(current_doc, previous_doc), 1, "margin-top: -30px; margin-bottom: -30px;",
+		)
 
-		data = [
-			("a) Bank guarantees given to excise authorities and other institutions", cur_bank_guarantees, pre_bank_guarantees),
-			(f"b) Disputed Custom duty matters", cur_disputed_custom, pre_disputed_custom),
-			(f"c) {cur_company_imported_label}", cur_company_imported, pre_company_imported),
-			("d) Claims against the company not acknowledged as debt, Amount indeterminate (Refer Note (ii) below), Amount indeterminate (Refer Note (ii) below)", cur_claim_against, pre_claim_against),
-		]
-
-		total_curr = cur_bank_guarantees + cur_company_imported
-		total_prev = pre_bank_guarantees + pre_company_imported
-
-		rows_html = ""
-		for row in data:
-			rows_html += f"""
-			<tr>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; vertical-align:top;">{row[0]}</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top; background-color:#E8F5E8;">{fmt(row[1])}</td>
-				<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top;">{fmt(row[2])}</td>
-			</tr>
-			"""
-
-		note_table = f"""
-		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
-			<tr>
-				<th style="border:1px solid #000; padding:6px; width:65%; font-weight:bold; color:#4472C4;">Particulars</th>
-				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">As at {current_date}</th>
-				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4;">As at {previous_date}</th>
-			</tr>
-
-			{rows_html}
-
-			<tr>
-				<td style="border:1px solid #000; padding:6px;"><strong>TOTAL</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_curr)}</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_prev)}</strong></td>
-			</tr>
-		</table>
-		"""
-
+		# Points i) and ii) are rows of the table, so the Note block that follows the table in the section text is dropped
+		section_description = section_description.split(NOTE_MARKER, 1)[0]
+		if "<div" in section_description and "</div>" not in section_description:
+			section_description += "</div>"
 		return section_description.replace("{{note_table}}", note_table)
 
 	def get_yearly_capital_and_other_commitments_note_data(self, section_description=""):

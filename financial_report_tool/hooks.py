@@ -266,7 +266,10 @@ override_whitelisted_methods = {
 fixtures = [
     {
         "dt": "Print Format",
-        "filters": [["name", "in", ["Financial Report", "Console Financial Report", "Scheme of Arrangement", "Contingent Liabilities"]]]
+        "filters": [["name", "in", [
+            "Financial Report", "Console Financial Report", "Scheme of Arrangement", "Contingent Liabilities",
+            "Lease Receivable", "Additional Information Schedule III", "Other Regulatory Information",
+        ]]],
     },
     {
         "dt": "Workspace",

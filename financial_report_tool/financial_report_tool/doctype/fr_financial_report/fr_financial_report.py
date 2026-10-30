@@ -20,13 +20,20 @@ from frappe.utils import escape_html
 from financial_report_tool.financial_report_tool.contingent_note import (
 	NOTE_MARKER,
 	get_texts as get_contingent_texts,
-	note_html as contingent_note_html,
+	resolved_rows as resolved_contingent_rows,
+	table_html as contingent_table_html,
 )
 from financial_report_tool.financial_report_tool.scheme_note import (
 	SCHEME_NOTE_TYPE,
 	SCHEME_DEFAULTS,
 	build_scheme_html,
 	get_master_values,
+)
+from financial_report_tool.financial_report_tool.note_masters import (
+	get_lease_receivable_manual_amounts,
+	get_lease_receivable_texts,
+	has_lease_receivable_master,
+	get_static_note_content,
 )
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -1011,6 +1018,14 @@ class FRFinancialReport(Document):
 					if fetch_data_from_trial_balance == 1:
 						data = self.get_yearly_consolidation_note_data(primary_group)
 						i.section_description = self.yearly_table_for_note_template(data, section_description)
+					if i.section == "Additional Information (Schedule III) - Yearly":
+						i.section_description = get_static_note_content(
+							"FR Additional Information Schedule III", self.company, self.fiscal_year
+						)
+					elif i.section == "Other regulatory information required by Schedule III":
+						i.section_description = get_static_note_content(
+							"FR Other Regulatory Information", self.company, self.fiscal_year
+						)
 					if note_type == "Property, plant and equipment":
 						i.section_description = self.get_yearly_property_plant_and_equipment_data(section_description)
 					elif note_type == "Other intangible assets":
@@ -3409,40 +3424,33 @@ class FRFinancialReport(Document):
 	)
 
 	def get_yearly_lease_receivable_note_data(self, row):
-		"""Build the 'Lease receivable' note for a report row (FR Financial Report Details).
+		"""Build Note 59 from master wording and mapped Trial Balance amounts.
 
-		Wording (intro, row labels, footer) is read from the row's own text fields, so a manual edit on the report
-		survives Generate Report. Empty fields start from the FR Section 'Section Description' row, then the defaults,
-		and are written back to the row so they show up on the form. Amounts come from the trial balance."""
+		A master record is the editable source for a company and fiscal year. Until one exists,
+		the previous row-level Section Description fields remain the fallback."""
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		cls_month = frappe.get_single_value("FR Financial Settings", "closing_month")
 		unit = self.get_amount_unit_word().lower()
-
-		meta = frappe.get_meta("Section Description")
-		text_fields = [df.fieldname for df in meta.fields if df.fieldtype in ("Data", "Small Text")]
-		texts = {df.fieldname: df.default for df in meta.fields if df.default}
-		section_row = frappe.db.get_value(
-			"Section Description",
-			{"parent": row.section, "parenttype": "FR Section", "parentfield": "section_description_details"},
-			text_fields,
-			as_dict=True,
-		)
-		if section_row:
-			texts.update({k: v for k, v in section_row.items() if v})
-		for fieldname in text_fields:
-			if row.get(fieldname):
-				texts[fieldname] = row.get(fieldname)
-			else:
-				row.set(fieldname, texts.get(fieldname))
+		texts = get_lease_receivable_texts(self.company, self.fiscal_year)
+		if not has_lease_receivable_master(self.company, self.fiscal_year):
+			for fieldname, value in row.as_dict().items():
+				if fieldname in texts and value:
+					texts[fieldname] = value
+		for fieldname, value in texts.items():
+			row.set(fieldname, value)
 
 		def fmt(val):
 			return "-" if not val else self.fmt_num(val)
 
+		manual = get_lease_receivable_manual_amounts(self.company, self.fiscal_year)
 		amounts = {}
 		totals = {"current": 0, "previous": 0}
 		for key, group in self.LEASE_RECEIVABLE_BUCKETS:
 			for period, year in (("current", self.fiscal_year), ("previous", self.previous_fiscal_year)):
-				amount = self.get_sum_grouping_amount(self.LEASE_RECEIVABLE_PRIMARY_GROUP, group, cls_month, year)
+				if manual:
+					amount = manual[f"{key}_{period}_amount"] or 0
+				else:
+					amount = self.get_sum_grouping_amount(self.LEASE_RECEIVABLE_PRIMARY_GROUP, group, cls_month, year)
 				totals[period] += amount
 				amounts[(key, period)] = fmt(amount)
 		for period in ("current", "previous"):
@@ -3770,115 +3778,26 @@ class FRFinancialReport(Document):
 		return section_description.replace("{{note_table}}", note_table)
 
 	def get_yearly_contingent_liabilities_note_data(self, section_description=""):
-		# Get dynamic date labels
+		# Table rows, headings and amounts are editable on the FR Contingent Liabilities master of the current year
 		current_year_label, previous_year_label = self.get_yearly_dates()
 		current_date = current_year_label.replace("Year Ended ", "").replace("/", "-")
 		previous_date = previous_year_label.replace("Year Ended ", "").replace("/", "-")
 		cls_month = get_closing_month(self.company, self.fiscal_year)
-		def fmt(val):
-			if val in (None, "-", ""):
-				return "-"
-			if isinstance(val, str):
-				return val
-			return f"{val:,.0f}"
 
-		# Fetch contingent liabilities data using get_value for efficiency
-		cur_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
-		if cur_contingent:
-			cur_contingent_doc = frappe.get_doc("FR Contingent Liabilities", cur_contingent)
-			cur_bank_guarantees = round(flt(cur_contingent_doc.bank_guarantees)/ self.get_amount_divisor(), self.show_decimal_value)
-			cur_company_imported = round(flt(cur_contingent_doc.company_imported)/ self.get_amount_divisor(), self.show_decimal_value)
-			cur_company_imported_label = cur_contingent_doc.company_imported_label
-			cur_claim_against = cur_contingent_doc.claim_against
-			cur_disputed_custom = round(flt(cur_contingent_doc.disputed_custom_duty_matters)/ self.get_amount_divisor(), self.show_decimal_value)
-		else:
-			cur_bank_guarantees = 0
-			cur_company_imported = 0
-			cur_company_imported_label = ""
-			cur_claim_against = "-"
-			cur_disputed_custom = 0
+		current = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.fiscal_year, "month": cls_month})
+		current_doc = frappe.get_doc("FR Contingent Liabilities", current) if current else None
+		previous = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": get_closing_month(self.company, self.previous_fiscal_year)})
+		previous_doc = frappe.get_doc("FR Contingent Liabilities", previous) if previous else None
 
-		prev_contingent = frappe.db.exists("FR Contingent Liabilities", {"company": self.company, "fiscal_year": self.previous_fiscal_year, "month": get_closing_month(self.company, self.previous_fiscal_year)})
-		if prev_contingent:
-			prev_contingent_doc = frappe.get_doc("FR Contingent Liabilities", prev_contingent)
-			pre_bank_guarantees = round(flt(prev_contingent_doc.bank_guarantees)/ self.get_amount_divisor(), self.show_decimal_value)
-			pre_company_imported = round(flt(prev_contingent_doc.company_imported)/ self.get_amount_divisor(), self.show_decimal_value)
-			pre_company_imported_label = prev_contingent_doc.company_imported_label
-			pre_claim_against = prev_contingent_doc.claim_against
-			pre_disputed_custom = round(flt(prev_contingent_doc.disputed_custom_duty_matters)/ self.get_amount_divisor(), self.show_decimal_value)
-		else:
-			pre_bank_guarantees = 0
-			pre_company_imported = 0
-			pre_company_imported_label = ""
-			pre_claim_against = "-"
-			pre_disputed_custom = 0
+		texts = get_contingent_texts(current_doc, f"As at {current_date}", f"As at {previous_date}")
+		note_table = contingent_table_html(
+			texts, resolved_contingent_rows(current_doc, previous_doc), self.get_amount_divisor(), "margin-top: -30px; margin-bottom: -30px;",
+		)
 
-		# Labels, total and note points are editable on the FR Contingent Liabilities master of the current year
-		cl_texts = get_contingent_texts(cur_contingent_doc if cur_contingent else None)
-		data = [
-			(cl_texts["cl_label_a"], cur_bank_guarantees, pre_bank_guarantees),
-			(cl_texts["cl_label_b"], cur_disputed_custom, pre_disputed_custom),
-			(f"c) {cur_company_imported_label}", cur_company_imported, pre_company_imported),
-			(cl_texts["cl_label_d"], cur_claim_against, pre_claim_against),
-		]
-
-		total_curr = cur_bank_guarantees + cur_company_imported
-		total_prev = pre_bank_guarantees + pre_company_imported
-
-		# Combined layout: one merged Particulars cell (text editable on the master) instead of rows a) to d) and the Note block
-		combined = bool(cur_contingent and cur_contingent_doc.cl_combined_layout)
-		rows_html = ""
-		if combined:
-			particulars = escape_html(cur_contingent_doc.cl_combined_particulars or "").replace("\n", "<br>")
-			amount_rows = [
-				(cur_bank_guarantees, pre_bank_guarantees),
-				(cur_disputed_custom, pre_disputed_custom),
-				(cur_company_imported, pre_company_imported),
-				(cur_claim_against, pre_claim_against),
-			]
-			for index, (current_amount, previous_amount) in enumerate(amount_rows):
-				particulars_cell = f'<td rowspan="4" style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; vertical-align:top;">{particulars}</td>' if index == 0 else ""
-				rows_html += f"""
-				<tr>
-					{particulars_cell}
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top; background-color:#E8F5E8;">{fmt(current_amount)}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top;">{fmt(previous_amount)}</td>
-				</tr>
-				"""
-		else:
-			for row in data:
-				rows_html += f"""
-				<tr>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; vertical-align:top;">{row[0]}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top; background-color:#E8F5E8;">{fmt(row[1])}</td>
-					<td style="border-right:1px solid #000; border-left:1px solid #000; border-top:none; border-bottom:none; padding:6px; text-align:right; vertical-align:top;">{fmt(row[2])}</td>
-				</tr>
-				"""
-
-		note_table = f"""
-		<table style="margin-top: -30px; margin-bottom: -30px; width:100%; border-collapse:collapse; font-size:13px; border:1px solid #000;">
-			<tr>
-				<th style="border:1px solid #000; padding:6px; width:65%; font-weight:bold; color:#4472C4;">{escape_html(cl_texts["cl_head_particulars"])}</th>
-				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4; background-color:#E8F5E8;">{escape_html(cl_texts["cl_head_asat"])} {current_date}</th>
-				<th style="border:1px solid #000; padding:6px; width:17.5%; font-weight:bold; color:#4472C4;">{escape_html(cl_texts["cl_head_asat"])} {previous_date}</th>
-			</tr>
-
-			{rows_html}
-
-			<tr>
-				<td style="border:1px solid #000; padding:6px;"><strong>{escape_html(cl_texts["cl_total_label"])}</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right; background-color:#E8F5E8;"><strong>{fmt(total_curr)}</strong></td>
-				<td style="border:1px solid #000; padding:6px; text-align:right;"><strong>{fmt(total_prev)}</strong></td>
-			</tr>
-		</table>
-		"""
-
-		if combined:
-			section_description = section_description.split(NOTE_MARKER, 1)[0]
-		elif cur_contingent and NOTE_MARKER in section_description:
-			# Note heading and points (i), (ii) come from the master of the current year
-			section_description = section_description.split(NOTE_MARKER, 1)[0] + contingent_note_html(cl_texts) + "</div>"
-
+		# Points i) and ii) are rows of the table, so the Note block that follows the table in the section text is dropped
+		section_description = section_description.split(NOTE_MARKER, 1)[0]
+		if "<div" in section_description and "</div>" not in section_description:
+			section_description += "</div>"
 		return section_description.replace("{{note_table}}", note_table)
 
 	def get_yearly_capital_and_other_commitments_note_data(self, section_description=""):

@@ -13,34 +13,36 @@
   "month",
   "cl_section_3",
   "cl_note_title",
-  "cl_combined_layout",
-  "cl_combined_particulars",
   "cl_section_4",
   "cl_head_particulars",
   "cl_col_5",
-  "cl_head_asat",
-  "cl_section_6",
-  "cl_label_a",
-  "cl_col_7",
-  "bank_guarantees",
-  "cl_section_8",
-  "cl_label_b",
-  "cl_col_9",
-  "disputed_custom_duty_matters",
-  "cl_section_10",
-  "company_imported_label",
-  "cl_col_11",
-  "company_imported",
-  "cl_section_12",
-  "cl_label_d",
-  "cl_col_13",
-  "claim_against",
-  "cl_section_14",
+  "cl_head_current",
+  "cl_col_6",
+  "cl_head_previous",
+  "cl_section_a",
+  "cl_a_label",
+  "cl_cb_a_1",
+  "cl_a_current",
+  "cl_cb_a_2",
+  "cl_a_previous",
+  "cl_section_i",
+  "cl_i_label",
+  "cl_cb_i_1",
+  "cl_i_current",
+  "cl_cb_i_2",
+  "cl_i_previous",
+  "cl_section_ii",
+  "cl_ii_label",
+  "cl_cb_ii_1",
+  "cl_ii_current",
+  "cl_cb_ii_2",
+  "cl_ii_previous",
+  "cl_section_t",
   "cl_total_label",
-  "cl_section_15",
-  "cl_note_head",
-  "cl_note_i",
-  "cl_note_ii"
+  "cl_cb_t_1",
+  "cl_total_current",
+  "cl_cb_t_2",
+  "cl_total_previous"
  ],
  "fields": [
   {
@@ -87,18 +89,6 @@
    "label": "Note Title"
   },
   {
-   "fieldname": "cl_combined_layout",
-   "fieldtype": "Check",
-   "label": "Show particulars as one combined paragraph",
-   "description": "Report shows one merged Particulars cell (below) instead of rows a) to d) and the Note block."
-  },
-  {
-   "fieldname": "cl_combined_particulars",
-   "fieldtype": "Text",
-   "label": "Combined Particulars",
-   "depends_on": "eval:doc.cl_combined_layout"
-  },
-  {
    "fieldname": "cl_section_4",
    "fieldtype": "Section Break",
    "label": "Table"
@@ -113,84 +103,107 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "cl_head_asat",
+   "fieldname": "cl_head_current",
    "fieldtype": "Data",
-   "label": "Heading - As at"
+   "label": "Heading - Current year",
+   "description": "Left empty, it is \"As at <year end of the Fiscal Year>\"."
   },
   {
-   "fieldname": "cl_section_6",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "cl_label_a",
-   "fieldtype": "Small Text",
-   "label": "Row a) Label"
-  },
-  {
-   "fieldname": "cl_col_7",
+   "fieldname": "cl_col_6",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "bank_guarantees",
+   "fieldname": "cl_head_previous",
+   "fieldtype": "Data",
+   "label": "Heading - Previous year",
+   "description": "Left empty, it is \"As at <year end of the previous Fiscal Year>\"."
+  },
+  {
+   "fieldname": "cl_section_a",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cl_a_label",
+   "fieldtype": "Text",
+   "label": "Row a) Particulars"
+  },
+  {
+   "fieldname": "cl_cb_a_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cl_a_current",
    "fieldtype": "Float",
-   "label": "Row a) Amount"
+   "label": "Row a) Amount (Current year)"
   },
   {
-   "fieldname": "cl_section_8",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "cl_label_b",
-   "fieldtype": "Small Text",
-   "label": "Row b) Label"
-  },
-  {
-   "fieldname": "cl_col_9",
+   "fieldname": "cl_cb_a_2",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "disputed_custom_duty_matters",
+   "fieldname": "cl_a_previous",
    "fieldtype": "Float",
-   "label": "Row b) Amount"
+   "label": "Row a) Amount (Previous year)",
+   "description": "Left at 0, it is taken from the previous Fiscal Year master."
   },
   {
-   "fieldname": "cl_section_10",
+   "fieldname": "cl_section_i",
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "company_imported_label",
-   "fieldtype": "Small Text",
-   "label": "Row c) Label"
+   "fieldname": "cl_i_label",
+   "fieldtype": "Text",
+   "label": "Row i) Particulars"
   },
   {
-   "fieldname": "cl_col_11",
+   "fieldname": "cl_cb_i_1",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "company_imported",
+   "fieldname": "cl_i_current",
    "fieldtype": "Float",
-   "label": "Row c) Amount"
+   "label": "Row i) Amount (Current year)"
   },
   {
-   "fieldname": "cl_section_12",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "cl_label_d",
-   "fieldtype": "Small Text",
-   "label": "Row d) Label"
-  },
-  {
-   "fieldname": "cl_col_13",
+   "fieldname": "cl_cb_i_2",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "claim_against",
-   "fieldtype": "Small Text",
-   "label": "Row d) Amount"
+   "fieldname": "cl_i_previous",
+   "fieldtype": "Float",
+   "label": "Row i) Amount (Previous year)",
+   "description": "Left at 0, it is taken from the previous Fiscal Year master."
   },
   {
-   "fieldname": "cl_section_14",
+   "fieldname": "cl_section_ii",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "cl_ii_label",
+   "fieldtype": "Text",
+   "label": "Row ii) Particulars"
+  },
+  {
+   "fieldname": "cl_cb_ii_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cl_ii_current",
+   "fieldtype": "Float",
+   "label": "Row ii) Amount (Current year)"
+  },
+  {
+   "fieldname": "cl_cb_ii_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cl_ii_previous",
+   "fieldtype": "Float",
+   "label": "Row ii) Amount (Previous year)",
+   "description": "Left at 0, it is taken from the previous Fiscal Year master."
+  },
+  {
+   "fieldname": "cl_section_t",
    "fieldtype": "Section Break"
   },
   {
@@ -199,30 +212,32 @@
    "label": "Total Label"
   },
   {
-   "fieldname": "cl_section_15",
-   "fieldtype": "Section Break",
-   "label": "Note"
+   "fieldname": "cl_cb_t_1",
+   "fieldtype": "Column Break"
   },
   {
-   "fieldname": "cl_note_head",
-   "fieldtype": "Data",
-   "label": "Note Heading"
+   "fieldname": "cl_total_current",
+   "fieldtype": "Float",
+   "label": "Total Amount (Current year)",
+   "read_only": 1,
+   "description": "Sum of rows a), i), ii); calculated on save."
   },
   {
-   "fieldname": "cl_note_i",
-   "fieldtype": "Small Text",
-   "label": "Note point (i)"
+   "fieldname": "cl_cb_t_2",
+   "fieldtype": "Column Break"
   },
   {
-   "fieldname": "cl_note_ii",
-   "fieldtype": "Small Text",
-   "label": "Note point (ii)"
+   "fieldname": "cl_total_previous",
+   "fieldtype": "Float",
+   "label": "Total Amount (Previous year)",
+   "read_only": 1,
+   "description": "Sum of rows a), i), ii); calculated on save."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-10-28 17:00:00.000000",
+ "modified": "2026-10-29 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Financial Report Tool",
  "name": "FR Contingent Liabilities",

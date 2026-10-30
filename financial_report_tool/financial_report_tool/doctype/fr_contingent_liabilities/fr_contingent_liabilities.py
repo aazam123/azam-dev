@@ -3,13 +3,16 @@
 
 import frappe
 from frappe.model.document import Document
+from frappe.utils import flt
 
 from financial_report_tool.financial_report_tool.contingent_note import (
 	CONTINGENT_DEFAULTS,
-	build_contingent_html,
-	get_previous_fiscal_year,
+	ROWS,
+	default_heading,
+	get_previous_doc,
 	get_texts,
-	year_end_label,
+	resolved_rows,
+	table_html,
 )
 
 # FR Financial Settings.amount_display_unit -> (divisor, label word); same values as the Financial Report
@@ -25,35 +28,43 @@ AMOUNT_UNITS = {
 
 class FRContingentLiabilities(Document):
 	def onload(self):
-		"""Show the standard text in cells that were never filled (records created before these fields existed)."""
-		for fieldname, default in CONTINGENT_DEFAULTS.items():
-			if not self.get(fieldname):
-				self.set(fieldname, default)
+		"""Show the standard texts in cells that were never filled."""
+		self.fill_defaults()
 
 	def validate(self):
+		self.fill_defaults()
+		self.fill_previous_year_amounts()
+		self.calculate_totals()
+
+	def fill_defaults(self):
 		for fieldname, default in CONTINGENT_DEFAULTS.items():
 			if not self.get(fieldname):
 				self.set(fieldname, default)
+		if self.fiscal_year:
+			if not self.cl_head_current:
+				self.cl_head_current = default_heading(self.fiscal_year)
+			if not self.cl_head_previous:
+				self.cl_head_previous = default_heading(self.fiscal_year, previous=True)
+
+	def fill_previous_year_amounts(self):
+		"""A previous-year amount left at 0 takes the current-year amount of the previous Fiscal Year master."""
+		previous = get_previous_doc(self.company, self.fiscal_year, self.month)
+		if not previous:
+			return
+		for suffix, _ in ROWS:
+			if not self.get(f"cl_{suffix}_previous"):
+				self.set(f"cl_{suffix}_previous", previous.get(f"cl_{suffix}_current") or 0)
+
+	def calculate_totals(self):
+		self.cl_total_current = sum(flt(self.get(f"cl_{suffix}_current")) for suffix, _ in ROWS)
+		self.cl_total_previous = sum(flt(self.get(f"cl_{suffix}_previous")) for suffix, _ in ROWS)
 
 	def get_note_html(self):
 		"""Note 50 HTML for the print format: this record is the current year, its previous fiscal year the comparative."""
 		unit = frappe.db.get_single_value("FR Financial Settings", "amount_display_unit") or "Lakhs"
 		divisor, unit_word = AMOUNT_UNITS.get(unit, AMOUNT_UNITS["Lakhs"])
-		previous_year = get_previous_fiscal_year(self.fiscal_year)
-		previous = frappe._dict()
-		if previous_year:
-			name = frappe.db.get_value(
-				"FR Contingent Liabilities",
-				{"company": self.company, "fiscal_year": previous_year, "month": self.month},
-			)
-			if name:
-				previous = frappe.get_doc("FR Contingent Liabilities", name)
-		return build_contingent_html(
-			get_texts(self),
-			self,
-			previous,
-			year_end_label(self.fiscal_year),
-			year_end_label(previous_year),
-			unit_word,
-			divisor,
+		texts = get_texts(
+			self, default_heading(self.fiscal_year), default_heading(self.fiscal_year, previous=True)
 		)
+		rows = resolved_rows(self, get_previous_doc(self.company, self.fiscal_year, self.month))
+		return f'<p style="text-align:right; font-size:12px;">(₹ in {unit_word})</p>' + table_html(texts, rows, divisor)

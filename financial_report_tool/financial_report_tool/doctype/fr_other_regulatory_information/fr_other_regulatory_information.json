@@ -1,0 +1,21 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:REG-INFO-{#####}",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["company", "column_break_1", "fiscal_year", "section_note", "note_content"],
+ "fields": [
+  {"fieldname":"company","fieldtype":"Link","label":"Company","options":"Company","reqd":1,"in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"column_break_1","fieldtype":"Column Break"},
+  {"fieldname":"fiscal_year","fieldtype":"Link","label":"Fiscal Year","options":"Fiscal Year","reqd":1,"in_list_view":1,"in_standard_filter":1},
+  {"fieldname":"section_note","fieldtype":"Section Break","label":"Note 61. Other regulatory information required by Schedule III"},
+  {"fieldname":"note_content","fieldtype":"Text Editor","label":"Note Content","description":"Edit all text, tables, headings, and values exactly as they should print in Note 61.","reqd":1}
+ ],
+ "index_web_pages_for_search": 1,
+ "module": "Financial Report Tool",
+ "name": "FR Other Regulatory Information",
+ "naming_rule": "Expression",
+ "permissions": [{"role":"System Manager","read":1,"write":1,"create":1,"delete":1,"print":1,"email":1,"export":1,"report":1,"share":1}],
+ "title_field": "company"
+}
